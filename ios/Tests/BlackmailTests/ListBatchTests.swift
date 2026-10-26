@@ -929,7 +929,7 @@ final class ListBatchTests: XCTestCase {
         for line in [
             "private var selectedMessages: [MessageSummary] { ListBatch.letters(ticked: "
                 + "(tableView.indexPathsForSelectedRows ?? []).map(\\.row), in: threads) }",
-            "private func delete(_ chosen: [MessageSummary]) { if tableView.isEditing { "
+            "private func delete(_ chosen: [MessageSummary]) { if inEditMode { "
                 + "editTapped() } let kept = self.kept let repository = self.repository "
                 + "for m in chosen { guard let key = LocalDraft.key(ofRow: m.id) else { "
                 + "continue } Task { @MainActor in await kept.delete(key, from: repository) "
@@ -944,13 +944,13 @@ final class ListBatchTests: XCTestCase {
                 + "landing in landings[letter.id] = landing }) done() let took = "
                 + "chosen.filter { outcome.taken.contains($0.id) } if let step = "
                 + "UndoableMove.after(action, took: took, landings: landings, role: { "
-                + "self.role(of: $0) }) { self.onUndoable?(step, self.letters) } if let "
+                + "self.role(of: $0) }) { self.onUndoable?(.move(step), self.letters) } if let "
                 + "refusal = outcome.refusal { ErrorPresenter.show(reaching: refusal, on: "
                 + "self.alertHost(in: window)) } } }",
             "private func alertHost(in window: UIWindow?) -> UIViewController { guard "
                 + "viewIfLoaded?.window == nil, let root = window?.rootViewController else { "
                 + "return self } return ErrorPresenter.over(root).front(root: root) }",
-            "if self.tableView.isEditing { self.editTapped() } self.runBatch(.move(to: "
+            "if self.inEditMode { self.editTapped() } self.runBatch(.move(to: "
                 + "destination), on: chosen, saying: StatusLine.moving) }",
         ] {
             XCTAssertTrue(list.contains(line), line)

@@ -97,8 +97,8 @@ Never show raw IMAP protocol errors to the user. Put diagnostics in an administr
   "no destructive swipe actions by default"): a slow drag to the left on a
   row shows More, Flag and Trash, and a full drag trashes at once with no
   question, as Mail's does; a drag to the right marks it read or unread.
-  A Trash or a Move is undone by shaking the iPad, as in Mail (B-156,
-  B-157). Each can also be done by a tap.
+  A Trash, a Move or a Flag is undone by shaking the iPad, as in Mail
+  (B-156, B-157). Each can also be done by a tap.
 - Confirmation before permanently deleting from Trash.
 - No automatic mailbox/category changes.
 - Preserve scroll position where practical.

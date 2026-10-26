@@ -1048,6 +1048,18 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         }
     }
 
+    /// Files the letter at `uid` in `mailbox` a second time, under the next
+    /// UID there: one letter twice in one folder, which a search by its
+    /// Gmail id then finds twice. Returns the new UID, nil where there is
+    /// no letter at `uid`.
+    func fileAgain(uid: UInt32, in mailbox: String) -> UInt32? {
+        locked { s in
+            let name = Self.canonical(mailbox)
+            guard let key = s.folders[name]?.keys[uid] else { return nil }
+            return s.file(key, in: name)
+        }
+    }
+
     /// Takes the letter at `uid` out of `mailbox`, as another client does
     /// when it archives or bins it.
     ///

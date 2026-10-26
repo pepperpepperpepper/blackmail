@@ -55,10 +55,10 @@ final class MessageListViewController: UITableViewController {
     /// letters off the list, at the tap: the reading pane empties if it
     /// shows one of them.
     var onLettersLeaving: (([MessageSummary]) -> Void)?
-    /// A Delete or Move from Edit mode or a drag that the server has taken,
-    /// for Mail's Undo (B-157), with the list's letters it was taken from,
-    /// which its rows go back to.
-    var onUndoable: ((UndoableMove, ListLetters) -> Void)?
+    /// A Delete or Move from Edit mode or a drag, or a Flag or Unflag from
+    /// a drag or More, that the server has taken, for Mail's Undo (B-157),
+    /// with the list's letters it was taken from, which its rows go back to.
+    var onUndoable: ((Undoable, ListLetters) -> Void)?
     /// More's Reply, Reply All or Forward on a row (B-156): the letter
     /// answered, whether to all, whether a forward, and where the row is,
     /// for Mail's question about its files. The reading pane makes the
@@ -109,6 +109,13 @@ final class MessageListViewController: UITableViewController {
     private var browseItems: [UIBarButtonItem] = []
     private var editItems: [UIBarButtonItem] = []
     private var jumpItem: UIBarButtonItem?
+    /// Edit mode, from Edit to Done (`editTapped`), where a tap on a row
+    /// ticks it. Not the table's `isEditing`, which UIKit also turns on
+    /// while a drag holds a row's buttons open ("a swipe activating a
+    /// single row", UITableView.h): read as Edit mode, a tap on one of
+    /// those buttons did nothing, and the pane's row lost its highlight
+    /// (B-156).
+    private var inEditMode = false
 
     /// What the container puts in the leading slot in front of the
     /// calendar: in two panes the view button and "< Mailboxes", in three
@@ -303,8 +310,8 @@ final class MessageListViewController: UITableViewController {
         rebuildRows()
         tableView.reloadData()
         let threads = self.threads
-        var selection = before.selection(in: threads, opened: opened, editing: tableView.isEditing)
-        if selection.isEmpty, !tableView.isEditing,
+        var selection = before.selection(in: threads, opened: opened, editing: inEditMode)
+        if selection.isEmpty, !inEditMode,
            let row = ListEdit.paneRow(in: threads, showing: lettersInPane()) {
             selection = [row]
         }
@@ -1104,7 +1111,7 @@ final class MessageListViewController: UITableViewController {
     private func landFreshPage() {
         guard overKept.waiting != nil, isViewLoaded else { return }
         let touching = tableView.isTracking || tableView.isDragging || tableView.isDecelerating
-        let ticked = tableView.isEditing && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
+        let ticked = inEditMode && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
         let atTop = ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
                                        topInset: Double(tableView.adjustedContentInset.top))
         let swap = KeptSwap.swap(atTop: atTop, searching: isSearchingOrTyping, ticked: ticked,
@@ -1245,7 +1252,7 @@ final class MessageListViewController: UITableViewController {
     /// the new page replaces them. Returns whether it came.
     @MainActor
     func returnToNewest() async -> Bool {
-        if tableView.isEditing { editTapped() }
+        if inEditMode { editTapped() }
         scrollToTop()
         return await reload()
     }
@@ -1383,7 +1390,7 @@ final class MessageListViewController: UITableViewController {
     private func showNewsIfAtTop() {
         // Asked first: `tableView` loads the view.
         guard letters.holdsNews, isViewLoaded else { return }
-        let ticked = tableView.isEditing && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
+        let ticked = inEditMode && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
         let touching = tableView.isTracking || tableView.isDragging || tableView.isDecelerating
         let atTop = ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
                                        topInset: Double(tableView.adjustedContentInset.top))
@@ -2106,7 +2113,7 @@ final class MessageListViewController: UITableViewController {
     /// which grows the band, to Cancel.
     @MainActor
     private var pullAllowed: Bool {
-        PullRefresh.allowed(editing: tableView.isEditing,
+        PullRefresh.allowed(editing: inEditMode,
                             searching: isSearchingOrTyping || searchBar.isExpanded,
                             fromNewest: reachedNewestMessage,
                             moving: panesMoving)
@@ -2338,7 +2345,8 @@ final class MessageListViewController: UITableViewController {
     @objc private func editTapped() {
         // His ticks are his to keep where they are (B-117).
         landed.letGo()
-        let editing = !tableView.isEditing
+        let editing = !inEditMode
+        inEditMode = editing
         tableView.setEditing(editing, animated: true)
         // No pull in Edit mode, where the page would drop his ticks (B-103).
         placePull()
@@ -2366,7 +2374,7 @@ final class MessageListViewController: UITableViewController {
     /// Never in Edit mode, where a selected row is a tick.
     @MainActor
     private func highlightLetterInPane() {
-        guard !tableView.isEditing,
+        guard !inEditMode,
               let row = ListEdit.paneRow(in: threads, showing: lettersInPane()) else { return }
         tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false,
                             scrollPosition: .none)
@@ -2442,7 +2450,7 @@ final class MessageListViewController: UITableViewController {
     /// on the server do not wait for that.
     @MainActor
     private func delete(_ chosen: [MessageSummary]) {
-        if tableView.isEditing { editTapped() }
+        if inEditMode { editTapped() }
         let kept = self.kept
         let repository = self.repository
         for m in chosen {
@@ -2483,7 +2491,7 @@ final class MessageListViewController: UITableViewController {
             let took = chosen.filter { outcome.taken.contains($0.id) }
             if let step = UndoableMove.after(action, took: took, landings: landings,
                                              role: { self.role(of: $0) }) {
-                self.onUndoable?(step, self.letters)
+                self.onUndoable?(.move(step), self.letters)
             }
             if let refusal = outcome.refusal {
                 ErrorPresenter.show(reaching: refusal, on: self.alertHost(in: window))
@@ -2564,7 +2572,7 @@ final class MessageListViewController: UITableViewController {
                 self.letters.reading(m, read: read)
                 self.letters.readTaken(m, read: read)
             }
-            if self.tableView.isEditing { self.editTapped() }
+            if self.inEditMode { self.editTapped() }
             self.regroup()
         }
     }
@@ -2582,7 +2590,7 @@ final class MessageListViewController: UITableViewController {
             // mode ends, and "Moving…" is on the status line until the
             // server has answered for each letter. One it did not take
             // comes back, and he is told, as for Delete (B-062).
-            if self.tableView.isEditing { self.editTapped() }
+            if self.inEditMode { self.editTapped() }
             self.runBatch(.move(to: destination), on: chosen, saying: StatusLine.moving)
         }
         let nav = UINavigationController(rootViewController: move)
@@ -2612,6 +2620,19 @@ final class MessageListViewController: UITableViewController {
         swipes(at: ip, \.right)
     }
 
+    /// A drag has opened a row's buttons. UIKit turns the table's
+    /// `isEditing` on for it, and UITableViewController's own answer here
+    /// would put the whole controller into editing as well, which here is
+    /// Edit mode's (`inEditMode`): not called.
+    override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) {}
+
+    /// The row's buttons have closed: UITableViewController's answer, the
+    /// controller out of editing, not called either. The row of the letter
+    /// in the pane highlighted again, should the table have dropped it.
+    override func tableView(_ t: UITableView, didEndEditingRowAt ip: IndexPath?) {
+        highlightLetterInPane()
+    }
+
     /// The buttons a drag on the row at `ip` shows on one side, as
     /// `RowSwipes` has them for it now; none in Edit mode, in the Outbox,
     /// or on a letter on this iPad only. An empty configuration, never
@@ -2626,7 +2647,7 @@ final class MessageListViewController: UITableViewController {
         -> UISwipeActionsConfiguration {
         guard threads.indices.contains(ip.row) else { return UISwipeActionsConfiguration(actions: []) }
         let thread = threads[ip.row]
-        let sides = RowSwipes.sides(for: swipeRow(thread), editing: tableView.isEditing)
+        let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)
         let actions = sides[keyPath: side].map { action -> UIContextualAction in
             let button = UIContextualAction(style: .normal, title: action.title) {
                 [weak self] _, _, done in
@@ -2705,7 +2726,7 @@ final class MessageListViewController: UITableViewController {
     /// refused (`ListBatch`, `PaneActions`); not while one is on its way
     /// on any of the row's letters, as the pane waits for its own.
     private func swiped(_ action: RowSwipes.Action, on key: RowKey) -> Bool {
-        guard !tableView.isEditing, let row = lettersOfRow(key), !row.letters.isEmpty else {
+        guard !inEditMode, let row = lettersOfRow(key), !row.letters.isEmpty else {
             return false
         }
         let chosen = row.letters
@@ -2745,7 +2766,9 @@ final class MessageListViewController: UITableViewController {
     /// said to flag every letter of a conversation, Unflag takes it off
     /// every one; Mark as Read every unread one, Mark as Unread every read
     /// one. The row changes at the tap, the server is told a letter at a
-    /// time, and a refusal puts back what it did not take and says why.
+    /// time, and a refusal puts back what it did not take and says why. A
+    /// Flag or an Unflag the server took is a step of Mail's Undo (B-157);
+    /// a read mark is not.
     private func mark(_ action: PaneAction, on key: RowKey) -> Bool {
         guard let row = lettersOfRow(key) else { return false }
         let changing = row.letters.filter { letter in
@@ -2764,6 +2787,11 @@ final class MessageListViewController: UITableViewController {
                 action, on: changing, role: { self.role(of: $0) },
                 list: self.letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.requestSweep?() })
+            if let step = UndoableFlag.after(action, took: changing.filter {
+                outcome.taken.contains($0.id)
+            }) {
+                self.onUndoable?(.flag(step), self.letters)
+            }
             if let refusal = outcome.refusal {
                 ErrorPresenter.show(reaching: refusal, on: self.alertHost(in: window))
             }
@@ -2798,15 +2826,16 @@ final class MessageListViewController: UITableViewController {
 
     /// More's sheet (`RowMore`), over the row, as Mail's: Reply, Reply All
     /// and Forward of the conversation's newest letter, made by the reading
-    /// pane (`onAnswer`); Flag or Unflag, Mark as Unread or Mark as Read,
-    /// and Move Message, on every letter of the row. Each item acts on the
-    /// row as it is when tapped.
+    /// pane (`onAnswer`); Trash Message, the drag's own Trash, or inside
+    /// Trash Delete Message, which asks first; Flag or Unflag, Mark as
+    /// Unread or Mark as Read, and Move Message, on every letter of the
+    /// row. Each item acts on the row as it is when tapped.
     private func showMore(for key: RowKey) {
         guard let row = lettersOfRow(key), let place = placeOfRow(key) else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.sourceView = place.view
         sheet.popoverPresentationController?.sourceRect = place.rect
-        for item in RowMore.items(read: row.thread.isRead, flagged: row.thread.isFlagged) {
+        for item in RowMore.items(for: swipeRow(row.thread)) {
             sheet.addAction(UIAlertAction(title: item.title, style: .default) { [weak self] _ in
                 self?.chose(item, on: key)
             })
@@ -2816,11 +2845,14 @@ final class MessageListViewController: UITableViewController {
     }
 
     private func chose(_ item: RowMore.Item, on key: RowKey) {
-        guard !tableView.isEditing, let row = lettersOfRow(key) else { return }
+        guard !inEditMode, let row = lettersOfRow(key) else { return }
         switch item {
         case .reply, .replyAll, .forward:
             guard let place = placeOfRow(key) else { return }
             onAnswer?(row.thread.newest, item == .replyAll, item == .forward, place)
+        case .trashMessage: _ = swiped(.trash, on: key)
+        case .archiveMessage: _ = swiped(.archive, on: key)
+        case .deleteMessage: _ = swiped(.delete, on: key)
         case .flag: _ = mark(.flag(true), on: key)
         case .unflag: _ = mark(.flag(false), on: key)
         case .markAsRead: _ = mark(.read(true), on: key)
@@ -3252,7 +3284,7 @@ final class MessageListViewController: UITableViewController {
         letGoOfVoiceOver()
         // In Edit mode a tap ticks a row rather than opening it, and the
         // Select All button has to keep up with what that leaves selected.
-        guard !t.isEditing else { updateSelectAllTitle(); return }
+        guard !inEditMode else { updateSelectAllTitle(); return }
         // A letter opened from the results: the search found what he was
         // after, and is kept among his recent ones (B-105).
         if letters.isSearching { keepSearch(searchShown) }
@@ -3275,7 +3307,7 @@ final class MessageListViewController: UITableViewController {
     }
 
     override func tableView(_ t: UITableView, didDeselectRowAt ip: IndexPath) {
-        guard t.isEditing else { return }
+        guard inEditMode else { return }
         updateSelectAllTitle()
         // The last tick taken off.
         landFreshPage()
@@ -3468,7 +3500,7 @@ final class MessageListViewController: UITableViewController {
     /// letter in the pane.
     @MainActor
     private func letGo(_ letter: MessageSummary) {
-        guard !tableView.isEditing, let row = rowIndex(showing: letter.id) else { return }
+        guard !inEditMode, let row = rowIndex(showing: letter.id) else { return }
         tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
     }
 }

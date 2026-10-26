@@ -1042,7 +1042,7 @@ final class PaneArrangementTests: XCTestCase {
         // A row he opens or ticks lets the row held go, first thing.
         let selected = flat(body(after: "override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath)",
                                  in: list))
-        XCTAssertTrue(selected.hasPrefix("{ letGoOfVoiceOver() guard !t.isEditing"), selected)
+        XCTAssertTrue(selected.hasPrefix("{ letGoOfVoiceOver() guard !inEditMode"), selected)
 
         // Looked for as VoiceOver moves, and put there at most once
         // (`testVoiceOverIsAskedWhereItIsWhileARowIsHeld`).

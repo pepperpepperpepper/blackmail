@@ -73,4 +73,14 @@ enum FlagMenu {
         /// the second.
         var onItsWay: Bool
     }
+
+    /// The flag on the list's row for the letter the sheet is for
+    /// (`ListLetters.flag(on:)`): Flag or Unflag, and whether it is
+    /// greyed. A drag's Flag on the row (B-156) leaves the pane as it was.
+    struct Flag: Equatable {
+        var flagged: Bool
+        /// A Flag on the letter is on its way to the server, from a drag,
+        /// More or the pane: one at a time, as the pane's own.
+        var onItsWay: Bool
+    }
 }

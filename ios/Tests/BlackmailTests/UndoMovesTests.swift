@@ -226,6 +226,30 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(server.log.filter(\.isUIDCommand).count, 0)
     }
 
+    /// Found twice in the Trash by its Gmail id, with no UID from the
+    /// answer to go by, the letter is not moved back: which of the two to
+    /// move cannot be told, and nothing is written.
+    func testALetterFoundTwiceIsLeftAndNothingIsWritten() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let landing = try unwrapped(await repository.deleteLanding(
+            rows[2].id, gmailMessageID: rows[2].gmailMessageID, from: rows[2].mailboxID))
+        let again = try XCTUnwrap(server.fileAgain(uid: uid(try XCTUnwrap(landing.id)),
+                                                   in: Server.trash))
+        XCTAssertEqual(server.gmailMessageID(uid: again, in: Server.trash), landing.letter)
+        server.clearLog()
+
+        do {
+            _ = try await repository.moveBack(MoveLanding(folder: landing.folder, id: nil,
+                                                          letter: landing.letter), to: "inbox")
+            XCTFail("moved back a letter found twice")
+        } catch {
+            XCTAssertTrue(error is MoveLanding.Gone, "\(error)")
+        }
+        XCTAssertTrue(server.log.contains { $0.command.hasPrefix("UID SEARCH X-GM-MSGID ") })
+        XCTAssertFalse(server.log.contains { $0.verb == "UID MOVE" || $0.verb == "UID COPY" })
+    }
+
     /// A Delete inside Trash erases, and says nowhere: nothing brings it
     /// back. A Move says where, as a Delete does.
     func testAnEraseSaysNowhereAndAMoveSaysWhere() async throws {
@@ -425,6 +449,173 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(list.shown.count, rows.count - 1)
     }
 
+    /// The pane's Delete of a letter he has just opened, then its Undo. The
+    /// pane was handed the row before the tap that opened it marked it
+    /// read, so the pane's copy says unread; the list's copy at the tap,
+    /// which took the row off, says read, and is what the step is made
+    /// from (`PaneActions.refusal`'s `landed`). The row comes back read,
+    /// nothing goes back on the counts, and reading it again bills
+    /// nothing, as Gmail has it read. Made from the pane's copy, it came
+    /// back with a dot, one back on its folders, and reading it took that
+    /// one off a second time.
+    @MainActor
+    func testThePanesUndoPutsTheRowBackAsTheListHadIt() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, counts) = makeList(folder: rows)
+        let folders = self.folders
+        let pane = try XCTUnwrap(rows.first { !$0.isRead })
+        // The tap on its row, as `MessageListViewController.markReadIfNeeded`
+        // and `sendRead` make it, after the pane has been handed the row.
+        list.reading(pane, read: true)
+        try await repository.setRead(true, id: pane.id, gmailMessageID: pane.gmailMessageID,
+                                     mailboxID: pane.mailboxID)
+        list.readAnswered(pane.id, landed: true)
+        var read = pane
+        read.isRead = true
+        list.read(read)
+        XCTAssertEqual(list.letter(pane.id)?.isRead, true)
+        XCTAssertEqual(counts.off.count, 1)
+
+        var made: UndoableMove?
+        let refused = await PaneActions.refusal(
+            running: .delete, on: pane, inFolderWithRole: .inbox, list: list,
+            repository: repository, requestSweep: {},
+            landed: { landing, before in
+                // As the container makes the step (`RootViewController`).
+                guard let landing else { return }
+                made = UndoableMove.after(.delete, took: [before],
+                                          landings: [before.id: landing],
+                                          role: { folders.role(of: $0) })
+            })
+        XCTAssertNil(refused)
+        let step = try XCTUnwrap(made)
+        XCTAssertEqual(step.letters.map(\.row.isRead), [true])
+
+        let undone = await UndoMoves.run(step, repository: repository, list: list,
+                                         requestSweep: {})
+        XCTAssertEqual(undone.back, [pane.id])
+        let back = try XCTUnwrap(list.shown.first { $0.gmailMessageID == pane.gmailMessageID })
+        XCTAssertNotEqual(back.id, pane.id)
+        XCTAssertTrue(back.isRead, "no dot on a letter Gmail has read")
+        XCTAssertEqual(counts.on, [], "nothing back on the counts")
+        list.read(back)
+        XCTAssertEqual(counts.off.count, 1, "read again, nothing billed")
+    }
+
+    // MARK: - Undo Flag
+
+    /// A Flag or an Unflag is a step of its own, "Undo Flag" or "Undo
+    /// Unflag", of the letters the server took it on; a read mark, a
+    /// Delete, a letter kept on the iPad and nothing taken are not.
+    func testAFlagIsAStepOfUndoAndAReadMarkIsNot() throws {
+        let row = MessageSummary(id: "1/10", mailboxID: Server.inbox, sender: "Sam",
+                                 subject: "Hello", preview: "", date: Server.newestDate,
+                                 isRead: true, isFlagged: false, gmailMessageID: 7)
+        let flag = UndoableFlag.after(.flag(true), took: [row])
+        XCTAssertEqual(flag, UndoableFlag(flagged: true, letters: [row]))
+        XCTAssertEqual(flag?.actionName, "Flag")
+        XCTAssertEqual(UndoableFlag.after(.flag(false), took: [row])?.actionName, "Unflag")
+        XCTAssertNil(UndoableFlag.after(.read(true), took: [row]))
+        XCTAssertNil(UndoableFlag.after(.read(false), took: [row]))
+        XCTAssertNil(UndoableFlag.after(.delete, took: [row]))
+        XCTAssertNil(UndoableFlag.after(.flag(true), took: []))
+        let kept = MessageSummary(id: "local:abc", mailboxID: Server.drafts, sender: "Sam",
+                                  subject: "Hello", preview: "", date: Server.newestDate,
+                                  isRead: true, isFlagged: false)
+        XCTAssertNil(UndoableFlag.after(.flag(true), took: [kept]))
+        XCTAssertEqual(Undoable.flag(try XCTUnwrap(flag)).actionName, "Flag")
+        let trash = UndoableMove(kind: .trash, letters: [])
+        XCTAssertEqual(Undoable.move(trash).actionName, "Trash")
+    }
+
+    /// A drag's Flag on two letters of a conversation, then its Undo: the
+    /// flag off both again, at once on the rows, a STORE each and nothing
+    /// else, and Gmail has them unflagged. An Undo that fails says so,
+    /// puts the flags back as they were, and is a step again. One of them
+    /// with a Flag on its way: nothing sent, the step left for the next
+    /// shake.
+    @MainActor
+    func testAnUndoFlagSetsTheFlagBack() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, _) = makeList(folder: rows)
+        let chosen = [rows[4], rows[1]]
+        XCTAssertEqual(chosen.map(\.isFlagged), [false, false])
+        let flagged = await ListBatch.run(.flag(true), on: chosen, role: { _ in .inbox },
+                                          list: list, repository: repository, requestSweep: {})
+        let step = try XCTUnwrap(UndoableFlag.after(
+            .flag(true), took: chosen.filter { flagged.taken.contains($0.id) }))
+        XCTAssertEqual(step.letters.map(\.id), chosen.map(\.id))
+        for m in chosen {
+            XCTAssertTrue(server.flags(uid: uid(m.id), in: Server.inbox).contains("\\Flagged"))
+        }
+
+        server.hangsUpOnVerbs = ["UID STORE"]
+        let failed = await UndoMoves.run(step, repository: repository, list: list,
+                                         requestSweep: {})
+        XCTAssertEqual(failed.refusal, .cannotConnect)
+        XCTAssertEqual(failed.back, [])
+        XCTAssertEqual(failed.left?.letters.map(\.id), chosen.map(\.id))
+        XCTAssertEqual(failed.left?.flagged, true)
+        XCTAssertEqual(chosen.map { list.letter($0.id)?.isFlagged }, [true, true],
+                       "put back as they were")
+
+        server.hangsUpOnVerbs = []
+        server.clearLog()
+        let undone = await UndoMoves.run(try XCTUnwrap(failed.left), repository: repository,
+                                         list: list, requestSweep: {})
+        XCTAssertNil(undone.refusal)
+        XCTAssertNil(undone.left)
+        XCTAssertEqual(undone.back, chosen.map(\.id))
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.verb).filter { $0 != "UID FETCH" },
+                       ["UID STORE", "UID STORE"])
+        XCTAssertFalse(server.log.contains { ["UID MOVE", "UID COPY", "APPEND", "UID EXPUNGE",
+                                             "EXPUNGE"].contains($0.verb) })
+        for m in chosen {
+            XCTAssertFalse(server.flags(uid: uid(m.id), in: Server.inbox).contains("\\Flagged"))
+            XCTAssertEqual(list.letter(m.id)?.isFlagged, false)
+        }
+
+        list.setFlagged(true, on: rows[4])
+        server.clearLog()
+        let waiting = await UndoMoves.run(step, repository: repository, list: list,
+                                          requestSweep: {})
+        XCTAssertEqual(waiting, UndoMoves.FlagOutcome(left: step))
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).count, 0)
+        list.flagAnswered(rows[4], landed: false)
+    }
+
+    /// A letter flagged, then trashed, and the Trash undone, is back under
+    /// a new id; the Flag's Undo after it finds the letter there by its
+    /// Gmail id, and takes the flag off it, not off the id it had.
+    @MainActor
+    func testAnUndoFlagFindsALetterBroughtBackUnderANewID() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, _) = makeList(folder: rows)
+        let letter = try XCTUnwrap(rows.first { !$0.isFlagged })
+        let flagged = await ListBatch.run(.flag(true), on: [letter], role: { _ in .inbox },
+                                          list: list, repository: repository, requestSweep: {})
+        let flag = try XCTUnwrap(UndoableFlag.after(
+            .flag(true), took: [letter].filter { flagged.taken.contains($0.id) }))
+        let (_, made) = await remove(.delete, [try XCTUnwrap(list.letter(letter.id))], list: list,
+                                     repository: repository)
+        _ = await UndoMoves.run(try XCTUnwrap(made), repository: repository, list: list,
+                                requestSweep: {})
+        let back = try XCTUnwrap(list.shown.first { $0.gmailMessageID == letter.gmailMessageID })
+        XCTAssertNotEqual(back.id, letter.id)
+        XCTAssertTrue(back.isFlagged)
+        XCTAssertTrue(server.flags(uid: uid(back.id), in: Server.inbox).contains("\\Flagged"))
+
+        let undone = await UndoMoves.run(flag, repository: repository, list: list,
+                                         requestSweep: {})
+        XCTAssertNil(undone.refusal)
+        XCTAssertEqual(undone.back, [back.id])
+        XCTAssertFalse(server.flags(uid: uid(back.id), in: Server.inbox).contains("\\Flagged"))
+        XCTAssertEqual(list.shownRow(of: letter)?.isFlagged, false)
+    }
+
     /// The reading pane's Delete and Move hear where the letter went once
     /// the server has taken it, and nothing for a Flag or a read mark, nor
     /// for a refusal.
@@ -438,7 +629,7 @@ final class UndoMovesTests: XCTestCase {
         for action: PaneAction in [.flag(true), .read(false), .delete] {
             let refused = await PaneActions.refusal(
                 running: action, on: rows[3], inFolderWithRole: .inbox, list: list,
-                repository: repository, requestSweep: {}, landed: { heard.append($0) })
+                repository: repository, requestSweep: {}, landed: { landing, _ in heard.append(landing) })
             XCTAssertNil(refused)
         }
         XCTAssertEqual(heard.count, 1)
@@ -449,7 +640,7 @@ final class UndoMovesTests: XCTestCase {
         let refused = await PaneActions.refusal(
             running: .move(to: try XCTUnwrap(folders.first { $0.role == .junk })), on: rows[5],
             inFolderWithRole: .inbox, list: list, repository: repository, requestSweep: {},
-            landed: { heard.append($0) })
+            landed: { landing, _ in heard.append(landing) })
         XCTAssertNotNil(refused)
         XCTAssertEqual(heard.count, 1)
     }
@@ -498,33 +689,54 @@ final class UndoMovesTests: XCTestCase {
             "let done = list.working(StatusLine.moving)",
             "let outcome = await UndoMoves.run(step, repository: self.repository, list: letters,",
             "if folders.contains(self.list.mailboxID) { await self.list.reload(keepingPlace: "
-                + "true, quietly: true) } if let left = outcome.left { self.canUndo(left, "
+                + "true, quietly: true) } if let left = outcome.left { self.canUndo(.move(left), "
                 + "from: letters) } if let refusal = outcome.refusal { "
                 + "ErrorPresenter.show(reaching: refusal, on: self) }",
             "super.dismiss(animated: flag) { [weak self] in completion?() self?.takeUndo() }",
             "for name in [UITextField.textDidEndEditingNotification, "
                 + "UITextView.textDidEndEditingNotification] {",
             "list.onUndoable = { [weak self] step, letters in self?.canUndo(step, from: letters) }",
-            "landed: { [weak self, weak letters] landing in guard let landing, let step = "
-                + "UndoableMove.after( action, took: [letter], landings: [letter.id: landing], "
-                + "role: { folders.role(of: $0) }) else { return } self?.canUndo(step, from: "
-                + "letters) })",
+            // The pane's Delete or Move as the list's copy had the letter at
+            // the tap, not the pane's (`testThePanesUndoPutsTheRowBackAsTheListHadIt`).
+            "landed: { [weak self, weak letters] landing, before in guard let landing, let step = "
+                + "UndoableMove.after( action, took: [before], landings: [before.id: landing], "
+                + "role: { folders.role(of: $0) }) else { return } self?.canUndo(.move(step), "
+                + "from: letters) })",
             "self.returnedFromAway() self.takeUndo()",
         ] {
             XCTAssertTrue(root.contains(line), line)
         }
-        XCTAssertEqual(count("canUndo(", in: root), 4, "the pane's, the list's, a step left, and itself")
+        XCTAssertEqual(count("canUndo(", in: root), 6,
+                       "the pane's Move and Flag, the list's, a step left of each, and itself")
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains(
             "let took = chosen.filter { outcome.taken.contains($0.id) } if let step = "
                 + "UndoableMove.after(action, took: took, landings: landings, role: { "
-                + "self.role(of: $0) }) { self.onUndoable?(step, self.letters) }"))
+                + "self.role(of: $0) }) { self.onUndoable?(.move(step), self.letters) }"))
         XCTAssertTrue(list.contains("landed: { letter, landing in landings[letter.id] = landing })"))
         let steps = try source("Mail/UndoMoves.swift")
         for kept in ["UserDefaults", "FileManager", "write(to", "MailShelf", "Codable"] {
             XCTAssertFalse(steps.contains(kept), kept)
         }
         XCTAssertEqual(count("undos.", in: root), 3, "made, added to, and named; never written down")
+
+        // A Flag or an Unflag from the pane, a drag or More is a step of
+        // its own, undone by `UndoMoves`; a read mark is not.
+        for line in [
+            "if refused == nil, let step = UndoableFlag.after(action, took: [letter]) { "
+                + "self.canUndo(.flag(step), from: letters) } return refused",
+            "case .move(let move): undo(move, into: letters) case .flag(let flag): undo(flag, "
+                + "into: letters)",
+            "let outcome = await UndoMoves.run(step, repository: self.repository, list: letters, "
+                + "requestSweep: { [weak self] in self?.refreshMailboxes() }) if let left = "
+                + "outcome.left { self.canUndo(.flag(left), from: letters) }",
+        ] {
+            XCTAssertTrue(root.contains(line), line)
+        }
+        XCTAssertTrue(list.contains(
+            "if let step = UndoableFlag.after(action, took: changing.filter { "
+                + "outcome.taken.contains($0.id) }) { self.onUndoable?(.flag(step), self.letters) }"))
+        XCTAssertTrue(list.contains("var onUndoable: ((Undoable, ListLetters) -> Void)?"))
     }
 }
 

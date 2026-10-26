@@ -39,6 +39,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (B-106); nil where the list has no row that is the letter
     /// (`ListLetters.dot(on:)`). From the container, which holds the list.
     var dotOnList: ((MessageSummary) -> FlagMenu.Dot?)?
+    /// The flag on the list's row for a letter the pane shows, which the
+    /// sheet offers Flag or Unflag by, as the dot for the read item: a
+    /// drag's Flag on the row (B-156) changes the row and not the pane.
+    /// Nil where the list has no row that is the letter
+    /// (`ListLetters.flag(on:)`).
+    var flagOnList: ((MessageSummary) -> FlagMenu.Flag?)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -1220,8 +1226,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// For the letter the toolbar acts on, in a conversation the one he
     /// opened last, and for that letter only: an item chosen after the
     /// pane has moved on does nothing. An item whose write on the letter
-    /// is still on its way as the sheet opens is greyed, the pane's own or,
-    /// for the read item, the list's.
+    /// is still on its way as the sheet opens is greyed, the pane's own or
+    /// the list's.
     ///
     /// Mark as Unread or Mark as Read as the dot on the list's row says,
     /// as Mail's item follows the letter (`dotOnList`). The pane's own idea
@@ -1230,13 +1236,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// the read mark of the tap that opened it refused and put back. The
     /// sheet then offered the item that changed nothing. The pane's own
     /// (`markedUnreadHere`) only where the list has no row that is the
-    /// letter.
+    /// letter. Flag or Unflag as the flag on the row says (`flagOnList`),
+    /// for the same reason: a drag's Flag on the row (B-156) leaves the
+    /// pane as it was.
     @objc private func flagTapped() {
         guard let s = summary else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]
         let dot = dotOnList?(s)
-        let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id),
+        let flag = flagOnList?(s)
+        let items = FlagMenu.items(flagged: flag?.flagged ?? s.isFlagged,
+                                   read: dot?.read ?? (markedUnreadHere != s.id),
                                    local: LocalDraft.key(ofRow: s.id) != nil)
         for item in items {
             let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in
@@ -1244,7 +1254,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 self.choose(item)
             }
             switch item {
-            case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)
+            case .flag, .unflag:
+                action.isEnabled = !writes.flagOnItsWay(s.id) && flag?.onItsWay != true
             case .markAsUnread, .markAsRead:
                 action.isEnabled = !writes.readOnItsWay(s.id) && dot?.onItsWay != true
             }

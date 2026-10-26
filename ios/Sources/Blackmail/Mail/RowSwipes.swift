@@ -148,20 +148,23 @@ enum RowSwipes {
 
     static func sides(for row: Row, editing: Bool, options: SwipeOptions = .his) -> Sides {
         guard !editing, !row.onThisIPadOnly, row.role != .outbox else { return .none }
-        let discard: Action
-        if row.role == .trash {
-            discard = .delete
-        } else if options.discardInto == .archive, row.canArchive {
-            discard = .archive
-        } else {
-            discard = .trash
-        }
+        let discard = self.discard(for: row, options: options)
         var left = [discard]
         if let chosen = action(for: options.swipeLeft, on: row), chosen != discard {
             left.append(chosen)
         }
         left.append(.more)
         return Sides(left: left, right: action(for: options.swipeRight, on: row).map { [$0] } ?? [])
+    }
+
+    /// What discards the row, at the edge of a drag to the left and in
+    /// More's sheet: Delete inside Trash, where it erases; the Archive where
+    /// the account discards into it and there is an All Mail to archive
+    /// into; the Trash otherwise.
+    static func discard(for row: Row, options: SwipeOptions = .his) -> Action {
+        if row.role == .trash { return .delete }
+        if options.discardInto == .archive, row.canArchive { return .archive }
+        return .trash
     }
 
     /// A Swipe Left or Swipe Right choice, as the row is; nil for None, and
@@ -180,20 +183,28 @@ enum RowSwipes {
 /// The sheet More opens from a drag on a row (B-156): Mail's sheet for the
 /// letter, with the actions Blackmail has. Reply, Reply All and Forward
 /// answer the conversation's newest letter, as the reading pane's Reply
-/// answers the letter it shows; Flag or Unflag, and Mark as Unread or Mark
-/// as Read, as the row is, and Move Message, go on every letter of the
-/// conversation, as Edit mode's do.
+/// answers the letter it shows; Trash Message, or Archive Message where
+/// the account discards into the Archive, is the drag's own Trash, and
+/// inside Trash Delete Message, which asks first; Flag or Unflag, and Mark
+/// as Unread or Mark as Read, as the row is, and Move Message, go on every
+/// letter of the conversation, as Edit mode's do. In the order of Mail's
+/// sheet and of its Reply menu: Reply, Reply All, Forward, Trash, Flag,
+/// Mark, Move (Gadget Hacks, 2019; the popover of INVESTIGATIONS' ban 5).
 ///
-/// Mail's sheet has more besides: Trash Message, which is beside More
-/// already; its Junk item, which comes with the branch that builds it
-/// (B-106) and is added here when that is merged; and Mute, Notify Me and
-/// Print, which Blackmail does not have from the list.
+/// Mail's sheet has more besides: its Junk item, which comes with the
+/// branch that builds it (B-106) and is added here when that is merged;
+/// and Mute, Notify Me and Print, which Blackmail does not have from the
+/// list. Its word inside Trash was not found.
 enum RowMore {
 
     enum Item: Equatable {
         case reply
         case replyAll
         case forward
+        case trashMessage
+        case archiveMessage
+        /// Inside Trash, where it erases.
+        case deleteMessage
         case flag
         case unflag
         case markAsUnread
@@ -205,6 +216,9 @@ enum RowMore {
             case .reply: return "Reply"
             case .replyAll: return "Reply All"
             case .forward: return "Forward"
+            case .trashMessage: return "Trash Message"
+            case .archiveMessage: return "Archive Message"
+            case .deleteMessage: return "Delete Message"
             case .flag: return FlagMenu.Item.flag.title
             case .unflag: return FlagMenu.Item.unflag.title
             case .markAsUnread: return FlagMenu.Item.markAsUnread.title
@@ -218,8 +232,14 @@ enum RowMore {
     /// outside the popover is its Cancel.
     static let cancel = "Cancel"
 
-    static func items(read: Bool, flagged: Bool) -> [Item] {
-        [.reply, .replyAll, .forward, flagged ? .unflag : .flag,
-         read ? .markAsUnread : .markAsRead, .moveMessage]
+    static func items(for row: RowSwipes.Row, options: SwipeOptions = .his) -> [Item] {
+        let discard: Item
+        switch RowSwipes.discard(for: row, options: options) {
+        case .delete: discard = .deleteMessage
+        case .archive: discard = .archiveMessage
+        default: discard = .trashMessage
+        }
+        return [.reply, .replyAll, .forward, discard, row.flagged ? .unflag : .flag,
+                row.read ? .markAsUnread : .markAsRead, .moveMessage]
     }
 }

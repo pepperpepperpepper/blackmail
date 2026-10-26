@@ -29,8 +29,8 @@ pinning an old SDK.
 - Controls never move. Not between messages, not between folders, not between
   portrait and landscape.
 - Tap is the only interaction required. A drag on a row of the list does
-  what Apple Mail's does, and a shake undoes a Trash or a Move, as in Mail
-  (ruled 2026-10-26); neither is needed, as each has its tap. No
+  what Apple Mail's does, and a shake undoes a Trash, a Move or a Flag, as
+  in Mail (ruled 2026-10-26); neither is needed, as each has its tap. No
   long-press, no gesture discovery.
 - Nothing essential hidden behind `...`.
 - 44×44 pt minimum hit targets, whatever the glyph size.

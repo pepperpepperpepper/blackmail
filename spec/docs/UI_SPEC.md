@@ -58,8 +58,8 @@ The exact order should be tuned against the visual references, but once chosen i
 - Do not depend on swipe actions. A drag on a row of the list does what
   Apple Mail's does (ruled 2026-10-26, B-156): More, Flag and Trash to the
   left, the Trash at once on a full drag, and the read mark to the right;
-  a shake undoes a Trash or a Move, as in Mail (B-157). Nothing needs
-  them: each has its tap, in the reading pane or in Edit mode.
+  a shake undoes a Trash, a Move or a Flag, as in Mail (B-157). Nothing
+  needs them: each has its tap, in the reading pane or in Edit mode.
 - Do not use modern floating menus for core actions unless the old Mail behavior itself did.
 - Do not animate panes dramatically.
   - The view button's switch, "< Mailboxes" and a folder tap in two

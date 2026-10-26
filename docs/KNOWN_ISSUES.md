@@ -30184,6 +30184,17 @@ tick and Delete, or by opening it and Delete.
    row is found again as a button is tapped by its conversation's id and
    its folder (`RowKey`), an All Mailboxes search listing two folders'
    letters under one id; a row gone since the drag began does nothing.
+   Edit mode is the list's own (`inEditMode`), on from Edit to Done, and
+   not the table's `isEditing`, which UIKit turns on while a drag holds a
+   row's buttons open (UITableView.h: "a swipe activating a single
+   row"). Read as Edit mode, it made every button do nothing and the row
+   slide back, before the iPad had seen any of it. The start and end of
+   a drag are not handed on to UITableViewController, whose answer
+   puts the whole controller into editing; as the buttons close, the
+   row of the letter in the pane is highlighted again. Everything else
+   that asked the table whether he was in Edit mode asks the list now:
+   the selection a redraw puts back, the pane's row highlighted, new mail
+   and a fresh page held for his ticks, the pull, and a tap's tick.
 3. *Trash* is Edit mode's Delete of every letter of the row
    (`runBatch(.delete…)`, `ListBatch.letters`, the oldest first, B-084): no
    question, the rows off at the tap, "Deleting…" under the list, the
@@ -30204,20 +30215,30 @@ tick and Delete, or by opening it and Delete.
    by `ListBatch` (`PaneActions`): the row changes at the tap, a refusal
    puts back what was not taken and says why. Not while a flag or a read
    mark on any of the row's letters is on its way, as the pane's Flag waits
-   for its own (`ListLetters.flagOnItsWay`, new; `dot(on:)`).
+   for its own (`ListLetters.flagOnItsWay`, new; `dot(on:)`). The pane's
+   Flag sheet offers Flag or Unflag by the flag on the list's row, as its
+   read item goes by the dot, and greys it while a Flag on the letter is
+   on its way (`ListLetters.flag(on:)`, `flagOnList`, new): a drag's Flag
+   on the row of the letter open in the pane changes the row and not the
+   pane, which then offered Flag on a flagged letter, and its Flag went
+   beside the drag's STORE. A Flag or Unflag is a step of Undo (B-157).
 6. *More* opens Mail's sheet over the row (`RowMore`, new): Reply, Reply
-   All and Forward of the conversation's newest letter; Flag or Unflag,
-   Mark as Unread or Mark as Read, and Move Message, on every letter of the
-   row; Cancel. Reply, Reply All and Forward are made by the reading pane
+   All and Forward of the conversation's newest letter; Trash Message, the
+   drag's own Trash, at once and unasked, or Archive Message in its place
+   where the account discards into the Archive and there is one, and
+   inside Trash Delete Message, which asks first as the drag's Delete
+   does; Flag or Unflag, Mark as Unread or Mark as Read, and Move Message,
+   on every letter of the row; Cancel. In that order, Mail's sheet's and
+   its Reply menu's (Gadget Hacks, 2019; the popover of the
+   investigations' ban 5). Reply, Reply All and Forward are made by the reading pane
    (`MessageDetailViewController.answer`, new), as its Reply button's sheet
    makes them, the letter fetched as the pane opens one (`openLetter`,
    from the copy kept on the iPad when it is there) and shown nowhere, not
    marked read; Mail's question about the files asked over the row where
    the Reply sheet would ask it (`askAboutFiles(over:)`). One at a time.
-   Move Message is Edit mode's Move sheet. Mail's Trash Message is beside
-   More already; Move to Junk comes with its own branch (B-106) and is
-   added when that is merged; Mute, Notify Me and Print are not in the
-   list.
+   Move Message is Edit mode's Move sheet. Move to Junk comes with its
+   own branch (B-106) and is added when that is merged; Mute, Notify Me
+   and Print are not in the list.
 7. *Move and Archive*, for Mail's other Swipe Options: Move is the folder
    sheet, then Edit mode's Move; Archive Edit mode's Move into All Mail,
    not offered where there is none or the row is in it.
@@ -30225,7 +30246,8 @@ tick and Delete, or by opening it and Delete.
    there. The list's old comments that said swipes were banned now say
    what is built. No new word on his screen but Mail's: "Trash",
    "Delete", "Flag", "Unflag", "Read", "Unread", "More", and the sheet's
-   "Move Message"; "Archive" and "Move" only if his Swipe Options call for
+   "Trash Message", "Delete Message" (inside Trash) and "Move Message";
+   "Archive", "Archive Message" and "Move" only if his settings call for
    them.
 
 **Not changed.** Edit mode, its bar and its words; the reading pane's
@@ -30241,19 +30263,27 @@ Message?" first. A drag to the right shows Unread on a read row, Read on
 an unread one, and a full drag does it. More opens a small sheet over the
 row. A shake brings back what a Trash took (B-157).
 
-**Tests.** `RowSwipesTests`, seven, new: his options Mail's factory ones;
+**Tests.** `RowSwipesTests`, eight, new: his options Mail's factory ones;
 what each side shows for an unread and a read flagged row, in what order,
 words and symbols, the Trash first in every folder but Trash; Delete inside
 Trash, and nothing in Edit mode, in the Outbox or on the iPad's own;
 Mail's other Swipe Options set in one place, Archive in the Trash's place
-where there is an All Mail, once; More's items and words; and read from
-the source, each button's wiring, `.normal` and never `.destructive`, no
-`commit editingStyle`, the one question, More's Reply made by the pane,
-and the colours. The pins that read the old lines read the new:
-`ReplyFilesTests` (the files question over a row too, asked from two
-places), `KeptLetterOpeningTests` (a fourth `openLetter`, More's),
-`QuietSaveTests` (a second `requestSweep`, the drag's Flag and read mark)
-and `ListBatchTests` (the batch handing up its step of Undo).
+where there is an All Mail, once; More's items and words, Trash Message
+after Forward, Archive Message where the account discards into the
+Archive, Delete Message inside Trash; read from the source, each button's
+wiring, `.normal` and never `.destructive`, no `commit editingStyle`, the
+one question, More's Reply made by the pane, its Trash Message the drag's
+Trash; Edit mode the list's own, never the table's `isEditing`, and the
+drag's start and end kept from UITableViewController; and the colours.
+`FlagMenuTests`, one new: the pane's Flag sheet by the flag on the list's
+row, greyed while a Flag is on its way. The pins that read the old lines
+read the new: `ReplyFilesTests` (the files question over a row too, asked
+from two places), `KeptLetterOpeningTests` (a fourth `openLetter`,
+More's), `QuietSaveTests` (a second `requestSweep`, the drag's Flag and
+read mark), `ListBatchTests` (the batch handing up its step of Undo), and
+for Edit mode, `OpenLetterHighlightTests` (the pane's row highlighted as
+a drag's buttons close too), `PullRefreshTests`, `PaneArrangementTests`,
+`LandedLetterTests` and `RecentSearchesTests`.
 
 Each part undone by hand, `RowSwipesTests` run, then put back and
 passing, counted as failures in tests: Swipe Left set to None in Mail's
@@ -30261,9 +30291,13 @@ factory values, 7 in 3; More's Reply All and Forward the other way
 round, 2 in 1; More's grey another grey, 1 in 1; no Edit mode in
 `RowSwipes`, 1 in 1; the Trash asking first, as Delete inside Trash
 does, 2 in 1; the Archive for what he discards left out, 2 in 1; a row
-found by its id alone, not by its folder too, 1 in 1.
+found by its id alone, not by its folder too, 1 in 1. And since: Edit
+mode read off the table's `isEditing` again, 3 in 2; the drag's start
+handed on to UITableViewController, 2 in 1; More without Trash Message,
+6 in 1; More's Trash Message whatever the folder and the account, 3 in 1;
+the pane's Flag sheet by its own flag, `FlagMenuTests` run, 2 in 1.
 
-The full suite, serially, with B-157's: 2,682 tests, 18 of them new, 6
+The full suite, serially, with B-157's: 2,689 tests, 25 of them new, 6
 skipped, none failing. The release build for the iPad links.
 
 **Not covered.**
@@ -30278,7 +30312,8 @@ skipped, none failing. The release build for the iPad links.
   back" is for it.
 - None of Mail's own was seen (above): "Read" and "Unread", Mail's
   colours, its sheet's order, what it does inside Trash and to a
-  conversation.
+  conversation. "Delete Message", More's item inside Trash, is
+  Blackmail's word, Mail's there not found.
 - His own Swipe Options and Move Discarded Messages Into are not known:
   the factory values stand until they are read off his iPad.
 - More's sheet is a popover over the row, Blackmail's action sheet, not
@@ -30286,7 +30321,7 @@ skipped, none failing. The release build for the iPad links.
 - A conversation's Reply from More answers its newest letter; in Sent Mail
   that is his own, answered as the pane answers his own (B-061).
 
-## B-157 — FIXED 2026-10-26, not yet seen on the iPad. Nothing could be undone; as in Mail, a shake of the iPad, iPadOS's three-finger undo or Command-Z offers "Undo Trash" or "Undo Move" after a Trash or a Move, from a drag, Edit mode or the reading pane, and Undo moves the letters back and their rows come back where they stood
+## B-157 — FIXED 2026-10-26, not yet seen on the iPad. Nothing could be undone; as in Mail, a shake of the iPad, iPadOS's three-finger undo or Command-Z offers "Undo Trash" or "Undo Move" after a Trash or a Move, from a drag, Edit mode or the reading pane, and Undo moves the letters back and their rows come back where they stood; "Undo Flag" after a Flag
 
 **Ruled** by the owner on 2026-10-26, "close the gaps in our decision
 tree by copying Apple Mail" (the TODO's "Undo for Delete and Move", item
@@ -30319,16 +30354,23 @@ folder.
    them): nil for a letter erased inside Trash. `PaneActions.send` returns
    it; the pane's Delete and Move hear it (`PaneActions.refusal`'s
    `landed`), and so do Edit mode's and a drag's, for each letter taken
-   (`ListBatch.run`'s `landed`).
+   (`ListBatch.run`'s `landed`). The pane's hears it with the list's copy
+   of the letter at the tap, as the list took the row off, and its step
+   is made from that, not from the pane's copy, which the pane was handed
+   before the tap that opened the letter marked it read: made from the
+   pane's, the commonest Undo of all, a letter opened, deleted in the
+   pane and brought back, put its row back with a dot, one back on its
+   folders' counts, and reading it again took that one off a second time,
+   the count one too low until the next sweep.
 2. *A step of Undo* (`UndoableMove`, new): the letters the server took,
    each with where it went, in the order they went, the oldest first;
    "Trash" for a Delete, "Move" for a Move or an Archive. One tap, one
-   step: a batch is one. Nothing for a letter erased inside Trash, a Flag
-   or a read mark (not known of Mail for certain, and undone by the same
-   button), a letter of Drafts (Gmail does not bring a draft back from the
-   Trash as one), a letter on this iPad only, a Move that leaves its row
-   (from All Mail into a folder, where it stays in All Mail), or a letter
-   with no Gmail id.
+   step: a batch is one. Nothing for a letter erased inside Trash, a read
+   mark (nothing says Mail undoes one), a letter of Drafts (Gmail does not
+   bring a draft back from the Trash as one), a letter on this iPad only,
+   a Move that leaves its row (from All Mail into a folder, where it stays
+   in All Mail), or a letter with no Gmail id. A Flag is a step of its own
+   (6, below).
 3. *The undo manager* (`RootViewController`). The screens' own, on the
    responder chain (`undoManager`), where a shake, three fingers and
    Command-Z look for it; fifty steps, typing's among them, as many as is
@@ -30352,9 +30394,11 @@ folder.
    taken out of the Trash since, is left and nothing is written or said
    (`MoveLanding.Gone`): Gmail answers a MOVE of a UID the folder does not
    hold with OK and nothing moved (B-039), which the look in the source
-   would take for a move done. The first other failure stops the rest, as
-   Edit mode's batch does, is said as a Move's is, and what was not moved
-   back is a step of Undo again: one more shake tries it. No Redo.
+   would take for a move done. Found there twice, it is left the same
+   way: which of the two to move cannot be told. The first other failure
+   stops the rest, as Edit mode's batch does, is said as a Move's is, and
+   what was not moved back is a step of Undo again: one more shake tries
+   it. No Redo.
 5. *The rows come back* (`ListLetters.restore`, new). Each letter moved
    back has its row back where it stood, under its new id, a UID after
    every other in the folder as Gmail gives it, in front of the row it was
@@ -30367,20 +30411,35 @@ folder.
    unread letter goes back. A list fetched afresh since no longer holds the
    row; the letter is moved back all the same, and the list is fetched
    afresh where he is if it is that folder's.
+6. *Undo Flag* (`UndoableFlag`, `Undoable`, new). A Flag or an Unflag
+   the server took, from a drag, More or the reading pane, is a step of
+   its own, "Flag" or "Unflag" (`setActionName`), of the letters it
+   changed: Mail's "Undo Flag", which the one guide lists with its "Undo
+   Trash" (macReports, 2023), and which nothing says Mail lacks. Undo sets
+   the other back on those letters alone, as Edit mode's batch goes
+   (`UndoMoves.run`, `ListBatch`): the rows' flag at once, a STORE a
+   letter at a time, the first failure stopping the rest, the flags put
+   back as they were, said, and a step again. Each letter as the list
+   shows it then: one trashed after its Flag and brought back by that
+   step's Undo is under a new id, and is found by its Gmail id in the same
+   folder (`ListLetters.shownRow`, new). Not while a Flag on one of them
+   is on its way: nothing is sent, and the step waits for the next shake.
+   Nothing for a read mark, a drag's or Edit mode's.
 
-**Not changed.** What a Delete or a Move does and sends; B-092's reading
-of a MOVE's answer; Edit mode, the pane, the drags. No button or banner:
-Mail has none.
+**Not changed.** What a Delete, a Move or a Flag does and sends; B-092's
+reading of a MOVE's answer; Edit mode, the pane, the drags. No button or
+banner: Mail has none.
 
 **What he sees.** After a Trash or a Move, a shake of the iPad puts up
 "Undo Trash" or "Undo Move", Cancel and Undo; Undo, and "Moving…" under
 the list, and the row back where it was. Three fingers swiped to the left
 do the same with iPadOS's banner. A second shake undoes the step before.
 With no connection, "Can't connect to mail server.", and a shake later
-tries again. After the app has been ended and opened again, a shake offers
-nothing.
+tries again. After a Flag, a shake puts up "Undo Flag", and Undo takes
+the flag off again; after an Unflag, "Undo Unflag". After the app has
+been ended and opened again, a shake offers nothing.
 
-**Tests.** `UndoMovesTests`, eleven, new: the COPYUID read for where the
+**Tests.** `UndoMovesTests`, sixteen, new: the COPYUID read for where the
 letter went, at its place in a set, and nothing from Gmail's 0, another
 letter's or none; over `ScriptedIMAPServer` through the shipping
 repository, a Delete saying where, and its Undo sending one `UID FETCH n
@@ -30396,10 +30455,18 @@ and reading it again billed again; a hit back among the hits, and a list
 fetched afresh since left to its next listing, where the letter is at the
 top; a failed Undo said, nothing put back, the step left to try again,
 and a letter gone meanwhile passed over; the pane hearing where its
-Delete went and nothing for a Flag, a read mark or a refusal; and read
-from the source, the screens' undo manager, first responder, steps,
-names and Undo, and nothing kept on disk. `SignInTests` reads the
-screens' `viewDidAppear` with the first responder taken.
+Delete went and nothing for a Flag, a read mark or a refusal; a letter
+found twice in the Trash by its Gmail id, not moved and nothing written;
+the pane's Delete of a letter just opened, undone, its row back read, as
+the list had it, nothing back on the counts and nothing billed when read
+again; a Flag and an Unflag a step, a read mark not; a drag's Flag on two
+letters undone, a STORE each and nothing else, a failed one said, the
+flags put back and the step left, and none sent while a Flag is on its
+way; a letter flagged, trashed and brought back, its Flag undone under
+its new id; and read from the source, the screens' undo manager, first
+responder, steps, names and Undo, a Flag's step from the pane and the
+list, and nothing kept on disk. `SignInTests` reads the screens'
+`viewDidAppear` with the first responder taken.
 
 Each part undone by hand, `UndoMovesTests` run, then put back and
 passing, counted as failures in tests: the landing read as the source's
@@ -30411,9 +30478,14 @@ landing for a Flag and a read mark, 4 in 1; the unread one not put back
 on the counts, 1 in 1; a failure not stopping the rest, and nothing left
 to undo again, 2 in 1; Edit mode's batch handing up no landing, 3 in 3;
 a letter of Drafts taken for a step, 1 in 1; the screens not taking the
-first responder as they appear, 1 in 1.
+first responder as they appear, 1 in 1. And since: the pane's step made
+from the pane's copy, 4 in 1; a letter found twice taken as found, 2 in
+1; no step for a Flag, 7 in 1; the Undo setting the same flag again, 6
+in 2; the Undo by the old id only, 3 in 1; the Undo sent beside a Flag
+on its way, 2 in 1; a failed Undo of a Flag not left to try again, 3 in
+1.
 
-The full suite, serially, with B-156's: 2,682 tests, 18 of them new, 6
+The full suite, serially, with B-156's: 2,689 tests, 25 of them new, 6
 skipped, none failing. The release build for the iPad links.
 
 **Not covered.**
@@ -30427,7 +30499,9 @@ skipped, none failing. The release build for the iPad links.
   check under "Blocked on the iPad coming back" is for it. The test iPad
   is on iPadOS 16.5.1, his on 18.
 - Mail's own undo was not seen (above): its alert's words on 18, how many
-  steps, whether a batch is one, whether it undoes flags.
+  steps, whether a batch is one, whether 18 still undoes a Flag, and what
+  it says after an Unflag. The device check reads Mail's alert after a
+  Flag on any iPadOS 18 device with Mail, if one is at hand.
 - A letter moved back is at the top of its folder at the next listing,
   not where Mail's date order would put it: the list is in the server's
   order (B-084), and Gmail gives a letter moved back the next UID. Until

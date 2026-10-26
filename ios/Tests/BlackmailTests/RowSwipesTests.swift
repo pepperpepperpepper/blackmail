@@ -95,14 +95,26 @@ final class RowSwipesTests: XCTestCase {
         XCTAssertEqual([RowSwipes.Action.archive, .move].map(\.title), ["Archive", "Move"])
     }
 
-    /// More's sheet: Reply, Reply All, Forward, then Flag or Unflag and Mark
-    /// as Unread or Mark as Read as the row is, in the Flag sheet's words,
-    /// and Move Message, and Cancel.
+    /// More's sheet: Reply, Reply All, Forward, then Trash Message, then
+    /// Flag or Unflag and Mark as Unread or Mark as Read as the row is, in
+    /// the Flag sheet's words, and Move Message, and Cancel, in the order of
+    /// Mail's sheet. Archive Message in Trash Message's place where the
+    /// account discards into the Archive and there is one; inside Trash
+    /// Delete Message.
     func testMoreOpensMailsSheetWithTheActionsBlackmailHas() {
-        XCTAssertEqual(RowMore.items(read: true, flagged: false).map(\.title),
-                       ["Reply", "Reply All", "Forward", "Flag", "Mark as Unread", "Move Message"])
-        XCTAssertEqual(RowMore.items(read: false, flagged: true).map(\.title),
-                       ["Reply", "Reply All", "Forward", "Unflag", "Mark as Read", "Move Message"])
+        XCTAssertEqual(RowMore.items(for: row(read: true, flagged: false)).map(\.title),
+                       ["Reply", "Reply All", "Forward", "Trash Message", "Flag", "Mark as Unread",
+                        "Move Message"])
+        XCTAssertEqual(RowMore.items(for: row(read: false, flagged: true)).map(\.title),
+                       ["Reply", "Reply All", "Forward", "Trash Message", "Unflag", "Mark as Read",
+                        "Move Message"])
+        XCTAssertEqual(RowMore.items(for: row(role: .trash))[3], .deleteMessage)
+        XCTAssertEqual(RowMore.Item.deleteMessage.title, "Delete Message")
+        let archiving = SwipeOptions(swipeLeft: .flag, swipeRight: .mark, discardInto: .archive)
+        XCTAssertEqual(RowMore.items(for: row(), options: archiving)[3].title, "Archive Message")
+        XCTAssertEqual(RowMore.items(for: row(canArchive: false), options: archiving)[3],
+                       .trashMessage)
+        XCTAssertEqual(RowMore.items(for: row(role: .trash), options: archiving)[3], .deleteMessage)
         XCTAssertEqual(RowMore.cancel, "Cancel")
     }
 
@@ -145,7 +157,7 @@ final class RowSwipesTests: XCTestCase {
                 + "{ swipes(at: ip, \\.right) }",
             "guard threads.indices.contains(ip.row) else { return UISwipeActionsConfiguration(actions: "
                 + "[]) }",
-            "let sides = RowSwipes.sides(for: swipeRow(thread), editing: tableView.isEditing)",
+            "let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)",
             "let button = UIContextualAction(style: .normal, title: action.title) { [weak self] _, _, "
                 + "done in done(self?.swiped(action, on: RowKey(thread)) ?? false) }",
             "configuration.performsFirstActionWithFullSwipe = true",
@@ -169,6 +181,11 @@ final class RowSwipesTests: XCTestCase {
             "guard !changing.isEmpty, !changing.contains(where: { letters.flagOnItsWay($0.id) || "
                 + "letters.dot(on: $0)?.onItsWay == true }) else { return false }",
             "onAnswer?(row.thread.newest, item == .replyAll, item == .forward, place)",
+            // More's Trash Message is the drag's own Trash; inside Trash its
+            // Delete Message asks first, as the drag's Delete.
+            "for item in RowMore.items(for: swipeRow(row.thread)) {",
+            "case .trashMessage: _ = swiped(.trash, on: key) case .archiveMessage: _ = "
+                + "swiped(.archive, on: key) case .deleteMessage: _ = swiped(.delete, on: key)",
             "self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving)",
         ] {
             XCTAssertTrue(list.contains(line), line)
@@ -196,6 +213,35 @@ final class RowSwipesTests: XCTestCase {
         ] {
             XCTAssertTrue(pane.contains(line), line)
         }
+    }
+
+    /// Edit mode is the list's own, on from Edit to Done, and never the
+    /// table's `isEditing`, which UIKit turns on while a drag holds a row's
+    /// buttons open: read as Edit mode, every button did nothing, and the
+    /// row slid back. Nothing in the list reads the table's; the swipe's
+    /// start and end are not handed to UITableViewController, which would
+    /// put the controller into editing.
+    func testEditModeIsTheListsOwnAndNotTheTablesWhichADragTurnsOn() throws {
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertFalse(list.contains("tableView.isEditing"))
+        XCTAssertFalse(list.contains("t.isEditing"))
+        XCTAssertTrue(list.contains("private var inEditMode = false"))
+        XCTAssertTrue(list.contains("let editing = !inEditMode inEditMode = editing "
+            + "tableView.setEditing(editing, animated: true)"))
+        XCTAssertEqual(list.components(separatedBy: "inEditMode = ").count - 1, 2,
+                       "declared, and set by Edit and Done alone")
+        for line in [
+            "let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)",
+            "guard !inEditMode, let row = lettersOfRow(key), !row.letters.isEmpty else {",
+            "private func chose(_ item: RowMore.Item, on key: RowKey) { guard !inEditMode, ",
+            "override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) {}",
+            "override func tableView(_ t: UITableView, didEndEditingRowAt ip: IndexPath?) { "
+                + "highlightLetterInPane() }",
+        ] {
+            XCTAssertTrue(list.contains(line), line)
+        }
+        XCTAssertFalse(list.contains("super.tableView(t, willBeginEditingRowAt"))
+        XCTAssertFalse(list.contains("super.tableView(t, didEndEditingRowAt"))
     }
 
     /// The colours are Mail's and the theme's: More's grey and Archive's

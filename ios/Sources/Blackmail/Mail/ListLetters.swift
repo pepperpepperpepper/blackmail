@@ -785,6 +785,29 @@ final class ListLetters: PaneActionList {
         flagging.values.contains { $0.contains(id) }
     }
 
+    /// The flag on the list's row for a letter the reading pane shows, and
+    /// whether a Flag set on it is on its way, as `dot(on:)` has the read
+    /// mark: the Flag button's sheet offers Flag or Unflag by it. A drag's
+    /// Flag or More's on the row (B-156) changes the row and not the pane.
+    /// Nil where the list has no row that is the letter.
+    func flag(on letter: MessageSummary) -> FlagMenu.Flag? {
+        guard let row = self.letter(letter.id), ListEdit.sameLetter(row, letter) else { return nil }
+        return FlagMenu.Flag(flagged: row.isFlagged, onItsWay: flagOnItsWay(letter.id))
+    }
+
+    /// The row the list shows now that is `letter`: under its id, or, in
+    /// the same folder, under another id with its Gmail id, as a letter
+    /// trashed and brought back by an Undo comes back under a new UID
+    /// (B-157). Nil where it shows none.
+    func shownRow(of letter: MessageSummary) -> MessageSummary? {
+        let rows = shown
+        if let same = rows.first(where: { $0.id == letter.id && $0.mailboxID == letter.mailboxID }) {
+            return same
+        }
+        guard let gmail = letter.gmailMessageID else { return nil }
+        return rows.first { $0.gmailMessageID == gmail && $0.mailboxID == letter.mailboxID }
+    }
+
     /// A letter taken off by a Delete or a Move that its Undo has moved
     /// back to the folder it was taken from (B-157), `id` its id there now,
     /// a new UID: its row back where it stood, under `id`, in front of the

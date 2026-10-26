@@ -166,12 +166,16 @@ enum PaneActions {
     ///
     /// `landed` hears where a Delete or a Move the server has taken put the
     /// letter, nil where the repository cannot say, once the list has been
-    /// billed for it: for its Undo (B-157).
+    /// billed for it: for its Undo (B-157). With the list's copy of the
+    /// letter at the tap, as the list took it off, which its row comes
+    /// back as: the pane's can be out of date, unread where the tap that
+    /// opened it has marked it read.
     static func refusal(running action: PaneAction, on letter: MessageSummary,
                         inFolderWithRole role: Mailbox.Role?,
                         list shown: PaneActionList?, repository: MailRepository,
                         requestSweep: @MainActor () -> Void,
-                        landed: @MainActor (MoveLanding?) -> Void = { _ in }) async -> MailError? {
+                        landed: @MainActor (MoveLanding?, MessageSummary) -> Void = { _, _ in })
+        async -> MailError? {
         let started = start(action, on: letter, inFolderWithRole: role, list: shown)
         let landing: MoveLanding?
         do {
@@ -181,7 +185,7 @@ enum PaneActions {
         }
         finish(started, failure: nil, requestSweep: requestSweep)
         switch action {
-        case .delete, .move: landed(landing)
+        case .delete, .move: landed(landing, started.before)
         case .flag, .read: break
         }
         return nil

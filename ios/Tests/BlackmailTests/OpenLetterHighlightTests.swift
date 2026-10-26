@@ -79,7 +79,7 @@ final class OpenLetterHighlightTests: XCTestCase {
     func testTheControllerHighlightsThePanesLetterAtDoneAndOnADaysList() throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertEqual(flat(body(after: "private func highlightLetterInPane()", in: list)),
-                       "{ guard !tableView.isEditing, let row = ListEdit.paneRow(in: threads, "
+                       "{ guard !inEditMode, let row = ListEdit.paneRow(in: threads, "
                        + "showing: lettersInPane()) else { return } tableView.selectRow(at: "
                        + "IndexPath(row: row, section: 0), animated: false, scrollPosition: .none) }")
         XCTAssertTrue(list.contains("var lettersInPane: () -> [String] = { [] }"))
@@ -91,15 +91,18 @@ final class OpenLetterHighlightTests: XCTestCase {
         let show = flat(body(after: "private func show(_ window: MessageWindow)", in: list))
         inOrder(["rebuildRows()", "tableView.reloadData()", "highlightLetterInPane()",
                  "tableView.scrollToRow("], in: show)
+        // And as a drag's buttons close (B-156).
         XCTAssertEqual(lines(of: list, containing: "highlightLetterInPane()"),
                        ["highlightLetterInPane()", "highlightLetterInPane()",
-                        "private func highlightLetterInPane() {"])
+                        "private func highlightLetterInPane() {", "highlightLetterInPane()"])
+        XCTAssertEqual(flat(body(after: "didEndEditingRowAt ip: IndexPath?)", in: list)),
+                       "{ highlightLetterInPane() }")
         // Every other redraw puts back the selection it took, and with none
         // to put back, out of Edit mode, highlights the pane's letter.
         XCTAssertTrue(flat(body(after: "private func regroup(highlighting", in: list)).contains(
             "let threads = self.threads var selection = before.selection(in: threads, "
-            + "opened: opened, editing: tableView.isEditing) if selection.isEmpty, "
-            + "!tableView.isEditing, let row = ListEdit.paneRow(in: threads, "
+            + "opened: opened, editing: inEditMode) if selection.isEmpty, "
+            + "!inEditMode, let row = ListEdit.paneRow(in: threads, "
             + "showing: lettersInPane()) { selection = [row] } for row in selection { "
             + "tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false, "
             + "scrollPosition: .none) }"))

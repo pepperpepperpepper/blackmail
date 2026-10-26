@@ -46,14 +46,13 @@ struct UndoableMove: Equatable {
     /// where it went (`landings`, by id); nil when there is nothing to undo.
     ///
     /// Not undone, as there is nothing to move back or nothing safe to: a
-    /// letter erased inside Trash, which has no landing; a Flag and a read
-    /// mark, which Mail is not known for certain to undo (one guide of 2023
-    /// lists an "Undo Flag", Apple says nothing), and which the same button
-    /// undoes; a letter of Drafts, which Gmail does not bring back from
-    /// Trash as a draft; one kept on this iPad, which never went to the
-    /// server; a Move that leaves its row on the list, a letter filed from
-    /// All Mail into a folder, which stays in All Mail; and a letter with
-    /// no Gmail id, which cannot be made sure of where it went
+    /// letter erased inside Trash, which has no landing; a Flag, which is
+    /// a step of its own (`UndoableFlag`), and a read mark, which nothing
+    /// says Mail undoes; a letter of Drafts, which Gmail does not bring
+    /// back from Trash as a draft; one kept on this iPad, which never went
+    /// to the server; a Move that leaves its row on the list, a letter
+    /// filed from All Mail into a folder, which stays in All Mail; and a
+    /// letter with no Gmail id, which cannot be made sure of where it went
     /// (`MailRepository.moveBack`).
     static func after(_ action: PaneAction, took letters: [MessageSummary],
                       landings: [String: MoveLanding],
@@ -73,6 +72,47 @@ struct UndoableMove: Equatable {
             return Letter(row: row, landing: landing)
         }
         return undone.isEmpty ? nil : UndoableMove(kind: kind, letters: undone)
+    }
+}
+
+/// One step of Mail's Undo for a Flag or an Unflag (B-157): Mail's
+/// "Undo Flag", which one guide of 2023 lists with its "Undo Trash" and
+/// "Undo Archive" (macReports); nothing says Mail undoes a read mark, and
+/// nothing here does. The letters whose flag the server took, from a drag,
+/// More or the reading pane, and the flag that was set on them: Undo sets
+/// the other back, on those letters alone. Not seen: the alert's words
+/// after an Unflag.
+struct UndoableFlag: Equatable {
+    /// The flag set: true for a Flag, false for an Unflag.
+    let flagged: Bool
+    let letters: [MessageSummary]
+
+    /// "Undo Flag", or "Undo Unflag", in UIKit's alert.
+    var actionName: String { flagged ? "Flag" : "Unflag" }
+
+    /// The step for `action` on `letters`, those the server took it on;
+    /// nil for anything but a Flag or an Unflag, and when there is nothing
+    /// to undo. Not a letter kept on this iPad, which has no flag on the
+    /// server.
+    static func after(_ action: PaneAction, took letters: [MessageSummary]) -> UndoableFlag? {
+        guard case .flag(let flagged) = action else { return nil }
+        let undone = letters.filter { LocalDraft.key(ofRow: $0.id) == nil }
+        return undone.isEmpty ? nil : UndoableFlag(flagged: flagged, letters: undone)
+    }
+}
+
+/// A step of Mail's Undo (B-157), as the screens' undo manager holds it: a
+/// Trash or a Move, or a Flag or an Unflag.
+enum Undoable: Equatable {
+    case move(UndoableMove)
+    case flag(UndoableFlag)
+
+    /// What UIKit puts after "Undo".
+    var actionName: String {
+        switch self {
+        case .move(let step): return step.actionName
+        case .flag(let step): return step.actionName
+        }
     }
 }
 
@@ -137,5 +177,46 @@ enum UndoMoves {
         }
         if sweepOwed { requestSweep() }
         return outcome
+    }
+
+    /// What became of an Undo of a Flag.
+    struct FlagOutcome: Equatable {
+        /// The letters whose flag went back, by the id each has now.
+        var back: [String] = []
+        /// What was not put back after a failure, to undo again: one more
+        /// shake tries it. The step as it was while a Flag on one of its
+        /// letters is still on its way, with nothing sent.
+        var left: UndoableFlag?
+        var refusal: MailError?
+    }
+
+    /// Puts back the flag `step` changed, as Edit mode's batch goes
+    /// (`ListBatch`): the rows' flag at once, a STORE a letter at a time,
+    /// the first failure stopping the rest and putting back what was not
+    /// taken. Nothing is sent but each letter's STORE.
+    ///
+    /// Each letter as `list` shows it now, where it does: a letter trashed
+    /// after its Flag and brought back by that step's Undo is in its folder
+    /// under a new id (`ListLetters.shownRow`). Where the list no longer
+    /// shows it, or has gone, by the id it had, which the repository makes
+    /// sure of before the STORE goes. Not while a Flag on any of them is on
+    /// its way, as a drag and the pane wait for their own: the step is
+    /// left, nothing sent, for the next shake.
+    static func run(_ step: UndoableFlag, repository: MailRepository, list: ListLetters?,
+                    requestSweep: @MainActor () -> Void) async -> FlagOutcome {
+        let letters = step.letters.map { list?.shownRow(of: $0) ?? $0 }
+        if let list, letters.contains(where: { list.flagOnItsWay($0.id) }) {
+            return FlagOutcome(left: step)
+        }
+        // A Flag's effect does not hang on the folder's role
+        // (`PaneActions.effect`).
+        let outcome = await ListBatch.run(.flag(!step.flagged), on: letters, role: { _ in nil },
+                                          list: list, repository: repository,
+                                          requestSweep: requestSweep)
+        let left = letters.filter { outcome.notTaken.contains($0.id) }
+        return FlagOutcome(back: outcome.taken,
+                           left: outcome.refusal == nil || left.isEmpty
+                               ? nil : UndoableFlag(flagged: step.flagged, letters: left),
+                           refusal: outcome.refusal)
     }
 }
