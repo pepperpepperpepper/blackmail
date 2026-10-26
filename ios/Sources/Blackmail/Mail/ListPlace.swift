@@ -569,7 +569,7 @@ enum KeptSwap: Equatable {
     /// the watch's letters do, since a row that moves under a finger is a
     /// tap on the neighbouring letter.
     case waitForLift
-    /// Rows ticked in Edit mode: nothing until Done, or the last tick taken
+    /// Rows ticked in Edit mode: nothing until Cancel, or the last tick taken
     /// off, as the watch's letters wait (B-049). Rows moved under his ticks
     /// are a Delete or a Move of letters he did not choose, and a ticked
     /// kept row the fresh page does not have would lose its tick without a

@@ -584,7 +584,7 @@ extension Draft {
     /// attachments from original message?", which Forward asks of a letter
     /// with files the header lists (`ReplyFiles.forwardAsks`, B-107):
     /// Include, or no question, carries every part, as a forward always
-    /// has; Don't Include only the pictures the original shows in its body,
+    /// has; Don’t Include only the pictures the original shows in its body,
     /// which its quote shows too (`DraftAttachment.carried(from:)`), and
     /// none when its quote is cut to what fits, which shows none (B-140).
     static func forwarding(_ m: Message, signature: String = "",
@@ -614,7 +614,7 @@ extension Draft {
         // behind sends a letter about nothing, and does it silently — which
         // is the part that matters, because nothing on the sending screen
         // said they had been dropped. They are left only when he answers
-        // Don't Include to the question Forward asks first.
+        // Don’t Include to the question Forward asks first.
         //
         // Every part is a row, the pictures the original shows in its body
         // included, so he can see what the forward weighs and take any of
@@ -627,7 +627,7 @@ extension Draft {
         // the same way.
         //
         // A quote cut to what fits (B-140) quotes the words alone, without
-        // the original's pictures, so Don't Include carries none: the
+        // the original's pictures, so Don’t Include carries none: the
         // pictures it would carry are the ones the quote shows, and here
         // it shows none. They went as files.
         draft.attachments = quoted.isCut && !includingFiles

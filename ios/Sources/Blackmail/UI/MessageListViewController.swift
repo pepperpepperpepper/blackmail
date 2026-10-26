@@ -1089,7 +1089,7 @@ final class MessageListViewController: UITableViewController {
     /// Puts the fresh page in place of the kept one, where `KeptSwap` says,
     /// or leaves it waiting for a finger to lift or his ticks to go. Called
     /// as it comes, and again whenever the finger may have lifted, and at
-    /// Done and the last tick taken off.
+    /// Cancel and the last tick taken off.
     @MainActor
     private func landFreshPage() {
         guard overKept.waiting != nil, isViewLoaded else { return }
@@ -1103,7 +1103,7 @@ final class MessageListViewController: UITableViewController {
         // the page is dropped: that list has the say.
         guard let fresh = overKept.landing(showingKept: letters.fromShelf, swap) else {
             // A finger lifted from a tap tells the list nothing, so it is
-            // looked for; Done and the last tick taken off call this again.
+            // looked for; Cancel and the last tick taken off call this again.
             if swap == .waitForLift, overKept.waiting != nil { waitForLift() } else { stopWaitingForLift() }
             return
         }
@@ -2344,7 +2344,7 @@ final class MessageListViewController: UITableViewController {
 
     /// Highlights the row of the letter the reading pane shows, if the list
     /// has it (`ListEdit.paneRow`), where the table has dropped the
-    /// highlight with the letter still open: at Done, Edit mode having
+    /// highlight with the letter still open: at Cancel, Edit mode having
     /// cleared the selection as it began, and on a day's list, whose rows
     /// replace the list's (B-133). Mail keeps the open message's row
     /// selected. Not scrolled to, and nothing opened: `selectRow` tells the

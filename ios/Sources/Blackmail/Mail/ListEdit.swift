@@ -193,7 +193,7 @@ enum ListEdit {
     /// (B-133).
     ///
     /// For where the table has dropped the highlight with the letter still
-    /// open: Edit mode, which clears the selection and whose Done puts
+    /// open: Edit mode, which clears the selection and whose Cancel puts
     /// nothing back, a day jumped to, whose rows replace the list's, and a
     /// redraw with no selection to put back, a page that brings the row
     /// after such a day. Mail keeps the open message's row selected.

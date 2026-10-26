@@ -956,7 +956,7 @@ final class RootViewController: UIViewController {
             self?.detail.clearIfShowing(any: letters)
         }
         // The row of the letter in the reading pane highlighted again at
-        // Edit mode's Done and on a day's list (B-133).
+        // Edit mode's Cancel and on a day's list (B-133).
         list.lettersInPane = { [weak self] in
             self?.detail.lettersShown ?? []
         }

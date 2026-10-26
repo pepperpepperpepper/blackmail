@@ -6,9 +6,10 @@ import Foundation
 /// Three runs, one after the other:
 ///
 /// 1. *The Inbox, then the folders with a role*, in a fixed order: Drafts,
-///    Sent Mail, Spam, Trash, All Mail. Each is named by the last part of
-///    its name and indented by how deep the name is, as it always was:
-///    Gmail's sit one step in, inside "[Gmail]", which is not drawn.
+///    Sent Mail, Spam, Trash, All Mail (the server's names; Sent and Junk
+///    on screen, B-144). Each is named by the last part of its name and
+///    indented by how deep the name is, as it always was: Gmail's sit one
+///    step in, inside "[Gmail]", which is not drawn.
 /// 2. *The server's other folders inside that same container*, Gmail's
 ///    Important and Starred and a label made inside "[Gmail]", by name, at
 ///    the same step in. They used to be sorted by name among the labels,

@@ -1499,7 +1499,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// Mail's question about the original's files (B-107), as an action
-    /// sheet at the Reply button, where the choice was made: Include, Don't
+    /// sheet at the Reply button, where the choice was made: Include, Don’t
     /// Include, and Cancel, which on the iPad is a tap outside it, and
     /// begins no letter. `answer` hears true for Include.
     private func askAboutFiles(_ answer: @escaping (Bool) -> Void) {

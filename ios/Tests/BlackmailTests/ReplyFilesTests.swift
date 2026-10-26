@@ -271,7 +271,7 @@ final class ReplyFilesTests: XCTestCase {
     // MARK: - The rows
 
     /// The rule's rows are a forward's, byte for byte, made by the one
-    /// mapper: every part, the pictures the body shows among them. Don't
+    /// mapper: every part, the pictures the body shows among them. Don’t
     /// Include leaves a forward those pictures alone.
     func testTheRowsAreAForwardsByteForByte() throws {
         let m = letter()
@@ -330,7 +330,7 @@ final class ReplyFilesTests: XCTestCase {
     /// Each of Mail's four answers: Never carries nothing and follows
     /// nothing; When Adding Recipients opens with none and follows; Always
     /// opens with them and follows nothing; Ask opens with them for
-    /// Include, and with none for Don't Include or with no question.
+    /// Include, and with none for Don’t Include or with no question.
     func testTheFourModes() throws {
         XCTAssertEqual(ReplyFiles.mode, .whenAddingRecipients)
         let m = letter()
@@ -547,7 +547,7 @@ final class ReplyFilesWiringTests: XCTestCase {
 
     /// Forward asks Mail's question only of a letter with files the header
     /// lists, at the Reply button, in Mail's words, with Cancel; Include
-    /// and Don't Include each begin the forward with their rows. Reply and
+    /// and Don’t Include each begin the forward with their rows. Reply and
     /// Reply All ask only under Ask.
     func testForwardAsksMailsQuestionAtTheReplyButton() throws {
         let code = try source(Self.pane)
