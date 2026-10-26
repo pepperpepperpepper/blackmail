@@ -905,6 +905,25 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertFalse(actions.asksAnyway)
     }
 
+    /// A draft the pass has given up on is one Cancel asks about as it
+    /// opened (B-165): its row says to tap Cancel, then Save Draft. Read
+    /// at the tap from where it is kept (`DraftKeeping.isHeldDraft`);
+    /// kept nowhere, as a share is, nothing is held.
+    func testAHeldDraftIsOneCancelAsksAbout() {
+        var held = false
+        var keeping = DraftKeeping.nowhere
+        keeping.isHeldDraft = { held }
+        let actions = ComposeActions(
+            sendLetter: { _, _ in }, saveDraft: { _ in }, deleteDraft: { _, _ in },
+            dismiss: {}, showError: { _ in }, draw: { _ in },
+            background: background.time, keeping: keeping)
+        XCTAssertFalse(actions.asksAnyway)
+        held = true
+        XCTAssertTrue(actions.asksAnyway)
+        XCTAssertFalse(DraftKeeping.nowhere.isHeldDraft())
+        XCTAssertFalse(makeActions().asksAnyway)
+    }
+
     /// A Send the server refused is a change Cancel asks about, however
     /// the form reads: it took the letter out of the Outbox, and a Cancel
     /// that asked nothing would put it back there for the next pass to

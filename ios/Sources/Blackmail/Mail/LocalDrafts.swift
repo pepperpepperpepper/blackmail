@@ -132,6 +132,10 @@ extension LocalDraft {
     /// on the composer's bar but in the sheet its Cancel brings up, so the
     /// way there is said a tap at a time: "Open it and tap Save Draft"
     /// would have had him look for a button the screen does not show.
+    /// Cancel brings that sheet up for such a letter even when he has not
+    /// changed it (`DraftKeeping.isHeldDraft`, B-165): an untouched letter
+    /// closes with nothing asked, and these words named a sheet that
+    /// never came.
     static let notSavedByItself =
         "Not saved to Gmail automatically. Open it, tap Cancel, then Save Draft."
 
@@ -1649,6 +1653,15 @@ final class LocalDrafts {
                 sheet.held = true
                 saving[key, default: 0] += 1
                 closed(key)
+            },
+            isHeldDraft: { [self] in
+                // A draft as he sees it in Drafts. One opened from the
+                // Outbox is not, however it is kept now: its row says to
+                // open it and tap Send, and Send is on the bar.
+                guard fromOutbox[key] == nil, let letter = store.letter(key) else {
+                    return false
+                }
+                return !letter.gone && letter.outbox == nil && isHeld(letter)
             })
     }
 
@@ -2453,6 +2466,12 @@ struct DraftKeeping {
     /// a draft saved at once (B-087). Nothing but the save takes it to the
     /// server until `letGo`.
     var putAway: @MainActor () -> Void = {}
+    /// Whether the letter is a draft the pass has given up on
+    /// (`LocalDrafts.isHeld`), not one opened from the Outbox: its row in
+    /// Drafts tells him to open it, tap Cancel, then Save Draft
+    /// (`LocalDraft.notSavedByItself`), so Cancel asks about it even as
+    /// it opened (`ComposeActions.asksAnyway`, B-165).
+    var isHeldDraft: @MainActor () -> Bool = { false }
     /// How long after the last change the letter is kept.
     var pause: Duration = .seconds(3)
     /// Waits `pause`. A test hands in one it lets go by hand.
