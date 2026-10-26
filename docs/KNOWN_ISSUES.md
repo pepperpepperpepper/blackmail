@@ -32947,9 +32947,13 @@ skipped, none failing. The release build for the iPad links.
 - The kept copy of the folder (D-016) is not patched: the letter is in
   it again at the next listing.
 
-**Integration (int18, with B-144).** The TODO check's steps 2 and 3 say
-the Edit bar's "Trash" and the Move sheet's "Junk", "Delete" and "Spam"
-on a build without B-144.
+**Integration (int18, with B-144 and B-152).** The TODO check's steps 2
+and 3 say the Edit bar's "Trash" and the Move sheet's "Junk", "Delete"
+and "Spam" on a build without B-144. An Undo of a Move puts the row back
+from the row as it was at the tap, which had dropped B-152's arrow for a
+reply or a forward that went while the letter was away, though Gmail had
+the mark; `ListLetters.restore` carries the mark over from the hidden row
+the list still holds, pinned in `SentMarkTests`, one test new.
 
 ## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 

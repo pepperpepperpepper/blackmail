@@ -846,6 +846,10 @@ final class ListLetters: PaneActionList {
     /// took one off them (`removalLanded`) has it put back on, and the
     /// counts are swept besides by the Undo (`UndoMoves`).
     ///
+    /// `row` is the row as it was at the tap; a reply's or a forward's mark
+    /// that landed while the letter was away (`originalMarked`, B-152) is
+    /// on the hidden row the list still holds, and is carried over from it.
+    ///
     /// Returns false, with nothing changed, when the list no longer holds
     /// the row it was taken under: fetched afresh since, which the server
     /// has had the say on. The letter is in the folder all the same, and
@@ -853,7 +857,12 @@ final class ListLetters: PaneActionList {
     /// UID there (B-084).
     @discardableResult
     func restore(_ row: MessageSummary, as id: String) -> Bool {
-        let back = row.renamed(id)
+        var back = row.renamed(id)
+        let sameRow = { (r: MessageSummary) in r.id == row.id && r.mailboxID == row.mailboxID }
+        if let now = folder.first(where: sameRow) ?? results?.first(where: sameRow) {
+            back.isAnswered = back.isAnswered || now.isAnswered
+            back.isForwarded = back.isForwarded || now.isForwarded
+        }
         var placed = false
         func put(_ letters: inout [MessageSummary]) {
             guard !letters.contains(where: { $0.id == id && $0.mailboxID == row.mailboxID }),

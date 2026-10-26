@@ -466,6 +466,29 @@ final class SentMarkTests: XCTestCase {
         XCTAssertEqual(changes, [])
     }
 
+    /// A letter moved away and brought back by an Undo (B-157) comes back
+    /// from the row as it was at the tap; a reply's mark that landed while
+    /// it was away, on the row the list still held hidden, comes back
+    /// with it, as Gmail has the flag, and not only at the next listing.
+    func testAMarkThatLandedWhileTheLetterWasAwayComesBackWithItsUndo() {
+        func row(_ n: UInt64) -> MessageSummary {
+            MessageSummary(id: "1/\(n)", mailboxID: "INBOX", sender: "Jane", subject: "Letter \(n)",
+                           preview: "", date: Date(timeIntervalSince1970: 1_700_000_000 + Double(n)),
+                           isRead: true, isFlagged: false, threadID: "t\(n)", gmailMessageID: 700 + n)
+        }
+        let list = ListLetters()
+        _ = list.fetchedAfresh([row(3), row(2), row(1)])
+        let atTheTap = row(2)
+        list.take(atTheTap, fromEveryFolder: false)
+        XCTAssertEqual(list.shown.map(\.id), ["1/3", "1/1"])
+
+        list.originalMarked(OriginalLetter(kind: .reply, letter: 702, mailboxID: "[Gmail]/All Mail"))
+        XCTAssertTrue(list.restore(atTheTap, as: "1/9"))
+        XCTAssertEqual(list.shown.map(\.id), ["1/3", "1/9", "1/1"])
+        XCTAssertEqual(list.shown.map(\.isAnswered), [false, true, false])
+        XCTAssertEqual(list.shown.map(\.isForwarded), [false, false, false])
+    }
+
     /// Read from the source: the list controller hears the mark and hands
     /// it to its letters.
     func testTheListControllerHearsTheMark() throws {
