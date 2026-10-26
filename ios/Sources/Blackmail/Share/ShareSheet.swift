@@ -25,6 +25,9 @@ final class ShareSheet {
     private var started = Draft()
     /// Send has been tapped, whether or not the letter went.
     private var sendTapped = false
+    /// To, for a share opened from a circle at the top of the share sheet
+    /// (B-163); empty for one opened from Blackmail's icon.
+    private let circle: [String]
 
     /// `finish` ends the share once the letter has gone and `cancel` once
     /// Cancel has put it away: the extension's `completeRequest` and
@@ -33,7 +36,12 @@ final class ShareSheet {
     /// plays its sent sound as it goes (B-100); never before `cancel`, nor
     /// for a letter that did not go.
     /// `noteSent` hears who a letter that went was addressed to
-    /// (`ShareMirror.noteSent`). `openFile` says where a staged file is
+    /// (`ShareMirror.noteSent`), and `donate` the people it went to, for
+    /// their circle at the top of the share sheet (`SentConversation`,
+    /// B-163): neither for a letter that did not go, and `donate` not for
+    /// one to nobody but himself. `circle` is To for a share opened from
+    /// one of those circles, its people, and nobody for one opened from
+    /// Blackmail's icon (`letter`). `openFile` says where a staged file is
     /// read from at Send, as it goes (`ShareSheet.staged`). `memory` says
     /// what the extension has left (`SharedPhoto.memory`), for the log at
     /// each step of Send.
@@ -47,8 +55,11 @@ final class ShareSheet {
          sent: @escaping () -> Void = {},
          showError: @escaping (MailError) -> Void,
          draw: @escaping (ComposeActions.Look) -> Void,
-         background: BackgroundTime) {
+         background: BackgroundTime,
+         circle: [String] = [],
+         donate: @escaping (SentConversation) -> Void = { _ in }) {
         self.shared = shared
+        self.circle = circle
         let account = shared.account
         actions = ComposeActions(
             sendLetter: { draft, progress in
@@ -98,6 +109,9 @@ final class ShareSheet {
                 // Only after the server took it, as the app's book counts
                 // only letters that went.
                 noteSent(Submission.recipients(of: draft).map(MailFormat.bareAddress))
+                if let conversation = SentConversation.of(draft, mine: OwnAddresses(account: account)) {
+                    donate(conversation)
+                }
             },
             // Never asked: Cancel puts a share away without keeping a
             // draft, and a share has no copy in Drafts to tidy.
@@ -113,9 +127,14 @@ final class ShareSheet {
             sent: sent)
     }
 
-    /// The letter a share starts as, signed as the app signs a new one.
+    /// The letter a share starts as, signed as the app signs a new one,
+    /// with the people of the circle the share was opened from in To
+    /// (`circle`, `SentConversation.to`, B-163), as Mail's share sheet has
+    /// them there, or nobody. Begun with them, Cancel asks nothing about
+    /// them.
     func letter(from items: [SharedItem]) -> Draft {
         started = ShareLetter.draft(from: items, signature: shared.account.signature)
+        started.to = circle
         return started
     }
 
@@ -224,11 +243,14 @@ extension ShareSheet {
                      sent: @escaping () -> Void = {},
                      showError: @escaping (MailError) -> Void,
                      draw: @escaping (ComposeActions.Look) -> Void,
-                     background: BackgroundTime) {
+                     background: BackgroundTime,
+                     circle: [String] = [],
+                     donate: @escaping (SentConversation) -> Void = { _ in }) {
         self.init(shared: shared, transport: transport,
                   openFile: { .bytes(try readFile($0)) },
                   memory: memory, noteSent: noteSent, finish: finish, cancel: cancel,
-                  sent: sent, showError: showError, draw: draw, background: background)
+                  sent: sent, showError: showError, draw: draw, background: background,
+                  circle: circle, donate: donate)
     }
 }
 

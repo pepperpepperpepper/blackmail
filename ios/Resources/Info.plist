@@ -100,6 +100,13 @@
 	<string>Blackmail saves the pictures you choose to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Blackmail saves the pictures you choose to Photos.</string>
+	<!-- The people at the top of the share sheet (B-163): each letter that
+	     goes is told to iOS as this intent (`SentConversation`), and the
+	     share extension takes it (IntentsSupported in ShareInfo.plist). -->
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
 	<key>MinimumOSVersion</key>
 	<string>16.0</string>
 	<key>UIDeviceFamily</key>

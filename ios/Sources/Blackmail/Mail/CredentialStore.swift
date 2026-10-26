@@ -222,6 +222,9 @@ enum CredentialStore {
         // And the extension's copy, or a share would go on sending as an
         // account that has been taken out of the app.
         ShareMirror.app?.clear()
+        // And the people iOS was told of, so the share sheet's circles do
+        // not go on offering the account's people (B-163).
+        SentConversation.forgetAll()
     }
 
     // MARK: - Keychain plumbing

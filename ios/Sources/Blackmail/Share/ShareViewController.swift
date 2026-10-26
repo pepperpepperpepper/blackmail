@@ -5,6 +5,7 @@
 import UIKit
 import UniformTypeIdentifiers
 import AudioToolbox
+import Intents
 
 /// The share extension (B-036): what Safari, YouTube or Photos show when
 /// Blackmail is chosen in the share sheet.
@@ -99,13 +100,30 @@ public final class ShareViewController: UIViewController,
         var line: String?
         if case .line(let words) = leftOut { line = words }
         let form = ShareComposeViewController(
-            shared: shared, items: items, leftOut: line,
+            shared: shared, items: items, leftOut: line, to: circle(),
             finish: { [weak self] in
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
             },
             cancel: { [weak self] in self?.cancel() })
         self.form = form
         nav.setViewControllers([form], animated: false)
+    }
+
+    /// To, for a share opened from a circle at the top of the share sheet:
+    /// the people iOS hands back with it, as Blackmail told it of them
+    /// (`SentConversation`, B-163); nobody for a share opened from
+    /// Blackmail's icon, which hands back nothing. The log says how many,
+    /// and no address.
+    private func circle() -> [String] {
+        guard let intent = extensionContext?.intent as? INSendMessageIntent else { return [] }
+        let people = (intent.recipients ?? []).compactMap { person -> MailFormat.Recipient? in
+            guard let address = person.personHandle?.value else { return nil }
+            let name = person.displayName == address ? nil : person.displayName
+            return MailFormat.Recipient(name: name, address: address)
+        }
+        let to = SentConversation.to(people: people, identifier: intent.conversationIdentifier)
+        Diagnostics.log(.note, "SHARE-SUGGESTION opened people=\(to.count)")
+        return to
     }
 
     /// The window as well as this controller is dark, so what is put up
@@ -247,7 +265,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private let sendingSpinner = UIActivityIndicatorView(style: .medium)
     private lazy var sendingSpinnerItem = UIBarButtonItem(customView: sendingSpinner)
 
-    init(shared: ShareMirror.Shared, items: [SharedItem], leftOut: String?,
+    /// `to` is who To begins with: the people of the circle the share was
+    /// opened from, or nobody (B-163).
+    init(shared: ShareMirror.Shared, items: [SharedItem], leftOut: String?, to: [String],
          finish: @escaping () -> Void, cancel: @escaping () -> Void) {
         draft = Draft()
         self.leftOut = leftOut
@@ -266,7 +286,12 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
                 ErrorPresenter.show(error, on: self)
             },
             draw: { [weak self] look in self?.draw(look) },
-            background: .extensionTime)
+            background: .extensionTime,
+            // The circle the share was opened from, its people in To, and
+            // his circles at the top of the share sheet, as the app's
+            // letters make them too (B-163).
+            circle: to,
+            donate: SentConversation.donate)
         draft = sheet.letter(from: items)
         began = draft.body
         title = ComposeForm.title(subject: draft.subject)
