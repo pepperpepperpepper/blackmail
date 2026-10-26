@@ -30247,3 +30247,126 @@ iPad links.
   search of up to 2 MiB, not timed on the iPad.
 - A picture shown by `cid:` among the words is marked as among them too;
   it is no file, and nothing lists it, so nothing changes for it.
+
+## B-149 — FIXED 2026-10-26, not yet seen on the iPad. At a tap on another letter the letter he left stayed under the new header for a frame or two; the pane is covered in its own colour from the tap until WebKit has painted what comes in its place, and never longer than half a second
+
+**Found** as B-098, recorded and left; the owner's question "One frame of
+the letter before" (TODO, under "Blocked on the owner"), ruled on
+2026-10-26: "close the gaps in our decision tree by copying Apple Mail".
+
+**What Mail does.** Not seen. Mail's code in iOS 18.6 has a view named
+`MFMessageContentLoadingView` and a `renderingProgressDidChange`, WebKit's
+word of what it has painted (names in MobileMailUI, read; nothing run),
+which reads as a cover over the letter until WebKit's first paint. Low
+confidence: a recording of Mail at 60 frames a second, going from letter
+to letter, would settle it, and needs Mail restored on the test iPad
+(B-028), or an iPadOS 18 device. The half-second limit is the app's own,
+not Mail's.
+
+**What it was.** B-098: the header is UIKit's and changes in the frame of
+the tap; the web view shows what it painted last until it has painted the
+new document, "Loading…" or a conversation's lines, a frame or two later.
+On the test iPad on 2026-10-25 the letter before stood under the new
+header, or beside the new selection, for 17 to 33 ms in 3 taps of 7 (5 of
+7 on 2026-10-21), and the first letter after a launch had two frames of an
+empty pane. B-098 left it, a cover that failed to lift being worse than a
+frame of the letter before.
+
+**Changed.**
+
+1. *The cover* (`MessageDetailViewController.cover`): a plain view over
+   the web view, its four edges on the web view's, under "No message
+   selected", in `Theme.canvas`, the web view's own colour; hidden at
+   first. It takes the touches that land on it, so nothing of the letter
+   hidden under it can be tapped.
+2. *Up at the tap* (`coverPane`): first thing in `show(summary:)` and
+   `show(thread:)`, before the header is given the letter, so the header
+   and the cover change in the same frame; the first letter after a launch
+   too. Nowhere else: not for a letter opened by its line in a
+   conversation, which goes into the page already there, nor a body put
+   in, his letters from Sent Mail, a letter come into the conversation or a
+   page drawn again after WebKit lost it. Down as the pane empties.
+3. *Down at the paint* (`PaneCover`, out of the controller so the suite can
+   run it): of the document the pane gave the web view last while it was
+   up, "Loading…", the conversation's lines, or the letter's own page if it
+   came first, once WebKit has committed that navigation
+   (`webView(_:didCommit:)`), at the first painting milestone after it,
+   which WebKit sends with the layers that show it: the first layout with
+   something to see, the first paint with a good part of the view painted,
+   the first paint, the first paint that means something (bits 1, 2, 6 and
+   8 of `_WKRenderingProgressEvents`, as WebKit's source has them, not read
+   from the iPad's own). A paint of a document given before
+   the tap, or before its commit, lifts nothing. WebKit tells these to its
+   navigation delegate's private `_webView:renderingProgressDidChange:`
+   once asked by its private `_setObservedRenderingProgressEvents:`, which
+   the pane reaches by key-value coding only where the web view responds
+   to it, as `LetterPrint` reaches `setShouldPrintBackgrounds:`. Where it
+   does not, the cover lifts at the end of the document instead
+   (`didFinish`).
+4. *Never longer than half a second* (`PaneCover.limit`): a timer from each
+   tap lifts it then, whatever WebKit has said, and writes "pane: cover
+   lifted by its limit" in the connection log; the timer of an earlier tap
+   lifts nothing.
+
+**What it reverses.** B-098's "For a frame, it is left as it is", and its
+"Still left as it is" of 2026-10-25.
+
+**Not changed.** The header at the tap (B-127), the "Loading…" page and
+the letter's page after it, the list's selection, the stack.
+
+**What he sees.** At a tap on a row, the new header over the pane's black,
+then "Loading…" or the conversation, as before; never the letter he left.
+Were WebKit slow to paint, black for up to half a second, then whatever
+the web view has by then. No new words.
+
+**Tests.** `PaneCoverTests`, seven, new. Up at the tap, down at the first
+paint of the document given after it once committed, not at a paint of the
+letter before, of a document from before the tap, or before the commit;
+down once. "Loading…" given and the letter's page given before it painted:
+the cover waits for the page. Each of the four milestones lifts it, alone
+or with others, and the first layout and the other bits do not; the bits,
+the private names and the key that reaches the setter. The limit of the
+last tap lifts it, an earlier tap's does not, and a cover painted first
+is not lifted again by its limit. With no word of the paint, the end of
+the document awaited lifts it, another's does not, and with the word it
+does not; a document with no navigation waits for the limit. A document
+given while the cover was down, or under the tap before, is not waited
+for. And read from the source: the cover over the web view, edge to edge,
+under the words of an empty pane, in the pane's colour and hidden; up
+first in each `show` and in nothing else, not in `loadBody`, `fill`,
+`takeArrivals`, `takeRelated`, `drawAgain` or `focusRow`; down in
+`showEmpty`; every document given by `load`, which tells the cover; the
+commit, the paint by the private name, the end, and the limit with its
+line in the log; the events asked for only where the setter is.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run, then put back and passing, counted as failures in tests: a paint
+before the commit lifting it, 13 in 4; the first document given waited
+for, not the last, 2 in 1; the limit of any tap lifting it, 3 in 1; the
+first layout lifting it, 5 in 1; the end of the document lifting it though
+WebKit tells of its paint, 3 in 1; a tap keeping the document of the tap
+before, 3 in 1; the cover not put up at a tap on a row, read from the
+source, 2 in 1.
+
+The full suite, serially, with B-148 and B-150 beside it: 2,686 tests, 7
+of them this entry's, 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: that no frame of the letter before shows, in a
+  recording at 60 frames a second (the check); whether WebKit on 16.5.1,
+  and on 18, sends these milestones to the private method at all, and
+  when. If it does not, every tap logs "pane: cover lifted by its limit"
+  and shows half a second of black; if it sends them before the layers are
+  on the glass, the letter before could still show for a frame.
+- Mail's own way was not seen; the half second is the app's own.
+- If WebKit has painted nothing in half a second, the cover lifts and the
+  web view shows what it has, which can be the letter before, until it
+  paints.
+- In one tap of 2026-10-25 a frame had the list's selection moved under
+  the old header and body before the pane was told of the tap; the cover
+  goes up at `show`, so such a frame, if it still comes, is not covered.
+- A tap on the pane in the instant the cover is up lands on the cover and
+  does nothing, half a second at most.

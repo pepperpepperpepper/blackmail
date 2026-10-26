@@ -92,6 +92,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
+    /// Over the web view, in the pane's own colour, from a tap on another
+    /// letter until WebKit has painted what goes in its place, half a
+    /// second at most (`PaneCover`, B-149): no frame of the letter he left
+    /// under the new letter's header.
+    private let cover = UIView()
+    private var paneCover = PaneCover()
+    /// Whether WebKit tells the pane what it has painted (`PaneCover`):
+    /// asked for by its private setter, where the web view has it.
+    private let painting: Bool
     private let placeholder = UILabel()
     private var actionItems: [Theme.ToolbarAction: UIBarButtonItem] = [:]
     /// Answers the `cid:` images inside whatever message is on screen.
@@ -152,6 +161,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             WKUserScript(source: ConversationDocument.script, injectionTime: .atDocumentEnd,
                          forMainFrameOnly: true, in: .defaultClient))
         self.webView = WKWebView(frame: .zero, configuration: config)
+        // What WebKit has painted, told to `renderingProgressDidChange`,
+        // for the cover at a tap (B-149). Private, by its name, and only
+        // where the web view has the setter; with none, the cover lifts at
+        // the document's end, or at its limit.
+        let painting = webView.responds(to: NSSelectorFromString(PaneCover.setter))
+        if painting { webView.setValue(NSNumber(value: PaneCover.painted), forKey: PaneCover.key) }
+        self.painting = painting
 
         super.init(nibName: nil, bundle: nil)
 
@@ -185,8 +201,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         placeholder.textAlignment = .center
         placeholder.translatesAutoresizingMaskIntoConstraints = false
 
+        // The pane's own colour, as the web view's is; taking the touches
+        // that land on it, so nothing of the letter hidden under it is
+        // tapped.
+        cover.backgroundColor = Theme.canvas
+        cover.isHidden = true
+        cover.translatesAutoresizingMaskIntoConstraints = false
+
         view.addSubview(header)
         view.addSubview(webView)
+        view.addSubview(cover)
         view.addSubview(placeholder)
 
         NSLayoutConstraint.activate([
@@ -198,6 +222,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            cover.topAnchor.constraint(equalTo: webView.topAnchor),
+            cover.leadingAnchor.constraint(equalTo: webView.leadingAnchor),
+            cover.trailingAnchor.constraint(equalTo: webView.trailingAnchor),
+            cover.bottomAnchor.constraint(equalTo: webView.bottomAnchor),
 
             placeholder.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             placeholder.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -296,6 +325,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     func showEmpty() {
         loads.supersede()
+        liftCover()
         summary = nil
         message = nil
         loaded = [:]
@@ -354,6 +384,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     func show(summary: MessageSummary) {
+        coverPane()
         self.summary = summary
         message = nil
         loaded = [:]
@@ -446,6 +477,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// date, and the letter the stack opens at is the one it would have
     /// opened at without them, one line below the top of the pane.
     func show(thread: MessageThread, completing: UInt64?) {
+        coverPane()
         summary = thread.newest
         message = nil
         loaded = [:]
@@ -602,10 +634,51 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
              as: .conversation(entries))
     }
 
-    /// Gives the web view a document, and `document` what it holds.
+    /// Gives the web view a document, and `document` what it holds; and,
+    /// while the cover is up, the cover the document to wait for.
     private func load(_ html: String, as content: PaneDocument.Content) {
         let navigation = webView.loadHTMLString(html, baseURL: nil)
         document.loaded(content, navigation: navigation.map(ObjectIdentifier.init))
+        paneCover.loaded(navigation.map(ObjectIdentifier.init))
+    }
+
+    /// A tap on another letter (B-149): the cover up over the web view in
+    /// the frame the header changes, until WebKit has painted the document
+    /// the pane gives it now, "Loading…" or the conversation's lines, or
+    /// the letter itself if it comes first, and at most `PaneCover.limit`,
+    /// so a letter is never left hidden. Called first in `show`, before the
+    /// header is given the letter; never for a letter opened by its line in
+    /// a conversation, which goes into the page already there. Lifted by
+    /// its limit, it says so in the connection log, as WebKit's word of its
+    /// paint should have lifted it first.
+    private func coverPane() {
+        let tap = paneCover.tapped()
+        cover.isHidden = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + PaneCover.limit) { [weak self] in
+            guard let self, self.paneCover.limitPassed(tap) else { return }
+            self.cover.isHidden = true
+            Diagnostics.log(.note, "pane: cover lifted by its limit")
+        }
+    }
+
+    private func liftCover() {
+        paneCover.lift()
+        cover.isHidden = true
+    }
+
+    /// WebKit has committed a document: the one the cover waits for, if it
+    /// is the one the pane gave it last.
+    func webView(_ w: WKWebView, didCommit navigation: WKNavigation!) {
+        guard let navigation else { return }
+        paneCover.committed(ObjectIdentifier(navigation))
+    }
+
+    /// WebKit's word of what it has painted (`PaneCover.callback`), private
+    /// and asked for in `init`: the cover lifts at the first paint of the
+    /// document it waits for.
+    @objc(_webView:renderingProgressDidChange:)
+    func webView(_ w: WKWebView, renderingProgressDidChange events: UInt) {
+        if paneCover.rendered(events) { cover.isHidden = true }
     }
 
     /// Fetches one letter of the conversation and puts it in its section.
@@ -1064,9 +1137,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// A document has finished loading: his letters from Sent Mail and the
     /// conversation's bodies that came before it had, go in now. See
-    /// `PaneDocument`.
+    /// `PaneDocument`. And the cover lifts, if it waits for this one and
+    /// WebKit tells nothing of its paint (`PaneCover.finished`, B-149).
     func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
         guard let navigation else { return }
+        if paneCover.finished(ObjectIdentifier(navigation), painting: painting) { cover.isHidden = true }
         let finished = document.didFinish(ObjectIdentifier(navigation))
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
