@@ -854,16 +854,26 @@ final class RootViewController: UIViewController {
         detail.perform = { [weak self] action, letter in
             guard let self else { return .cannotConnect }
             let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            let role = folders.role(of: letter.mailboxID)
             // A Move is asked for at the tap on its folder, while the sheet
             // slides away, and the list says so until the server answers.
             // The letter itself has gone from the pane and the list by then.
             var moving: (() -> Void)?
             if case .move = action { moving = self.list.working(StatusLine.moving) }
             defer { moving?() }
+            // The letter after it opens in the pane, highlighted and marked
+            // read, as Mail's View Next Message opens it (B-158): chosen
+            // from the rows as they stand, and opened once its row is off.
+            // Only into a pane its Delete or Move has emptied; one showing
+            // another letter by then is his, and is left as it is.
+            let list = self.list
+            let next = self.detail.lettersShown.isEmpty
+                ? list.letterAfter(letter, action, onLetterIn: role) : nil
             return await PaneActions.refusal(
-                running: action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
-                list: self.list.letters, repository: self.repository,
-                requestSweep: { [weak self] in self?.refreshMailboxes() })
+                running: action, on: letter, inFolderWithRole: role,
+                list: list.letters, repository: self.repository,
+                requestSweep: { [weak self] in self?.refreshMailboxes() },
+                taken: { if let next { list.openNext(next) } })
         }
         // Delete inside Trash erases the letter, and asks first; anywhere
         // else it moves the letter to Trash and asks nothing (B-062). By

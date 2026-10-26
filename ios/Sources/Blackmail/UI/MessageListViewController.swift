@@ -3210,6 +3210,39 @@ final class MessageListViewController: UITableViewController {
         guard !tableView.isEditing, let row = rowIndex(showing: letter.id) else { return }
         tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
     }
+
+    /// The letter to open once the reading pane's Delete or Move of
+    /// `letter` has taken its row off, as Mail's View Next Message opens it
+    /// (B-158): chosen now, from the rows as they stand at the tap, by
+    /// `NextLetter.after`, and opened by `openNext` once they are without
+    /// it. Nil under Don't Select a Message, and in Edit mode, where a
+    /// selected row is a tick of his, and the pane stays empty as before.
+    /// `role` is that of the folder the letter was listed from.
+    @MainActor
+    func letterAfter(_ letter: MessageSummary, _ action: PaneAction,
+                     onLetterIn role: Mailbox.Role?) -> String? {
+        guard NextLetter.action == .viewNextMessage, !tableView.isEditing else { return nil }
+        return NextLetter.after(letter, action, onLetterIn: role, in: threads, listedIn: mailbox.role)
+    }
+
+    /// Opens the row holding the letter `id` as a tap on it opens it, in
+    /// the reading pane, marked read, and highlights it (B-158). Not
+    /// scrolled to: it is the row in the place of the one that went, the
+    /// one above it, or the conversation's own, which the list draws lower
+    /// once its newest has gone. Not in Edit mode, which may have begun
+    /// since.
+    @MainActor
+    func openNext(_ id: String) {
+        guard !tableView.isEditing, let row = rowIndex(showing: id) else { return }
+        let ip = IndexPath(row: row, section: 0)
+        tableView.selectRow(at: ip, animated: false, scrollPosition: .none)
+        switch rows[row] {
+        case let .thread(thread) where thread.count > 1:
+            open(thread, at: ip)
+        case let .thread(thread):
+            open(thread.newest, at: ip)
+        }
+    }
 }
 
 #endif

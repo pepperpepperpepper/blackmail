@@ -112,12 +112,14 @@ final class EraseQuestionTests: XCTestCase {
                     + "{ _ in delete() })",
             ]),
             ("UI/MessageDetailViewController.swift", [
-                "@objc private func deleteTapped() { guard let s = summary, !writes.deleting "
-                    + "else { return } guard let question = questionBeforeDeleting?(s) else { "
+                "@objc private func deleteTapped() { guard let s = summary, "
+                    + "writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else { "
+                    + "return } guard let question = questionBeforeDeleting?(s) else { "
                     + "delete(s) return } EraseConfirmation.ask(question, on: self) { [weak self] in "
                     + "guard let self, self.summary?.id == s.id else { return } self.delete(s) } }",
-                "private func delete(_ s: MessageSummary) { guard writes.startDelete() else { "
-                    + "return } showEmpty()",
+                "private func delete(_ s: MessageSummary) { guard writes.startDelete(at: "
+                    + "ProcessInfo.processInfo.systemUptime, untilAnswered: NextLetter.action == "
+                    + ".dontSelectAMessage) else { return } showEmpty()",
             ]),
             ("UI/MessageListViewController.swift", [
                 "guard let question = EraseQuestion.before(deleting: chosen, role: { "
