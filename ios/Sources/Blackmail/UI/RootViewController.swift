@@ -314,6 +314,14 @@ final class RootViewController: UIViewController {
             // connection at launch the counts come of themselves once there
             // is one. It sends no password that has been refused.
             self?.firstPageTried = true
+            // The address book filled from his Sent Mail, once for this
+            // account, in the background line behind the counts and ahead
+            // of the watch's first check (B-155). Nothing waits for it, and
+            // with no connection up it sends nothing, to be tried again at
+            // the next launch.
+            if let repository = self?.repository {
+                Task { _ = await repository.fillBookFromSent() }
+            }
             self?.watch.start()
             // The first page is drawn, as fetched, as kept, or as nothing
             // to draw, and the pass it set off over the letters kept on the

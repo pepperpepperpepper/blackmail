@@ -104,6 +104,9 @@ enum CredentialStore {
         // (B-082). The repository reads the account as each letter is made
         // (`IMAPMailRepository.sender`), so nothing else is handed it.
         RecipientBook.shared.noteOwn(address: clean.address, name: clean.displayName)
+        // And an address he has just added never pushed out of the book,
+        // nor one he has taken off kept (B-155).
+        RecipientBook.shared.keepOwn(OwnAddresses(account: clean))
     }
 
     static func save(account: MailAccount, password: String) throws {

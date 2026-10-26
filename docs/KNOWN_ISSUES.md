@@ -32194,3 +32194,315 @@ links.
 - Each waiting share is a Keychain item of a few kilobytes; no bound is
   kept on how many, as there is for the addresses (`sentLimit`).
 - Not seen on the iPad. The device check's sends wait for the owner's go.
+
+## B-154 — FIXED 2026-10-26, not yet seen on the iPad. The keyboard's shortcut bar had no paperclip, where Mail has one while he types in the letter; it has, with a menu of Attach File and Photo Library, and the two buttons under the files stay
+
+Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
+at 4a390c2, on the owner's ruling of 2026-10-26, "close the gaps in our
+decision tree by copying Apple Mail", for the TODO's "Mail's paperclip in
+the keyboard's shortcut bar" (B-108).
+
+**What Mail does.** Apple's iPad User Guide for iPadOS 18, "Add email
+attachments in Mail on iPad"
+(support.apple.com/guide/ipad/ipadcf744d81/18.0/ipados/18.0): with the
+caret in the letter, a paperclip in the shortcut bar above the keyboard,
+"Insert Attachment Actions", at its right, left of Insert Drawing, offers
+Photo Library, Take Photo or Video, Attach File and Scan Document. B-108
+lists them Attach File first; the guide's own steps name Photo Library
+first. Whether they come as a menu of words or a row of symbols, in what
+order on the screen, and what Photo Library opens on, is not known:
+iPadOS 16 and 17 had two separate buttons there, the guide's screenshots
+do not show the menu, and the test iPad has no Mail. His iPad is on
+iPadOS 18.7.9, so his Mail has the paperclip.
+
+**What it was.** Since B-108 the two labelled buttons under the letter's
+files, "Photo Library" and "Attach File", were the only way in; the bar
+above the keyboard had the system's own items alone. B-108 left the
+paperclip out ("Mail's paperclip in the keyboard's shortcut bar is not
+built") and put it to the owner.
+
+**Changed.**
+
+1. *The paperclip* (`ComposeViewController.paperclipInTheShortcutBar`):
+   one bar button, the `paperclip` symbol, put after whatever the system
+   has at the right of the body's shortcut bar
+   (`bodyView.inputAssistantItem.trailingBarButtonGroups`), made as the
+   sheet loads, before the body can take the caret. Its menu opens at a
+   tap, as a bar button's with a menu and no action of its own does:
+   Attach File (`doc`), then Photo Library (`photo.on.rectangle`), each
+   with its words and its symbol, calling `attachFileTapped` and
+   `photoLibraryTapped`. So each opens what its button opens, through the
+   same intake, rows, bounds and words (B-108, B-142). VoiceOver's name
+   for it is Mail's, "Insert Attachment Actions".
+2. *Where.* The body's bar alone: not in To, Cc, Bcc or Subject, as the
+   guide has the caret in the letter. The left of the bar, Undo, Redo and
+   Paste, is as it was. The bar is at the bottom of the screen, above the
+   keyboard, or with a keyboard of keys the bar iOS shows there; Send is
+   in the sheet's own bar at the top, and the paperclip never goes there.
+   Not in the share sheet, which has no file buttons either (B-108).
+3. *Held while a letter goes,* with the two buttons and every Remove
+   (`draw`).
+4. *One place for the words* (`ComposeForm.Attach`): "Photo Library" and
+   "Attach File" with their symbols, the menu's order, the paperclip's
+   symbol and name. The buttons take their words and symbols from it;
+   where they are and how they look is unchanged.
+
+**What it reverses.** B-108's "Mail's paperclip in the keyboard's
+shortcut bar is not built", and its comment in `attachRow`, which gave the
+buttons as the reason to leave Mail's paperclip out. Nothing the owner
+ruled before. The two buttons stay, as the owner's item asked ("the
+paperclip too").
+
+**Not changed.** Take Photo or Video, Scan Document and Insert Drawing
+stay out, for the camera's permission (B-108). The pickers, the intake
+and what they do.
+
+**What he sees.** While he types in the letter, a paperclip at the right
+end of the bar above the keyboard; a tap, a small menu, "Attach File"
+and "Photo Library", each opening what its button under the files opens.
+No new words on the screen: both are B-108's. VoiceOver's "Insert
+Attachment Actions" is new, and he does not use VoiceOver.
+
+**Tests.** `PaperclipTests`, five, new. The menu's order, Attach File then
+Photo Library, its words and symbols those of the buttons, every way in
+once, and the paperclip's symbol and name. Read from the source: the
+paperclip made in `viewDidLoad` once the body is in the sheet, before the
+suggestions; its menu built from `ComposeForm.Attach.paperclip`, each
+choice calling its button's picker; a bar button with the menu and no
+action of its own, VoiceOver's name, put after the bar's own groups at its
+right; `inputAssistantItem` touched once, the body's, and its left side
+not at all; the buttons still there and the paperclip held with them;
+Send's bar holding Send, or what stands for it while a letter goes, and
+nothing else; no other source with a shortcut bar, and nothing of it in
+the share sheet. Changed: `ComposerFilesWiringTests`' buttons test reads
+the buttons' words and symbols from `ComposeForm.Attach`.
+
+Each rule undone by hand, `PaperclipTests`, `ComposerFilesWiringTests`
+and `ComposeLikeMailTests` run, then put back and passing, counted as
+failures in tests: the paperclip never made, 2 in 1; the menu Photo
+Library first, 3 in 1; Attach File opening Photo Library's picker, 1 in
+1; the bar's own groups replaced by the paperclip's, 1 in 1; the
+paperclip not held while a letter goes, 2 in 2; Photo Library's button
+opening Attach File's picker, 2 in 2.
+
+The full suite, serially, with B-155 beside it: 2,691 tests, 27 of them
+new, five of them this entry's, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- The bar is UIKit's: read from the source, not run. Whether a bar
+  button's menu opens from the shortcut bar on iPadOS 16.5.1 and 18, and
+  where it stands, are the device check's. So is its order on the screen:
+  left to UIKit's default (`preferredMenuElementOrder`, `.automatic`),
+  which may put the first choice nearest the paperclip, the lowest under
+  a bar at the bottom.
+- Mail's own paperclip on iPadOS 18, a menu of words or a row of symbols,
+  its order and what Photo Library opens on, not seen: built as the ruling
+  says, a menu of the two with their words and symbols.
+- With Shortcuts off in Settings, General, Keyboard, the bar is not shown
+  and the paperclip with it, as Mail's would be; the buttons are always
+  there. A group with no stand-in item is never folded into one (the
+  SDK's `UIBarButtonItemGroup.h`); how the bar fits it with little room,
+  Slide Over or a narrow Split View, not tried.
+- Noticed, not built: Mail's iPadOS 18 bar has Insert Drawing beside the
+  paperclip, and its paperclip offers Take Photo or Video and Scan
+  Document too (B-108's reasons stand).
+
+## B-155 — FIXED 2026-10-26, not yet seen on the iPad. The address book knew only the people of the rows listed and of his sends from the app, so about half the people he writes to in a month were not offered until one of their letters was listed; it is filled once per account from six months of his Sent Mail
+
+Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
+at 4a390c2, on the owner's ruling of 2026-10-26, "close the gaps in our
+decision tree by copying Apple Mail", for the TODO's "The address book
+filled from his Sent Mail" (B-017, B-123).
+
+**What Mail does.** Mail suggests addresses from Contacts and from
+Recents, the addresses he has sent to, which iOS keeps for Mail and
+iCloud carries from device to device, years of them (osxdaily,
+idownloadblog, lapcatsoftware, 2026-08; B-123's audit). So on a new iPad
+signed in to his Apple ID, the people he writes to are suggested from the
+first day. How Mail ranks them, and how far back Recents go, is not
+known.
+
+**What it was.** The book (`RecipientBook`, B-017) learned from the
+envelopes of the rows the list fetched and from each letter he sent from
+the app, 300 at most, those written to above those only seen. So about
+half the people he writes to in a month were not suggested, and a half
+name in search did not find them (B-123), until one of their letters was
+listed.
+
+**Changed.**
+
+1. *Once per account, after the Inbox's first page*
+   (`RootViewController`, `onFirstLoadFinished`, after the counts are let
+   go and before the watch starts): `IMAPMailRepository.fillBookFromSent`,
+   with nothing waiting for it. Done, the account is marked with the book
+   (`blackmail.recipients.filledFromSent`, its address in any case) and it
+   is never asked again: not at the next launch, nor by the repository a
+   new password makes. On an iPad with the account set up already, the
+   first launch of this build fills; after a sign-in, its first page.
+2. *What is read.* In the folder LIST names `\Sent`, never All Mail,
+   which holds the letters to him too: one `UID SEARCH SINCE` six months back,
+   by the iPad's calendar (`bookFillMonths`), then of the newest 2,000 hits
+   (`bookFillLetters`, about ten months of his at some two hundred
+   letters a month) `(UID INTERNALDATE ENVELOPE)` alone
+   (`IMAPClient.fetchEnvelopes`), a hundred letters a hold
+   (`envelopesPerHold`), all in the background line, so what he taps goes
+   first and waits for one hold at most. No flags, no body, no STORE:
+   nothing is marked read, and nothing is kept but the book.
+3. *Who goes in* (`RecipientBook.writtenTo`): each letter's To, Cc and
+   Bcc, an address counted once a letter and never one of his own (the
+   account's, its login and every other Settings lists, `OwnAddresses`),
+   so a letter only to his own addresses gives nothing. Each counted by
+   its letters, dated by the newest of them (Gmail's date, INTERNALDATE,
+   else its Date), and named as the newest letter naming it names it.
+   Ranked by count, then by date, then by address.
+4. *Into the book* (`RecipientBook.fill`): as written to, in that order,
+   as many as the 300 holds beside his own addresses in it. An entry the
+   book has keeps its name, or takes this one if it had none, and takes
+   the larger count and the later date, so a letter sent from the app and
+   counted as it went (`used`) is not counted twice. What no longer fits
+   goes by the book's rule: those only seen first, then the oldest.
+5. *His own never pushed out* (`RecipientBook.keepOwn`): each repository
+   tells the book his addresses as it is made, Settings' Save as it
+   saves them, and the fill again, and the book never evicts one. A book
+   filled with people written to holds few that were only seen, and his
+   own, noted at launch and seldom chosen, were the first that the next
+   sender noted would have pushed out.
+6. *His own first among those that start alike* (`fill`): each of his
+   addresses in the book is counted one more than anyone the fill took
+   in, if it was not already. His letters to himself are not counted, so
+   on install day his own address, chosen from the app once or never,
+   came below everyone whose name or address starts as his and whom he
+   wrote to, until he had sent to himself as often: weeks, and with four
+   rows offered he might not be among them. Not Mail's way, which would
+   count his letters to himself as letters (its Recents); he writes to
+   himself more than to anyone, and this stands in for that count.
+   Before B-155 one send to himself put him above everyone only seen,
+   most of the book; after the fill most of it has been written to, and
+   this keeps him above them.
+7. *Never in the way.* Work he did not ask for, as B-104's look in Sent
+   Mail is: nothing is sent without a connection up, which it never
+   makes, nor before the folders are listed, nor with no `\Sent`; one
+   under way, a second is not begun (its flag is set before the first
+   await). All or nothing: any hold refused (`fetchEnvelopes` throws at
+   the first), a lost connection, or letters found and none of their
+   envelopes read, fills nothing, marks nothing and is not tried again
+   until the next launch. One line in the connection log, `BOOK-FILL
+   letters=N people=M`, or `BOOK-FILL not-now`; no address in it.
+
+**What it reverses.** Nothing ruled and nothing built: B-017's book
+learns as before, and its "Not backed by Contacts" stands (Contacts in
+the suggestions is another of the owner's items). The book is filled as
+well, and his own addresses in it are counted up once, at the fill (6),
+which is not Mail's way.
+
+**What he sees.** From the first day, the start of the name or address of
+anyone he wrote to in the last six months offers them as he types, the
+people he writes to most first, his own address above any of them that
+start as it does; and a half-typed name in search finds their letters
+(B-123). Nothing says the book was filled. No new words.
+
+**Tests.** `SentFillTests`, twenty-two, new. The people of a letter: ranked
+by letters, then by the newest, then by address; To, Cc and Bcc each
+counted, an address once a letter in any case; his own, the account's
+and the others listed, never taken, a letter only to them giving nothing
+and one to him and Sam giving Sam; the name the newest letter's, a blank
+or the address again no name; Gmail's date before a Date in the future,
+the Date with none; a group's name, an address with nothing on one side
+of its @ and a letter with no envelope giving nobody. The book: 400
+people into a book of his two addresses and 280 only seen, 298 taken,
+the best, his two kept and the 280 gone; an entry keeping its name and
+taking the larger count and the later date, one with no name taking the
+fill's; his own kept through fifty senders noted after a fill, and through
+320 people written to in a book told his addresses; his own above Owen,
+written to forty times, whose name starts as his, and his second
+address, only seen, above a correspondent whose address starts as it
+does, each counted 41, one counted 60 already keeping 60, a fill taking
+nobody changing nothing, and search still never asking for his own; the
+fill marked once per account, in any case, kept across launches; the
+newest 2,000 of the hits read. Over the scripted server, after the Inbox's first page: one
+SELECT of Sent Mail, `UID SEARCH SINCE "21-Mar-2026"` six months before,
+one `UID FETCH … (UID INTERNALDATE ENVELOPE)`, nothing else, every answer
+OK, no BODY or FLAGS asked, an unread letter left unread, the log's line,
+and as he types Quentin offered with his two letters, Carlo with his
+eight, Sam from a letter to him and Sam, nobody of seven months back and
+not his second address; a second fill, and one by a new repository,
+sending nothing; nothing sent and nothing marked with no connection, and
+with no `\Sent`, never All Mail; a connection lost under the SEARCH
+filling and marking nothing, with no reconnect, nothing sent when asked
+again with none, and the next repository's filling; 250 letters in three
+FETCHes; the second of three holds refused, nothing filled, nothing
+marked and the third not asked, then all 250 taken when asked again; the
+eight letters' FETCH answered with no envelopes, nothing marked, then
+filled when asked again; two asked for at once, one SEARCH and one FETCH.
+Read from the source: the fill asked for after the first page, not
+waited for, once; each repository and Settings' Save telling the book
+his addresses; the fill's order, its flag set before its first await,
+the mark last; the envelopes in the background line, called off between
+holds, any hold refused throwing.
+
+Each rule undone by hand, `SentFillTests`, `RecipientBookTests`,
+`NameAtOnceTests`, `HalfNameSearchTests`, `CompleteThreadsTests` and
+`SafeStartTests` run, then put back and passing, counted as failures in
+tests; in four runs, the rules of a run each failing tests of their own,
+told apart by the failures' words. His own addresses taken in by
+`writtenTo`, 2 in 1 (the fill leaves them out again, so the server's test
+passes); an address counted again in the same letter, 1 in 1; ranked by
+the newest alone, 3 in 1; the counts added, not the larger kept, 1 in 1;
+All Mail in place of a Sent Mail not listed, 4 in 2; the envelopes a
+thousand a hold, 2 in 1; the oldest 2,000 read, 2 in 1; the fill never
+asked for, 2 in 1; the 300 taken with no room kept for his own, 1 in 1;
+the fill's name over the book's, 1 in 1; the account not marked, 4 in 2;
+a connection made for it, 4 in 2; no repository telling the book his
+addresses, 1 in 1; his own evicted, 7 in 3; the rows' summaries fetched
+in place of the envelopes, 3 in 2; the account marked when the fill
+failed, 3 in 1; six months taken as twelve, 5 in 2. Then one rule at a
+time, `SentFillTests` and `RecipientBookTests` run: his own not counted
+up, 4 in 1; a refused hold passed over, 8 in 2; letters found and no
+envelope read taken as done, 4 in 2; the fill's flag set after its
+await, 3 in 2, the two at once read twice in each of five runs of that
+test alone; Settings' Save not telling the book his addresses, 1 in 1,
+read from the source only.
+
+The full suite, serially, with B-154 beside it: 2,691 tests, 27 of them
+new, twenty-two of them this entry's, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- On an iPad: nothing yet. How long his Sent Mail's six months take,
+  about 1,200 letters, twelve holds, and how much memory the envelopes
+  need, not measured; whether a letter tapped meanwhile waits, the device
+  check.
+- Gmail's SINCE counts its days in its own zone, so the window's first
+  day may be a day off his; at six months, nothing.
+- Mail's Recents go back years and are ranked as Mail ranks them, which
+  is not known; the fill reads six months, ranked as the book ranks.
+- His letters to himself are not counted, as the ruling has it; his own
+  addresses in the book are counted one more than anyone taken in
+  instead (6), which is not Mail's way, and is done once, at the fill.
+  An address of his that the book has not met, one Settings lists that
+  no row has shown and that he has not sent to from the app, is not put
+  in by the fill, though his Sent Mail names it. Noticed, not built.
+- A FETCH answered OK that leaves out some letters, or some envelopes,
+  is taken as it came, and the account marked: told apart from letters
+  gone from Sent Mail since the SEARCH, it is not. Only a FETCH with none
+  of the envelopes read is tried again.
+- A second account on the iPad shares the one book, as before; its own
+  fill comes at its own first page.
+- A fill stopped by the app going into the background, the connection
+  dying under it, is done again at the next launch: nothing of it is in
+  the book until all of it has been read.
+- Mail's Recents, and what Mail suggests on a new iPad, not seen: the
+  test iPad has no Mail, and no iPad on iOS 18 with a test account was at
+  hand.
+- The decision's own check, a fresh sign-in and someone written to
+  months ago suggested, is not on the device check: that covers the
+  first launch of this build with the account set up already. The mark
+  is never taken off (`RecipientBook.removeAll` leaves it, and the app
+  has no sign-out), so the check can be done once per account; the
+  sign-in path needs a second test account, or a later round.
+- A first launch with no connection, or one whose fill is refused, fills
+  at the next launch from cold, which on an iPad left running may be
+  days away. Nothing asks again in between.

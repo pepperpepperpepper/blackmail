@@ -8104,6 +8104,96 @@ checks below is left as not needed, not open, and none is worth a round.*
       question 25): Wi-Fi off with Airplane Mode off, share a page to Mail:
       say whether Mail puts up an alert, and its words; then Airplane Mode
       on, the same: Mail's "Cannot Send Email" alert, written down.
+- [ ] **B-154, Mail's paperclip in the keyboard's shortcut bar.** On the
+      test iPad, the test account only, from a build of the
+      `bm-cm-compose` worktree (branch `copy-compose`) or of the int it is
+      merged into. Settings, General, Keyboard, Shortcuts as found, written
+      down; it must be on for 1 to 6. The on-screen keyboard throughout but
+      in 8. Nothing is sent but in 7: every letter ends with Cancel, and
+      Delete Draft if it is asked. Before it, the host puts one small PDF,
+      "B-154.pdf", in On My iPad.
+      1. *In the letter alone.* A new letter, portrait, To left empty. Tap
+      the body: a paperclip at the right end of the bar above the
+      keyboard, after anything the system has there; Undo, Redo and Paste
+      at its left as before. Tap To, then Subject: no paperclip in their
+      bar. Tap the body again: the paperclip.
+      2. *Its menu.* Tap the paperclip: a menu, "Attach File" and "Photo
+      Library", each with its symbol; their order on the screen, top to
+      bottom, written down, and where the menu stands. Tap outside: it
+      goes, nothing opened.
+      3. *Attach File.* Paperclip, Attach File: the Files browser, as the
+      button under the files opens it. "B-154.pdf" from On My iPad: its
+      row with its weight under Subject. Remove it.
+      4. *Photo Library.* Paperclip, Photo Library: the photo picker,
+      photos and videos, as the button opens it; what it opens on written
+      down. One photo: its row, a spinner and then its weight. Remove it.
+      Cancel, Delete Draft.
+      5. *Landscape.* A new letter, landscape, the caret in the body: the
+      paperclip at the right of the bar, and Send in the sheet's own bar
+      at the top, in sight; the menu opened, Send still in sight and not
+      covered. Tap outside. Cancel.
+      6. *The buttons stay.* Under the files, "Photo Library" and "Attach
+      File" as before; each opens its picker, Cancel in each. Cancel.
+      7. *Held while a letter goes* (sends, test account only, needs the
+      owner's go). A new letter To the test account's own address,
+      Subject "B-154 held", the caret in the body, Send: while "Sending…"
+      shows, the paperclip greyed and no menu at a tap. Skipped without
+      the go, and written down.
+      8. *A keyboard of keys,* if one is at hand: the bar iOS shows at the
+      bottom while the caret is in the body has the paperclip, and its
+      menu opens; Cancel. Without one, not done, and written down.
+      9. *Not the share sheet.* From Safari on example.com, Share, Blackmail,
+      the caret in the body: no paperclip in its bar. Cancel, Delete Draft
+      if asked.
+      Nothing else is tapped; Drafts and Sent Mail counted before and after.
+- [ ] **B-155, the address book filled from his Sent Mail.** On the test
+      iPad, the test account only, from a build of the `bm-cm-compose`
+      worktree (branch `copy-compose`) or of the int it is merged into. The
+      fill runs once for the account, at the first launch of a build that
+      has it, so 1 is done before that build is first launched; a build
+      with it launched before leaves 2 to nothing, and is written down.
+      Nothing is sent, composed letters end with Cancel and Delete Draft if
+      asked, and nothing is opened in Sent Mail but in 5's search.
+      1. *The letters, before the launch.* The host APPENDs five letters
+      to the test account's "[Gmail]/Sent Mail" (an APPEND sends nothing),
+      each From the test account, with a new Message-ID of its own, and
+      notes each UID from its APPENDUID, stopping if one has none: (a) To
+      "Quentin Fill <quentin.b155@example.com>", read (`\Seen`), its
+      internal date four months back; (b) the same To, unread, no flags,
+      two months back; (c) To "Olive Old <olive.b155@example.com>", read,
+      seven months back; (d) To the test account itself alone, read, three
+      months back; (e) To "Prefix Fill <P.b155@example.com>", P the test
+      account's address before its @, read, one month back. The book is
+      not to know Quentin, Olive or Prefix Fill already: the host checks
+      that none of the three addresses is in any other letter of the
+      account.
+      2. *The launch.* The build installed and launched. The Inbox's first
+      page comes as before, and the list can be scrolled and a letter
+      already read (not bold) opened meanwhile. In the connection log,
+      after the first page and the counts: `SELECT "[Gmail]/Sent Mail"`,
+      `UID SEARCH SINCE "dd-Mmm-yyyy"`, six months before the day, `UID
+      FETCH … (UID INTERNALDATE ENVELOPE)` for at most a hundred letters
+      each, and `BOOK-FILL letters=N people=M`, both numbers written down,
+      with the time from the SEARCH to that line. No STORE and no BODY
+      among them. An Inbox letter already read (not bold) tapped while
+      they run, its UID and the time it took written down.
+      3. *Offered.* A new letter. In To type "quen": "Quentin Fill" offered.
+      Delete it; type "oliv": "Olive Old" not among what is offered.
+      Delete it; type the first four letters of the test account's own
+      address: the test account's own address on the first row and
+      "Prefix Fill" below it, every row offered written down in order.
+      Cancel, Delete Draft if asked.
+      4. *Nothing marked.* The host reads (b)'s flags: still no `\Seen`.
+      5. *Search* (B-123). In Sent Mail, Current Mailbox, type "Quen" with
+      no space after it: (a) and (b) found. Cancel the search. Nothing
+      opened.
+      6. *Once.* The app ended in the switcher and launched again: no
+      `BOOK-FILL` line and no SEARCH in Sent Mail in the log.
+      7. *Put back:* the host moves the five UIDs it noted, and only them,
+      from Sent Mail to the Trash (`UID MOVE`), and deletes in the Trash
+      only the UIDs that move answered (`COPYUID`). Never anything found
+      by subject or Message-ID: a UID not noted is left, and written down.
+      Nothing else was written.
 
 ## Blocked on the owner
 
@@ -8401,18 +8491,20 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       quoted words as well as the bar; that is built. The bar alone is one
       line out of `QuoteBars.css`. As built (Mail's, the default), or the
       bar alone.
-- [ ] **Mail's paperclip in the keyboard's shortcut bar** (B-108): Mail
+- [x] **Mail's paperclip in the keyboard's shortcut bar** (B-108): Mail
       offers Attach File and Photo Library from a paperclip at the right
       of the bar above the keyboard; here they are two buttons under the
       letter's files, always in sight. As built (the default), or the
       paperclip too.
-- [ ] **The address book filled from his Sent Mail** (B-017, B-123): the
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-154.*
+- [x] **The address book filled from his Sent Mail** (B-017, B-123): the
       book learns from the rows the list shows and from his sends, so
       about half the people he writes to in a month are not suggested,
       and a half name in search does not find them, until one of their
       letters is listed. Reading his Sent Mail's recent envelopes once
       at sign-in would put them there from the first day. As built (the
       default), or the fill.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-155.*
 - [ ] **Three offline choices for the copy kept on the iPad** (D-016,
       "each needs its own decision later"; with nothing built after the
       install, now or never): fetching unread mail ahead for reading with

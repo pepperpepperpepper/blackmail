@@ -248,6 +248,14 @@ protocol MailRepository {
     /// letter he has just sent from elsewhere is to be found.
     func forgetLettersOfHis() async
 
+    /// The address book filled from the envelopes of the last months of
+    /// his Sent Mail, once per account (B-155): after the Inbox's first
+    /// page, in the background line, read only. Never fails, and never
+    /// makes a connection: with none up, or no folder named `\Sent`, or
+    /// anything going wrong, nothing is filled and the next launch tries
+    /// again.
+    func fillBookFromSent() async -> BookFill
+
     /// Called as the app comes back to the foreground. Finds out whether a
     /// connection quiet for long enough to have died still works, and
     /// replaces it if not, before he taps anything. Never fails: nobody is
@@ -285,6 +293,21 @@ protocol MailRepository {
     /// holding it, a check, a pass over the Outbox, a preview on its way,
     /// sends the old password again or reaches the mailbox it opened.
     func retire() async
+}
+
+/// What `MailRepository.fillBookFromSent` came to (B-155).
+enum BookFill: Equatable {
+    /// Filled from `letters` of his Sent Mail: `people` taken in.
+    case filled(letters: Int, people: Int)
+    /// This account's book was filled before, at an earlier launch:
+    /// nothing is sent.
+    case filledBefore
+    /// Not now: no connection up, the folders not yet listed, no folder
+    /// named `\Sent`, one already under way, the server refused any part
+    /// of it, the connection was lost, or letters were found and none of
+    /// their envelopes read. Nothing is filled and nothing marked, so the
+    /// next launch tries again.
+    case notNow
 }
 
 /// Where a search looks — the two scopes Mail itself offers.
@@ -597,6 +620,9 @@ extension MailRepository {
 
     /// Nothing to look for, unless the repository holds a connection.
     func lookAfterLostAnswers() async -> [MovedAfterAll] { [] }
+
+    /// Nothing filled, unless the repository reads his Sent Mail (B-155).
+    func fillBookFromSent() async -> BookFill { .notNow }
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {

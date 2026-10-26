@@ -231,6 +231,49 @@ enum ComposeForm {
         !done && !covered && !inAField
     }
 
+    // MARK: - Attaching (B-108, B-154)
+
+    /// The two ways the app's composer takes a file in, in Mail's words,
+    /// each with its symbol: the two buttons under the letter's files
+    /// (B-108), and the menu of Mail's paperclip at the right of the
+    /// keyboard's shortcut bar while he types in the letter (B-154). Each
+    /// opens the same picker from either. Not the share sheet's, which has
+    /// neither.
+    enum Attach: Equatable, CaseIterable {
+        /// Photos and videos, PHPicker.
+        case photoLibrary
+        /// Any file, the Files browser.
+        case attachFile
+
+        var words: String {
+            switch self {
+            case .photoLibrary: return "Photo Library"
+            case .attachFile:   return "Attach File"
+            }
+        }
+
+        /// The SF Symbol beside the words.
+        var symbol: String {
+            switch self {
+            case .photoLibrary: return "photo.on.rectangle"
+            case .attachFile:   return "doc"
+            }
+        }
+
+        /// The paperclip's menu: Attach File, then Photo Library, as B-108
+        /// lists Mail's from Apple's iPadOS 18 guide, whose own steps name
+        /// Photo Library first; Mail's menu itself has not been seen, nor
+        /// whether it is words or a row of symbols. Mail's Take Photo or
+        /// Video and Scan Document are left out, as under the files, for
+        /// the camera's permission (B-108).
+        static let paperclip: [Attach] = [.attachFile, .photoLibrary]
+
+        /// The paperclip's own symbol, and the name VoiceOver gives it,
+        /// Mail's for its button there.
+        static let paperclipSymbol = "paperclip"
+        static let paperclipName = "Insert Attachment Actions"
+    }
+
     // MARK: - How much of a letter the composer is given
 
     /// The most of any letter the app's composer is given: 128 KiB of
