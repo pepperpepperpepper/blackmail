@@ -30194,3 +30194,104 @@ build for the iPad links.
   iPad opens a link beside it in Split View; here iOS decides, as before.
 - B-124's check, done, had a step "Open this link?" dark; it cannot be
   made again as written.
+
+## B-146 — FIXED 2026-10-26, not yet seen on the iPad. His signature was drawn on a white sheet with black words in the reading pane, alone and in a conversation; it is drawn with the rest of its letter, as Mail draws it: its words white on the black, its logo as drawn, dark on it
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", "His
+signature's white sheet"). The pane is dark (D-010).
+
+**What Mail does.** Mail draws no sheet. Read from iOS 18.6's MobileMailUI
+and MessageUI in the simulator runtime on the Mac (B-130): in Dark Mode,
+a letter that declares no colour scheme of its own, has no picture from
+the web and no background picture is given
+`apple-mail-implicit-dark-support` (MobileMailUI's
+`_declaredColorSchemes` script, `_styleForSystemAppearance`), and Mail's
+style sheet turns the lightness of every colour in it
+(`-apple-color-filter: apple-invert-lightness()`), the sheet's white and
+its words' black with the rest, and leaves its pictures as drawn. His
+letters declare none (Mail reads the root's scheme and a `<meta>`, not
+the sheet's `color-scheme: light`) and his logo is a `cid:` picture: in
+Dark Mode Mail draws his signature black, its words white, and the logo
+dark on it. Medium: the rules are read, high; how they draw his
+signature is inferred, not rendered and not seen.
+
+**What Blackmail did.** Both of the pane's pages had two rules for the
+sheet's class, `bm-signature` (`SignatureSheet.css`): the sheet inverted a
+second time by the pane's own invert, which cancelled the first, with
+the sheet's white and black under its markup's; and its pictures left
+out of the rule for pictures. So it was white with black words, its logo
+as on paper: in a conversation's stack since the app's first version,
+and in a letter on its own since B-130 (2026-10-25), which gave it the
+stack's rules after the test iPad showed it white on the black there.
+
+**Changed.** The rules are gone from both pages: `PanePage.letter`, a
+letter's HTML under `#bm`, and `ConversationDocument.html`, under
+`.bm-html`, whose style says why there is none. `SignatureSheet` keeps
+only the pane's invert, `invert(1) hue-rotate(180deg)`, the one string
+both pages invert a letter's HTML and its pictures by; its comment says
+what became of the sheet. The sheet's class and colours in what he sends
+(`AppleMailHTML.signatureOpen`) are as they were: they are for whoever
+reads his letters elsewhere. Comments in `QuoteBars` and `PrintPage`.
+
+**Reverses** B-130, and the stack's sheet since the first version. The
+print is as it was: never inverted, it never had the rules, and the sheet
+prints as written, black words on the paper's white (B-110).
+
+**What he sees.** His signature, alone or in a conversation, white words
+on the black like the words above it, its links blue, and the logo as
+drawn, dark ink on the black, hard to see: as before B-130 on a letter
+alone, and as Mail would draw it. The same for a letter quoting his with
+the class kept. No new words.
+
+**Tests.** `SignatureLikeMailTests`, four, new: his letter as this app
+sends it, alone, its style with no rule for the sheet and only the two
+inverts, of the letter and of its pictures, Mail's bars straight after
+them, its markup as it came, the logo pointed at the loader inside the
+sheet; the same in a stack with a reply quoting it; no page of the pane's
+set, nor his letter, a reply quoting it, a sheet that has lost its style
+or a plain letter whose words are the marker, alone or in one stack,
+with a rule for the sheet or a filter but the one invert; and what he
+sends, the marker, and the invert string, as they were. Changed:
+`PanePageTests`, the page byte for byte with Mail's bars alone taken
+out, the bars straight after the invert, and its four tests of the sheet
+taken out, its letters kept; `ConversationDocumentTests`, the bars after
+the pictures' rule, the sheet's test now that there is no rule, and every
+filter the one invert; `PrintPageTests`, the sheet printed as written and
+the pane with no rule for it; `OrdinaryMail`'s page fingerprints, with
+the bars alone taken out, the same as before.
+
+Each undone by hand in the worktree, then put back and passing, the
+touched classes run, in one run with B-145's and B-147's undone too, each
+failure read by its line; counted as failures in tests: the sheet's two
+rules put back on a letter's own page, 29 in 2 of the new
+(`testALetterAloneHasNoWhiteSheet`, `testNoPageHasARuleForTheSheet`), and
+`PrintPageTests`' sheet test and `PanePageTests`' page byte for byte and
+its bars after the invert; the same two put back in the stack, 4 in 2 of
+the new (`testAConversationHasNoWhiteSheet`, and the stack's part of
+`testNoPageHasARuleForTheSheet`), and `ConversationDocumentTests`' three
+tests of the stack's style; the invert string changed, 1 in 1
+(`testWhatHeSendsAndTheInvertAreAsTheyWere`), and, with the stack's
+rules, every filter the one invert. That last test pins what B-146 left
+as it was, the marker he sends and the invert, so only a change to them
+fails it.
+
+The full suite, serially, on the branch with B-145 and B-147: 2,680
+tests, 20 of them new for the three, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- How Mail draws his signature in Dark Mode is inferred from its code,
+  not rendered or seen: the test iPad has no Mail (B-028), and none with
+  iPadOS 18 was at hand.
+- Mail turns the lightness of colours alone (`apple-invert-lightness()`);
+  the pane inverts and turns the hue back. Near, not the same: a
+  coloured line in his signature may come out a shade apart.
+- Differing from Mail, by its code, and not built (the decision's note): in
+  Dark Mode Mail draws a letter with a picture from the web light, not
+  inverted (`apple-mail-light-only` for those, as for a letter that
+  declares a light scheme only, B-130); the pane inverts every HTML
+  letter.
+- The logo is dark on the black, hard to see, as Mail draws it. It was
+  the reason for the sheet; the owner's ruling takes Mail's.

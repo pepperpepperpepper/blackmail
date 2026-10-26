@@ -7391,6 +7391,46 @@ checks below is left as not needed, not open, and none is worth a round.*
       If Mail is back on the test iPad (B-028), or an iPad with iPadOS 18
       and Mail is at hand: the same letters there, each link tapped, to
       see that Mail asks nothing either.
+- [ ] **B-146, no white sheet under his signature.** On the test iPad,
+      the test account only, from a build of the `bm-cm-pages` worktree
+      (branch `copy-pages`) or of the int it is merged into. Nothing is
+      composed, sent, moved or deleted in the app, and nothing is printed
+      on paper: the Print panel's preview only. The host makes four
+      letters, each with a new Message-ID of its own and naming none on the
+      account in a Message-ID, In-Reply-To or References, and APPENDs them,
+      read (`\Seen`), to the label "Notes", never the Inbox; it notes each
+      UID from its APPENDUID, and stops if one has none. (a) "B-146 alone",
+      the HTML body and the logo part of one of the letters on the account
+      that carry the signature (B-130's 22), nothing else of it; (b) "B-146
+      stack", a letter from another address, and (c) "Re: B-146 stack", a
+      day later, (a)'s body as a reply to it, its In-Reply-To and
+      References naming (b) by its new Message-ID, so the two are one
+      conversation; (d) "B-146 quoted", a reply that keeps the sheet's
+      class, its `<blockquote type="cite">` holding (a)'s body, as Apple
+      Mail's reply and this app's quote it, alone in its thread. Three
+      panes unless a step says two; Organize by Thread on.
+      1. *Alone:* "Notes", then "B-146 alone": no white sheet. The
+      signature's lines white on the black, like the words above it, its
+      links blue, and the logo as drawn, dark ink on the black, hard to
+      see: as Mail draws it. Then two panes: the same.
+      2. *In a stack:* "Re: B-146 stack", (c)'s line tapped open if it is
+      closed: its signature as in 1, no sheet; the letter above it as
+      before.
+      3. *Quoted:* "B-146 quoted": the quote's violet bar, and inside it
+      the signature white on the black, no sheet.
+      4. *Print:* on 1's letter, Reply, then Print: the preview's paper
+      white, the signature's words black and the logo as on paper, as
+      before; Cancel.
+      5. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash (`UID
+      MOVE`), and deletes in the Trash only the UIDs that move answered
+      (`COPYUID`); "Notes" itself stays. Never anything found by subject
+      or Message-ID: a UID not noted is left, and written down. Nothing
+      else was written.
+      If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
+      with iPadOS 18 and Mail is at hand: (a) there, to see how Mail draws
+      the signature, which is inferred from its code and not seen; the
+      words and the logo written down beside 1's.
 
 ## Blocked on the owner
 
@@ -7620,11 +7660,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Mail and Fetch New Data; Undo Send Delay; whether his Home Screen
       has a Mail widget; and one link shared from Safari, watched (Mail's
       icon, or his own circle at the top of the sheet).*
-- [ ] **His signature's white sheet** (B-130): Mail draws his signature
+- [x] **His signature's white sheet** (B-130): Mail draws his signature
       with the rest of the letter, black with white words and the logo
       dark on it in Dark Mode or under Smart Invert (read in its code, not
       seen). The app's white sheet in both panes (built, the default), or
       none in the stack either, as Mail.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-146.*
 - [ ] **A letter that is only a picture, printed in words** (B-131): when
       its page cannot be drawn, its header alone (built, the default), as
       the pane never says it has no text; or "This message has no text."

@@ -24,10 +24,8 @@ import Foundation
 /// about rgb(152, 150, 255), rgb(0, 150, 180) and rgb(0, 163, 0). The
 /// second and third are about Mail's dark teal and green, rgb(0, 200,
 /// 250) and rgb(87, 217, 119), if darker; the first is bluer than Mail's
-/// dark violet, rgb(191, 90, 242). Inside a signature's white sheet,
-/// which both pages invert a second time (`SignatureSheet`; a letter on
-/// its own since B-130), they are Mail's light colours on white, as Mail
-/// draws them on paper.
+/// dark violet, rgb(191, 90, 242). A signature's white sheet is inverted
+/// with the rest since B-146, and a quote inside it too.
 ///
 /// A sender's own important rule, written on the quote itself, still wins,
 /// as it does in Mail. Plain text quoted with `>` has no bar here; Mail

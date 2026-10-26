@@ -76,11 +76,11 @@ enum PrintPage {
     ///
     /// Light only: `color-scheme` says so, the page is white with black
     /// words, and nothing is inverted, so an HTML letter is in its own
-    /// colours and a plain one is black. So the pane's rules for a
-    /// signature's white sheet (`SignatureSheet`) are not here: with no
-    /// invert to cancel, the sheet prints as written, its words black on
-    /// the paper's white, its logo as drawn. Every value of the header is
-    /// escaped, and only ever written as text, never in an attribute.
+    /// colours and a plain one is black. A signature's white sheet prints
+    /// as written, its words black on the paper's white, its logo as drawn;
+    /// the pane, which had rules of its own for the sheet until B-146, now
+    /// inverts it with the rest. Every value of the header is escaped, and
+    /// only ever written as text, never in an attribute.
     static func letter(_ m: Message, style: Style, size: (Int64) -> String,
                        locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone)

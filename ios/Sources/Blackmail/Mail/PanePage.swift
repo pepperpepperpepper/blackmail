@@ -114,17 +114,17 @@ enum PanePage {
         // photograph while the text around it goes light-on-dark.
         //
         // The invert is the stack's, the one string (`SignatureSheet.invert`).
-        // After it, a signature's white sheet, inverted back, its pictures
-        // as drawn (`SignatureSheet`, B-130), the stack's own rules; then
-        // Mail's bars beside quoted text (`QuoteBars`, B-101). For HTML
-        // only: a plain letter's quotes are words, with no blockquote, and
-        // it can carry no sheet, its `<` written `&lt;`.
+        // A signature's white sheet is inverted with the rest, as Mail
+        // draws it (B-146): its rules, which inverted it back, are gone.
+        // After the invert, Mail's bars beside quoted text (`QuoteBars`,
+        // B-101), in its light colours, which the invert turns. For HTML
+        // only: a plain letter's quotes are words, with no blockquote.
         let smartInvert = isHTML
             ? """
               #bm { filter: \(SignatureSheet.invert); background: #fff; }
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: \(SignatureSheet.invert); }
-              """ + "\n" + SignatureSheet.css(in: "#bm") + "\n" + QuoteBars.css(in: "#bm")
+              """ + "\n" + QuoteBars.css(in: "#bm")
             : ""
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
