@@ -484,6 +484,16 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.hangsUpOnVerbs = newValue } }
     }
 
+    /// Verbs carried out as ever and then answered with Gmail's `* BYE
+    /// System Error` and the connection closed, the answer never sent:
+    /// `["UID MOVE"]`, a MOVE Gmail has done whose answer is lost with the
+    /// connection (B-151). Only a command that would have been answered
+    /// OK; one refused is answered as ever.
+    var hangsUpAfterVerbs: Set<String> {
+        get { locked { $0.hangsUpAfterVerbs } }
+        set { locked { $0.hangsUpAfterVerbs = newValue } }
+    }
+
     /// The same, only for a FETCH that asks for one of them and no other
     /// section: `["2.TEXT"]` with the letter's 2.TEXT refused, a FETCH of
     /// its parts answered NO, and the connection gone when the part is
@@ -1347,6 +1357,7 @@ private extension ScriptedIMAPServer {
         var hangsUpOnSections: Set<String> = []
         var hangsUpOnSectionsAlone: Set<String> = []
         var hangsUpOnVerbs: Set<String> = []
+        var hangsUpAfterVerbs: Set<String> = []
         var autoExpunge = false
         var hollowMoves: [Server.HollowMove] = []
         var newsRidesOnMoves = false
@@ -1628,6 +1639,11 @@ private extension ScriptedIMAPServer.State {
         } else {
             dispatch(Server.tokens(command, literals: incoming.literals),
                      literal: incoming.literals.last, on: id, into: &response)
+        }
+        if hangsUpAfterVerbs.contains(entry.verb), response.status == "OK" {
+            response = Server.Response(tag: tag)
+            response.untagged("BYE System Error")
+            response.hangsUp = true
         }
         entry.status = response.status
         log.append(entry)

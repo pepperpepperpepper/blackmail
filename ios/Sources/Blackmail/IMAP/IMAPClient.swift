@@ -149,6 +149,11 @@ actor IMAPClient {
     /// call has connected again since (`IMAPMailRepository.retryingIfDisconnected`).
     private(set) var connectionsLost = 0
 
+    /// How many commands have been written onto a connection: how `move`
+    /// tells a MOVE that went, and whose answer was lost, from one kept
+    /// back before a byte of it was written (B-151).
+    private var commandsWritten = 0
+
     /// How the last LOGIN was refused, and when, nil once a connection has
     /// been made since. Unlike `connectFailure` it outlives the next attempt
     /// that fails some other way, a network that is not there, so the
@@ -177,6 +182,18 @@ actor IMAPClient {
     /// call them, which connect again or throw `failure` in its place
     /// (`IMAPMailRepository.sendingOnce`).
     struct Unsent: Error {
+        let failure: MailError
+    }
+
+    /// A MOVE written onto the connection whose answer never came: the
+    /// connection dropped, or its read deadline passed, after the command
+    /// had gone, or while an answer that showed nothing was being looked
+    /// into (`confirmMove`). Gmail may have carried it out or not, and
+    /// nothing on that connection can say which (B-151). `failure` is what
+    /// the command threw. Only `move` throws it, and only
+    /// `IMAPMailRepository.move` calls that, which notes the letter for a
+    /// look on a later connection and throws `failure` in its place.
+    struct AnswerLost: Error {
         let failure: MailError
     }
 
@@ -1675,6 +1692,12 @@ actor IMAPClient {
     /// leaves `mailbox`. A MOVE whose answer shows nothing is looked into
     /// where the move would show (B-092, `confirmMove`): a letter that
     /// leaves is gone from the source, and one that stays has the label.
+    ///
+    /// The connection lost after the MOVE has gone, before its answer or
+    /// while an answer that showed nothing is looked into, throws
+    /// `AnswerLost` (B-151): the move may have been carried out. A MOVE
+    /// refused, or one never written, a path gone before it went, throws
+    /// as before.
     func move(uid: UInt32, from mailbox: String, validity: UInt32,
               to destination: String, stayingLabelled labels: Set<String>? = nil) async throws {
         // The gate is held for the SELECT and the whole copy/mark/expunge
@@ -1697,11 +1720,23 @@ actor IMAPClient {
             // Trash wherever the MOVE did land (B-092).
             if self.capabilities.isEmpty || self.capabilities.contains("MOVE") {
                 let command = "UID MOVE \(uid) \(target)"
-                let result = try await self.performCommand(command)
-                if result.status == .ok {
-                    try await self.confirmMove(result, uid: uid, in: mailbox, resending: command,
-                                               stayingLabelled: labels)
-                    return
+                // Written, and the connection gone before the move was
+                // known either way: carried out or not, nobody here can
+                // say (B-151). A refusal on a connection still up, or a
+                // MOVE kept back unwritten, is what it was.
+                let written = self.commandsWritten
+                let lost = self.connectionsLost
+                do {
+                    let result = try await self.performCommand(command)
+                    if result.status == .ok {
+                        try await self.confirmMove(result, uid: uid, in: mailbox, resending: command,
+                                                   stayingLabelled: labels)
+                        return
+                    }
+                } catch let failure as MailError
+                            where self.commandsWritten > written && self.connectionsLost > lost {
+                    Diagnostics.log(.note, "LOST-ANSWER UID MOVE folder=\(mailbox) uid=\(uid)")
+                    throw AnswerLost(failure: failure)
                 }
             }
 
@@ -1788,7 +1823,8 @@ actor IMAPClient {
     ///
     /// The connection dropping, or its path going (B-091), during any of
     /// it fails the move as on a dropped connection, never sent again, the
-    /// MOVE having gone: refused as not moved.
+    /// MOVE having gone: refused as not moved, and, as `AnswerLost`, the
+    /// letter looked for on a later connection (B-151).
     ///
     /// The connection log says so in numbers: `MOVE-HOLLOW folder=INBOX
     /// uid=343 copyuid=dest-0 no-expunge`, then `MOVE-CHECKED folder=INBOX
@@ -2218,6 +2254,7 @@ actor IMAPClient {
             let away = Diagnostics.awayOrBack
             await conn.startTimingQuiet(on: now)
             let sent = now()
+            commandsWritten += 1
             try await conn.writeLine("\(tag) \(command)")
             let result = try await awaitResult(tag: tag, continuations: continuations,
                                                afterLiterals: afterLiterals, wait: wait)

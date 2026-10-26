@@ -16717,7 +16717,9 @@ from All Mail.
 - The connection lost during the check refuses the move whether or not
   the letter had gone. Gone, its row is back until the next Refresh,
   and a second Delete of it is answered with nothing moved, looked into,
-  found gone and done.
+  found gone and done. Since B-151 such a letter, and one whose MOVE's
+  own answer was lost, is looked for once at the watch's next check,
+  and its row goes if Gmail did move it.
 - A server other than Gmail that moved a letter, kept it in the source
   as well, and answered with no COPYUID and no EXPUNGE, which RFC 6851
   says it should not, would get a second copy from the second MOVE.
@@ -26389,6 +26391,9 @@ place, as they are on master. What is new is the suite's:
   Telling the two apart at the failure needs a look in the folder on a
   new connection after it; not built, and put to the owner (TODO,
   Blocked on the owner, "A Delete or Move whose answer is lost").
+  Ruled 2026-10-26, copy Apple Mail, and built as B-151: one look by the
+  letter's Gmail id at the watch's next check, the row going if Gmail
+  did move it.
   Neither sighting was this: nothing had moved.
 - A row put back after he has scrolled the list since the tap, or after
   newer mail has joined a row in view, goes back by the rows he can see
@@ -30217,3 +30222,184 @@ release build for the iPad links.
 - Seen, not built: Mail's Select, Mark, Move to Junk (D-022's guard), its
   swipe choice ("Swipe to Trash on a row"), and its shake to undo (TODO,
   "Undo for Delete and Move").
+
+## B-151 — FIXED 2026-10-26, not yet seen on the iPad. A Delete or Move whose MOVE Gmail carried out, its answer lost with the connection, came back on the list with "Can't connect to mail server." and stayed there until a Refresh; on the next connection the letter is looked for once by its Gmail id, and if Gmail did move it, its row goes quietly
+
+Built in the `bm-cm-junk` worktree (branch `copy-junk`), off master at
+4a390c2, after B-106's Move to Junk.
+
+**Found** on the test iPad on 2026-10-25, in B-132's check, twice:
+Edit mode's Delete of fourteen rows in Notes with Airplane Mode turned on
+a second after the tap, and its Move of thirteen. Each time one MOVE was
+on the wire as the network went and was never answered; its row came
+back with the rest and "Can't connect to mail server.", and at the
+Refresh it had gone: Gmail had moved it (single 3 into the Trash, single
+9 into the label). Written into B-132 as B-092's lost answer, and put to
+the owner (TODO, Blocked on the owner, "A Delete or Move whose answer is
+lost").
+
+**What Mail does.** Mail keeps the row gone. A move is kept on the device
+as an action and carried out again later, and Mail says something only
+when the server refuses it (iOS 16.5's Envelope Index, its table of
+local actions; Apple Community). Not seen on an iPad: the test iPad has
+no Mail app.
+
+**What it was.** A MOVE that went and whose answer was lost, the
+connection dropped or the read deadline passed after it was written, was
+refused as not moved (B-092): the row back where it stood (B-093, B-132)
+with "Can't connect to mail server.", and the kept copy keeping the
+letter. At the failure nothing can tell whether Gmail did it. In the
+Inbox, at its top, the watch's next check found the letter gone and took
+the row off within about half a minute; anywhere else the row stayed
+until a Refresh, or a second Delete or Move, whose MOVE found it gone
+(B-092's look).
+
+**Ruled 2026-10-26** by the owner, "close the gaps in our decision tree
+by copying Apple Mail". Mail's own way, the move carried out again later,
+is a queue of offline changes, which D-016 rules out (owner, 2026-09-30),
+and D-016 stays. The nearest copy is a look on the next connection. This
+reverses B-092's "refused as not moved" for a MOVE whose answer was lost,
+and that case alone, and B-132's Not changed line that said so. A MOVE
+refused, or never written, is as it was.
+
+**Changed.**
+
+1. *The client tells a lost answer apart* (`IMAPClient.move`,
+   `AnswerLost`, new). The connection gone after the `UID MOVE` was
+   written, before its answer, or during B-092's look into an answer that
+   showed nothing (its NOOP, SEARCH or label FETCH, or the second MOVE),
+   throws `AnswerLost`. Told by two counts, the commands written onto a
+   connection (`commandsWritten`, new) and the connections lost: a MOVE
+   refused on a connection still up, or kept back unwritten as its path
+   had gone (`NO-PATH UID MOVE not-sent`), throws as before. The log:
+   `LOST-ANSWER UID MOVE folder=Notes uid=27`.
+2. *The repository notes the letter* (`IMAPMailRepository.move`). Taken
+   as before, refused as not moved, the plain failure thrown in its
+   place: the row comes back, the alert says "Can't connect to mail
+   server.", and the kept copy keeps the letter. Noted with it: the row's
+   id and folder, the letter's Gmail id, the folder the MOVE was sent in
+   and the one it went to. Not a letter filed from All Mail in a label,
+   whose row stays either way, nor one the server named no Gmail id for.
+   A Delete or Move of the same letter made again has the say, and the
+   note goes.
+3. *One look, on the next connection* (`lookAfterLostAnswers`, new). At
+   each check of the watch that has reached the server (`MailWatch`),
+   every half minute while the app is in front, the letters noted are
+   looked for: `UID SEARCH X-GM-MSGID n`, in the folder the MOVE was sent
+   in, as the server has it now (`searchNow`: in the hold of its SELECT,
+   or after a NOOP where the folder is open already), in the background
+   line, as a read, retried once on a new connection. Not there, Gmail
+   did move it: the kept copy lets it go as for a MOVE answered (`moved`,
+   the bookkeeping that was at the end of `move`), and the letter goes to
+   the screens. There: nothing changes. Once each, whatever the answer: a
+   SEARCH refused leaves the row as it is; only a look with no connection
+   to go on waits for the next check. The log names the folder and the
+   UID: `LOST-ANSWER-LOOK folder=Notes uid=27 gone`, or `there`,
+   `unanswered`, `not-asked`.
+4. *The row goes quietly* (`PaneActions.movedAfterAll`, new, through
+   `MailWatchTarget.movedAfterAll` in `RootViewController`): off the list
+   in front as a Delete's or a Move's row goes once the server has taken
+   it, with the letter's rows under other ids for a letter binned, one
+   off the counts for an unread letter binned, and a quiet sweep for an
+   unread one. No alert, nothing on the status line. The reading pane
+   empties if it shows the letter, as for Edit mode's Delete
+   (`clearIfShowing`). Only a row the list still shows, from the same
+   folder, as the same letter (`ListLetters.shows`, new): not one he has
+   deleted or moved again, nor one the watch has found gone and holds to
+   take off, which is that one's to bill, nor anything after the list was
+   fetched afresh, which has the server's word already.
+
+**Not changed.** Nothing is queued and nothing is sent again (D-016). The
+alert at the failure, and the row back where it stood. B-092's hollow
+answer looked into and refused on a connection that stays up. Delete
+inside the Trash, a `\Deleted` STORE and a UID EXPUNGE, not a MOVE: its
+answer lost is as before. The fallback COPY, STORE and EXPUNGE of a
+server without MOVE. Edit mode's rule that the first failure stops the
+rest (B-062): the letters after the lost one come back unsent, and are
+not looked for.
+
+**What he sees.** A Delete or Move cut off as it went: the row back with
+"Can't connect to mail server.", as before. Once the connection is back,
+at the next check while the app is in front, within half a minute, the
+row goes by itself if Gmail had moved the letter after all. If it had
+not, the row stays, and the next Delete is his.
+
+**Tests.** `LostAnswerTests`, ten, new, over the shipping repository,
+client and kept copy, the list's own letters and `MailWatch` against the
+scripted server, whose `hangsUpAfterVerbs` (new) carries a command out
+and then answers `* BYE System Error` and hangs up, the answer never
+sent:
+
+- *Gmail moved it:* a Delete from the pane in Notes, the letter unread,
+  the MOVE carried out and hung up on: refused, the alert's words, one
+  MOVE, the letter in the Trash and not in Notes, the row back, kept,
+  nothing billed or swept, the `LOST-ANSWER` line. The next check: one
+  `UID SEARCH X-GM-MSGID n` with Notes selected, the row gone, billed
+  once from Notes, one sweep, the kept copy without it, the log's `gone`;
+  a check after it looks no more.
+- *Edit mode:* three rows deleted, the second's MOVE carried out and hung
+  up on: the first taken, the second and third back; the next check looks
+  for the second alone, its row goes and the third's stays.
+- *B-092's hollow answer,* the letter moved and the connection not told,
+  and the connection lost under the NOOP that looks into it: `lost
+  not-moved` as before, then looked for and its row gone.
+- *Gmail did not:* a Move to a label answered with the BYE and nothing
+  done (B-132's `hangsUpOnVerbs`): refused, then looked for once, there,
+  the row staying, nothing billed or swept, kept, the log's `there`; no
+  second look.
+- *Never written:* the path gone with the SELECT before the MOVE on the
+  wire: `NO-PATH UID MOVE not-sent`, no MOVE in the server's log, no
+  `LOST-ANSWER` line, and no look at the next check.
+- *The look:* its SEARCH hung up on, and again on the new connection:
+  `not-asked`, the row staying, and the next check looks again and takes
+  it off; its SEARCH refused on a connection still up: `unanswered`, the
+  row staying, never asked again.
+- *Deleted again before the look:* the second Delete's MOVE finds the
+  letter gone (B-092), the row goes billed once, and the check looks for
+  nothing.
+- *Only a row still shown:* not one taken off by hand, held by the watch
+  to go, from another folder under the same id, or another letter now;
+  the one that goes, unread, asks one sweep.
+- *Read from the source:* the root's target takes the rows off the list
+  in front, sweeps quietly and empties the pane.
+
+`NewMailTests`' stand-in for the screens takes the rows off as the root
+does.
+
+Each part undone by hand, `LostAnswerTests`, `NewMailTests`,
+`HollowMoveTests` and `ListBatchTests` run, then put back and passing,
+counted as failures in tests: the client never saying `AnswerLost`, 23
+in 6; the repository noting nothing, 23 in 6; the watch never looking,
+23 in 6; the client taking any failure after the MOVE's turn for a lost
+answer, written or not, 2 in 1; a second Delete leaving the note, 1 in
+1; a letter found there looked for again, 1 in 1; a refused SEARCH
+waiting as if nothing had been asked, 2 in 1; the kept copy not told at
+the look, 1 in 1; any row under the id taken off, 2 in 1; nothing billed
+as the row goes, 3 in 1; a row the watch holds to go taken all the same,
+2 in 1; the root not emptying the pane, 1 in 1. In the first round four
+of them stopped the run at an index read on an empty list in the first
+test; that read is an optional now, and the four were run again.
+
+The full suite, serially: 2,683 tests, 10 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad: TODO, "B-151, a lost answer's row goes at the
+  next connection", under "Blocked on the iPad coming back".
+- Mail's own way was not seen; it is read from its database's schema and
+  users' accounts. Mail would keep the row gone from the tap; here it is
+  back from the failure until the look, half a minute or so after the
+  connection returns, and longer if he leaves the app first: the watch
+  runs only while the app is in front.
+- The notes are kept in memory: the app ended before the look leaves the
+  row to the next listing of the folder, which has the say, as before.
+- A folder opened since: the list in front is another, and nothing is
+  taken off it; the folder's own list is fetched afresh when he goes
+  back, without the letter. The kept copy has let it go at the look.
+- In the Inbox at its top, the watch's own news can find the letter gone
+  first; the row is then that check's to take off, and the look leaves
+  it, as above.
+- Not looked for: an EXPUNGE whose answer is lost (Delete inside the
+  Trash), the fallback COPY of a server without MOVE, and a draft's
+  deletes. On Gmail every Delete and Move outside the Trash is a MOVE.

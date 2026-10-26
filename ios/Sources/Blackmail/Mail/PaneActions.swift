@@ -52,6 +52,9 @@ protocol PaneActionList: AnyObject {
     /// A letter that stays on the list, now filed in `folder` as well, so
     /// reading it later takes one off there too.
     func addCountedFolder(_ folder: String, to id: String)
+    /// Whether the letter's row is on the list now: not taken off since,
+    /// by hand or as the watch's news, nor held by the watch to go.
+    func shows(_ letter: MessageSummary) -> Bool
 }
 
 /// What a Delete, Move or Flag from the reading pane does besides its write.
@@ -273,6 +276,41 @@ enum PaneActions {
         case .delete, .move:
             if started.effect.removesRow { started.list?.putBack(started.before) }
         }
+    }
+
+    /// Letters whose Delete or Move had its answer lost with the
+    /// connection, refused then as not moved, their rows put back with the
+    /// alert, and found gone from their folder by a look on a later
+    /// connection (`MailRepository.lookAfterLostAnswers`, B-151): Gmail did
+    /// move them. Each row goes quietly, as a Delete's or a Move's does
+    /// once the server has taken it: off the list, with the letter's rows
+    /// under other mailboxes' ids for a letter binned, an unread one off
+    /// the folder counts, and a sweep asked for if one was unread. No
+    /// alert, and nothing on the status line: nothing he did has failed.
+    /// Returns the rows taken off, for the reading pane to let go of one it
+    /// shows.
+    ///
+    /// Only a row the list still shows, from the same folder, as the same
+    /// letter. One he has deleted or moved again since, or that the watch
+    /// has found gone and taken off or holds to go (`ListLetters.hold`), is
+    /// that one's to bill; a list fetched afresh since has the server's
+    /// word already.
+    @discardableResult
+    static func movedAfterAll(_ letters: [MovedAfterAll], list: PaneActionList?,
+                              requestSweep: @MainActor () -> Void) -> [MessageSummary] {
+        guard let list else { return [] }
+        var gone: [MessageSummary] = []
+        for moved in letters {
+            guard let row = list.letter(moved.id), list.shows(row),
+                  row.mailboxID == moved.mailboxID,
+                  row.gmailMessageID == moved.gmailMessageID else { continue }
+            list.letGo(row)
+            list.take(row, fromEveryFolder: moved.leftEveryFolder)
+            list.removalLanded(row, fromEveryFolder: moved.leftEveryFolder)
+            gone.append(row)
+        }
+        if gone.contains(where: { !$0.isRead }) { requestSweep() }
+        return gone
     }
 
     /// A row kept on the iPad that the server has said is not the letter it

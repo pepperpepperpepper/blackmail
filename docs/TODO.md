@@ -6420,7 +6420,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       for row. A row that came back but is gone at the Refresh, its MOVE
       on the wire as the network went, is B-092's lost answer (B-132,
       Not changed; in a label the watch does not look, so it waits for
-      the Refresh): write it down, with its log lines.
+      the Refresh): write it down, with its log lines. On a build with
+      B-151 such a row goes by itself at the watch's next check, before
+      the Refresh: B-151's check.
       4. *A Move:* 1 and 3 again on what 3 left, with Move in place of
       Delete: Edit, the top two rows for 1's and Select All for 3's, Move,
       "B-132 moved" chosen, Airplane Mode on before the Move for 1's, and
@@ -7387,6 +7389,49 @@ checks below is left as not needed, not open, and none is worth a round.*
       "Notes" deleted from the app, to the Trash; the host
       deletes in the Trash only the letters with the Message-IDs it
       made. Spam's "Show in IMAP" as found. Nothing was sent.
+- [ ] **B-151, a lost answer's row goes at the next connection.** On the
+      test iPad, the test account only, from a build of the `bm-cm-junk`
+      worktree (branch `copy-junk`) or of the int it is merged into.
+      Nothing is composed, sent or saved. The host makes the letters, each
+      from another address, with a new Message-ID of its own, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, dated
+      two days back and more, noting each UID from its APPENDUID. A Delete
+      moves them to the Trash; a Move goes to an empty label of the
+      account's own. Three panes; the connection log read after each
+      step; Airplane Mode turned off after each step that turns it on.
+      0. *The letters:* sixteen, "B-151 single 1" to "16".
+      1. *Some moved, then an answer lost:* "Notes" opened at its top.
+      Edit, the sixteen rows ticked, Delete, and Airplane Mode on about a
+      second after the tap. After "Deleting…", "Can't connect to mail
+      server.", OK: the rows whose MOVEs the log shows answered `OK
+      [COPYUID …]` stay off, the rest come back where they stood. Find in
+      the log the MOVE that went with no answer, followed by `LOST-ANSWER
+      UID MOVE folder=Notes uid=n`, and write down n and its row's
+      subject. If there is none (every MOVE answered, or the next kept
+      back with `NO-PATH UID MOVE not-sent`), there was no lost answer:
+      write it down, and try again on what is left, the timing a little
+      earlier or later.
+      2. *The look:* Airplane Mode off, and the list left alone: no
+      Refresh, no tap, up to a minute. In the log, after the watch's next
+      check: `UID SEARCH X-GM-MSGID …` with "Notes" selected, then
+      `LOST-ANSWER-LOOK folder=Notes uid=n` and `gone` or `there`. Gone:
+      the row written down in 1 leaves the list by itself, with no alert
+      and nothing new on the line under the list, and on Gmail's web the
+      letter is in the Trash. There: the row stays, and the letter is in
+      Notes on Gmail's web. The check after it sends no such SEARCH.
+      3. *Refresh:* the same rows as at the end of 2, row for row.
+      4. *Nothing went:* a letter in "Notes" opened, Airplane Mode on,
+      Delete: the row back and the alert, and no `LOST-ANSWER` line in the
+      log (one `NO-PATH UID MOVE nothing-sent`, or no line where the
+      watch had found the path gone first, as in B-132's check). Airplane
+      Mode off; after the next check, no `UID SEARCH X-GM-MSGID`, and the
+      row stays.
+      5. *A Move:* 1 and 2 again on what is left in "Notes", with Move in
+      place of Delete, the empty label chosen and Airplane Mode on about a
+      second after: gone, the letter is in the label on Gmail's web.
+      6. *Put back:* the host deletes, in the Trash and in the label, only
+      the letters with the Message-IDs it made, and what is left of them
+      in "Notes"; the label stays, empty, as found. Nothing was sent.
 
 ## Blocked on the owner
 
@@ -7637,7 +7682,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       with OK, once a day in the app's last thirty days, the day the one
       its profile says, written in the iPad's way (B-137). It names Mail,
       so it goes with "Apple Mail after the install", above.
-- [ ] **A Delete or Move whose answer is lost** (B-132): the connection
+- [x] **A Delete or Move whose answer is lost** (B-132): the connection
       dropping after Gmail has carried out a MOVE and before its answer
       comes, the row comes back with "Can't connect to mail server."
       though the letter has gone. In the Inbox at its top the watch takes
@@ -7646,6 +7691,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       As built (the default, B-092's "refused as not moved"), or a look
       in the folder on the next connection after such a failure, the row
       taken off if the letter has gone (not built).
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-151.*
 - [ ] **Edit mode's Done** (B-133): guides to Mail describe leaving its
       edit mode with Cancel, not seen on an iPad; Blackmail's button says
       Done. As built (the default), or Mail's word once seen on his iPad.

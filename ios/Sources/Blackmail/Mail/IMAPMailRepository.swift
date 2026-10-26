@@ -2232,30 +2232,148 @@ actor IMAPMailRepository: MailRepository {
         // binned. Where it stays, a MOVE whose answer shows nothing is
         // checked by the destination's label on the letter there, not by
         // the letter being gone (B-092).
-        let binned = destination == roleNames[.trash] || destination == roleNames[.junk]
+        let binned = binning(to: destination)
         let staysInSource = !binned && source == folderForAttribute["\\all"]
         let labels = staysInSource ? labels(filingIn: destination) : nil
-        try await sendingOnce {
-            try await client.move(uid: message.uid, from: source, validity: message.validity,
-                                  to: destination, stayingLabelled: labels)
+        // A Delete or Move of a letter whose last one had its answer lost
+        // has the say over it from here (B-151).
+        lostAnswers.removeAll { $0.id == id && $0.source == source }
+        do {
+            try await sendingOnce {
+                try await client.move(uid: message.uid, from: source, validity: message.validity,
+                                      to: destination, stayingLabelled: labels)
+            }
+        } catch let lost as IMAPClient.AnswerLost {
+            // Gone to the server and its answer lost with the connection:
+            // moved or not, nobody here can say. Refused as not moved, as
+            // before (B-092), the row back and the kept copy keeping it,
+            // and looked for once on a later connection
+            // (`lookAfterLostAnswers`, B-151). Not a letter filed from All
+            // Mail in a label, whose row stays either way, nor one the
+            // server never named a Gmail id for, which cannot be looked for.
+            if let gmailMessageID, !staysInSource {
+                lostAnswers.append(LostAnswer(id: id, mailboxID: sourceMailboxID,
+                                              letter: gmailMessageID, source: source,
+                                              destination: destination))
+            }
+            throw lost.failure
         }
-        // The message no longer exists at the old UID, so anything cached
-        // against it is stale.
+        moved(id, letter: gmailMessageID, from: source, to: destination)
+    }
+
+    /// Trash and Spam are exclusive on Gmail: a letter moved to either
+    /// leaves every other folder.
+    private func binning(to destination: String) -> Bool {
+        destination == roleNames[.trash] || destination == roleNames[.junk]
+    }
+
+    /// What a move Gmail has carried out leaves here: at its answer
+    /// (`move`), or once a look on a later connection has found the letter
+    /// gone after its answer was lost (`lookAfterLostAnswers`, B-151).
+    ///
+    /// The message no longer exists at the old UID, so anything cached
+    /// against it is stale. And it is off the kept pages as Gmail takes it
+    /// off its folders (D-016): out of every one but the Trash or Spam it
+    /// went to, which are exclusive; out of none when it leaves All Mail
+    /// for a label, since All Mail is every letter not binned; out of its
+    /// own otherwise. Only once it has moved: a MOVE refused, or answered
+    /// OK with the letter still there (B-092), throws before this, and the
+    /// kept copy keeps it.
+    private func moved(_ id: String, letter: UInt64?, from source: String, to destination: String) {
         if lastBody?.messageID == id { lastBody = nil }
         if lastStructure?.messageID == id { lastStructure = nil }
         forgetKeptShown(id, in: source)
-        // Off the kept pages as Gmail takes it off its folders (D-016): out
-        // of every one but the Trash or Spam it went to, which are
-        // exclusive; out of none when it leaves All Mail for a label, since
-        // All Mail is every letter not binned; out of its own otherwise.
-        // Only once the client has it moved: a MOVE refused, or answered
-        // OK with the letter still there (B-092), throws before this, and
-        // the kept copy keeps it.
-        if binned {
-            shelf?.gone(id, letter: gmailMessageID, from: source, andEveryFolderBut: destination)
-        } else if !staysInSource {
+        if binning(to: destination) {
+            shelf?.gone(id, letter: letter, from: source, andEveryFolderBut: destination)
+        } else if source != folderForAttribute["\\all"] {
             shelf?.gone(id, from: source)
         }
+    }
+
+    // MARK: - A lost answer
+
+    /// Letters whose MOVE went to the server and whose answer was lost with
+    /// the connection (`IMAPClient.AnswerLost`), the oldest first: each to
+    /// be looked for once on a later connection (B-151).
+    private var lostAnswers: [LostAnswer] = []
+
+    private struct LostAnswer {
+        /// The row's id, and its folder as the list had it.
+        let id: String
+        let mailboxID: String
+        /// Gmail's id for the letter, which it is looked for by.
+        let letter: UInt64
+        /// The folder the MOVE was sent in, and the one it went to, by
+        /// their names on the server.
+        let source: String
+        let destination: String
+    }
+
+    /// One look for each letter whose Delete or Move had its answer lost
+    /// (B-151): `UID SEARCH X-GM-MSGID`, Gmail's own key, in the folder the
+    /// MOVE was sent in, after the NOOP that has the server say first what
+    /// it has taken out (`IMAPClient.searchNow`). Not there, Gmail did move
+    /// it: the kept copy follows as for a move answered (`moved`), and the
+    /// letter is returned for its row to go (`PaneActions.movedAfterAll`).
+    /// There, nothing changes: its row came back at the failure, with the
+    /// alert, as before.
+    ///
+    /// Mail keeps such a letter gone and replays the move later; that is
+    /// a queue of changes, which D-016 rules out. This only reads: nothing
+    /// is sent again.
+    ///
+    /// For `MailWatch`, at a check the server has answered: on the
+    /// connection after the one that was lost, or a later one, within half
+    /// a minute of the connection coming back while the app is in front.
+    /// Once each. A letter looked for is forgotten whatever the answer, a
+    /// SEARCH refused too, which leaves the row as it is; only a look that
+    /// found no connection to go on waits, with those after it, for the
+    /// next check. Asked as a read, in the background line, retried once
+    /// into a new connection when the one it found has died, connecting by
+    /// the rules for work he did not ask for (`watchedConnection`).
+    ///
+    /// The connection log names the folder and the UID, never the letter:
+    /// `LOST-ANSWER-LOOK folder=Notes uid=27 gone`, or `there`,
+    /// `unanswered`, `not-asked`.
+    func lookAfterLostAnswers() async -> [MovedAfterAll] {
+        guard !retired, !lostAnswers.isEmpty else { return [] }
+        var looking = lostAnswers
+        lostAnswers = []
+        var found: [MovedAfterAll] = []
+        while let lost = looking.first {
+            let uid = (try? Self.parseID(lost.id)).map { String($0.uid) } ?? "none"
+            let note = "LOST-ANSWER-LOOK folder=\(lost.source) uid=\(uid)"
+            let gone: Bool
+            do {
+                gone = try await retryingIfDisconnected { try await self.hasLeft(lost) }
+            } catch {
+                guard !Task.isCancelled, await imap.isConnected else {
+                    Diagnostics.log(.note, "\(note) not-asked")
+                    lostAnswers = looking + lostAnswers
+                    break
+                }
+                Diagnostics.log(.note, "\(note) unanswered")
+                looking.removeFirst()
+                continue
+            }
+            looking.removeFirst()
+            Diagnostics.log(.note, "\(note) \(gone ? "gone" : "there")")
+            guard gone else { continue }
+            moved(lost.id, letter: lost.letter, from: lost.source, to: lost.destination)
+            found.append(MovedAfterAll(id: lost.id, mailboxID: lost.mailboxID,
+                                       gmailMessageID: lost.letter,
+                                       leftEveryFolder: binning(to: lost.destination)))
+        }
+        return found
+    }
+
+    /// Whether the folder the lost MOVE was sent in no longer holds the
+    /// letter, as the server has it now.
+    private func hasLeft(_ lost: LostAnswer) async throws -> Bool {
+        let client = try await watchedConnection()
+        let uids = try await client.searchNow("X-GM-MSGID \(lost.letter)", in: lost.source)
+        lastContact = now()
+        return uids.isEmpty
     }
 
     /// Delete means "move to Trash" — except in Trash, where it means gone.

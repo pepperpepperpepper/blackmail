@@ -779,6 +779,10 @@ final class ListLetters: PaneActionList {
         if !landed { changed(.marked) }
     }
 
+    func shows(_ letter: MessageSummary) -> Bool {
+        self.letter(letter.id) != nil && !removed.hides(letter.id) && !leaving.contains(letter.id)
+    }
+
     func addCountedFolder(_ name: String, to id: String) {
         change(id) { letter in
             guard !letter.countedFolderIDs.contains(name) else { return }

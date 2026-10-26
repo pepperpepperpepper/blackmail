@@ -147,6 +147,10 @@ final class NewMailTests: XCTestCase {
 
         func countsChanged() { sweeps += 1 }
 
+        func movedAfterAll(_ moved: [MovedAfterAll]) {
+            PaneActions.movedAfterAll(moved, list: letters, requestSweep: { sweeps += 1 })
+        }
+
         func checked(_ outcome: MailWatch.Outcome) {
             outcomes.append(outcome)
             line.checked(outcome, listing: mailboxID)

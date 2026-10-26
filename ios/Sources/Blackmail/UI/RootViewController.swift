@@ -1076,6 +1076,18 @@ extension RootViewController: MailWatchTarget {
         refreshMailboxes(quietly: true)
     }
 
+    /// A Delete or Move whose answer was lost, its letter found gone on a
+    /// later connection (B-151): the row goes from the list in front, with
+    /// no alert, the pane lets go of the letter if it shows it, as for
+    /// Edit mode's Delete, and the counts are swept quietly, as above.
+    func movedAfterAll(_ letters: [MovedAfterAll]) {
+        let gone = PaneActions.movedAfterAll(letters, list: list.letters,
+                                             requestSweep: { [weak self] in
+                                                 self?.refreshMailboxes(quietly: true)
+                                             })
+        detail.clearIfShowing(any: gone)
+    }
+
     func checked(_ outcome: MailWatch.Outcome) {
         list.checked(outcome)
         // Reached or not: the warning is about the app, not the mail.
