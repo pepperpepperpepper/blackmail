@@ -257,6 +257,12 @@ struct Message: Identifiable {
     /// the part of it fetched (`IMAPMailRepository.loadMessage`). The pane
     /// says so (`MailText.shortenedNotice`).
     var isShortened = false
+    /// True when `textBody` is flowed text (RFC 3676, `format=flowed`), as
+    /// Apple Mail sends plain text: every part of it says so
+    /// (`MIMEDecoder.BodyPlan.textIsFlowed`). A plain letter's page counts
+    /// how deep a line's quote is by it, as Mail does (`PlainQuotes`,
+    /// B-147).
+    var textIsFlowed = false
 }
 
 extension Message {

@@ -76,11 +76,11 @@ enum PrintPage {
     ///
     /// Light only: `color-scheme` says so, the page is white with black
     /// words, and nothing is inverted, so an HTML letter is in its own
-    /// colours and a plain one is black. So the pane's rules for a
-    /// signature's white sheet (`SignatureSheet`) are not here: with no
-    /// invert to cancel, the sheet prints as written, its words black on
-    /// the paper's white, its logo as drawn. Every value of the header is
-    /// escaped, and only ever written as text, never in an attribute.
+    /// colours and a plain one is black. A signature's white sheet prints
+    /// as written, its words black on the paper's white, its logo as drawn;
+    /// the pane, which had rules of its own for the sheet until B-146, now
+    /// inverts it with the rest. Every value of the header is escaped, and
+    /// only ever written as text, never in an attribute.
     static func letter(_ m: Message, style: Style, size: (Int64) -> String,
                        locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone)
@@ -115,8 +115,10 @@ enum PrintPage {
             + head.files.map { line("bm-meta", $0) }
             + [rule]
         // Mail's bars beside quoted text (B-101), the pane's own string:
-        // Mail's light colours, which on white are as Mail draws them.
-        let bars = isHTML ? "\n" + QuoteBars.css(in: "#bm") : ""
+        // Mail's light colours, which on white are as Mail draws them. A
+        // plain letter's too, its quotes Mail's blockquotes as in the pane
+        // (`PlainQuotes`, B-147), in the same light colours on the paper.
+        let bars = "\n" + QuoteBars.css(in: "#bm")
         // The header prints in its own colours (`exact`), its lines grey as
         // in the pane and as Mail's header, which UIKit draws, prints them.
         // With no backgrounds printed (`LetterPrint.load`), WebKit changes
@@ -173,12 +175,14 @@ enum PrintPage {
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
             return (notice(cut != nil || m.isShortened)
-                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known)), true)
+                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known,
+                                                         flowed: false)), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
         return (notice(cut != nil || m.isShortened)
-                    + PanePage.content(text: cut ?? text, html: nil, known: known), false)
+                    + PanePage.content(text: cut ?? text, html: nil, known: known,
+                                       flowed: m.textIsFlowed), false)
     }
 
     /// The pane's words for a letter with nothing in it, grey on paper too.

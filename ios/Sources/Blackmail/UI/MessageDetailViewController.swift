@@ -1180,9 +1180,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         openAttachment(opening.part, of: opening.letter)
     }
 
-    /// Links open in Safari after a confirmation, and never navigate the pane
-    /// itself. A message view that silently turns into a web page is how
-    /// someone ends up lost with no way back.
+    /// A tapped link opens at once, in Safari or the app that claims it, as
+    /// Mail opens one (B-145), and never navigates the pane itself. A
+    /// message view that silently turns into a web page is how someone ends
+    /// up lost with no way back. It used to ask "Open this link?" first
+    /// (B-055), a question Mail never asks.
     ///
     /// A `mailto:` link is the exception, and writes the letter here, as
     /// Mail's own do. It used to go through the same confirmation to Apple
@@ -1198,14 +1200,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             present(nav, animated: true)
             return
         }
-        let alert = UIAlertController(title: "Open this link?",
-                                      message: url.host ?? url.absoluteString,
-                                      preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Open", style: .default) { _ in
-            UIApplication.shared.open(url)
-        })
-        present(alert, animated: true)
+        UIApplication.shared.open(url)
     }
 
     // MARK: - Actions

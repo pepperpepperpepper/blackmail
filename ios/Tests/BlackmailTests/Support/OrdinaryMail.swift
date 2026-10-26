@@ -369,13 +369,13 @@ enum OrdinaryMail {
 
     /// The reading pane's page, and a conversation's body, for each of
     /// `documents` as a letter carrying `pictures`. The page without Mail's
-    /// bars beside quoted text (B-101) and a signature's white sheet
-    /// (B-130), rules added to an HTML letter's style and nothing else, and
-    /// checked there by `PanePageTests`.
+    /// bars beside quoted text (B-101), rules added to an HTML letter's
+    /// style and nothing else, and checked there by `PanePageTests`; a
+    /// signature's white sheet (B-130), whose rules were taken out with
+    /// them, has none since B-146.
     static func pageFingerprints() -> [String] {
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
         let bars = "\n" + QuoteBars.css(in: "#bm")
-        let sheet = "\n" + SignatureSheet.css(in: "#bm")
         let parts = pictures.enumerated().map { i, id in
             Attachment(id: "\(i + 2)", filename: "p\(i).png", mimeType: "image/png", size: 100,
                        contentID: id, isInline: true)
@@ -386,7 +386,6 @@ enum OrdinaryMail {
                             subject: "The garden", date: Date(timeIntervalSince1970: 1_790_000_000),
                             textBody: nil, htmlBody: html, attachments: parts)
             let page = PanePage.letter(m, style: style)?.replacingOccurrences(of: bars, with: "")
-                .replacingOccurrences(of: sheet, with: "")
             return fingerprint((page ?? "\u{1}") + "\u{0}" + PanePage.stackBody(m).html)
         }
     }

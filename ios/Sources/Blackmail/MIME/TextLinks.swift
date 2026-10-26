@@ -91,10 +91,29 @@ enum TextLinks {
     /// over half a second that way in a release build on this host, and
     /// takes 22 ms this way.
     static func plain(_ text: Substring, escaping: Escaping) -> String {
-        let bytes = Array(text.utf8)
+        plain(Array(text.utf8), escaping: escaping, tags: [])
+    }
+
+    /// Markup of the pane's own put into plain text as it is written into a
+    /// page: `html`, as it is, before the byte at `at` of the text, or after
+    /// the last for one at its end. A plain letter's quotes are put in so
+    /// (`PlainQuotes`, B-147), each at the start of a line, where no link
+    /// can be cut by it: a link ends at a line break.
+    struct Tag: Equatable {
+        let at: Int
+        let html: String
+    }
+
+    /// `bytes`, plain text's UTF-8, written as `plain(_:escaping:)` writes
+    /// it, with each of `tags`, in the order of their `at`, put in where it
+    /// says. One at the start of a link goes before the link; one that
+    /// fell inside a link would go after it.
+    static func plain(_ bytes: [UInt8], escaping: Escaping, tags: [Tag]) -> String {
         let links = found(in: bytes, markup: false)
         var out: [UInt8] = []
-        out.reserveCapacity(bytes.count + bytes.count / 8 + links.count * 32)
+        out.reserveCapacity(bytes.count + bytes.count / 8 + links.count * 32
+                            + tags.reduce(0) { $0 + $1.html.utf8.count })
+        var next = 0
         func escaped(_ range: Range<Int>, attribute: Bool = false) {
             for c in bytes[range] {
                 switch c {
@@ -107,9 +126,29 @@ enum TextLinks {
                 }
             }
         }
+        // The words of `range`, outside any link, with the tags that fall
+        // in it; and the tags up to `p`, at a link's start or the end.
+        func text(_ range: Range<Int>) {
+            var from = range.lowerBound
+            while next < tags.count, tags[next].at < range.upperBound {
+                let at = max(tags[next].at, from)
+                escaped(from..<at)
+                out.append(contentsOf: tags[next].html.utf8)
+                from = at
+                next += 1
+            }
+            escaped(from..<range.upperBound)
+        }
+        func tagsUpTo(_ p: Int) {
+            while next < tags.count, tags[next].at <= p {
+                out.append(contentsOf: tags[next].html.utf8)
+                next += 1
+            }
+        }
         var at = 0
         for link in links {
-            escaped(at..<link.start)
+            text(at..<link.start)
+            tagsUpTo(link.start)
             out.append(contentsOf: "<a href=\"".utf8)
             if link.kind == .www { out.append(contentsOf: "http://".utf8) }
             escaped(link.start..<link.end, attribute: true)
@@ -118,7 +157,8 @@ enum TextLinks {
             out.append(contentsOf: "</a>".utf8)
             at = link.end
         }
-        escaped(at..<bytes.count)
+        text(at..<bytes.count)
+        tagsUpTo(bytes.count)
         return String(decoding: out, as: UTF8.self)
     }
 

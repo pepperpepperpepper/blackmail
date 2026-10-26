@@ -7609,6 +7609,140 @@ checks below is left as not needed, not open, and none is worth a round.*
       MOVE`), and deletes in the Trash only the UID that move answered
       (`COPYUID`); "Notes" itself stays. It takes "B-144 large.bin" off the
       iPad. Never anything found by subject or Message-ID.
+- [ ] **B-145, a tapped link opens at once.** On the test iPad, the test
+      account only, from a build of the `bm-cm-pages` worktree (branch
+      `copy-pages`) or of the int it is merged into. Nothing is sent: the
+      composer of step 3 is cancelled and its draft deleted. The host makes
+      four letters, each from another address, with a new Message-ID of its
+      own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox; it notes each UID
+      from its APPENDUID, and stops if one has none. (a) "B-145 plain",
+      text/plain, three lines: `https://example.com/b145-plain`,
+      `www.example.com`, and `mailto:` to the test account's own address
+      with `+b145` before the @ and `?subject=B-145`; (b) "B-145 HTML", an
+      HTML letter with a link of its own, `<a
+      href="https://example.com/b145-html">Example</a>`, and a YouTube
+      address written in its text; (c) "B-145 stack" and (d) "Re: B-145
+      stack", a day later, plain, its In-Reply-To and References naming
+      (c)'s new Message-ID, so the two are one conversation, (d) with
+      `https://example.com/b145-stack` in it. Three panes; Organize by
+      Thread on.
+      1. *Plain:* "Notes", then "B-145 plain"; its https link tapped:
+      Safari comes to the front at once with the page, no "Open this
+      link?" or any other question first. Back to Blackmail by the
+      top-left "◀ Blackmail": the same letter in the pane, where it was.
+      2. *Plain, `www.`:* the same, Safari at `http://www.example.com`.
+      3. *Plain, `mailto:`:* the composer opens, To the address with
+      `+b145`, Subject "B-145", as before (B-036). Cancel: it closes
+      with nothing asked, nothing in it having changed, and Drafts has
+      nothing new. Nothing sent.
+      4. *HTML:* "B-145 HTML", "Example" tapped: Safari at once; back. The
+      YouTube address tapped: YouTube, or Safari if it is not installed,
+      at once; back.
+      5. *A conversation:* "Re: B-145 stack", (d)'s line opened if it is
+      closed, its link tapped: Safari at once; back: the stack where it
+      was, (d) open.
+      6. *Held:* a finger held on (a)'s first link: WebKit's menu and
+      preview, as before (decided 2026-10-01); a tap outside: the menu
+      goes, nothing opens.
+      7. *Put back:* the Safari tabs opened closed. "Notes" left, the
+      Inbox at its top. The host moves the UIDs it noted, and only them,
+      from "Notes" to the Trash (`UID MOVE`), and deletes in the Trash
+      only the UIDs that move answered (`COPYUID`); "Notes" itself stays.
+      Never anything found by subject or Message-ID: a UID not noted is
+      left, and written down. Nothing else was written.
+      If Mail is back on the test iPad (B-028), or an iPad with iPadOS 18
+      and Mail is at hand: the same letters there, each link tapped, to
+      see that Mail asks nothing either.
+- [ ] **B-146, no white sheet under his signature.** On the test iPad,
+      the test account only, from a build of the `bm-cm-pages` worktree
+      (branch `copy-pages`) or of the int it is merged into. Nothing is
+      composed, sent, moved or deleted in the app, and nothing is printed
+      on paper: the Print panel's preview only. The host makes four
+      letters, each with a new Message-ID of its own and naming none on the
+      account in a Message-ID, In-Reply-To or References, and APPENDs them,
+      read (`\Seen`), to the label "Notes", never the Inbox; it notes each
+      UID from its APPENDUID, and stops if one has none. (a) "B-146 alone",
+      the HTML body and the logo part of one of the letters on the account
+      that carry the signature (B-130's 22), nothing else of it; (b) "B-146
+      stack", a letter from another address, and (c) "Re: B-146 stack", a
+      day later, (a)'s body as a reply to it, its In-Reply-To and
+      References naming (b) by its new Message-ID, so the two are one
+      conversation; (d) "B-146 quoted", a reply that keeps the sheet's
+      class, its `<blockquote type="cite">` holding (a)'s body, as Apple
+      Mail's reply and this app's quote it, alone in its thread. Three
+      panes unless a step says two; Organize by Thread on.
+      1. *Alone:* "Notes", then "B-146 alone": no white sheet. The
+      signature's lines white on the black, like the words above it, its
+      links blue, and the logo as drawn, dark ink on the black, hard to
+      see: as Mail draws it. Then two panes: the same.
+      2. *In a stack:* "Re: B-146 stack", (c)'s line tapped open if it is
+      closed: its signature as in 1, no sheet; the letter above it as
+      before.
+      3. *Quoted:* "B-146 quoted": the quote's violet bar, and inside it
+      the signature white on the black, no sheet.
+      4. *Print:* on 1's letter, Reply, then Print: the preview's paper
+      white, the signature's words black and the logo as on paper, as
+      before; Cancel.
+      5. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash (`UID
+      MOVE`), and deletes in the Trash only the UIDs that move answered
+      (`COPYUID`); "Notes" itself stays. Never anything found by subject
+      or Message-ID: a UID not noted is left, and written down. Nothing
+      else was written.
+      If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
+      with iPadOS 18 and Mail is at hand: (a) there, to see how Mail draws
+      the signature, which is inferred from its code and not seen; the
+      words and the logo written down beside 1's.
+- [ ] **B-147, quote bars beside a plain letter's quotes.** On the test
+      iPad, the test account only, from a build of the `bm-cm-pages`
+      worktree (branch `copy-pages`) or of the int it is merged into.
+      Nothing is composed, sent, moved or deleted in the app, and nothing
+      is printed on paper: the Print panel's preview only. The host makes
+      four letters, each from another address, with a new Message-ID of
+      its own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox; it notes each UID
+      from its APPENDUID, and stops if one has none. (a) "B-147 plain",
+      text/plain, not flowed, its lines: "Yes, Sunday.", a blank line, "On
+      Monday, Carlo wrote:", "> Lunch on Sunday?", "> > Or Saturday?",
+      ">> The garden is ready.", "> > > Three deep.", ">>>> Four deep.",
+      "> See https://example.com/b147", "> Back to one.", ">From the
+      store's line.", a blank line, "Sam"; (b) "B-147 flowed", text/plain
+      with `format=flowed`, its lines "Yes.", "> One.", "> > Still one.",
+      ">> Two."; (c) "B-147 stack" and (d) "Re: B-147 stack", a day later,
+      (a)'s words as a reply to it, its In-Reply-To and References naming
+      (c)'s new Message-ID, so the two are one conversation. Three panes
+      unless a step says two; Organize by Thread on.
+      1. *Plain, alone:* "Notes", then "B-147 plain". Under "On Monday,
+      Carlo wrote:", a violet bar down the quote's left, its words 5 pt
+      from it and violet; "Or Saturday?" and "The garden is ready." in a
+      teal bar inside the violet one; "Three deep." in a green bar inside
+      those, and "Four deep." in a fourth, green too; "Back to one." in the
+      violet bar alone. No ">" before any of those lines. ">From the
+      store's line." as typed, its ">" and no bar; "Sam" under it with no
+      bar. The lines where they were: no blank line added above the first
+      quoted line or below the last. The link blue; not tapped. The
+      colours from a full-size screenshot: about rgb(191, 90, 242),
+      rgb(0, 200, 250) and rgb(87, 217, 119), Mail's dark ones.
+      2. *Flowed:* "B-147 flowed": "One." and "> Still one." in the violet
+      bar, that line with its one ">"; "Two." in a teal bar inside it.
+      3. *Two panes:* 1 and 2 again.
+      4. *In a stack:* "Re: B-147 stack", (d)'s line tapped open if it is
+      closed: its quotes as in 1.
+      5. *Print:* on 1's letter, Reply, then Print: the preview's paper
+      white, the quotes with their bars and words in Mail's light violet,
+      teal and green, no ">" before them, ">From the store's line." as
+      typed; Cancel.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash (`UID
+      MOVE`), and deletes in the Trash only the UIDs that move answered
+      (`COPYUID`); "Notes" itself stays. Never anything found by subject
+      or Message-ID: a UID not noted is left, and written down. Nothing
+      else was written.
+      If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
+      with iPadOS 18 and Mail is at hand: (a) and (b) there, the bars, the
+      colours, the 5 pt, and how Mail draws the ">From" line, the flowed
+      "> > " line and the fourth level, written down beside 1's and 2's.
 
 ## Blocked on the owner
 
@@ -7820,8 +7954,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Swipe to Trash on a row** (decided against by the spec): about 5
       letters a day go to the bin unopened, each Edit, tick, Delete here.
       As decided (the default), or Mail's swipe.
-- [ ] **"Open this link?"** (set by the spec, never asked of him): Mail opens
+- [x] **"Open this link?"** (set by the spec, never asked of him): Mail opens
       a tapped link at once. As built (the default), or Mail's way.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-145.*
 - [ ] **His iPad's own settings**, read before the install-day build so
       its defaults follow them: Settings > Sounds > Sent Mail (B-100: None
       takes the sound out), Mail > Threading > Complete Threads (B-104: off
@@ -7838,11 +7973,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Mail and Fetch New Data; Undo Send Delay; whether his Home Screen
       has a Mail widget; and one link shared from Safari, watched (Mail's
       icon, or his own circle at the top of the sheet).*
-- [ ] **His signature's white sheet** (B-130): Mail draws his signature
+- [x] **His signature's white sheet** (B-130): Mail draws his signature
       with the rest of the letter, black with white words and the logo
       dark on it in Dark Mode or under Smart Invert (read in its code, not
       seen). The app's white sheet in both panes (built, the default), or
       none in the stack either, as Mail.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-146.*
 - [ ] **A letter that is only a picture, printed in words** (B-131): when
       its page cannot be drawn, its header alone (built, the default), as
       the pane never says it has no text; or "This message has no text."
@@ -7890,10 +8026,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       answer." Built from YouTube's oEmbed and seen on the test iPad
       2026-10-25: see B-126.*
 
-- [ ] **Quote bars beside plain-text quotes** (B-101): Mail draws its
+- [x] **Quote bars beside plain-text quotes** (B-101): Mail draws its
       blue bar beside lines quoted with "> " in a plain-text letter too;
       here only HTML quotes have it. As built (no bar, the default), or
       Mail's bars there too.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-147.*
 - [ ] **The quoted words in the bar's colour** (B-101): Mail colours the
       quoted words as well as the bar; that is built. The bar alone is one
       line out of `QuoteBars.css`. As built (Mail's, the default), or the

@@ -428,6 +428,9 @@ struct DecodedBody {
     /// (`MIMEDecoder.maxBodyWords`): shown up to there, and said to be only
     /// the beginning (`Message.isShortened`).
     var isShortened = false
+    /// True when `text` is flowed text (`MIMEDecoder.BodyPlan.textIsFlowed`,
+    /// `Message.textIsFlowed`).
+    var textIsFlowed = false
 }
 
 /// The `[APPENDUID <uidvalidity> <uid>]` a server volunteers on a

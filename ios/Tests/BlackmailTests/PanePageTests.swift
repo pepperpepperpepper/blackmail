@@ -12,7 +12,10 @@ import XCTest
 /// and that is the one change to a letter's markup: a letter with none comes
 /// out as it did, and the letter here with one differs by its `<a>` alone.
 /// Since B-101 an HTML letter's page has Mail's bars beside quoted text
-/// (`QuoteBars`), rules added to its style and nothing else.
+/// (`QuoteBars`), rules added to its style and nothing else; since B-147 a
+/// plain letter's has them too, in Mail's dark colours, and its quotes are
+/// Mail's blockquotes, the one change to the letter here with one
+/// (`PlainQuoteBarsTests`).
 final class PanePageTests: XCTestCase {
 
     /// The pane's measurements as `Theme` gives them on the iPad.
@@ -143,27 +146,31 @@ final class PanePageTests: XCTestCase {
     /// Which of `letters` has a link written in it.
     private static let linked = 11
 
-    /// Byte for byte, but for Mail's quote bars (B-101) and a signature's
-    /// white sheet (B-130): in an HTML letter's style once each, after the
-    /// invert, and in a plain letter's not at all. Taken out, the page is
-    /// the page the pane built.
+    /// Which has plain text quoted with ">" (B-147).
+    static let quoted = 10
+
+    /// Mail's quote bars as a plain letter's page has them (B-147): its
+    /// dark colours, where the HTML's go after the invert.
+    static let plainBars = QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+
+    /// Byte for byte, but for Mail's quote bars (B-101): in an HTML
+    /// letter's style once, after the invert, and in a plain letter's once,
+    /// in Mail's dark colours (B-147). Taken out, the page is the page the
+    /// pane built. No rule for a signature's white sheet (B-146).
     func testALettersPageComesOutByteForByteAsThePaneBuiltIt() {
         let bars = "\n" + QuoteBars.css(in: "#bm")
-        let sheet = "\n" + SignatureSheet.css(in: "#bm")
-        for (i, m) in letters.enumerated() where i != Self.linked {
+        for (i, m) in letters.enumerated() where i != Self.linked && i != Self.quoted {
             let page = PanePage.letter(m, style: style)
-            for added in [bars, sheet] {
-                XCTAssertEqual(page.map { $0.components(separatedBy: added).count - 1 },
-                               page.map { _ in m.htmlBody == nil ? 0 : 1 }, "letter \(i)")
-            }
-            XCTAssertEqual(page.map { Array($0.replacingOccurrences(of: bars, with: "")
-                                        .replacingOccurrences(of: sheet, with: "").utf8) },
+            let added = m.htmlBody == nil ? Self.plainBars : bars
+            XCTAssertEqual(page.map { $0.components(separatedBy: added).count - 1 }, page.map { _ in 1 },
+                           "letter \(i)")
+            XCTAssertEqual(page.map { Array($0.replacingOccurrences(of: added, with: "").utf8) },
                            previousPage(m).map { Array($0.utf8) }, "letter \(i)")
         }
     }
 
     func testAStackBodyComesOutByteForByteAsThePaneBuiltIt() {
-        for (i, m) in letters.enumerated() where i != Self.linked {
+        for (i, m) in letters.enumerated() where i != Self.linked && i != Self.quoted {
             let body = PanePage.stackBody(m)
             let previous = previousStackBody(m)
             XCTAssertEqual(Array(body.html.utf8), Array(previous.html.utf8), "letter \(i)")
@@ -181,7 +188,7 @@ final class PanePageTests: XCTestCase {
         let link = "<a href=\"\(written)\">\(written)</a>"
         let before = try XCTUnwrap(previousPage(m))
         XCTAssertTrue(before.contains("<div id=\"bm\">\(written) &lt;/script></div>"), before)
-        XCTAssertEqual(PanePage.letter(m, style: style),
+        XCTAssertEqual(PanePage.letter(m, style: style)?.replacingOccurrences(of: Self.plainBars, with: ""),
                        before.replacingOccurrences(of: "<div id=\"bm\">\(written) ",
                                                    with: "<div id=\"bm\">\(link) "))
         XCTAssertEqual(PanePage.stackBody(m),
@@ -215,7 +222,7 @@ final class PanePageTests: XCTestCase {
         XCTAssertEqual(PanePage.stackBody(letters[9]),
                        .init(html: "<span class=\"bm-waiting\">This message has no text.</span>",
                              isHTML: false))
-        let text = try XCTUnwrap(PanePage.letter(letters[10], style: style))
+        let text = try XCTUnwrap(PanePage.letter(letters[Self.quoted], style: style))
         XCTAssertTrue(text.contains("<div id=\"bm\">Dear Sam,\n\nIt's &lt;b>not&lt;/b> bold &amp;"),
                       text)
         XCTAssertTrue(text.contains("white-space: pre-wrap;"))
@@ -299,20 +306,20 @@ final class PanePageTests: XCTestCase {
         for m in [letters[letters.count - 2], letters[letters.count - 1]] {
             let page = try XCTUnwrap(PanePage.letter(m, style: style))
             let sheet = try XCTUnwrap(page.components(separatedBy: "</style>").first)
-            // After the invert, so the pictures' rule is untouched, and
-            // after the signature's sheet, as the stack has them (B-130);
-            // every rule's selector under #bm.
+            // After the invert, so the pictures' rule is untouched, with
+            // no signature's sheet between them since B-146; every rule's
+            // selector under #bm.
             XCTAssertTrue(sheet.hasSuffix("filter: invert(1) hue-rotate(180deg); }\n"
-                                          + SignatureSheet.css(in: "#bm") + "\n"
                                           + rules.joined(separator: "\n") + "\n"), sheet)
             XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 + 4 + 6)
             XCTAssertEqual(sheet.components(separatedBy: "#bm :is(").count - 1, 3)
             XCTAssertEqual(sheet.components(separatedBy: " !important;").count - 1, 12 + 1,
                            "each rule's four, and the pictures' width")
         }
-        // A plain letter's quotes are words: no rule for a blockquote.
-        let plain = try XCTUnwrap(PanePage.letter(letters[10], style: style))
-        XCTAssertFalse(plain.contains("blockquote"), plain)
+        // A plain letter's quotes are Mail's blockquotes since B-147, its
+        // rules the same in Mail's dark colours (`PlainQuoteBarsTests`).
+        let plain = try XCTUnwrap(PanePage.letter(letters[Self.quoted], style: style))
+        XCTAssertEqual(plain.components(separatedBy: Self.plainBars).count - 1, 1, plain)
     }
 
     /// Mail's reply and Gmail's keep their markup byte for byte, on the
@@ -355,7 +362,7 @@ final class PanePageTests: XCTestCase {
         }
     }
 
-    // MARK: - A signature's white sheet (B-130)
+    // MARK: - His signature (B-130, B-146)
 
     /// His signature as it is stored: a table, the logo by `cid:`, his
     /// name bold, and a link.
@@ -372,121 +379,10 @@ final class PanePageTests: XCTestCase {
 
     /// The same letter quoted in a reply that keeps its sheet's class, as
     /// Apple Mail's reply and this app's quote it (`AppleMailHTML`'s cite
-    /// blockquote), its sheet inside the quote as it came. Not Gmail's web
-    /// page, which renames the classes of the letter it quotes, so its
-    /// quote's sheet matches no rule here and is drawn as before.
+    /// blockquote), its sheet inside the quote as it came. (Gmail's web
+    /// page renames the classes of the letter it quotes.)
     static let quotingSignedLetter = "<div dir=\"ltr\">Yes, Sunday.</div><div dir=\"ltr\"><br>"
         + "<blockquote type=\"cite\">On Sunday, Sam Example wrote:<br><br></blockquote></div>"
         + "<blockquote type=\"cite\"><div dir=\"ltr\">" + DocumentWrapper.stripped(from: signedLetter)
         + "</div></blockquote>"
-
-    /// A letter on its own has the stack's rules for a signature's sheet,
-    /// the one string under `#bm` where the stack has it under `.bm-html`:
-    /// the sheet inverted once more, by the very invert of the page, which
-    /// cancels it, so it is white with black words; its pictures, the logo,
-    /// not inverted a third time. After the pane's invert and its rule for
-    /// pictures, which the second rule outranks by its class, and before
-    /// Mail's bars, as in the stack. The letter's markup is as it came: the
-    /// sheet, its class Mail's marker's, and the logo pointed at the loader.
-    func testALetterOnItsOwnHasTheStacksWhiteSheetForItsSignature() throws {
-        XCTAssertEqual(SignatureSheet.css(in: "#bm"),
-                       "#bm .bm-signature { filter: invert(1) hue-rotate(180deg); "
-                       + "background-color: #fff; color: #000; }\n"
-                       + "#bm .bm-signature img, #bm .bm-signature svg, #bm .bm-signature picture, "
-                       + "#bm .bm-signature video { filter: none; }")
-        XCTAssertTrue(AppleMailHTML.signatureOpen.hasPrefix("<div class=\"\(SignatureSheet.className)\" "),
-                      "the class every letter he sends carries")
-        XCTAssertTrue(Self.signedLetter.contains(AppleMailHTML.signatureOpen), Self.signedLetter)
-
-        let m = letter(text: "Lunch on Sunday?\n\n--\nSam Example", html: Self.signedLetter,
-                       pictures: ["sig-logo"])
-        let page = try XCTUnwrap(PanePage.letter(m, style: style))
-        let sheet = try XCTUnwrap(page.components(separatedBy: "</style>").first)
-        XCTAssertTrue(sheet.contains("#bm { filter: \(SignatureSheet.invert); background: #fff; }"), sheet)
-        XCTAssertTrue(sheet.contains("""
-            #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
-                filter: invert(1) hue-rotate(180deg); }
-            \(SignatureSheet.css(in: "#bm"))
-            \(QuoteBars.css(in: "#bm"))
-
-            """), sheet)
-        XCTAssertEqual(sheet.components(separatedBy: SignatureSheet.className).count - 1, 5)
-
-        // The stack's, but for the scope, from the same string.
-        let stack = ConversationDocument.html(
-            entries: [.init(id: m.id, sender: m.sender, date: m.date, body: PanePage.stackBody(m),
-                            isExpanded: true, preview: "")],
-            inset: style.inset, bodyPointSize: style.bodyPointSize, lineHeight: style.lineHeight)
-        XCTAssertEqual(stack.components(separatedBy: SignatureSheet.css(in: ".bm-html")).count - 1, 1)
-        XCTAssertEqual(SignatureSheet.css(in: "#bm").replacingOccurrences(of: "#bm ", with: ".bm-html "),
-                       SignatureSheet.css(in: ".bm-html"))
-
-        // The markup as it came, the logo pointed at the loader, in the
-        // sheet, in the page and in the stack's body alike.
-        let body = PanePage.content(text: nil, html: Self.signedLetter, known: ["sig-logo"])
-        XCTAssertTrue(page.contains("<div id=\"bm\">" + body + "</div>"), page)
-        XCTAssertTrue(body.contains(AppleMailHTML.signatureOpen + "<div dir=\"ltr\">"
-                                    + "<table style=\"" + AppleMailHTML.signatureTableStyle + "\">"
-                                    + "<tr><td><img src=\"bmcid://sig-logo\" width=\"70\">"), body)
-        XCTAssertEqual(PanePage.stackBody(m), .init(html: body, isHTML: true))
-    }
-
-    /// The rules are on every HTML letter's page, so they reach a sheet in
-    /// any letter that carries one: his own, one quoting his with the
-    /// class kept, as Mail's reply does, and one with none, where they
-    /// match nothing. Never on a
-    /// plain letter's page, which is not inverted and can carry no sheet:
-    /// its `<` is written `&lt;`, so a marker in its words is words.
-    func testEveryHTMLLetterHasTheRulesAndNoPlainOneDoes() throws {
-        let marker = "<div class=\"\(SignatureSheet.className)\""
-        let quoting = letter(text: "Yes, Sunday.", html: Self.quotingSignedLetter)
-        let plain = letter(text: AppleMailHTML.signatureOpen + "Sam Example" + AppleMailHTML.signatureClose)
-        for (i, m) in (letters + [quoting, plain]).enumerated() {
-            guard let page = PanePage.letter(m, style: style) else { continue }
-            let sheet = try XCTUnwrap(page.components(separatedBy: "</style>").first)
-            XCTAssertEqual(sheet.components(separatedBy: SignatureSheet.css(in: "#bm")).count - 1,
-                           m.htmlBody == nil ? 0 : 1, "letter \(i)")
-            if m.htmlBody == nil {
-                XCTAssertFalse(sheet.contains(SignatureSheet.className), "letter \(i)")
-                XCTAssertFalse(page.contains(marker), "letter \(i)")
-            }
-        }
-        let quoted = try XCTUnwrap(PanePage.letter(quoting, style: style))
-        XCTAssertTrue(quoted.contains("<blockquote type=\"cite\"><div dir=\"ltr\">Lunch on Sunday?"
-                                      + AppleMailHTML.signatureAnchor + AppleMailHTML.signatureOpen), quoted)
-        let words = try XCTUnwrap(PanePage.letter(plain, style: style))
-        XCTAssertTrue(words.contains("<div id=\"bm\">&lt;div class=\"bm-signature\""), words)
-    }
-
-    /// The sheet's white and black, as its markup declares them, are in
-    /// the first rule too, not important, so the markup's own still win
-    /// where they are written and a sheet that has lost them, its class
-    /// kept and its style gone, is white with black words in both pages,
-    /// never its words black on the pane's black.
-    func testASheetThatHasLostItsStyleIsStillWhite() throws {
-        XCTAssertEqual(SignatureSheet.colours, "background-color: #fff; color: #000;")
-        XCTAssertTrue(AppleMailHTML.signatureOpen.contains("background-color: #ffffff; color: #000000;"),
-                      "the same white and black, written on the sheet")
-        for scope in ["#bm", ".bm-html"] {
-            let first = try XCTUnwrap(SignatureSheet.css(in: scope).components(separatedBy: "\n").first)
-            XCTAssertEqual(first, scope + " .bm-signature { filter: \(SignatureSheet.invert); "
-                           + SignatureSheet.colours + " }")
-            XCTAssertFalse(SignatureSheet.css(in: scope).contains("important"))
-        }
-        let bare = letter(text: "Sam Example", html: "<p>Lunch?</p><div class=\"bm-signature\">Sam Example</div>")
-        let page = try XCTUnwrap(PanePage.letter(bare, style: style))
-        XCTAssertTrue(page.contains(SignatureSheet.css(in: "#bm")), page)
-        XCTAssertTrue(page.contains("<div class=\"bm-signature\">Sam Example</div>"), page)
-    }
-
-    /// Every filter in a letter's own page is the one invert, the stack's
-    /// string (`SignatureSheet.invert`), which the sheet's cancels it by,
-    /// or none: the letter's HTML, its pictures and the sheet.
-    func testEveryFilterOnALettersPageIsTheOneInvertOrNone() throws {
-        let m = letter(text: "Lunch on Sunday?", html: Self.signedLetter, pictures: ["sig-logo"])
-        let sheet = try XCTUnwrap(PanePage.letter(m, style: style)?.components(separatedBy: "</style>").first)
-        let filters = sheet.components(separatedBy: "filter:").dropFirst()
-            .map { String($0.prefix(while: { $0 != ";" })).trimmingCharacters(in: .whitespaces) }
-        XCTAssertEqual(filters, [SignatureSheet.invert, SignatureSheet.invert, SignatureSheet.invert, "none"])
-    }
 }

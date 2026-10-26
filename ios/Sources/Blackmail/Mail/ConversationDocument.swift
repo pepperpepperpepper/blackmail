@@ -336,19 +336,14 @@ enum ConversationDocument {
           .bm-html img, .bm-html video, .bm-html svg, .bm-html picture,
           .bm-html [style*="background-image"] {
                      filter: \(SignatureSheet.invert); }
-          /* The signature stays a white sheet with black text, whatever the
-             rest of the theme is doing. It is a formal block — the organisation name,
-             the logo, the confidentiality notice — and it is the one part of
-             a letter that is supposed to look like paper rather than like
-             this app. Inverting an already-inverted parent cancels out, so
-             this renders exactly as authored, which is the same trick the
-             image rule above uses; and pictures inside it do NOT take the
-             image rule as well, or the logo would be inverted three times
-             and come out negative. The rules a letter on its own has too
-             (SignatureSheet, B-130). */
-        \(SignatureSheet.css(in: ".bm-html"))
-          /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
+          /* A signature's white sheet is inverted with the rest of its
+             letter, as Mail draws it: no rule of its own (B-146). */
+          /* Mail's bars beside quoted text (B-101): a letter's HTML in its
+             light colours, which the invert turns; a plain letter's quotes,
+             Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
+             as a plain letter is not inverted. */
         \(QuoteBars.css(in: ".bm-html"))
+        \(QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark))
           .bm-body img, .bm-body table { max-width: 100% !important; height: auto; }
           .bm-text a { color: #0A84FF; }
           .bm-html a { color: #007AFF; }

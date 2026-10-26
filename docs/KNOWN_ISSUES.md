@@ -30633,3 +30633,373 @@ failing. The release build for the iPad links.
 - *A file shared to Blackmail* from another app's share sheet that could
   not be attached keeps the share sheet's words; Mail's share sheet was not
   looked at for it.
+
+## B-145 — FIXED 2026-10-26, not yet seen on the iPad. A link tapped in a letter asked "Open this link?" before it opened; it opens at once, in Safari or the app that claims it, as Mail opens one, and a `mailto:` still opens the composer with its address
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", "Open this
+link?"). The question was set by the spec and never asked of him.
+
+**What Mail does.** A tapped link opens at once: in Safari, or in the app
+that claims it, YouTube's in YouTube; a `mailto:` opens Mail's composer
+with its address. No question first, in any version. High: Apple
+Community threads and the strings of iOS 18.6's Mail, where no such
+question is found. Not seen on an iPad: the test iPad has no Mail (B-028),
+and none with iPadOS 18 was at hand.
+
+**What Blackmail did.** Since B-055 (2026-09-30) a tapped link, in a
+plain letter, an HTML letter or a conversation's stack, was cancelled in
+the pane and then asked "Open this link?", the site's name under it, with
+Cancel and Open; Open handed it to iOS. The spec asked for it: "no
+arbitrary navigation out of the app without confirmation"
+(`spec/docs/ARCHITECTURE.md`, under HTML rendering). A `mailto:` already
+skipped it, for the app's composer (B-036).
+
+**Changed.** `MessageDetailViewController.follow`: a `mailto:` opens the
+composer as before; anything else is handed to iOS at once,
+`UIApplication.shared.open(url)`, the one place the pane opens a link. The
+alert, and its words, are gone from the app. Comments in `follow` and
+`PaneNavigation`. Plain letters, HTML letters and conversations alike:
+all three are pages of the one web view, and every link tapped in it
+comes to `follow` (`PaneNavigation.decide`, unchanged).
+
+**Reverses** B-055's "Open this link?" and, with it, the spec's line
+above (the spec is not edited). B-055's lockdown stays as it was: the
+pane goes nowhere on its own, no frame, form, refresh, back or forward,
+and a tapped link never opens inside it.
+
+**Not changed.** Where a tap goes (`PaneNavigation`), the composer for a
+`mailto:` (`MailtoLink`), a file's row among the words (`bmfile:`,
+B-113), a picture of the letter's own (B-122), and WebKit's menu and
+preview on a link held (decided 2026-10-01, as Mail has them). No new
+words.
+
+**What he sees.** A link tapped opens at once: Safari, or the app that
+claims it, comes to the front, as from Mail. Back in the app, the letter
+is where it was. A `mailto:` opens the composer with its address, as
+before. One question less on the way out of a letter, and also one pause
+less before a link a stranger sent: the owner's ruling.
+
+**Tests.** `LinkAtOnceTests`, three, new: every link tapped, as a plain
+letter's page makes it (`https://`, `www.`, `mailto:`) and others (a
+query, `tel:`), in the pane's frame, a frame or a new window, goes to
+`follow`; `follow`, read from the source, whole: the composer for a
+`mailto:`, then `UIApplication.shared.open(url)`, no alert, and that call
+nowhere else in the pane; and no code under `Sources` says "Open this
+link". `PaneNavigationTests`, a comment.
+
+Each undone by hand in the worktree, then put back and passing, the
+touched classes run (`LinkAtOnceTests`, `PaneNavigationTests`, and the
+pages' and decoder's classes), one run with B-146's and B-147's undone
+too, each failure read by its line; counted as failures in tests:
+`follow` as before, its alert put back, 3 in 2, `follow`'s source and
+the question found in `MessageDetailViewController`;
+`PaneNavigation.decide` cancelling a `tel:` link, 3 in 1. That first
+test pins where a tap goes, which B-145 leaves as it was, so the code
+B-145 changed does not fail it.
+
+The full suite, serially, on the branch with B-146 and B-147: 2,681
+tests, 21 of them new for the three, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- `follow` is UIKit: read from the source, not run. That a tap reaches it
+  in each kind of page is B-055's wiring, seen on the test iPad then.
+- A `tel:`, `sms:` or `facetime:` link goes to iOS as any other, as from
+  Mail; iOS asks before a call itself. Not seen. A link of a scheme no app
+  claims does nothing, as Open did; a `javascript:` link the parser drops
+  with the letter's script off (B-055).
+- Every scheme but `mailto:` opens at once, not `http(s)` alone, as the
+  decision's build note words it: `tel:`, `sms:`, an app's own scheme,
+  `shortcuts:` or `itms-services:`, as Mail opens them. The question was
+  the one pause before a stranger's link opened another app. For
+  DECISIONS.md to say so with this ruling.
+- A link that a universal link claims, YouTube's, opens its app, as
+  `open` does by default and Mail does: seen with Open on 2026-10-21
+  (B-055's check), not since.
+- Not seen against Mail, as above. Also not looked at: whether Mail on an
+  iPad opens a link beside it in Split View; here iOS decides, as before.
+- B-124's check, done, had a step "Open this link?" dark; it cannot be
+  made again as written.
+
+## B-146 — FIXED 2026-10-26, not yet seen on the iPad. His signature was drawn on a white sheet with black words in the reading pane, alone and in a conversation; it is drawn with the rest of its letter, as Mail draws it: its words white on the black, its logo as drawn, dark on it
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", "His
+signature's white sheet"). The pane is dark (D-010).
+
+**What Mail does.** Mail draws no sheet. Read from iOS 18.6's MobileMailUI
+and MessageUI in the simulator runtime on the Mac (B-130): in Dark Mode,
+a letter that declares no colour scheme of its own, has no picture from
+the web and no background picture is given
+`apple-mail-implicit-dark-support` (MobileMailUI's
+`_declaredColorSchemes` script, `_styleForSystemAppearance`), and Mail's
+style sheet turns the lightness of every colour in it
+(`-apple-color-filter: apple-invert-lightness()`), the sheet's white and
+its words' black with the rest, and leaves its pictures as drawn. His
+letters declare none (Mail reads the root's scheme and a `<meta>`, not
+the sheet's `color-scheme: light`) and his logo is a `cid:` picture: in
+Dark Mode Mail draws his signature black, its words white, and the logo
+dark on it. Medium: the rules are read, high; how they draw his
+signature is inferred, not rendered and not seen.
+
+**What Blackmail did.** Both of the pane's pages had two rules for the
+sheet's class, `bm-signature` (`SignatureSheet.css`): the sheet inverted a
+second time by the pane's own invert, which cancelled the first, with
+the sheet's white and black under its markup's; and its pictures left
+out of the rule for pictures. So it was white with black words, its logo
+as on paper: in a conversation's stack since the app's first version,
+and in a letter on its own since B-130 (2026-10-25), which gave it the
+stack's rules after the test iPad showed it white on the black there.
+
+**Changed.** The rules are gone from both pages: `PanePage.letter`, a
+letter's HTML under `#bm`, and `ConversationDocument.html`, under
+`.bm-html`, whose style says why there is none. `SignatureSheet` keeps
+only the pane's invert, `invert(1) hue-rotate(180deg)`, the one string
+both pages invert a letter's HTML and its pictures by; its comment says
+what became of the sheet. The sheet's class and colours in what he sends
+(`AppleMailHTML.signatureOpen`) are as they were: they are for whoever
+reads his letters elsewhere. Comments in `QuoteBars` and `PrintPage`.
+
+**Reverses** B-130, and the stack's sheet since the first version. The
+print is as it was: never inverted, it never had the rules, and the sheet
+prints as written, black words on the paper's white (B-110).
+
+**What he sees.** His signature, alone or in a conversation, white words
+on the black like the words above it, its links blue, and the logo as
+drawn, dark ink on the black, hard to see: as before B-130 on a letter
+alone, and as Mail would draw it. The same for a letter quoting his with
+the class kept. No new words.
+
+**Tests.** `SignatureLikeMailTests`, four, new: his letter as this app
+sends it, alone, its style with no rule for the sheet and only the two
+inverts, of the letter and of its pictures, Mail's bars straight after
+them, its markup as it came, the logo pointed at the loader inside the
+sheet; the same in a stack with a reply quoting it; no page of the pane's
+set, nor his letter, a reply quoting it, a sheet that has lost its style
+or a plain letter whose words are the marker, alone or in one stack,
+with a rule for the sheet or a filter but the one invert; and what he
+sends, the marker, and the invert string, as they were. Changed:
+`PanePageTests`, the page byte for byte with Mail's bars alone taken
+out, the bars straight after the invert, and its four tests of the sheet
+taken out, its letters kept; `ConversationDocumentTests`, the bars after
+the pictures' rule, the sheet's test now that there is no rule, and every
+filter the one invert; `PrintPageTests`, the sheet printed as written and
+the pane with no rule for it; `OrdinaryMail`'s page fingerprints, with
+the bars alone taken out, the same as before.
+
+Each undone by hand in the worktree, then put back and passing, the
+touched classes run, in one run with B-145's and B-147's undone too, each
+failure read by its line; counted as failures in tests: the sheet's two
+rules put back on a letter's own page, 29 in 2 of the new
+(`testALetterAloneHasNoWhiteSheet`, `testNoPageHasARuleForTheSheet`), and
+`PrintPageTests`' sheet test and `PanePageTests`' page byte for byte and
+its bars after the invert; the same two put back in the stack, 4 in 2 of
+the new (`testAConversationHasNoWhiteSheet`, and the stack's part of
+`testNoPageHasARuleForTheSheet`), and `ConversationDocumentTests`' three
+tests of the stack's style; the invert string changed, 1 in 1
+(`testWhatHeSendsAndTheInvertAreAsTheyWere`), and, with the stack's
+rules, every filter the one invert. That last test pins what B-146 left
+as it was, the marker he sends and the invert, so only a change to them
+fails it.
+
+The full suite, serially, on the branch with B-145 and B-147: 2,681
+tests, 21 of them new for the three, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- How Mail draws his signature in Dark Mode is inferred from its code,
+  not rendered or seen: the test iPad has no Mail (B-028), and none with
+  iPadOS 18 was at hand.
+- Mail turns the lightness of colours alone (`apple-invert-lightness()`);
+  the pane inverts and turns the hue back. Near, not the same: a
+  coloured line in his signature may come out a shade apart.
+- Differing from Mail, by its code, and not built (the decision's note): in
+  Dark Mode Mail draws a letter with a picture from the web light, not
+  inverted (`apple-mail-light-only` for those, as for a letter that
+  declares a light scheme only, B-130); the pane inverts every HTML
+  letter.
+- The logo is dark on the black, hard to see, as Mail draws it. It was
+  the reason for the sheet; the owner's ruling takes Mail's.
+
+## B-147 — FIXED 2026-10-26, not yet seen on the iPad. A plain letter's quotes were drawn as typed, each line with its ">" and no bar; they are drawn as Mail draws them, Mail's quote bars beside them, a deeper bar for each mark more, the marks hidden, on the pane, in a conversation and on paper
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", "Quote bars
+beside plain-text quotes").
+
+**What Mail does.** Read from iOS 18.6's Message framework, its code
+(high; not seen on a screen): Mail makes a plain letter HTML before it
+draws it (`mf_convertFromFlowedText`), each level of ">" a `BLOCKQUOTE`
+of `type=cite`, the marks taken out, and its style sheet gives each the
+bar and the colour it gives a quote in an HTML letter (B-101): 1 px down
+its left, 5 px from its words, the words in its colour, violet, teal,
+then green for the third level and deeper. How deep: in flowed text (RFC
+3676, `format=flowed`, as Mail itself sends plain text) the unbroken run
+of marks a line begins with, so "> > " is one level whose words begin
+"> "; in any other, marks with spaces between them count as one run, so
+"> > " is two. A plain letter is drawn light-on-dark in Dark Mode, not
+inverted, so its bars take Mail's dark colours, rgb(191, 90, 242),
+rgb(0, 200, 250) and rgb(87, 217, 119), from MessageUI's asset catalog
+(B-101).
+
+**What Blackmail did.** A plain letter's words were written into its
+page as they came (`TextLinks.plain`), every quoted line with its marks,
+no bar: B-101 drew Mail's bars beside an HTML letter's quotes only, and
+left a plain letter's to the owner. Nothing read `format=flowed`.
+
+**Changed.**
+
+1. *Quotes made Mail's* (`PlainQuotes`, new, in `MIME/`). Each line begun
+   with ">" is a quote as deep as its marks, by the rules above, the marks
+   and one space after them taken out; a run of lines at one depth is one
+   `<blockquote type="cite">`, one inside another for each level more, as
+   Mail makes them, so the pane's rules for Mail's quotes find them
+   (`QuoteBars.quote`). A quote begins at the start of its first line and
+   ends after the break of its last: the page keeps a plain letter's lines
+   (`white-space: pre-wrap`), and they are drawn where they were. Not a
+   quote, as before: a line begun ">From ", as a mail store keeps a line
+   its sender began "From "; a line whose first character is not ">"; a
+   mark inside a line.
+2. *Links and escaping as before.* The words are escaped as each page
+   always escaped them, and links made as they were, a quoted line's too:
+   `TextLinks.plain` takes the quotes' markup as tags put in at the start
+   of a line (`TextLinks.Tag`), where no link can be, a link ending at a
+   line break; one that falls where a link begins goes before it. A
+   letter with no quote comes out byte for byte as it did.
+3. *Bounded.* A quote deeper than 32 levels (`PlainQuotes.deepest`) is
+   drawn 32 deep, the marks past it as words. A letter whose quotes would
+   add more markup than the letter is long, or 64 KiB for a short one
+   (`markupAllowed`), is drawn as before, marks and all: a stranger's
+   letter of ">" lines going in and out on every line would make a page
+   twelve times its size, up to its 2 MB.
+4. *The bars in Mail's dark colours* (`QuoteBars.dark`, and a palette for
+   `QuoteBars.css`): a plain letter's page has Mail's rules under `#bm` in
+   them (`PanePage.letter`), and a conversation's stack under `.bm-text`,
+   a plain letter's body, beside the HTML's under `.bm-html`
+   (`ConversationDocument.html`). An HTML letter keeps the light ones,
+   which the pane's invert turns, as before.
+5. *On paper* (`PrintPage`, B-110): a plain letter prints the pane's
+   body, its quotes Mail's blockquotes, and the page has Mail's rules in
+   its light colours, as an HTML letter's always had: the paper is white
+   and not inverted.
+6. *Flowed text read* (new plumbing). `MIMEDecoder.BodyPlan.textIsFlowed`:
+   every part of the plain words text/plain with `format=flowed`, in any
+   case, and at least one. Carried by `DecodedBody` and
+   `Message.textIsFlowed` from the letter fetched whole, from one fetched
+   in part (`IMAPMailRepository`, whose structure says it) and from the
+   copy kept on the iPad, which is decoded again; handed to the page, the
+   stack and the print. `PanePage.content`, which the page and the print
+   share, has no default for it, so neither can leave it out.
+
+**Reverses** B-101's "plain quotes have no bar" (and its line in
+`QuoteBars`' comment).
+
+**Not changed.** A flowed letter's lines. Flowed text is read by joining
+the lines its sender broke softly and taking out the space put before a
+line begun with a space, ">" or "From " (RFC 3676), which Mail's
+converter is named for; here the lines are drawn as they came, as before
+(differing from Mail by the RFC and the converter's name, not read in its
+code; not built). The list's preview, a reply's quote of a plain letter
+(still "> " in the composer) and a printed letter in words, when its page
+cannot be drawn (`PrintPage.words`, marks and all). HTML letters. No new
+words.
+
+**What he sees.** In a plain letter, a reply that quotes another, the
+quoted lines have a thin bar down their left, violet, and their words 5
+pt from it in violet; a quote inside it a teal bar inside the violet one,
+and deeper green; no ">" before the lines. The same in a conversation and
+in Print's preview, there in Mail's light colours on the white. A line
+">From …" as before. A link in a quote is blue and opens at a tap.
+
+**Tests.** `PlainQuoteBarsTests`, fourteen, new: a quote made Mail's
+blockquote, the marks and one space gone, beginning and ending at its
+lines, a blank quoted line, a mark alone, a quote at the end; each mark
+more a deeper quote and fewer closing them, "> > ", ">> ", "> >> " and
+spaced marks; flowed text counting the unbroken run, "> > " one level
+with its words "> " (escaped in the stack's escaping); ">From " lines, a
+space before the mark, a mark inside a line as typed, and every letter
+of the pane's set with no quote, and others, byte for byte as
+`TextLinks.plain` writes them, in both escapings, flowed or not; links
+in quotes, one at the start of a quoted line inside its quote, the
+escaping each page's, and a tag at a link's start before it; a quote 40
+deep drawn 32 deep, the marks past it words, a letter of 40,000 quotes
+in and out drawn as before and 1,000 under the limit made; Mail's dark
+colours and their rules; the pane's set's quoted letter on its own page,
+its body whole and the dark rules after the links' colour, no light
+colour, no filter; the same letter in a stack, escaped as the stack
+escapes, at first draw and by `bmFill`, the `.bm-text` rules after the
+`.bm-html` ones; on paper, the quote and the light rules, no dark colour;
+a page counting as flowed text only when the letter is, and its print the
+same; flowed read from seven letters' parts (one part, quoted and in
+capitals, Apple Mail's pair, a mixed letter with one part not flowed,
+every part flowed, HTML alone), by `decodeMessage` and by `bodyPlan`; and through the shipping
+repository and the scripted server, a flowed letter opened whole, one too
+large opened in part, and one not flowed, each `textIsFlowed` and page as
+it should be. Changed: `PanePageTests`, the page byte for byte with a
+plain letter's dark rules taken out as the HTML's light ones are, the
+quoted letter left out of it and of the stack's body byte for byte,
+checked in the new class instead, a plain letter's rules found once; `ConversationDocumentTests`, the stack's rules
+for both kinds of body; `PrintPageTests`, the light rules on every
+letter's paper, and each letter's body the pane's with its own flowed;
+it and `SignatureLikeMailTests` naming `flowed` where they draw a body.
+
+Each undone by hand in the worktree, then put back and passing, the
+touched classes run, in four runs, several at once where they reach
+different tests, each failure read by its line; counted as failures in
+tests, the new class's first: the converter undone, `PlainQuotes.html` as
+`TextLinks.plain` alone, 25 in 11 (all but Mail's dark colours and the
+flowed mark read from the parts); the pages' bodies back to
+`TextLinks.plain`, so the pane, the stack and the print as before B-147,
+9 in 5; a plain page with no rules, 1 in 1, and `PanePageTests`' page
+byte for byte and its plain rules, 3 in 2, and `PrintPageTests`' pane's
+rules, 4 in 1; the stack with no `.bm-text` rules, 1 in 1, and
+`ConversationDocumentTests`' rules, 3 in 1; the print's rules for HTML
+alone, as before, 1 in 1, and `PrintPageTests`' rules on every letter's
+paper, 7 in 1; marks with spaces between them not one run, 2 in 1;
+flowed text counted as any other, 6 in 3; no depth bound, 2 in 1; no
+markup bound, 1 in 1; a ">From " line taken for a quote, 6 in 1; a tag at
+a link's start put after the link, 2 in 1; Mail's dark violet a shade
+off, 2 in 1; the flowed mark not set by `flatten`, 8 in 2, from
+`decodeMessage` and through the repository, whole and in part; and not
+handed on by the repository, 2 in 1; the print's body as text not
+flowed (`flowed: false` in `PrintPage.body`), 1 in 1, which nothing caught
+before that test.
+
+The full suite, serially, on the branch with B-145 and B-146: 2,681
+tests, 21 of them new for the three, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not seen against Mail: the test iPad has no Mail (B-028), and none with
+  iPadOS 18 was at hand. The decision's unsure point: Mail's colours are
+  read from iOS 18.6, and the Mail of iPadOS 16.5.1, all the test iPad
+  could show once Mail is back on it, may have older ones. Also not seen
+  in Mail, and built as decided: a ">From " line
+  (here as before, marks and all), the spaced marks in a letter not
+  flowed, and how deep Mail goes (here 32).
+- Pages are strings here; how WebKit draws a quote's first and last
+  lines in a plain page, with no blank line added at either end, is read
+  from CSS's rules for a block's line breaks, not rendered. To be looked
+  at on the test iPad (TODO, B-147's check).
+- The 5 pt and the colours come out of the same rules as an HTML letter's
+  (B-101), there seen on the test iPad; on a plain page they are not
+  inverted, so they are Mail's dark colours as written.
+- A flowed letter's soft line breaks are kept, as before; Mail joins them
+  (above).
+- Two violets in one conversation. A plain letter's quote is Mail's dark
+  violet, rgb(191, 90, 242), and an HTML letter's, Mail's light one
+  inverted, about rgb(152, 150, 255) (`QuoteBars`), so a plain reply
+  beside an HTML one shows the same level in two colours; Mail shows one.
+  Not built.
+- A sender's style sheet in a conversation. The stack is one document,
+  and an HTML letter's own `<style>` applies to the whole of it (B-095);
+  a plain letter's quotes are blockquotes now, so a rule of another
+  letter's on `blockquote`, `display: none` or a `font-size`, reaches
+  them, where `QuoteBars` makes only the padding, margin, border and
+  colour important. Mail draws each letter of a conversation in a page of
+  its own. An HTML letter's quotes were open to it already; a plain
+  letter's are new to it. Not built.
