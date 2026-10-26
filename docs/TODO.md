@@ -6636,6 +6636,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       in the list and the cell made ahead was not drawn again as it came
       in. Written down with its UID and the time its preview was answered,
       and B-143's check (below) runs it again.*
+      *Seen on the test iPad 2026-10-26 on int17 (92f2cb9): 1 to 9 passed
+      as written, frames about 0.3 s apart in place of a recording. The
+      two empty drafts were asked for at "Pey" alone, two bytes each, and
+      at no pause after; "Peyt" and "Peyto" asked for no preview, "Peyton"
+      only for two hits in the Trash that "Pey" had not found; every row
+      had its lines in every frame (B-135). In 5 the "e" came before
+      "Mus"'s lines, but "Muse" was asked 0.1 s after "Mus"'s previews
+      were answered, none on the wire. 7b counted at its second try, the
+      first having left the scope on All Mailboxes: the Inbox, opened
+      afresh, asked for no preview, its rows drawn at once, so its lines
+      were not coming as the search began; the hit below its first page,
+      scrolled to after Cancel, was asked for and drawn. In 8b 18 of
+      Drafts' first page answered with two bytes, and neither Refresh
+      asked for any. Nothing was written to the mailbox. Not shown: an
+      answer landing after its list was replaced, which 5 and 7b ask to
+      write down. Left: that, in either step.*
 - [x] **B-136, the kept copy's free-space reading.** On the test iPad
       (16.5.1), the test account only, from a build of the `bm-searchprev`
       worktree (branch `fix-searchprev`). Eight letters of about 3 MB, a
@@ -6778,6 +6794,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       TrollStore lists Blackmail as before. The prefs keep the day of
       10's warning, 18 September 2027, which under TrollStore says
       nothing; a later run takes it out before its step 1, as above.
+      *Seen on the test iPad 2026-10-26 on int17 (92f2cb9), installed by
+      TrollStore's helper: 1 passed. The prefs held 1 September 2027, so
+      nothing was taken out. The clock automatic: no warning for 30 s, the
+      log's "EXPIRY none, TrollStore", no "EXPIRY entitlements unread".
+      Set Automatically off brought back Los Angeles, the zone last set by
+      hand; the clock set from the host over SSH went back to 2026 within
+      a minute, twice, so 2 September 2027 was set with Settings' date
+      picker, 9:31 AM. Kill and launch: "Can't connect to mail server.",
+      OKed, no warning at 30 s or at 65 s, and "EXPIRY none, TrollStore",
+      the one line of that launch's log kept. Set Automatically on at
+      once; the day in the prefs unchanged (B-137). 2 to 11 gated, not
+      run: 2 copies the build signed by the certificate over TrollStore's,
+      a write into the bundle container the owner has not cleared, and 3
+      to 10 need it, the app saying nothing in the thirty days under
+      TrollStore; 11's reinstall is a write of the same kind, needless
+      with the bundle untouched, and its other parts held: the clock
+      automatic since 1, every launch "EXPIRY none, TrollStore". Nothing
+      was sent. Left: 2 to 11, behind that gate.*
 
 - [ ] **B-138, provision-ipad.sh's TrollStore range.** On the laptop or
       the Mac, with the whole repo and the test iPad on the cable,
@@ -6802,7 +6836,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       Left: 1 on the laptop or the Mac taken on the visit, with the
       whole repo, its ✗ lines the visit's own.*
 
-- [ ] **B-140, a Reply to a letter that fills its 2 MB.** On the test
+- [x] **B-140, a Reply to a letter that fills its 2 MB.** On the test
       iPad, the test account, from a build with the change. Nothing is
       sent and nothing is saved: each composer has "x" typed in it, then
       Cancel, then Delete Draft. The letters are the host's, APPENDed read
@@ -6872,6 +6906,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
       made it. Never anything found by subject, Message-ID or label.
       Nothing else was written.
+      *Seen on the test iPad 2026-10-26 on int17 (92f2cb9): 0 to 9 passed,
+      each sheet up 1.43 to 1.9 s after its tap, the quotes and bodies
+      ending as written, at 00885, 00936, 00923, "02000", "3998" and "Line
+      1472" (B-140). (a) as written, 2,128,353 bytes, is under the 5 MiB
+      above which a letter is opened in parts, so the pane fetched it
+      whole, with no grey line, and its Reply ended at 00885 all the same;
+      1 to 3 ran on (a2), its paragraphs on to 72,000, 5,472,365 bytes,
+      added for them. Only the top and the end of each quote were read.
+      The host put the six letters in the Trash by a STORE of its label,
+      the round's rules allowing no MOVE or EXPUNGE. Nothing was sent or
+      saved.*
 
 - [ ] **B-141, the last file tapped opens.** On the test iPad, the
       test account, from a build with the change. Nothing is sent,
@@ -6927,6 +6972,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
       made it. Never anything found by subject, Message-ID or label.
       Nothing else was written.
+      *Seen on the test iPad 2026-10-26 on int17 (92f2cb9): 2 to 6 passed,
+      and 1 as far as it went. In 1 B's letter was kept whole on the iPad,
+      so its file opened in Quick Look at once, with no FETCH, while A's
+      PDF was still coming, and A's, 21.7 MB on the wire, in 5.7 s, never
+      opened (B-141). With Quick Look up as A's landed, the code before
+      B-141 would have let A's go as well, so 1 did not tell the fix; 2, 3
+      and 5 did: nothing opened over B for a minute, note.txt opened and
+      not the PDF, and three taps made one FETCH and one Quick Look. In 4
+      the PDF opened, the header on A throughout. A was 21.4 MB with a PDF
+      of 15.8 MB (16.3 MB on its row), B's PDF 127 KB and its subject
+      without "Re:". The host put the two letters in the Trash by a STORE
+      of its label. Nothing was sent. Not shown: 1's race, B's file
+      fetched behind A's. Left: that, with a B over 5 MiB, which the app
+      does not keep.*
 - [ ] **B-139, the dates on screen after the clock's form changes.** On
       the test iPad, the test account only, from a build of the
       `bm-dateredraw` worktree (branch `fix-dateredraw`) or of the int it
@@ -7005,6 +7064,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       Trash only the UIDs that move answered (`COPYUID`); "Notes" itself
       stays. Never anything found by subject or Message-ID: a UID not
       noted is left, and written down. Nothing else was written.
+      *Seen on the test iPad 2026-10-26 on int17 (92f2cb9): 1 to 5 and 7
+      passed; 6 not possible, the round running from about 9 to 10:40 PM,
+      not across midnight, with no yes from the owner to set the clock.
+      With 24-Hour Time on, in the first look, (a)'s row "20:39" and the
+      header "Today at 20:39", every row of today in sight the same, (a)'s
+      row still highlighted, no FETCH or SELECT; the rows of (d) scrolled
+      in, the first too, without AM or PM. In Los Angeles three hours
+      earlier, "Today at 5:39 PM". The stack's line and header "20:59",
+      (b)'s "Thursday", nothing opened or closed; Edit's two ticks kept
+      (B-139). The line under the list gave minutes, no time. Back to
+      Blackmail by opening it from the host, not the app switcher. The
+      letters were made twice, the first set out of order, the list going
+      by UID, and both sets put in the Trash by a STORE of its label, the
+      round's rules allowing no MOVE or EXPUNGE, nothing deleted there;
+      (c)'s subject had no "Re:". Nothing was sent. Left: 6, across
+      midnight or with the owner's yes.*
 - [ ] **B-142, a large video still coming into the composer as he locks
       the iPad or leaves the app.** On the test iPad, the test account
       only, from a build of the `bm-videopick` worktree (branch
@@ -7122,7 +7197,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       9. *Put back:* Drafts and Sent Mail as counted first; Local Drafts
       empty; Photos as found; Blackmail in front on the Inbox; Auto-Lock
       as found. Nothing was sent, and nothing is left on the account.
-- [ ] **B-143, a row comes into sight with its preview.** On the test
+- [x] **B-143, a row comes into sight with its preview.** On the test
       iPad, the test account only, from a build of the `bm-prepcell`
       worktree (branch `fix-prepcell`) or of the int it is merged into.
       Nothing is composed, sent, saved, moved or deleted in the app, and
@@ -7177,6 +7252,23 @@ checks below is left as not needed, not open, and none is worth a round.*
       answered (`COPYUID`); "Notes" itself stays. Never anything found by
       subject or Message-ID: a UID not noted is left, and written down.
       Nothing else was written.
+      *Seen on the test iPad 2026-10-26 on int17 (56bbf61): 1 to 4 passed.
+      In ten tries no row came into sight blank: each try's one preview
+      FETCH named its fourteen UIDs, the rows were grey for 0.15 to 0.4 s,
+      then all had their lines, and every row coming in at the bottom had
+      them in its first wholly visible frame. In 2 the list had been
+      moving 0.43 s when the previews came, and every row had its lines
+      from then on. Two more, the list moving 0.196 and 0.114 s before the
+      answer: none blank. On 92f2cb9 a second run had made the blank row 4
+      times in 4 at 0.155 s or more and 0 in 7 at 0.068 s or less, so 2's
+      try and the 0.196 s one were in that range, the 0.114 s one between
+      the two. Two others did not count, the finger down before the new
+      rows' envelopes had come, so that the list kept its earlier rows
+      (B-143). Tries 11 to 15 reused tries 1 to 5's senders, and the first
+      try's letter 14 was dated 220 minutes back, not 160, so that fifteen
+      tries fitted. The host put the 210 letters in the Trash by a STORE
+      of its label, the round's rules allowing no MOVE or EXPUNGE; one
+      STORE answered NO was sent again. Nothing was sent.*
 
 ## Blocked on the owner
 
