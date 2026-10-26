@@ -13,6 +13,11 @@ import Foundation
 /// first, the one fetched longest ago first; opened, one is a letter he
 /// opened like any other.
 ///
+/// Beside each letter, its words as the reading pane would quote them, the
+/// first `Bounds.words` characters, in a file of their own: what a search
+/// with no connection reads (`words(in:)`, B-160). Made from the letter
+/// as it is kept, and gone with it.
+///
 /// Each is the bytes of `BODY.PEEK[]` exactly as the FETCH returned them,
 /// one file a letter in `letters/`, named by its folder, UIDVALIDITY, UID
 /// and Gmail message id (X-GM-MSGID) and by nothing it says, with an index
@@ -60,6 +65,9 @@ final class KeptLetters: @unchecked Sendable {
         /// either, the one fetched longest ago goes.
         var ahead = 50
         var aheadBytes = 20 << 20
+        /// The most characters of a letter's words kept beside it, for a
+        /// search with no connection (B-160).
+        var words = 64 << 10
         /// The free space the iPad keeps: a letter that would leave less
         /// is not kept, the kept letters all go, and nothing more is kept
         /// in that launch.
@@ -200,6 +208,21 @@ final class KeptLetters: @unchecked Sendable {
         }
     }
 
+    /// The words kept beside the letter kept under these four (B-160), nil
+    /// when the letter is not kept or none were. Nothing touched: a search
+    /// opens nothing. Not checked as the letter is, being made from it, and
+    /// read for a search alone.
+    func words(in folder: String, validity: UInt32, uid: UInt32, message: UInt64) -> String? {
+        guard alive() else { return nil }
+        return disk.sync { () -> String? in
+            loadIfNeeded()
+            guard let found = locked({ index.first { $0.matches(folder, validity, uid, message) } }),
+                  let data = try? Data(contentsOf: files.appendingPathComponent(Self.wordsFile(found.file)))
+            else { return nil }
+            return String(decoding: data, as: UTF8.self)
+        }
+    }
+
     /// Whether a letter is kept under these four, from the index alone:
     /// nothing read, nothing touched. For a letter not to be fetched ahead
     /// again (B-160).
@@ -228,9 +251,10 @@ final class KeptLetters: @unchecked Sendable {
     ///
     /// `ahead` for a letter fetched ahead (B-160): kept as one he has not
     /// opened, evicted first, and a letter kept already is left as it is,
-    /// not made the newest.
+    /// not made the newest. `words` are its words, kept beside it for a
+    /// search with no connection, the first `Bounds.words` characters.
     func keep(_ raw: Data, in folder: String, validity: UInt32, uid: UInt32, message: UInt64,
-              ahead: Bool = false) {
+              words: String? = nil, ahead: Bool = false) {
         let count = raw.count
         guard alive(), count > 0, count <= bounds.letter else { return }
         enum Turn { case none, past, taken(epoch: Int) }
@@ -246,14 +270,14 @@ final class KeptLetters: @unchecked Sendable {
         }
         disk.async { [self] in
             defer { locked { waiting -= count } }
-            store(raw, in: folder, validity: validity, uid: uid, message: message, ahead: ahead,
-                  epoch: epoch)
+            store(raw, in: folder, validity: validity, uid: uid, message: message, words: words,
+                  ahead: ahead, epoch: epoch)
         }
     }
 
     /// On the disk queue.
     private func store(_ raw: Data, in folder: String, validity: UInt32, uid: UInt32,
-                       message: UInt64, ahead: Bool, epoch: Int) {
+                       message: UInt64, words: String?, ahead: Bool, epoch: Int) {
         let started = DispatchTime.now().uptimeNanoseconds
         guard alive() else { return }
         loadIfNeeded()
@@ -301,6 +325,12 @@ final class KeptLetters: @unchecked Sendable {
         do {
             try makeDirectories()
             try raw.write(to: file, options: .atomic)
+            // Its words beside it, before the index names it: a crash
+            // between leaves a file no record names, swept at the next use.
+            if let words, !words.isEmpty {
+                try Data(String(words.prefix(bounds.words)).utf8)
+                    .write(to: files.appendingPathComponent(Self.wordsFile(record.file)), options: .atomic)
+            }
         } catch {
             // A disk that is full: nothing kept, and the index as it was.
             // The reading held said there was room, and the disk says
@@ -315,6 +345,7 @@ final class KeptLetters: @unchecked Sendable {
             try JSONEncoder().encode(written).write(to: indexURL, options: .atomic)
         } catch {
             try? manager.removeItem(at: file)
+            try? manager.removeItem(at: files.appendingPathComponent(Self.wordsFile(record.file)))
             reading = nil
             Diagnostics.log(.note, "KEPT-LETTER not-kept reason=disk")
             return
@@ -331,9 +362,7 @@ final class KeptLetters: @unchecked Sendable {
             return true
         }
         guard taken else { return }
-        for gone in evicted {
-            try? manager.removeItem(at: files.appendingPathComponent(gone.file))
-        }
+        for gone in evicted { removeFiles(of: gone) }
         let ms = (DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
         Diagnostics.log(.note, "KEPT-LETTER kept bytes=\(raw.count) ms=\(ms)"
                         + (freeMS.map { " free-ms=\($0)" } ?? "") + (ahead ? " ahead" : ""))
@@ -460,9 +489,7 @@ final class KeptLetters: @unchecked Sendable {
                 queueWrite()
                 return out
             }
-            for record in gone {
-                try? FileManager.default.removeItem(at: files.appendingPathComponent(record.file))
-            }
+            for record in gone { removeFiles(of: record) }
         }
     }
 
@@ -477,9 +504,13 @@ final class KeptLetters: @unchecked Sendable {
             return true
         }
         guard dropped else { return }
-        for record in records {
-            try? FileManager.default.removeItem(at: files.appendingPathComponent(record.file))
-        }
+        for record in records { removeFiles(of: record) }
+    }
+
+    /// The letter's file and the words kept beside it.
+    private func removeFiles(of record: Record) {
+        try? FileManager.default.removeItem(at: files.appendingPathComponent(record.file))
+        try? FileManager.default.removeItem(at: files.appendingPathComponent(Self.wordsFile(record.file)))
     }
 
     // MARK: - The whole store
@@ -569,7 +600,7 @@ final class KeptLetters: @unchecked Sendable {
         // what goes is swept with the files no record names.
         _ = Self.evict(&records, within: bounds)
         if records.count != before { dirty = true }
-        let named = Set(records.map(\.file))
+        let named = Set(records.flatMap { [$0.file, Self.wordsFile($0.file)] })
         for name in present where !named.contains(name) {
             try? manager.removeItem(at: files.appendingPathComponent(name))
         }
@@ -622,6 +653,11 @@ final class KeptLetters: @unchecked Sendable {
     static func fileName(_ folder: String, _ validity: UInt32, _ uid: UInt32,
                          _ message: UInt64) -> String {
         "\(MailShelf.hash(folder))-\(validity)-\(uid)-\(message).eml"
+    }
+
+    /// The file of a letter's words, beside its own: "….txt" for "….eml".
+    static func wordsFile(_ file: String) -> String {
+        (file.hasSuffix(".eml") ? String(file.dropLast(4)) : file) + ".txt"
     }
 
     static func crc(_ data: Data) -> UInt32 {

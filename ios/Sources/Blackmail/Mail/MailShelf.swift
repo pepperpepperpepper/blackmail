@@ -853,6 +853,18 @@ final class MailShelf: @unchecked Sendable {
         }
     }
 
+    /// The rows of every folder's kept page but `folder`'s, each page's
+    /// newest first, the folders in the order of their names, every row
+    /// under its folder's name: for a search of All Mailboxes with no
+    /// connection (B-160).
+    func rowsOfEveryFolder(besides folder: String) -> [MessageSummary] {
+        guard isAlive else { return [] }
+        loadEverything()
+        let kept: [PageRecord] = locked { pages.values.filter { $0.folder != folder } }
+        return kept.sorted { $0.folder < $1.folder }
+            .flatMap { page in page.rows.map { $0.summary(in: page.folder) } }
+    }
+
     /// Every page on disk, for a change to a letter wherever it is kept.
     private func loadEverything() {
         let (done, epoch) = locked { (everythingRead, self.epoch) }

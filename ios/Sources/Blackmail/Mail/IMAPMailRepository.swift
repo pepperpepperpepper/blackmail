@@ -1824,7 +1824,8 @@ actor IMAPMailRepository: MailRepository {
         let shown = Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(raw),
                                 decoded: decoded, named: named, shortened: decoded.isShortened)
         if let row {
-            keep(raw, of: row, named: named, in: name, uid: message.uid, validity: message.validity)
+            keep(raw, of: row, named: named, in: name, uid: message.uid, validity: message.validity,
+                 words: KeptSearch.words(of: shown))
         }
         return shown
     }
@@ -1837,8 +1838,11 @@ actor IMAPMailRepository: MailRepository {
     /// empty and not over `largeAbove`; the Drafts folder's name is known
     /// and the row is neither in it nor counted there. Otherwise the log
     /// says which, in a word.
+    ///
+    /// `words` are its words, kept beside it for a search with no
+    /// connection (B-160).
     private func keep(_ raw: Data, of row: MessageSummary, named: UInt64?, in name: String,
-                      uid: UInt32, validity: UInt32) {
+                      uid: UInt32, validity: UInt32, words: String) {
         guard shelf != nil else { return }
         let reason: String
         if Task.isCancelled {
@@ -1852,7 +1856,7 @@ actor IMAPMailRepository: MailRepository {
                 Diagnostics.log(.note, "KEPT-LETTER not-kept reason=draft")
                 return
             }
-            shelf?.letters.keep(raw, in: name, validity: validity, uid: uid, message: named)
+            shelf?.letters.keep(raw, in: name, validity: validity, uid: uid, message: named, words: words)
             return
         } else {
             reason = "unnamed"
@@ -2517,8 +2521,10 @@ actor IMAPMailRepository: MailRepository {
             }
             saw([at.uid: letter], validity: at.validity, in: inbox)
             guard !raw.isEmpty else { continue }
+            let shown = Self.letter(row.id, in: inbox, headers: MIMEDecoder.parseHeaders(raw),
+                                    decoded: MIMEDecoder.decodeMessage(raw), named: letter, shortened: false)
             shelf.letters.keep(raw, in: inbox, validity: at.validity, uid: at.uid, message: letter,
-                               ahead: true)
+                               words: KeptSearch.words(of: shown), ahead: true)
             bytes += raw.count
             fetched += 1
         }
@@ -3460,6 +3466,31 @@ actor IMAPMailRepository: MailRepository {
         try Task.checkCancellation()
         searchSession = session
         return page
+    }
+
+    // MARK: - Searching with no connection (B-160)
+
+    /// What `search` finds, as far as the copy kept on the iPad holds it,
+    /// with nothing sent: for a search that could not reach the server.
+    /// The kept rows of the folder, and with All Mailboxes those of every
+    /// folder kept, each letter once, the folder's own first; matched by
+    /// the words and the rule the server is asked by (`KeptSearch`), in
+    /// From, To, Cc, the subject, the few words and the words kept with a
+    /// letter he opened or that was fetched ahead. Newest first, all at
+    /// once. Nil when nothing is kept to search.
+    func searchKept(in mailboxID: String, query: String,
+                    scope: MailSearchScope) async -> [MessageSummary]? {
+        guard let shelf else { return nil }
+        let folder = keptFolderName(mailboxID) ?? mailboxID
+        var rows = shelf.page(of: mailboxID)?.rows ?? []
+        if scope == .allMailboxes { rows += shelf.rowsOfEveryFolder(besides: folder) }
+        var letters: Set<UInt64> = []
+        rows = rows.filter { row in row.gmailMessageID.map { letters.insert($0).inserted } ?? true }
+        return KeptSearch.hits(for: query, in: rows) { row in
+            guard let letter = row.gmailMessageID, let at = try? Self.parseID(row.id),
+                  let name = keptFolderName(row.mailboxID) else { return nil }
+            return shelf.letters.words(in: name, validity: at.validity, uid: at.uid, message: letter)
+        }
     }
 
     // MARK: - Attachments

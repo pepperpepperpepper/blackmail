@@ -1095,10 +1095,11 @@ final class KeptLetterOpeningTests: XCTestCase {
         XCTAssertTrue(requirements.contains("func openLetter(_ row: MessageSummary) async throws -> Message"))
     }
 
-    /// In the repository the copy of the letters is reached in five places
+    /// In the repository the copy of the letters is reached in six places
     /// alone: `keptLetter`, the keep after a whole FETCH, `keptPart`, and
     /// since B-160 the letters fetched ahead, looked for and kept
-    /// (`fetchAhead`).
+    /// (`fetchAhead`), and the words kept beside them read by a search with
+    /// no connection (`searchKept`), which sends nothing.
     /// `keptLetter` neither makes the letter `lastBody` nor tells `seen`
     /// or the shelf's vouching. A forward's parts never come through the
     /// public `fetchAttachmentData`, and the letter on screen they may come
@@ -1106,7 +1107,7 @@ final class KeptLetterOpeningTests: XCTestCase {
     func testTheRepositoryReadsTheCopyInThreePlacesAndNeverForWhatIsSent() throws {
         let repository = try source("Mail/IMAPMailRepository.swift")
         XCTAssertEqual(repository.components(separatedBy: "shelf.letters.").count
-                        + repository.components(separatedBy: "shelf?.letters.").count - 2, 5)
+                        + repository.components(separatedBy: "shelf?.letters.").count - 2, 6)
         let ahead = try section(of: repository, from: "func fetchAhead() async {",
                                 to: "func lettersOfHis(inThread thread: UInt64")
         XCTAssertTrue(ahead.contains("!shelf.letters.has(in: inbox, validity: at.validity, uid: at.uid, "
@@ -1125,7 +1126,14 @@ final class KeptLetterOpeningTests: XCTestCase {
         let keep = try section(of: repository, from: "private func keep(_ raw: Data,",
                                to: "private func loadLetterInPartOnce(")
         XCTAssertTrue(keep.contains("shelf?.letters.keep(raw, in: name, validity: validity, "
-                                    + "uid: uid, message: named)"))
+                                    + "uid: uid, message: named, words: words)"))
+        let search = try section(of: repository, from: "func searchKept(in mailboxID: String,",
+                                 to: "func fetchAttachmentData(_ attachmentID: String")
+        XCTAssertTrue(search.contains("return shelf.letters.words(in: name, validity: at.validity, "
+                                      + "uid: at.uid, message: letter)"))
+        for never in ["connected()", "imap.", "lastBody", "saw("] {
+            XCTAssertFalse(search.contains(never), never)
+        }
         let part = try section(of: repository, from: "private func keptPart(",
                                to: "private func fetchAttachmentDataNotKept(")
         XCTAssertTrue(part.contains("shelf?.letters.letter(in: name, validity: at.validity, "
@@ -1134,7 +1142,8 @@ final class KeptLetterOpeningTests: XCTestCase {
         let load = try section(of: repository, from: "private func loadMessageOnce(",
                                to: "private func keep(_ raw: Data,")
         XCTAssertTrue(load.contains("if let row { keep(raw, of: row, named: named, in: name, "
-                                    + "uid: message.uid, validity: message.validity) }"))
+                                    + "uid: message.uid, validity: message.validity, "
+                                    + "words: KeptSearch.words(of: shown)) }"))
         let public_ = try section(of: repository, from: "func loadMessage(id: String,",
                                   to: "private func loadMessageOnce(")
         XCTAssertTrue(public_.contains("whole: false) }"))

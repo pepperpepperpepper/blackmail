@@ -275,6 +275,11 @@ protocol MailRepository {
     /// first page and its previews, on a connection already up, in the
     /// background line, never marking anything read. Never fails.
     func fetchAhead() async
+
+    /// A search answered from the copy kept on the iPad, with nothing sent
+    /// (B-160): for one that could not reach the server, as Mail searches
+    /// what it has downloaded. Nil when nothing is kept to search.
+    func searchKept(in mailboxID: String, query: String, scope: MailSearchScope) async -> [MessageSummary]?
 }
 
 extension MailRepository {
@@ -595,6 +600,11 @@ extension MailRepository {
 
     /// Nothing fetched ahead, unless the repository keeps letters (B-160).
     func fetchAhead() async {}
+
+    /// Nothing kept to search, unless the repository keeps a copy (B-160).
+    func searchKept(in mailboxID: String, query: String, scope: MailSearchScope) async -> [MessageSummary]? {
+        nil
+    }
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {

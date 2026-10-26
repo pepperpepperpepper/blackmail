@@ -1941,6 +1941,12 @@ final class MessageListViewController: UITableViewController {
     /// letters wait in the Outbox. The Outbox's own says only that.
     @MainActor
     private func sayAge() {
+        // Over hits from the copy kept on the iPad, Mail's line for results
+        // not all there (B-160).
+        if searchingTheIPad, letters.isSearching {
+            say(SearchAnswer.someResults)
+            return
+        }
         let unsent = kept.outbox.count
         say(isOutbox ? Outbox.unsent(unsent) ?? "" : updated.text(now: Date(), unsent: unsent))
     }
@@ -2788,6 +2794,10 @@ final class MessageListViewController: UITableViewController {
         updateEmptyState()
         updatePageFooter()
         loadPreviews(for: unpreviewed)
+        if searchingTheIPad {
+            searchingTheIPad = false
+            sayAge()
+        }
         // Back in the folder, where he was: letters the watch found while
         // the search showed go on if that was the top.
         showNewsIfAtTop()
@@ -2832,11 +2842,22 @@ final class MessageListViewController: UITableViewController {
         landed.letGo()
 
         let outcome: Result<[MessageSummary], Error>
+        // With no connection, the copy kept on the iPad is searched instead,
+        // with nothing sent, as Mail searches what it has downloaded, and
+        // the line under the list says not every letter may be there
+        // (B-160). All its hits at once: nothing to page.
+        var fromTheIPad = false
         do {
             outcome = .success(try await repository.search(
                 in: mailbox.id, query: text, scope: scope, beforeUID: nil, limit: Self.pageSize))
         } catch {
-            outcome = .failure(error)
+            if SearchAnswer.searchesTheIPad(after: error), !Task.isCancelled,
+               let kept = await repository.searchKept(in: mailbox.id, query: text, scope: scope) {
+                fromTheIPad = true
+                outcome = .success(kept)
+            } else {
+                outcome = .failure(error)
+            }
         }
 
         // A search the next keystroke cancelled has not failed and has not
@@ -2870,6 +2891,11 @@ final class MessageListViewController: UITableViewController {
         // With the previews already drawn for the same letters (B-135).
         let unpreviewed = letters.showResults(hits)
         reachedOldestMessage = hits.count < Self.pageSize
+        // Hits from the copy kept on the iPad come all at once, with nothing
+        // to page, and the line under the list says so (B-160).
+        searchingTheIPad = fromTheIPad
+        if fromTheIPad { reachedOldestMessage = true }
+        sayAge()
         regroup(to: move)
         updateEmptyState()
         updatePageFooter()
@@ -2881,6 +2907,10 @@ final class MessageListViewController: UITableViewController {
     /// Whether the last search could not be run, as opposed to finding
     /// nothing. Two different sentences.
     private var searchFailed = false
+
+    /// Whether the hits showing are the copy kept on the iPad's, searched
+    /// with no connection (B-160), when the line under the list says so.
+    private var searchingTheIPad = false
 
     /// A search's answer is about to replace the rows: where the list goes,
     /// the top, and where he was in the folder's letters if it is those it

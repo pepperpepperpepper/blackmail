@@ -30258,3 +30258,240 @@ release build for the iPad links.
 "Blocked on the iPad coming back". Mail's own conversation after an
 offline relaunch is inferred, not seen: Mail on 16.5.1 stands in once it
 is back on the test iPad (B-028).
+
+## B-160 — FIXED 2026-10-26, not yet seen on the iPad. With no connection he could not scroll past the Inbox's first fifty letters, open a letter he had never opened, or search; Mail keeps every letter's line, downloads mail ahead and searches what it has
+
+Built on the owner's ruling of 2026-10-26, "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", the three
+offline choices for the copy kept on the iPad). In three parts, each its
+own commit.
+
+**What Mail does.** Mail keeps the line of every letter it has synced, not
+a page of them; downloads letters' bodies ahead of his opening them, so a
+letter he has not opened opens with no connection; and searches an index on
+the device, so a search with no connection finds what it has downloaded
+(iOS 18.6 Mail's strings; its store and Spotlight code, `d_storeSearch`,
+`d_spot`; the iPadOS 18 search guide; the decision of 2026-10-26, item
+7646). Its words for a search whose results are not all there are, as that
+decision gives them, "Some Results May Not Appear". How much Mail downloads
+ahead, and of which letters, is its own; the bounds here are a cost limit
+of Blackmail's, not Mail's.
+
+**What Blackmail did.** D-016 kept the folder list, the newest page of each
+folder, fifty rows, and the last 300 letters he had opened (B-111), and left
+"fetching unread mail ahead for offline reading, keeping more than one page,
+offline search" each for "its own decision later". So with no connection the
+list stopped at fifty rows, a letter never opened said it could not be
+downloaded, and a search said "Could not search. Check the connection."
+(`MessageListViewController.updateEmptyState`). B-040 had cut the
+connection's work to what he asked for.
+
+**Changed, part 1: more than one page kept** (its own commit).
+
+1. *The kept rows are the folder's from the top, contiguous, as far as
+   they were listed* (`MailShelf.took(page:)`, `took(more:)`). A page
+   listed below the kept rows' last, in the same launch as a listing from
+   the top and under the same UIDVALIDITY, goes on after them; one below
+   a cursor the kept rows do not reach, which would leave a gap, does not.
+   A page over kept rows takes their place, its marks the server's now, its
+   previews carried across from the rows kept for the same letters.
+2. *A fresh first page keeps the kept rows below it that go on from it*:
+   the repository hands the shelf the folder's UIDs below the page as the
+   listing's SEARCH found them (`continuing`), and the kept rows under
+   them stay, in that order, to the first UID with no row kept. So a letter
+   taken out elsewhere drops out, and nothing kept goes past a gap. Only
+   when the page and the kept rows have a letter in common under the same
+   UID and Gmail id, which shows them to be this mailbox's (on a server
+   that names no letters, the UIDVALIDITY alone); and a page below whose
+   row names another letter under a kept UID keeps nothing below it.
+3. *The bounds*: 500 rows of the Inbox (`mostInboxRows`), 200 of any other
+   folder (`mostRows`), and about half a megabyte of either
+   (`mostPageBytes`, by `RowRecord.weight`), the newest kept. A day jumped
+   to, its pages and a search's hits are still never kept.
+4. *The list* draws the kept rows at launch and as a folder opens, all of
+   them, as before with the one page; with no connection he scrolls them
+   all. As the fresh first page lands over kept rows he has scrolled down,
+   or under a search (`KeptSwap.holdingPlace`, `.underSearch`), the kept
+   rows below it that go on from it stay on the list
+   (`ListOpening.keptTail`), so the rows he is reading are still there and
+   the list pages on from the last of them; at the top, and at a Refresh,
+   the page goes in alone, as it did.
+
+**Changed, part 2: letters fetched ahead** (its own commit).
+
+1. *Which* (`FetchAhead.letters`): the unread rows with a Gmail id on the
+   Inbox's kept page, newest first, at most 50 (`mostAhead`), and the pass
+   stops once 20 MB have come (`mostAheadBytes`). Passed over: a letter
+   kept already, a draft, one above 5 MB, which is opened in parts and
+   never kept (B-054), and one the server has named another letter under.
+2. *When* (`IMAPMailRepository.fetchAhead`, `MessageListViewController.fetchAhead(after:)`):
+   once the Inbox's fresh first page has landed and its previews have
+   come, the Outbox's pass gone before them: wherever the Inbox's first
+   page is fetched afresh, at a launch, a Refresh, or the watch's fetch
+   over the kept page; only on a connection already up, never making
+   one; one pass at a time.
+3. *How* (`IMAPClient.fetchBodyAhead`): `BODY.PEEK[]` from its first byte,
+   128 KB a piece (`aheadPiece`), each piece its own exchange in the
+   background line, so a letter he taps waits for one piece at most and
+   then goes first; Gmail's id asked beside the first piece, and the
+   letter kept only if it is the row's (D-016); nothing more asked once it
+   is not, once the letter has gone between two pieces, or past 5 MB.
+   Never a STORE, so nothing is marked read.
+4. *Kept as fetched ahead* (`KeptLetters`, `Record.ahead`, `keep(ahead:)`):
+   in the 300 letters and 64 MB, with bounds of their own, 50 and 20 MB,
+   and evicted first, the one fetched longest ago first, before any letter
+   he opened. Opened, it is a letter he opened, evicted as one. Fetched
+   ahead again, a letter kept already is left as it was. The index gains
+   an optional field, absent for every letter he opened and in an index
+   written before: no new format. The log: `KEPT-AHEAD letters=<n>
+   bytes=<n>`, and `ahead` on the keep's note; numbers only.
+
+**Changed, part 3: searching with no connection** (its own commit).
+
+1. *The words kept beside a letter* (`KeptLetters.words(in:)`,
+   `keep(words:)`, `KeptSearch.words(of:)`): what the reading pane would
+   quote of it, its text or its HTML's words, the first 64 K characters,
+   in a file beside the letter's, `….txt` for `….eml`, written before the
+   index names the letter and removed with it, however it goes; swept at
+   the first use when no record names it. Kept for a letter he opened and
+   one fetched ahead. Never read for anything but a search.
+2. *The search* (`IMAPMailRepository.searchKept`, `KeptSearch.hits`): the
+   kept rows of the folder, and with All Mailboxes those of every folder
+   kept (`MailShelf.rowsOfEveryFolder`), each letter once, by Gmail id, the
+   folder's own row first; each word of `SearchCriteria.words` wanted,
+   each in From, To, Cc, Bcc, the subject, the few words or the words kept
+   with the letter, a whole word ignoring case and accents, as Gmail
+   matches; a phrase as written, or in the letter's words all its words;
+   the word he is still typing (`SearchCriteria.halfWord`) as the start of
+   a name or address too, as the server is asked for the people it may
+   start (B-123). Newest first, all at once. Nothing is sent.
+3. *When* (`MessageListViewController.runSearch`,
+   `SearchAnswer.searchesTheIPad`): a search the server could not answer,
+   for any reason but being called off, is answered so; the list draws the
+   hits with nothing to page and says "Some Results May Not Appear" on the
+   line under it (`SearchAnswer.someResults`) until the search ends or the
+   server answers one. "Could not search. Check the connection." is left
+   for a repository that keeps nothing.
+
+**What it reverses.** D-016's "Not kept: pages below the first, …, letters
+he never opened" and "A page is replaced whole by each listing from the
+top"; phase 2's rule that "opened" means a body that came while the reading
+pane wanted it (B-111), since a letter fetched ahead is kept unopened;
+B-040's rule that the connection does no work he did not ask for, which the
+letters fetched ahead are, in the background line, after the first page.
+Searches stay unkept, as do a day jumped to and its pages.
+
+**New words.** "Some Results May Not Appear", on the line under the list
+while hits from the iPad show: Mail's own words as the decision of
+2026-10-26 gives them; the string itself was not found among the iOS 18.6
+strings read for that decision, so it is as sure as that decision is. No
+other new words.
+
+**Tests.** Twenty-seven, new, in three classes, one a part.
+
+`KeptPagesTests`, 10 (part 1). The store: pages listed below going on
+after the kept rows, into the next launch, in order; nothing kept from a
+page that would leave a gap, under another UIDVALIDITY, or before a
+listing from the top in the launch; a page over kept rows replacing them,
+its read mark the server's, the kept rows below it going on as far as the
+folder's UIDs do, a letter gone from them dropping out, none when nothing
+goes on; a fresh first page keeping the rows below it that go on, their
+few words with them, 130 gone and 100 never kept; rows below kept only
+from the same mailbox, none below a page sharing no letter with them, none
+below a row naming another letter under a kept UID; the bounds, 500 of the
+Inbox, 200 of All Mail, and about half a megabyte of a wordy Trash, the
+newest and contiguous, its file under the bound. The list: `keptTail`, and
+read from the source, the tail carried where he has scrolled and under a
+search, the page alone at the top and at a Refresh. Over the scripted
+server: the Inbox listed and paged twice, 120 rows, every one kept, at the
+next launch in the first frame with nothing sent, and a launch with a
+connection keeping the rows below its fresh page, the letter taken out
+elsewhere dropping out; a day jumped to, a page below it, and a search
+keeping nothing.
+
+`FetchAheadTests`, 8 (part 2). The rule: the unread rows with a Gmail id,
+newest first, at most so many; the bounds' values. Over the server: after
+the Inbox's first page, its six unread letters each fetched by one
+`UID FETCH … (UID X-GM-MSGID BODY.PEEK[]<0.131072>)` and nothing else, none
+marked read, all kept as fetched ahead, and at the next launch with no
+connection one opened from the iPad with nothing sent, then a letter he
+opened; a letter of about 288 KB in three pieces, the id asked in the
+first alone, kept byte for byte the server's; the bounds, two letters, and
+a pass stopped once a byte had come; passed over, a letter kept already (a
+second pass sends nothing), letters read, letters above the size opened in
+parts, and everything with no connection (nothing sent, not even a
+LOGIN); the client asking nothing after a first piece naming another
+letter, a whole letter in 64-byte pieces equal to the server's, and none
+past its most. The store: fetched ahead past their own bound the oldest
+going, past the store's one fetched ahead before one opened, opened then
+evicted as one he opened, fetched ahead again left as it was, `has`, and
+the next launch's order. The list, read from the source: the pass after
+the Inbox's previews, at a Refresh's page and as a page over the kept one
+lands, for the Inbox alone; the client's pieces in the background line,
+never `BODY[`.
+
+`OfflineSearchTests`, 9 (part 3). The matching: every word wanted, each in
+the subject, the few words, Cc, To, From's name and address or the kept
+words, whole, ignoring case and accents, newest first, a word of one letter
+left out; a word half typed the start of a person's name or address, not
+of a subject's or a letter's word, nor with a space after it, nor under
+three letters; a phrase as written, or all its words in the letter's
+words; the kept words read only where the row does not hold a word, once a
+row; Mail's words, and the iPad answering after any failure but a search
+called off. The words beside a letter: kept, cut at the bound, another
+letter's none, gone when the letter is evicted, taken by the server, or
+fails its check, a stray file swept at the next launch. Over the server,
+after a launch that listed the Inbox and Sent Mail, opened a letter and
+fetched the unread ones ahead, with no connection: the server's search
+failing, a word in the opened letter's words found, one in a letter
+fetched ahead found, his reply in Sent Mail found with All Mailboxes and
+not with the folder, a word in none finding none, nothing sent; and each
+letter once with All Mailboxes, the Inbox's own row first, All Mail's own
+letters too. The list, read from the source: the fallback, its hits all at
+once, Mail's line under them, gone as the search ends.
+
+Changed with them: `KeptCopyTests`' `testOnlyAListingFromTheTopReplacesTheKeptPageAndItReplacesItWhole`,
+now `testListingsFromTheTopAndPagesBelowThemAreKeptAndNothingElse` (the
+page below kept after the top, the fresh page keeping what goes on below
+it, a letter taken out elsewhere above and below dropping out);
+`KeptLetterOpeningTests`' `testTheRepositoryReadsTheCopyInThreePlacesAndNeverForWhatIsSent`,
+now six places, the letters fetched ahead looked for and kept, and the
+words read by the search, which reaches neither the connection nor
+`lastBody`; and `KeptLettersTests`' count of writes, now four, the letter's
+words among them, once the directories are made and marked out of backup.
+
+Each rule undone, in one run with B-159's (the queue for the build lock
+being long; they touch nothing here): a fresh page keeping no rows below
+it, a page below kept whatever the gap or the launch, no bounds, rows
+below kept from any mailbox and below a row naming another letter, no
+tail at the swap and the list's fresh page alone; every unread or read
+letter fetched ahead, the whole letter in one `BODY[]` FETCH, no id
+compared, letters fetched ahead evicted as the least recently opened, an
+opening leaving one fetched ahead, a letter kept already fetched again,
+no bound on the bytes, and no pass after the page; whole words matched as
+any part of a word, accents compared, no start of a name, no phrase in the
+words, the kept words read for every row, a search called off answered
+from the iPad, no words written beside a letter or removed with it, each
+letter as often as it is kept, and the list's fallback taken out. Failed:
+all 8 of `FetchAheadTests`, all 9 of `OfflineSearchTests`, 8 of the 10 of
+`KeptPagesTests`, and the three changed tests above.
+The two of `KeptPagesTests` that passed rest on a page below going on the
+kept page at all, which that run left in place; undone on its own in a
+second run (`took(more:)` keeping the rows as they were), both failed,
+`testPagesListedBelowGoOnTheKeptPageIntoTheNextLaunch` and
+`testAPageOverKeptRowsReplacesThemAndKeepsWhatGoesOn`, with four others of
+the class that page. Then all of it put back.
+
+The full suite, serially: 2,702 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not seen.** Nothing of this on the iPad yet; the TODO check is under
+"Blocked on the iPad coming back". Not measured there: the launch's read
+of a kept Inbox of 500 rows on the main thread, which was 1.1 ms for 50 on
+the development computer (D-016); a search over 300 letters' kept words;
+and how long a piece of 128 KB holds a tap on his Wi-Fi. Kept rows below
+the first page carry the marks their listing gave them: a letter read or
+flagged in another client shows as it was until the page it is on is
+listed again, as the first page's did between launches. Mail's own
+behaviour with no connection on the test iPad, whose Mail must be
+restored first (B-028), was not looked at.

@@ -7382,6 +7382,54 @@ checks below is left as not needed, not open, and none is worth a round.*
       Put back: Airplane Mode off, Blackmail on the Inbox. Nothing was
       written.
 
+- [ ] **B-160, reading with no connection: more pages, letters fetched
+      ahead, and search.** On the test iPad, the test account only, from a
+      build of the `bm-cm-offline` worktree (branch `copy-offline`) or of
+      the int it is merged into. Nothing is composed, sent, saved, moved or
+      deleted in the app. The host makes the letters, each from another
+      address, with a new Message-ID of its own and naming none on the
+      account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      never the Inbox: 130 letters "B-160 row N", N from 1 to 130, dated a
+      minute apart, row 130 the newest, the body of row 7 holding the word
+      "quincunx" and no other letter on the account holding it; it notes
+      each UID from its APPENDUID, and stops if one has none. Three panes;
+      the app's connection log read after each step.
+      1. *Pages kept.* "Notes" opened and scrolled to its foot: the list
+      pages down to row 1, each page one `UID FETCH` of summaries. Row 7
+      opened: its body comes, `KEPT-LETTER kept`. Blackmail ended,
+      Airplane Mode on, Blackmail opened, "Notes" opened: every row, 130
+      to 1, in its first frame, scrolled from top to foot with none
+      missing; nothing in the log but the launch's own failure to connect.
+      Row 7 opens from the iPad, `KEPT-LETTER shown`.
+      2. *Kept on past a fresh page.* Airplane Mode off, "Notes" opened and
+      scrolled to row 60 before its fresh page lands, or with a finger held
+      on the list until it has: row 60 and the rows below it still there
+      once it lands, nothing moved under him. Blackmail ended, Airplane
+      Mode on, opened again: "Notes" still holds every row.
+      3. *Search with no connection.* Still in Airplane Mode, in "Notes",
+      "quincunx" typed: row 7 alone, and "Some Results May Not Appear" on
+      the line under the list; nothing in the log. "B-160 row 12": row 12
+      alone, the words whole, as Gmail matches them. Cancel: the line says
+      how old the list is again. All Mailboxes, "quincunx": row 7, once. A
+      word in no letter: "No results", the same line under it.
+      4. *Letters fetched ahead* (APPENDs to the Inbox, which rings the
+      phone signed in on the test account; needs the owner's go). Airplane
+      Mode off. The host APPENDs to the Inbox three letters, not read,
+      "B-160 ahead N", each with a word of its own in its body only
+      ("aheadone", "aheadtwo", "aheadthree"). Refresh: once the page and
+      its previews have come, three `UID FETCH … (UID X-GM-MSGID
+      BODY.PEEK[]<0.131072>)`, no STORE, `KEPT-AHEAD letters=3`; the three
+      rows still unread, here and in Gmail on the web. A letter tapped while
+      they go opens after the piece on the wire, not after the three.
+      Blackmail ended, Airplane Mode on, opened: each of the three opens
+      from the iPad, `KEPT-LETTER shown`; "aheadtwo" searched in the Inbox
+      finds its letter.
+      5. *Put back:* Airplane Mode off. The host moves the UIDs it noted,
+      and only them, from "Notes" and the Inbox to the Trash (`UID MOVE`),
+      and deletes in the Trash only the UIDs that move answered
+      (`COPYUID`). Never anything found by subject or Message-ID: a UID not
+      noted is left, and written down. Nothing else was written.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -7678,11 +7726,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       letters is listed. Reading his Sent Mail's recent envelopes once
       at sign-in would put them there from the first day. As built (the
       default), or the fill.
-- [ ] **Three offline choices for the copy kept on the iPad** (D-016,
+- [x] **Three offline choices for the copy kept on the iPad** (D-016,
       "each needs its own decision later"; with nothing built after the
       install, now or never): fetching unread mail ahead for reading with
       no connection; keeping more than one page of each folder; searching
       with no connection. As built (none of them, the default), or which.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-160.*
 - [ ] **One frame of the letter before** (B-098): at a tap from letter to
       letter, the letter he left stays beside the new selection for a frame
       or two, 17 to 33 ms, the new header over it in the last, before
