@@ -743,6 +743,7 @@ final class MessageListViewController: UITableViewController {
             pagePreviews = loadPreviews(for: unpreviewed)
             placePull()
             if passing { kept.uploadWaiting(to: repository) }
+            fetchAhead(after: pagePreviews)
             return true
         } catch {
             // The letters kept on the iPad are listed all the same: with no
@@ -1141,7 +1142,21 @@ final class MessageListViewController: UITableViewController {
         updateEmptyState()
         updatePageFooter()
         updateSelectAllTitle()
-        loadPreviews(for: unpreviewed)
+        fetchAhead(after: loadPreviews(for: unpreviewed))
+    }
+
+    /// The Inbox's newest unread letters fetched ahead for reading with no
+    /// connection (B-160), once its fresh first page's previews have come,
+    /// the pass over the Outbox gone before them: in the background line,
+    /// which what he taps overtakes.
+    @MainActor
+    private func fetchAhead(after previews: Task<Void, Never>?) {
+        guard mailbox.role == .inbox else { return }
+        let repository = self.repository
+        Task {
+            await previews?.value
+            await repository.fetchAhead()
+        }
     }
 
     /// The kept rows below the fresh first page `first` (`ListOpening.keptTail`).

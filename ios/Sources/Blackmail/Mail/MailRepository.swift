@@ -269,6 +269,12 @@ protocol MailRepository {
     /// holding it, a check, a pass over the Outbox, a preview on its way,
     /// sends the old password again or reaches the mailbox it opened.
     func retire() async
+
+    /// The newest unread letters of the Inbox fetched ahead and kept on the
+    /// iPad, for reading with no connection (B-160): after the Inbox's
+    /// first page and its previews, on a connection already up, in the
+    /// background line, never marking anything read. Never fails.
+    func fetchAhead() async
 }
 
 extension MailRepository {
@@ -586,6 +592,9 @@ extension MailRepository {
     }
 
     func forgetLettersOfHis() async {}
+
+    /// Nothing fetched ahead, unless the repository keeps letters (B-160).
+    func fetchAhead() async {}
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {

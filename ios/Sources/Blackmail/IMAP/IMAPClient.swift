@@ -1466,6 +1466,37 @@ actor IMAPClient {
         }
     }
 
+    /// A letter fetched ahead for reading with no connection (B-160): the
+    /// whole of it, `BODY.PEEK[]`, `piece` bytes at a time, each piece its
+    /// own exchange in the background line, so a letter he opens waits for
+    /// one piece at most and never for the whole of a letter he did not
+    /// ask for; Gmail's id for it asked beside the first. Nil, with nothing
+    /// more asked, when the server names another letter at the UID or none,
+    /// or cannot name one, when the letter is gone between two pieces, or
+    /// once it is past `most` bytes. PEEK, so nothing is marked read.
+    func fetchBodyAhead(uid: UInt32, in mailbox: String, validity: UInt32, letter: UInt64,
+                        piece: Int, most: Int) async throws -> Data? {
+        var raw = Data()
+        while true {
+            try Task.checkCancellation()
+            let from = raw.count
+            let got: (there: Bool, letter: UInt64?, bytes: Data)? =
+                try await inMailbox(mailbox, validity: validity, .background) { _ in
+                    guard try self.namesLetters() else { return nil }
+                    let named = from == 0 ? "X-GM-MSGID " : ""
+                    let result = try await self.performCommand(
+                        "UID FETCH \(uid) (UID \(named)BODY.PEEK[]<\(from).\(piece)>)")
+                    guard result.status == .ok else { throw MailError.cannotConnect }
+                    let row = IMAPParser.parseFetch(result.untagged).first { $0.uid == uid }
+                    return (row != nil, row?.gmailMessageID, row?.body ?? Data())
+                }
+            guard let got, got.there, from > 0 || got.letter == letter else { return nil }
+            raw.append(got.bytes)
+            guard raw.count <= most else { return nil }
+            if got.bytes.count < piece { return raw }
+        }
+    }
+
     /// What a letter too large to fetch whole is fetched as
     /// (`fetchLetterInPart`): Gmail's id for it when that was asked, its
     /// structure, its header block, and the sections asked for from that

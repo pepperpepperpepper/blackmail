@@ -188,8 +188,12 @@ actor IMAPMailRepository: MailRepository {
             = { SignatureImages.load() },
          shelf: MailShelf? = nil,
          largeLetterBytes: Int = IMAPMailRepository.largeLetterBytes,
-         largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes) {
+         largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes,
+         aheadLetters: Int = IMAPMailRepository.mostAhead,
+         aheadBytes: Int = IMAPMailRepository.mostAheadBytes) {
         self.account = account
+        self.aheadMost = aheadLetters
+        self.aheadMostBytes = aheadBytes
         self.saved = saved
         self.password = password
         self.largeAbove = largeLetterBytes
@@ -2448,6 +2452,77 @@ actor IMAPMailRepository: MailRepository {
         _ = try await knownListing()
         if let sent = roleNames[.sent] ?? folderForAttribute["\\all"] { return sent }
         throw Outbox.NoSentMail()
+    }
+
+    // MARK: - Letters fetched ahead (B-160)
+
+    /// The most letters, and bytes, one pass fetches ahead: the newest 50
+    /// unread letters of the Inbox, or 20 MB of them, whichever comes first.
+    static let mostAhead = 50
+    static let mostAheadBytes = 20 << 20
+    /// The bytes of a letter fetched ahead in each exchange: what a letter
+    /// he opens may wait for, about a tenth of a second at ten megabits.
+    static let aheadPiece = 128 << 10
+
+    /// A pass is under way: another asked meanwhile is not started.
+    private var fetchingAhead = false
+    /// The app's are `mostAhead` and `mostAheadBytes`; a test hands in its own.
+    private let aheadMost: Int
+    private let aheadMostBytes: Int
+
+    /// The newest unread letters on the Inbox's kept page, which since its
+    /// first page this launch are the server's newest, fetched whole and
+    /// kept on the iPad as letters fetched ahead (`KeptLetters`, `ahead`),
+    /// so he can read them with no connection, as Mail downloads mail ahead
+    /// of his opening it. Only on a connection already up, never making one,
+    /// since he did not ask for it; with the Drafts folder's name known; one
+    /// pass at a time.
+    ///
+    /// Each in pieces in the background line (`IMAPClient.fetchBodyAhead`),
+    /// so what he taps meanwhile goes first, after the piece on the wire;
+    /// BODY.PEEK, never a STORE, so nothing is marked read; and with Gmail's
+    /// id asked beside the first piece, the letter kept only if it is the
+    /// row's (D-016). Passed over: a letter kept already, one with no Gmail
+    /// id, a draft, one the server has named another letter under, and one
+    /// above `largeAbove`, which is opened in parts and never kept (B-054).
+    /// Stops at the first that fails, the connection gone, or the bounds.
+    func fetchAhead() async {
+        guard !retired, !fetchingAhead, let shelf, let listed, await imap.isConnected else { return }
+        fetchingAhead = true
+        defer { fetchingAhead = false }
+        let inbox = Self.serverName(for: "inbox", listed: listed, roles: roleNames)
+        guard let drafts = draftsName(), inbox != drafts, let page = shelf.page(of: inbox) else { return }
+        var bytes = 0
+        var fetched = 0
+        for row in FetchAhead.letters(on: page.rows, most: aheadMost) {
+            guard !Task.isCancelled, !retired, bytes < aheadMostBytes,
+                  await imap.isConnected else { break }
+            guard let letter = row.gmailMessageID, let at = try? Self.parseID(row.id),
+                  !row.countedFolderIDs.contains(drafts),
+                  (largeLetterSize(row.id, in: inbox) ?? 0) <= largeAbove,
+                  !shelf.letters.has(in: inbox, validity: at.validity, uid: at.uid, message: letter)
+            else { continue }
+            if let known = seen[inbox] {
+                guard known.validity == at.validity else { break }
+                if let there = known.letters[at.uid], there != letter { continue }
+            }
+            let raw: Data
+            do {
+                guard let got = try await imap.fetchBodyAhead(uid: at.uid, in: inbox, validity: at.validity,
+                                                              letter: letter, piece: Self.aheadPiece,
+                                                              most: largeAbove) else { continue }
+                raw = got
+            } catch {
+                break
+            }
+            saw([at.uid: letter], validity: at.validity, in: inbox)
+            guard !raw.isEmpty else { continue }
+            shelf.letters.keep(raw, in: inbox, validity: at.validity, uid: at.uid, message: letter,
+                               ahead: true)
+            bytes += raw.count
+            fetched += 1
+        }
+        if fetched > 0 { Diagnostics.log(.note, "KEPT-AHEAD letters=\(fetched) bytes=\(bytes)") }
     }
 
     // MARK: - His letters in a conversation

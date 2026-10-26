@@ -6,6 +6,13 @@ import Foundation
 /// again, its pictures and its files with it, as Mail opens what it has
 /// downloaded, and with one it opens at once, with nothing fetched.
 ///
+/// And, since B-160, letters fetched ahead: the newest unread letters of
+/// the Inbox, fetched before he opens them, as Mail downloads mail ahead,
+/// so he can read them with no connection (`ahead`). They count in the
+/// same bounds, have bounds of their own, 50 letters and 20 MB, and go
+/// first, the one fetched longest ago first; opened, one is a letter he
+/// opened like any other.
+///
 /// Each is the bytes of `BODY.PEEK[]` exactly as the FETCH returned them,
 /// one file a letter in `letters/`, named by its folder, UIDVALIDITY, UID
 /// and Gmail message id (X-GM-MSGID) and by nothing it says, with an index
@@ -49,6 +56,10 @@ final class KeptLetters: @unchecked Sendable {
         /// The most bytes of keeps waiting for the disk; one past it is
         /// dropped.
         var waiting = 16 << 20
+        /// The most letters fetched ahead, and their bytes (B-160): past
+        /// either, the one fetched longest ago goes.
+        var ahead = 50
+        var aheadBytes = 20 << 20
         /// The free space the iPad keeps: a letter that would leave less
         /// is not kept, the kept letters all go, and nothing more is kept
         /// in that launch.
@@ -179,12 +190,24 @@ final class KeptLetters: @unchecked Sendable {
                           let i = index.firstIndex(where: { $0.matches(folder, validity, uid, message) })
                     else { return }
                     index[i].opened = next
+                    index[i].ahead = nil
                     next += 1
                     changed = true
                     queueWrite()
                 }
             }
             return raw
+        }
+    }
+
+    /// Whether a letter is kept under these four, from the index alone:
+    /// nothing read, nothing touched. For a letter not to be fetched ahead
+    /// again (B-160).
+    func has(in folder: String, validity: UInt32, uid: UInt32, message: UInt64) -> Bool {
+        guard alive() else { return false }
+        return disk.sync {
+            loadIfNeeded()
+            return locked { index.contains { $0.matches(folder, validity, uid, message) } }
         }
     }
 
@@ -202,7 +225,12 @@ final class KeptLetters: @unchecked Sendable {
     /// unless the copy was thrown away meanwhile (`forget`); then the
     /// evicted files go. An index that cannot be written takes the new file
     /// back, so the index on disk names only files written whole.
-    func keep(_ raw: Data, in folder: String, validity: UInt32, uid: UInt32, message: UInt64) {
+    ///
+    /// `ahead` for a letter fetched ahead (B-160): kept as one he has not
+    /// opened, evicted first, and a letter kept already is left as it is,
+    /// not made the newest.
+    func keep(_ raw: Data, in folder: String, validity: UInt32, uid: UInt32, message: UInt64,
+              ahead: Bool = false) {
         let count = raw.count
         guard alive(), count > 0, count <= bounds.letter else { return }
         enum Turn { case none, past, taken(epoch: Int) }
@@ -218,20 +246,24 @@ final class KeptLetters: @unchecked Sendable {
         }
         disk.async { [self] in
             defer { locked { waiting -= count } }
-            store(raw, in: folder, validity: validity, uid: uid, message: message, epoch: epoch)
+            store(raw, in: folder, validity: validity, uid: uid, message: message, ahead: ahead,
+                  epoch: epoch)
         }
     }
 
     /// On the disk queue.
     private func store(_ raw: Data, in folder: String, validity: UInt32, uid: UInt32,
-                       message: UInt64, epoch: Int) {
+                       message: UInt64, ahead: Bool, epoch: Int) {
         let started = DispatchTime.now().uptimeNanoseconds
         guard alive() else { return }
         loadIfNeeded()
         let now: (records: [Record], next: Int)? = locked {
             guard self.epoch == epoch, !full else { return nil }
             if let i = index.firstIndex(where: { $0.matches(folder, validity, uid, message) }) {
+                // Fetched ahead, a letter kept already stays as it is.
+                guard !ahead else { return nil }
                 index[i].opened = next
+                index[i].ahead = nil
                 next += 1
                 changed = true
                 queueWrite()
@@ -257,7 +289,8 @@ final class KeptLetters: @unchecked Sendable {
 
         let record = Record(folder: folder, validity: validity, uid: uid, message: message,
                             bytes: raw.count, crc: Self.crc(raw), opened: now.next,
-                            file: Self.fileName(folder, validity, uid, message))
+                            file: Self.fileName(folder, validity, uid, message),
+                            ahead: ahead ? true : nil)
         var records = now.records
         records.append(record)
         let evicted = Self.evict(&records, within: bounds)
@@ -303,7 +336,7 @@ final class KeptLetters: @unchecked Sendable {
         }
         let ms = (DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
         Diagnostics.log(.note, "KEPT-LETTER kept bytes=\(raw.count) ms=\(ms)"
-                        + (freeMS.map { " free-ms=\($0)" } ?? ""))
+                        + (freeMS.map { " free-ms=\($0)" } ?? "") + (ahead ? " ahead" : ""))
     }
 
     /// On the disk queue: the bytes free before a letter of `size` is
@@ -343,14 +376,31 @@ final class KeptLetters: @unchecked Sendable {
 
     /// The least recently opened, out of `records`, until there are at most
     /// `bounds.letters` and `bounds.bytes` with the newest, which stays.
+    ///
+    /// Letters fetched ahead first (B-160): the one fetched longest ago,
+    /// until they are within `bounds.ahead` and `bounds.aheadBytes`, and
+    /// then before any letter he opened while the store is past its own.
     private static func evict(_ records: inout [Record], within bounds: Bounds) -> [Record] {
         records.sort { $0.opened < $1.opened }
         var total = records.reduce(0) { $0 + $1.bytes }
         var evicted: [Record] = []
+        func out(_ i: Int) {
+            let gone = records.remove(at: i)
+            total -= gone.bytes
+            evicted.append(gone)
+        }
+        // The newest is the last, and stays.
+        func oldestAhead() -> Int? {
+            records.indices.first { records[$0].isAhead && $0 < records.count - 1 }
+        }
+        while let i = oldestAhead() {
+            let ahead = records.filter(\.isAhead)
+            guard ahead.count > bounds.ahead || ahead.reduce(0, { $0 + $1.bytes }) > bounds.aheadBytes
+            else { break }
+            out(i)
+        }
         while records.count > 1, records.count > bounds.letters || total > bounds.bytes {
-            let oldest = records.removeFirst()
-            total -= oldest.bytes
-            evicted.append(oldest)
+            out(oldestAhead() ?? 0)
         }
         return evicted
     }
@@ -644,6 +694,12 @@ final class KeptLetters: @unchecked Sendable {
         var crc: UInt32
         var opened: Int
         var file: String
+        /// Fetched ahead and not opened since (B-160); absent for a letter
+        /// he opened, and in an index written before, which reads as opened.
+        /// No new format.
+        var ahead: Bool? = nil
+
+        var isAhead: Bool { ahead == true }
 
         func matches(_ folder: String, _ validity: UInt32, _ uid: UInt32, _ message: UInt64) -> Bool {
             self.folder == folder && self.validity == validity && self.uid == uid
