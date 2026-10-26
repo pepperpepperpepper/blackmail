@@ -26,7 +26,12 @@ import Foundation
 /// - 2: the copy of his mail is thrown away (`MailShelf.wipe`), as it can
 ///   be at any time, being only ever what the server last said (D-016), so
 ///   no kept page is drawn, and his recent searches with it (B-105); and
-///   the view settings go back to their defaults (`viewSettings`).
+///   the view settings go back to their defaults (`viewSettings`). Held
+///   for the whole launch from here, being read unasked in the seconds
+///   after the first page: the Contacts read (B-162, `AppDelegate`), the
+///   Inbox's letters fetched ahead (B-160, `MessageListViewController.
+///   fetchAhead(after:)`) and the address book's fill from Sent Mail
+///   (B-155, `RootViewController.fillBookOnce`).
 /// - 3: no automatic pass over the letters kept on the iPad in this launch.
 ///   His own Send and Save Draft go as ever.
 /// - 5: the letters kept on the iPad are moved, folder and all, to a dated

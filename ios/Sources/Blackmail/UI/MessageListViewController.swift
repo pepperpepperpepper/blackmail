@@ -1176,6 +1176,12 @@ final class MessageListViewController: UITableViewController {
     /// `afterFetchAhead` is told as the pass ends, kept from the call so it
     /// is told even if the list has gone by then: the address book's fill
     /// from Sent Mail waits for it (B-155).
+    ///
+    /// Not in a launch that follows launches in a row that never finished
+    /// (`SafeStart`, from its first step): it decodes whole letters in the
+    /// seconds after the first page, unasked, and an unread one that ended
+    /// every launch would be fetched again at each, PEEK leaving it unread.
+    /// `afterFetchAhead` is told all the same.
     @MainActor
     private func fetchAhead(after previews: Task<Void, Never>?) {
         guard mailbox.role == .inbox else { return }
@@ -1183,7 +1189,7 @@ final class MessageListViewController: UITableViewController {
         let ended = afterFetchAhead
         Task { @MainActor in
             await previews?.value
-            await repository.fetchAhead()
+            if !SafeStart.app.steps.forgetsKeptState { await repository.fetchAhead() }
             ended?()
         }
     }

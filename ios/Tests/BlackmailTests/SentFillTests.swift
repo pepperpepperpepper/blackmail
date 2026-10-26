@@ -537,7 +537,8 @@ final class SentFillTests: XCTestCase {
     /// each repository telling the book his addresses as it is made, and
     /// Settings' Save; the fill's flag set before its first await; the
     /// envelopes in the background line, with no flags and no body, any
-    /// hold refused throwing.
+    /// hold refused throwing. Not sent in a launch after launches in a row
+    /// that never finished (`SafeStart`, from its first step).
     func testTheFillIsAskedForAfterTheFirstPageAndWaitedForByNothing() throws {
         let ios = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -572,7 +573,9 @@ final class SentFillTests: XCTestCase {
         inOrder(["list.afterFetchAhead = { [weak self] in guard let self, self.fillBookAfterAhead "
                     + "else { return } self.fillBookOnce() }"], in: root)
         inOrder(["private func fillBookOnce() { guard !bookFillAsked else { return } "
-                    + "bookFillAsked = true fillBookAfterAhead = false let repository = self.repository "
+                    + "bookFillAsked = true fillBookAfterAhead = false "
+                    + "guard !SafeStart.app.steps.forgetsKeptState else { return } "
+                    + "let repository = self.repository "
                     + "Task { _ = await repository.fillBookFromSent() } }"], in: root)
         XCTAssertEqual(root.components(separatedBy: "fillBookFromSent()").count - 1, 1)
 

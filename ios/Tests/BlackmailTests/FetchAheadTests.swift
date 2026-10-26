@@ -491,7 +491,9 @@ final class FetchAheadTests: XCTestCase {
     /// The list starts the pass for the Inbox alone, after its fresh first
     /// page's previews: at a Refresh or a launch's page, and as a page
     /// fetched over the kept one lands. The client's pieces go in the
-    /// background line.
+    /// background line. Held in a launch after launches in a row that
+    /// never finished (`SafeStart`, from its first step), as the Contacts
+    /// read is, the fill's wait ended all the same.
     func testTheListStartsThePassAfterTheInboxsPreviews() throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains("if passing { kept.uploadWaiting(to: repository) } "
@@ -501,7 +503,8 @@ final class FetchAheadTests: XCTestCase {
                                     + "guard mailbox.role == .inbox else { return } "
                                     + "let repository = self.repository let ended = afterFetchAhead "
                                     + "Task { @MainActor in await previews?.value "
-                                    + "await repository.fetchAhead() ended?() } }"))
+                                    + "if !SafeStart.app.steps.forgetsKeptState { await repository.fetchAhead() } "
+                                    + "ended?() } }"))
         XCTAssertEqual(list.components(separatedBy: "fetchAhead(").count - 1, 4)
         let client = try source("IMAP/IMAPClient.swift")
         let ahead = try section(of: client, from: "func fetchBodyAhead(", to: "struct LetterInPart")

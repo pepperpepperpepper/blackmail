@@ -33718,7 +33718,15 @@ pass, waits whole for the next check while a pass or a fill is under way
 (`lookAfterLostAnswers`' guard). `FetchAheadTests`,
 `testTheLookAndTheFillNeverGoBesideThePass`, new, and `SentFillTests` read
 the lines. B-159's kept lines carry the folder's name as the lookup gave
-it, "Sent" since B-144: `HisRepliesKeptTests` says so.
+it, "Sent" since B-144: `HisRepliesKeptTests` says so. Neither the pass
+nor the fill goes in a launch that follows launches in a row that never
+finished (B-057, `SafeStart` from its first step), as B-162's Contacts
+read does not: each is read unasked in the seconds after the first page,
+and an unread letter, which PEEK leaves unread, or an envelope that ended
+every launch would be read again at each, past every step. The list's
+wait for the pass still ends; the fill is not marked done, so the next
+ordinary launch sends it. `FetchAheadTests` and `SentFillTests` read the
+guards.
 
 ## B-161 — FIXED 2026-10-26, not yet seen on the iPad. Blackmail put no number on its icon and no banner for new mail, as Apple Mail does from the factory; the icon carries the Inbox's unread count, and a check iOS wakes the app for while it is away puts up a banner for each new unread letter in the Inbox, a tap on it opening the letter
 

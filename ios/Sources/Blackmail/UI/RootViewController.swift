@@ -377,11 +377,16 @@ final class RootViewController: UIViewController {
     }
 
     /// The address book filled from his Sent Mail (B-155), once a launch:
-    /// at the first page, or after the Inbox's letters fetched ahead.
+    /// at the first page, or after the Inbox's letters fetched ahead. Not
+    /// in a launch that follows launches in a row that never finished
+    /// (`SafeStart`, from its first step), as the Contacts read is held: an
+    /// envelope that ended every launch would be read again at each. Not
+    /// marked done, so tried again at the next ordinary launch.
     private func fillBookOnce() {
         guard !bookFillAsked else { return }
         bookFillAsked = true
         fillBookAfterAhead = false
+        guard !SafeStart.app.steps.forgetsKeptState else { return }
         let repository = self.repository
         Task { _ = await repository.fillBookFromSent() }
     }
