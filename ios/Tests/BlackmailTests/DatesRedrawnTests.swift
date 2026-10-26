@@ -440,7 +440,10 @@ final class DatesRedrawnTests: XCTestCase {
     /// The list hears both words, the formatters let go and the day turned
     /// over, and writes the date of each row in sight again where it is,
     /// and what VoiceOver reads of it, and the line under the list its age;
-    /// nothing else.
+    /// nothing else. By the list's one writer of a row's cell since B-143
+    /// (`draw(_:at:_:)`), with the date and the words alone
+    /// (`RowParts.datesChanged`), which draws the date and nothing else of
+    /// the row's lines.
     func testTheRowsInSightWriteTheirDatesAgainWhereTheyAre() throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains(
@@ -448,18 +451,29 @@ final class DatesRedrawnTests: XCTestCase {
             + "NotificationCenter.default.addObserver(self, selector: #selector(datesChanged), "
             + "name: name, object: nil) }"))
         let redraw = try part(of: list, from: "@objc private func datesChanged() {",
-                              through: "thread.accessibilityLabel(in: mailbox, mine: mine) } }")
-        XCTAssertEqual(redraw,
-            "@objc private func datesChanged() { "
-            + "for indexPath in tableView.indexPathsForVisibleRows ?? [] { "
-            + "guard let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue } "
-            + "writeDate(of: cell, at: indexPath) } "
-            + "showAge() } "
-            + "private func writeDate(of cell: MessageCell, at indexPath: IndexPath) { "
-            + "guard indexPath.row < rows.count else { return } "
-            + "cell.drawDate() switch rows[indexPath.row] { case let .thread(thread): "
-            + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) } }")
-        for never in neverInARedraw { XCTAssertFalse(redraw.contains(never), never) }
+                              through: "draw(cell, at: ip, parts) } }")
+        XCTAssertTrue(redraw.hasPrefix(
+            "@objc private func datesChanged() { drawRowsInSight(.datesChanged) showAge() } "
+            + "private func draw(_ cell: MessageCell, at ip: IndexPath, _ parts: RowParts) { "
+            + "guard ip.row < rows.count else { return } switch rows[ip.row] { case let .thread(thread): "
+            + "if parts.contains(.lines) { cell.configure(with: thread.displayRow(in: mailbox, mine: mine), "
+            + "marked: thread.marksConversation(in: mailbox)) } "
+            + "else if parts.contains(.date) { cell.drawDate() } "), redraw)
+        XCTAssertTrue(redraw.contains(
+            "if parts.contains(.label) { "
+            + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) } } } "))
+        XCTAssertTrue(redraw.hasSuffix(
+            "private func drawRowsInSight(_ parts: RowParts) { "
+            + "for ip in tableView.indexPathsForVisibleRows ?? [] { "
+            + "guard let cell = tableView.cellForRow(at: ip) as? MessageCell else { continue } "
+            + "draw(cell, at: ip, parts) } }"), redraw)
+        XCTAssertEqual(RowParts.datesChanged, [.date, .label], "the date and the words, not the lines")
+        // The lines are drawn by `configure` alone, behind `.lines`, which
+        // the dates' redraw does not name.
+        for never in neverInARedraw where never != "configure(with" {
+            XCTAssertFalse(redraw.contains(never), never)
+        }
+        XCTAssertEqual(count("configure(with", in: redraw), 1)
 
         // The row's date has one writer, from the row's own date, as the
         // row is drawn and again.
@@ -473,7 +487,8 @@ final class DatesRedrawnTests: XCTestCase {
     /// A row coming into sight has its date written again as it comes:
     /// the cell the table prepared ahead for the row past the edge, before
     /// the change, is not among the rows in sight the redraw names, and is
-    /// shown without being drawn again.
+    /// shown without being drawn again. Drawn whole since B-143, its date
+    /// with the rest, by the redraw's writer.
     func testARowComingIntoSightWritesItsDateAgain() throws {
         let list = try source("UI/MessageListViewController.swift")
         let coming = try part(of: list,
@@ -483,10 +498,11 @@ final class DatesRedrawnTests: XCTestCase {
         XCTAssertTrue(coming.hasPrefix(
             "override func tableView(_ t: UITableView, willDisplay cell: UITableViewCell, "
             + "forRowAt ip: IndexPath) { "
-            + "if let cell = cell as? MessageCell { writeDate(of: cell, at: ip) } "),
+            + "if let cell = cell as? MessageCell { draw(cell, at: ip, .comingIntoSight) } "),
             "first, before the pages are asked for")
-        XCTAssertEqual(count("writeDate(of: cell, at: ", in: list), 2, "the redraw and a row coming in")
-        XCTAssertEqual(count("private func writeDate(", in: list), 1)
+        XCTAssertTrue(RowParts.comingIntoSight.isSuperset(of: RowParts.datesChanged))
+        XCTAssertEqual(count("private func draw(_ cell: MessageCell,", in: list), 1)
+        XCTAssertEqual(count("cell.drawDate()", in: list), 1)
         XCTAssertEqual(count("tableView(_ t: UITableView, willDisplay cell:", in: list), 1)
     }
 

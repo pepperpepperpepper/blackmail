@@ -6630,6 +6630,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       scope left on All Mailboxes, as step 8 left it. Nothing else:
       nothing was written to the mailbox.
 - [x] **B-136, the kept copy's free-space reading.** On the test iPad
+      *Since B-143 (2026-10-26): a row that comes into sight with its two
+      lines empty after its preview's FETCH has answered, as round
+      r6-s7-fixes saw once in ten tries on int17 (92f2cb9) over letters
+      the host APPENDed to "Notes", is not this check's: the preview was
+      in the list and the cell made ahead was not drawn again as it came
+      in. Written down with its UID and the time its preview was answered,
+      and B-143's check (below) runs it again.*
+- [ ] **B-136, the kept copy's free-space reading.** On the test iPad
       (16.5.1), the test account only, from a build of the `bm-searchprev`
       worktree (branch `fix-searchprev`). Eight letters of about 3 MB, a
       photo in each, made on the host and APPENDed by it, read (\Seen),
@@ -7115,6 +7123,61 @@ checks below is left as not needed, not open, and none is worth a round.*
       9. *Put back:* Drafts and Sent Mail as counted first; Local Drafts
       empty; Photos as found; Blackmail in front on the Inbox; Auto-Lock
       as found. Nothing was sent, and nothing is left on the account.
+- [ ] **B-143, a row comes into sight with its preview.** On the test
+      iPad, the test account only, from a build of the `bm-prepcell`
+      worktree (branch `fix-prepcell`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app, and
+      no draft is tapped: one of the test accounts is signed in on the
+      owner's phone and new mail rings it. The host makes the letters,
+      each from another address, with a new Message-ID of its own and
+      naming none on the account, and APPENDs them, read (`\Seen`), to
+      the label "Notes", never the Inbox, each with its Date as its
+      internal date; it notes each UID from its APPENDUID, and stops if
+      one has none. Organize by Thread on, three panes; the app's
+      connection log read after each step, a preview's FETCH being
+      `UID FETCH … (UID BODY.PEEK[…]<0.n>)`; frames recorded through each
+      try, about 0.14 s apart, as the round recorded them.
+      1. *The round again.* Ten tries. For each, the host first APPENDs
+      fourteen new letters, "B-143 rows try N letter M", M from 1 to 14,
+      each from "TryN WriterM", letter 14 first and letter 1 last, so
+      letter 1 has the folder's highest UID. The list goes by UID, the
+      folder's order (`PageWindow`, `MessageThread.group`), so the
+      fourteen are its top rows whatever the letters of the tries before
+      are dated, and none has been drawn. The dates run with the UIDs:
+      each letter dated a minute after the one APPENDed before it, a
+      try's letter 14 a minute after the try before's letter 1, and the
+      first try's letter 14 dated 160 minutes before that try, so the
+      eleven tries' 154 letters (step 2 is the eleventh) never mix by
+      date and none is dated after the run began. The empty label
+      "Drafts" tapped, then "Notes"; the previews let land
+      (one preview FETCH of the fourteen in the log, the time of its
+      answer written down); then the list scrolled one row (77 view px,
+      400 ms) at a time, six times, 0.6 s apart. Every row coming into
+      sight at the bottom after the answer has its two lines in its
+      first frame, and no row is blank in any frame after the answer.
+      Any row that comes in blank written down, with its UID, the try,
+      the time it came in and the time its preview was answered. On int17
+      (92f2cb9) one try of ten had one, "Try6 Writer9", blank for at
+      least 2.4 s until scrolled away and back (B-143, "Found").
+      2. *Scrolled before the answer.* One try more, the host's fourteen
+      letters as in 1 ("B-143 rows try 11 letter M"), the scroll begun at
+      once after the tap on "Notes", before the FETCH answers: rows may
+      come in grey while it is out; once it has answered, every row in
+      sight and every row coming in after has its lines, none left grey.
+      3. *Nothing lost.* After the last try, the list back at its top,
+      the first row tapped: its letter in the pane, its row highlighted.
+      The list scrolled down six rows and back: the row still
+      highlighted and the letter still in the pane. Two panes, Edit, two
+      rows ticked, scrolled down six rows and back: the two ticks still
+      there; Done, three panes again.
+      Nothing else is tapped: the letters are read, so opening one sends
+      nothing.
+      4. *Put back:* "Notes" left, the Inbox at its top. The host moves
+      the UIDs it noted, and only them, from "Notes" to the Trash
+      (`UID MOVE`), and deletes in the Trash only the UIDs that move
+      answered (`COPYUID`); "Notes" itself stays. Never anything found by
+      subject or Message-ID: a UID not noted is left, and written down.
+      Nothing else was written.
 
 ## Blocked on the owner
 
