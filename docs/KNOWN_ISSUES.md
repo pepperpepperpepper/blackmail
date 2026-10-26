@@ -20341,11 +20341,13 @@ Built in the `feat-composer` worktree, off `feat-replyfiles` (master at
 88ef40d with B-100 to B-105, B-111 and B-107). The owner has not yet
 answered the batch's questions; built to their defaults: photos and videos
 the share sheet's way, a video as Photos' compatible copy, two buttons and
-no paperclip. *Since B-142's second fix (2026-10-26) a video is not Photos'
-compatible copy: the picker hands over what Photos keeps, and a video is
-made H.264 in the app, at its own size or at 720p, or left out where no
-H.264 copy fits; a HEIC photo is made a JPEG in the app at its own size
-(Changed, 3).*
+no paperclip. *Since B-142's second fix (2026-10-26) a video is not
+Photos' compatible copy: the picker hands over what Photos keeps, and a
+video is made H.264 in the app, at its own size or at 720p, or left out
+where no H.264 copy fits; a HEIC photo goes as the JPEG Photos offers
+beside it, its own bytes, as it did on the test iPad on 2026-10-26, or,
+where none is offered, as a JPEG made in the app at its own size (Changed,
+3; B-142).*
 
 **What Mail does.** Apple's iPadOS 18 guide
 (support.apple.com/guide/ipad/add-email-attachments-ipadcf744d81/18.0/ipados/18.0),
@@ -28941,7 +28943,7 @@ tapped past would have opened over B, the PDF in place of note.txt, and
 the file tapped three times been fetched three times. Nothing was sent;
 the host put the two letters in the Trash.
 
-## B-142 — FIXED again 2026-10-26 after the test iPad, not yet seen there. A large video still coming into the composer when he locked the iPad or left the app got the app ended by iOS half a minute later, and the letter with it; calling the read off as the app goes, as the first fix did, did not end Photos' copy nor its claim on the app, so Photo Library now hands over the video Photos keeps, with no copy made, and a video that fits the letter is made H.264 in the app, at its own size or at 720p or not at all, where the call-off as the app goes, at a count-out and as the letter closes ends it; a HEIC photo goes at its own size, as before
+## B-142 — FIXED again 2026-10-26 after the test iPad, seen on the test iPad 2026-10-26. A large video still coming into the composer when he locked the iPad or left the app got the app ended by iOS half a minute later, and the letter with it; calling the read off as the app goes, as the first fix did, did not end Photos' copy nor its claim on the app, so Photo Library now hands over the video Photos keeps, with no copy made, and a video that fits the letter is made H.264 in the app, at its own size or at 720p or not at all, where the call-off as the app goes, at a count-out and as the letter closes ends it; a HEIC photo goes at its own size, as before
 
 **Found** on the test iPad on 2026-10-25, in the round r6-s6-marks-net
 (B-108's check, the second half of its step 9), on a build of int16, and
@@ -29405,35 +29407,38 @@ as at the start.
     coordination claim.
 15. *In the background the export stops,* and is never left to.
     AVFoundation gives up the encoder there: Apple's media engineer, of
-    `AVAssetWriter`, "This is expected behavior. The asset writer must give
-    up encoding resources when your app goes into the background, and
+    `AVAssetWriter`, "This is expected behavior. The asset writer must
+    give up encoding resources when your app goes into the background, and
     there is no way to reliably pick up where you left off once that
     happens" (developer.apple.com/forums/thread/672056), with
     `AVFoundationErrorDomain` -11847, `operationInterrupted`; reported the
-    same of `AVAssetExportSession`, background time or not. So with nothing
-    waiting the export is called off at once with the read, as the app
-    goes (2). With a Send or a Save Draft waiting it has the 20 s grace and
-    no more (9); stopped in it (`.interrupted`), the read hands back the
-    original, marked (`Loading.wasInterrupted`), which the composer throws
-    away, setting the row aside as the grace would have, to be read and
-    made again on his return (`ComposeIntake.interrupted`, named
-    `interruptedAway` until the fourth commit: `COMPOSE-ITEM set aside, its
-    conversion stopped as the app went`; for a read set
-    aside first, `cameSetAside`: `... stopped as the app went, thrown
-    away`). Ended by the grace, it is called off. A stop whose call back
-    comes while the app is in front is read again (22, the fourth commit;
-    the third let it go as its original). Nothing of the app's own holds a
-    background assertion past those 20 s: the Send's or Save Draft's time
-    is given back as the row is set aside, as before.
+    same of `AVAssetExportSession`, background time or not. So with
+    nothing waiting the export is called off at once with the read, as the
+    app goes (2). With a Send or a Save Draft waiting it has the 20 s
+    grace and no more (9); stopped in it (`.interrupted`), the read hands
+    back the original, marked (`Loading.wasInterrupted`), which the
+    composer throws away, setting the row aside as the grace would have,
+    to be read and made again on his return (`ComposeIntake.interrupted`,
+    named `interruptedAway` until the fourth commit: `COMPOSE-ITEM set
+    aside, its conversion stopped as the app went`; for a read set aside
+    first, `cameSetAside`: `... stopped as the app went, thrown away`).
+    Ended by the grace, it is called off. A stop whose call back comes
+    while the app is in front is read again (22, the fourth commit; the
+    third let it go as its original). Nothing of the read's or the
+    conversion's holds a background assertion past those 20 s: the Send's
+    or Save Draft's time is given back as the row is set aside, as before;
+    a draft's upload may hold it, up to iOS's allowance (Not covered). On
+    the test iPad, 2026-10-26, with a Save Draft waiting, it did not stop:
+    the 720p copy was made 2.4 s after the app went (Not covered).
 16. *The share sheet makes nothing* (`read(..., videos: nil)`). It reads
     what the sharing app hands over: Photos hands it its own H.264 copy of
     an HEVC video (B-070, seen 2026-10-20), and another app's HEVC goes as
     it is, as before. A conversion there would add its time to the spinner
     before the sheet shows, and its memory to an extension ended at about
     120 MB.
-17. *Kept:* the call-off as the app goes, at a count-out and as the
-    letter closes, the set-aside, and the 20 s grace: harmless with no
-    claim to end, and now they end the conversion.
+17. *Kept:* the call-off as the app goes, at a count-out and as the letter
+    closes, the set-aside, and the 20 s grace: harmless with no claim to
+    end, and now they end the conversion.
 
 **Changed in a fourth commit** (same branch).
 
@@ -29577,7 +29582,7 @@ be attached; Attach File; the share sheet's reading, its photos at most
 4096 px.
 
 **What he sees now.** A video he picks that fits the letter: its row turns
-while it is read and made H.264, then its row as before, "IMG_0195.MOV" and
+while it is read and made H.264, then its row as before, "IMG_0195.mov" and
 its weight, which may be more than the video's in Photos. Where that copy
 is too big for the letter, the row turns on while a second copy is made,
 a smaller picture, and that is the row where it fits; where neither fits,
@@ -29717,7 +29722,10 @@ commit's; 6 skipped, none failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the iPad (TODO, B-142's check, rewritten for this).
+- Seen on the test iPad, 2026-10-26, below, but for steps 9 and 10 of the
+  check, which were not possible there: no file of over about 1 GB was in
+  Files, and the iPad has no iCloud Drive to keep one only in iCloud; nor
+  has it a video kept only in iCloud, its Photos not being in iCloud.
 - That calling a load off ends Photos' copy and its claim was not known;
   it is now seen that it does not (Found on the test iPad, 2026-10-26). So
   whatever Photos must still make or fetch for the picker holds the claim,
@@ -29741,19 +29749,30 @@ commit's; 6 skipped, none failing. The release build for the iPad links.
 - Whether `.current` hands over a HEIC with no JPEG beside it is the
   round's reading, not seen; either way the photo goes as a JPEG named as
   before, at its own size (step 8 of the check writes down which, with a
-  panorama or a 24-megapixel photo).
+  panorama or a 24-megapixel photo). Seen on the test iPad, 2026-10-26:
+  Photos still offers a JPEG beside a HEIC under `.current`, and that JPEG
+  went, its own bytes, as before; the app's own JPEG of a HEIC was not
+  reached there.
 - How AVAssetExportSession behaves on his iPad as the app goes is Apple's
   word and others' reports, not seen; the design holds either way: called
   off at once, or 20 s at most with a Send waiting (step 7 writes down
   which). Nor is it seen that it takes no background assertion of its own.
-- How long a conversion takes on his iPad 7 (A10) or the test iPad: not
-  measured. It counts in the three minutes' bound, and where the copy at
-  its own size is over the room, the 720p copy's time is added to it,
-  bounded by each copy stopping 5 MB past the room.
+  Seen on the test iPad, 2026-10-26: with a Save Draft waiting, the copy
+  was made 2.4 s after the app went, inside the 20 s, not stopped.
+- How long a conversion takes on his iPad 7 (A10): not measured. It
+  counts in the three minutes' bound, and where the copy at its own size
+  is over the room, the 720p copy's time is added to it, bounded by each
+  copy stopping 5 MB past the room. On the test iPad, 2026-10-26: 1.1 s
+  for a clip of 5 s, 5.2 s for one of 19 s, its 720p copy's time
+  included.
 - How much larger the H.264 copy is than its HEVC original, on clips of
   his size: not measured; step 4 of the check measures one of 15 to 22 MB.
   So how often a video he picks now goes at 720p, or is left out, is not
-  known.
+  known. Measured on the test iPad, 2026-10-26, on two of its own 1080p
+  clips: 1.081 and 1.387 times at its own size, 1.224 at 720p (below). So
+  with 25 MB of room, at the measure's ratios, such a clip of over about
+  18 MB goes at 720p, and one of over about 20.4 MB is left out. His own
+  clips were not measured.
 - That a copy stopped at `fileLengthLimit` measures more than the room is
   read from the header, which says only that it may "slightly exceed" its
   limit; not seen. A copy stopped short of it and within the room is
@@ -29802,10 +29821,93 @@ commit's; 6 skipped, none failing. The release build for the iPad links.
   large file is in Files already.
 - The share sheet's own pick: Photos still makes its copy for the
   extension, under the same kind of claim, and nothing in the sheet has
-  changed (Weighed; step 11 of the check).
+  changed (Weighed; step 11 of the check). Seen on the test iPad,
+  2026-10-26: Photos made its copy before it opened the sheet, and no claim
+  was taken on the extension; opened while the iPad was locked, the sheet
+  was suspended and ended by iOS 5 s later, with nothing of his in it.
 - A picture called off says "left out, called off" in its line, and a
   video `went=called off`, or `SHARE-VIDEO called off` once staged,
   whether it was set aside or let go; the `COMPOSE-ITEM` line says which.
+- A large draft's APPEND may outlast the background time iOS allows. Its
+  Save Draft time is held while the APPEND runs, up to that allowance,
+  about 26 s from the app's going. On the test iPad, 2026-10-26 (below), a
+  draft of 34 MB took 26.2 s to APPEND, held the time to its expiry, and
+  ended 3.4 s after it, the draft reaching the server while the iPad was
+  locked. One larger, or a slower connection, may be stopped there. The
+  letter's copy on the iPad is kept regardless, from the tap. A known
+  limit; nothing is changed for it.
+- `NSItemProvider` called a load's completion a second time, with no file,
+  when its `Progress` was cancelled after the load had ended, so a read's
+  `done` runs twice: `SHARE-FILE ... name=none bytes=0 went=called off`
+  after the read's `went=staged`, as a video staged and being made H.264
+  was called off (steps 5 and 6 of the check, 2026-10-26). It was harmless
+  there: the second call brought nothing and found no read of the intake's
+  waiting for it (`ComposeIntake.arrived`), by the round's reading of the
+  code. Nothing is changed for it.
+
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+which held the third and fourth commits, in round r6-s9-video, and checked
+a second time against its shots, logs and syslog, which bore it out but
+for one point of step 7 (below). Steps 1 to 8, 11 and 12 of the check
+passed; 9 and 10 were not possible (Not covered). The syslog was read
+throughout. Every File Coordination Claim on Blackmail was held 0.03 to
+0.4 s, and let go before the app went into the background, but for step
+3's photo, its read called off as the app went, let go 0.05 s after; none
+was warned of, there was no 0x2182BAAD, and the app was never ended, one
+process from its launch at the round's start to its end.
+
+- *Locked, another app, several* (1 to 3). Four of the iPad's own large
+  HEVC videos, 557 MB to 2.7 GB, each left out for the letter's room
+  about 0.1 s after its read began, 0.25 to 0.43 s after Add, with no
+  `SHARE-VIDEO` line, and before the app went into the background; the
+  lock or Safari came 0.3 s after Add. Woken, or back, after three and a
+  half minutes: the same process, the composer up, and in 1 and 2 "The
+  video could not be attached.". In 3 the photo's read was called off as
+  the app went and read again on the wake, its row in, with one alert,
+  "2 videos could not be attached.".
+- *A clip that fits, and the measure* (4). The clip, IMG_0182, 5 s, 1080
+  by 1920, 9,519,437 bytes of HEVC, made H.264 (`codec=avc1`) in 1.1 s,
+  10,286,862 bytes: N over M 1.081. The measure, IMG_0188, 19 s,
+  20,333,115 bytes: its copy at its own size 28,201,198 bytes, 1.387, over
+  the room; then its 720p copy, 24,879,267 bytes, 1.224, which went, made
+  in 5.2 s in all. Neither was cut short, and the size on the disk of each
+  copy that went was the line's. So with 25 MB of room, at the measure's
+  ratios, a 1080p HEVC clip from the iPad of over about 18 MB goes at
+  720p, and one of over about 20.4 MB is left out. The rows read
+  "IMG_0182.mov" and "IMG_0188.mov", in lower case, as the names came
+  before B-142 too.
+- *Called off* (5, 6). Locked as the clip was made: `SHARE-VIDEO called
+  off`, set aside as the app went, and on the wake read and made H.264
+  again in 1.1 s, its row in. The letter closed, Delete Draft, as the
+  measure was made: `COMPOSE-ITEM called off, the letter closed`. Neither
+  left a file in `tmp/Attachments`; each left an empty staging folder.
+- *Save Draft waiting* (7). The measure, Save Draft while its row turned,
+  the lock 0.5 s after: let run 20 s, its 720p copy made 2.4 s after the
+  app went, the conversion not stopped in the background. The draft's
+  APPEND, 34 MB, then ran 26.2 s while the iPad was locked and held the
+  Save Draft background time to its expiry, not let go as the step
+  expected: iOS warned of it 26.1 s after the app went, and the app's
+  expiration handler let it go. The APPEND ended 3.4 s after that, and the
+  draft, with the 720p copy, reached Drafts on the server while the iPad
+  was locked; nothing was read again on the wake. It was the upload that
+  held the time, not the read or the conversion (Not covered). What the
+  step expected is so where the row is set aside, the time given back
+  then; its wording is corrected in the TODO.
+- *Photos* (8). Photos still offers `public.jpeg` beside a HEIC under
+  `.current`: the camera's HEIC went as that JPEG, its own bytes, its
+  metadata replaced, "IMG_0767.jpg", as before. No panorama could be
+  taken, the iPad being fixed in place; of the library's two, both JPEG,
+  the one over 4096 px, 6920 by 1650, went as its own bytes, 651,595 for
+  an original of 649,256, not made smaller.
+- *The share sheet* (11). Photos made its own H.264 copy of a 198 MB HEVC
+  video, in 21.4 s, and only then opened the sheet, the iPad locked by
+  then: the sheet was suspended at once and ended by iOS 5 s later, with
+  no report kept and no claim on it. Woken after 69 s: Photos' share sheet
+  still up, Blackmail's not.
+
+Nothing was sent; Drafts and Sent Mail were as at the start, the step's
+draft deleted in step 7 itself. The round's other note, a read's `done`
+run twice, is under Not covered.
 
 ## B-143 — FIXED 2026-10-26, seen on the test iPad 2026-10-26. A row came into sight with its two grey preview lines empty after its preview had come, and stayed so until it was scrolled away and back; a row is drawn whole from what it is now as it comes into sight, so a cell the table made ahead of time comes in with its preview, its spinner and its date
 

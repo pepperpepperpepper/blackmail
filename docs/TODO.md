@@ -5051,8 +5051,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *Too large.* The 30 MB file: "The file could not be attached.",
       no row, and nothing is sent.
       5. *A video.* The 19 MB video through Photo Library: one
-      `WIRE-OUT`, `LETTER-LATCH ok`, and the CRC matches the expected
-      copy, Photos' compatible one.
+      `WIRE-OUT`, `LETTER-LATCH ok`, and the CRC matches the app's own
+      H.264 copy, whose bytes its `SHARE-VIDEO made H.264` line gives
+      (B-142): a 1080p HEVC video of 19 MB likely goes as its 720p copy
+      (`made H.264 at 720p`), its copy at its own size being over the room
+      by B-142's measure; one H.264 already goes as it came (`goes as it
+      came, H.264 already`). Before B-142's second fix, Photos' compatible
+      copy.
       6. *While it comes.* Send tapped while the video loads: the spinner,
       then it goes with it. Airplane Mode on while an iCloud original
       loads, Send: at three minutes "The photo could not be attached.",
@@ -5062,10 +5067,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       minutes from the tap at most, never fifteen, then one alert, "The
       photos could not be attached.", the sheet with Send, nothing gone,
       and the log's `COMPOSE-WAIT` line counting them out together.
-      7. *A photo.* A composer photo arrives as its own bytes, with no
-      GPS, as "IMG_####.jpg": the picker's suggestion, which has no
-      extension, and the one the intake gives a JPEG that goes as itself
-      (B-108, Not covered).
+      7. *A photo.* A composer photo arrives as a JPEG with no GPS, as
+      "IMG_####.jpg": the picker's suggestion, which has no extension, and
+      the one the intake gives a JPEG (B-108, Not covered). Since B-142's
+      second fix, one of two, written down from its `SHARE-PICTURE` line:
+      where Photos offers a JPEG beside the HEIC, as it did on the test
+      iPad on 2026-10-26, that JPEG as its own bytes, its metadata replaced
+      (`read=public.jpeg ... way=own bytes, metadata replaced`); a HEIC
+      offered alone, made a JPEG in the app at its own size, its bytes the
+      app's (`read=public.heic ... way=JPEG at factor 1 ... size=WxH`).
+      Before B-142's second fix, Photos' compatible JPEG, as its own bytes.
       8. *Drafts.* Save Draft with the video, reopened from Drafts, Send:
       one copy arrives, and Drafts holds none.
       9. *Locked.* The iPad locked while the video uploads: it goes. And
@@ -5125,6 +5136,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       second half, on a build with B-142; 6's iCloud original and five
       iCloud-only photos; 11's name on Gmail's web page. 13, VoiceOver, is
       not needed.*
+      *Since B-142's second fix (2026-10-26): 5 and 7 no longer held as
+      written, B-142 having changed them. Photo Library hands over what
+      Photos keeps, so a video goes as the app's own H.264 copy, at its own
+      size or at 720p, as it came where it is H.264 already, or is left
+      out, never as Photos' compatible copy; and a HEIC photo goes as the
+      JPEG Photos offers beside it, or, where none is offered, as the app's
+      own JPEG of it. Their expected results above are corrected to what
+      B-142 says now.*
 - [x] **B-109, photos in the letter under his words.** On the test iPad,
       the test account only, built from the `feat-photos` worktree before
       it is merged (it changes what Send carries and how). A stands for the
@@ -7080,7 +7099,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       round's rules allowing no MOVE or EXPUNGE, nothing deleted there;
       (c)'s subject had no "Re:". Nothing was sent. Left: 6, across
       midnight or with the owner's yes.*
-- [ ] **B-142, a video coming into the composer as he locks the iPad or
+- [x] **B-142, a video coming into the composer as he locks the iPad or
       leaves the app, and Photo Library as Photos keeps it.** On the test
       iPad, the test account only, from a build of the `bm-videopick2`
       worktree (branch `fix-videopick2`) or of the int it is merged into.
@@ -7127,7 +7146,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *A clip that fits,* in front: a new letter, the clip, Add, and
       wait. In the log `SHARE-FILE ... went=staged`, then `SHARE-VIDEO made
       H.264, bytes=N from=M codec=avc1`, the time between them written
-      down; the row "IMG_####.MOV" with the weight of N. The codec is read
+      down; the row "IMG_####.mov" with the weight of N. The codec is read
       back from the copy by the app (`codec=avc1` or `avc3` is H.264; any
       other, or `unread`, is a failure to write down). Over SSH, `stat` of
       the staged file in the app's `tmp/Attachments`: N bytes. No media
@@ -7168,8 +7187,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       read again` and then `set aside as the app went, called off`; or
       `SHARE-VIDEO made H.264` inside the 20 s. Write down which, and when:
       it is how AVAssetExportSession behaves as the app goes on this iPad.
-      In the syslog the "Save Draft" background time let go then, not held
-      to its expiry; no 0x2182BAAD. Wake after three and a half minutes.
+      In the syslog, where the row is set aside, the "Save Draft"
+      background time let go then, not held to its expiry; where it was
+      made inside the 20 s, the time held while the draft's APPEND runs, up
+      to the allowance, about 26 s from the app's going, and let go then,
+      the draft kept either way (a large draft's APPEND may outlast it:
+      B-142, Not covered); no 0x2182BAAD. Wake after three and a half
+      minutes.
       Where it was made inside the 20 s: the draft was kept while the iPad
       was locked, nothing read again on the wake. Otherwise: the clip read
       and made again on the wake, then the draft kept. Either way, the
@@ -7219,6 +7243,38 @@ checks below is left as not needed, not open, and none is worth a round.*
       a HEIC at its own size, the 720p copy or nothing, each copy stopped
       past the room and its codec read back; the check above is for the
       fourth commit's build.*
+      *Seen on the test iPad 2026-10-26 on int17 (939ad5a, the third and
+      fourth commits): 1 to 8, 11 and 12 passed; 9 and 10 not possible, no
+      file of over about 1 GB in Files and no iCloud Drive on the iPad, and
+      no video kept only in iCloud in its Photos, which is not in iCloud.
+      Every claim on Blackmail was held 0.03 to 0.4 s and let go before the
+      app went into the background, step 3's photo 0.05 s after, its read
+      called off as the app went; no 0x2182BAAD, and the app was never
+      ended. The large videos were left out 0.25 to 0.43 s after Add; the
+      clips made H.264 (`codec=avc1`) in 1 to 5 s. In 4 the clip's N over
+      M 1.081; the measure's copy at its own size 1.387, over the room, and
+      its 720p copy 1.224, which went, made in 5.2 s. So with 25 MB of
+      room, at the measure's ratios, a 1080p HEVC clip of over about 18 MB
+      goes at 720p, and one of over about 20.4 MB is left out. In 7 the
+      720p copy was made 2.4 s after the app went, not stopped, and the
+      draft was kept, reaching the server while the iPad was locked; but
+      the "Save Draft" time was held to its expiry, about 26 s, by the
+      draft's 34 MB APPEND, which ended 3.4 s after it, not let go as the
+      step then said. Passed in its outcome; the step now says the time is
+      held while the APPEND runs, up to the allowance. In 8 Photos still
+      offered `public.jpeg` beside the HEIC under `.current`, and the JPEG
+      went as its own bytes; no Pano could be taken, the iPad fixed in
+      place, so the library's two panoramas, JPEG, were used, the one of
+      6920 by 1650 going as its own bytes. In 11 Photos made its own copy,
+      21.4 s, then opened the sheet while the iPad was locked, and iOS
+      ended it 5 s later, with no claim on it. Also seen: a read's `done`
+      run twice, harmless (B-142, Not covered); two empty staging folders
+      left in `tmp/Attachments` by 5 and 6. In 2 Safari, and Blackmail
+      again, were opened over SSH, not from the Dock and the app switcher;
+      in 4 to 7 the iPad's own clips were used, none filmed, and 6 and 7
+      were run with the measure in place of the clip, 6 because the clip's
+      copy was made before Cancel could land. Nothing was sent; the draft
+      of 7 was deleted in the step, Drafts and Sent Mail as counted.*
 - [x] **B-143, a row comes into sight with its preview.** On the test
       iPad, the test account only, from a build of the `bm-prepcell`
       worktree (branch `fix-prepcell`) or of the int it is merged into.
