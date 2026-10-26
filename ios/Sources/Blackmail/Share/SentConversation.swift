@@ -20,11 +20,15 @@ import Foundation
 ///
 /// The people are To and Cc. Bcc is left out: the circle fills To, and a
 /// person sent a blind copy put in To on the next share would be shown to
-/// everyone it goes to. His own addresses are left out too
-/// (`OwnAddresses`), and a letter to nobody else tells iOS nothing: iOS
-/// does not show a man himself in that row, by the reports of people who
-/// send themselves links in Messages and in Mail and never see their own
-/// circle there.
+/// everyone it goes to. The account's own address and its login are left
+/// out too, and a letter to nobody else tells iOS nothing: a man is not
+/// shown himself in that row, by the reports of people who send
+/// themselves links in Messages and in Mail and never see their own circle
+/// there. His other addresses, added under the account's own in Settings
+/// (B-076), are told as anyone's are: Mail tells iOS of whoever a letter
+/// went to, and iOS decides from his contact card which of them is he.
+/// His second address, where about half of what he sends goes, is the
+/// circle this was built for.
 struct SentConversation: Equatable {
 
     /// Each person once, in the letter's order, To then Cc: the address as
@@ -45,10 +49,12 @@ struct SentConversation: Equatable {
         people.map { $0.name ?? $0.address }.joined(separator: ", ")
     }
 
-    /// The conversation `draft` was, or nil when it names nobody but him
-    /// (`mine`) in To and Cc. An entry that is not an address, an empty
-    /// group among them, names nobody.
-    static func of(_ draft: Draft, mine: OwnAddresses) -> SentConversation? {
+    /// The conversation `draft` was, sent from `account`, or nil when it
+    /// names nobody in To and Cc but the account itself, its own address
+    /// or its login. An entry that is not an address, an empty group among
+    /// them, names nobody.
+    static func of(_ draft: Draft, account: MailAccount) -> SentConversation? {
+        let mine = OwnAddresses([account.address, account.username])
         var seen = Set<String>()
         var people: [MailFormat.Recipient] = []
         for entry in (draft.to + draft.cc).flatMap(MailFormat.addresses(in:))
@@ -98,8 +104,8 @@ extension SentConversation {
     /// picture, since the app does not read Contacts (B-017), and no
     /// sender, which an outgoing one leaves to iOS. Filed under the
     /// identifier, so a conversation's can be taken back
-    /// (`INInteraction.delete(with:)`). The log says it was told, or the
-    /// error's number, and how many people: no address.
+    /// (`INInteraction.delete(with:)`). The log says how many people as it
+    /// is told, then that iOS took it, or the error's number: no address.
     static func donate(_ conversation: SentConversation) {
         let recipients = conversation.people.map { person in
             INPerson(personHandle: INPersonHandle(value: person.address, type: .emailAddress),
@@ -114,9 +120,12 @@ extension SentConversation {
         let interaction = INInteraction(intent: intent, response: nil)
         interaction.direction = .outgoing
         interaction.groupIdentifier = conversation.identifier
-        let count = recipients.count
+        // Before it is told, so the line is in the log a share's send
+        // writes out when its connection is let go of; what iOS answers
+        // comes later and may miss it.
+        Diagnostics.log(.note, "SHARE-SUGGESTION people=\(recipients.count)")
         interaction.donate { error in
-            Diagnostics.log(.note, "SHARE-SUGGESTION people=\(count) "
+            Diagnostics.log(.note, "SHARE-SUGGESTION "
                 + (error.map { "error=\(($0 as NSError).code)" } ?? "donated"))
         }
     }
@@ -131,6 +140,8 @@ extension SentConversation {
 
     /// Everything told, taken back: the account has been taken out of the
     /// app, and its people are no longer his to share with through it.
+    /// Called from `CredentialStore.clear` alone, which nothing in the app
+    /// calls today, so nothing told is ever taken back yet.
     static func forgetAll() {
         INInteraction.deleteAll { error in
             if let error {

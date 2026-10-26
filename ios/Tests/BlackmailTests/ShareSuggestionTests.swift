@@ -4,8 +4,9 @@ import XCTest
 /// The people at the top of the share sheet, as Mail has them there
 /// (B-163): each letter that goes is told to iOS by the people it went
 /// to, from the app and from the share sheet, never one that did not go
-/// and never one to nobody but himself; and a share opened from one of
-/// those circles begins with them in To. What iOS does with it is the
+/// and never one to nobody but the account itself, his other addresses
+/// told as anyone's; and a share opened from one of those circles begins
+/// with them in To. What iOS does with it is the
 /// iPad's to show; here, what Blackmail tells it, and when.
 @MainActor
 final class ShareSuggestionTests: XCTestCase {
@@ -13,7 +14,6 @@ final class ShareSuggestionTests: XCTestCase {
     private let account = MailAccount(address: "owner@example.com", username: "owner@example.com",
                                       displayName: "Sam", signature: "Sam",
                                       otherAddresses: ["Sam.Second@Example.net"])
-    private var mine: OwnAddresses { OwnAddresses(account: account) }
     private let page = URL(string: "https://en.wikipedia.org/wiki/Mercury_(planet)")!
 
     override func setUp() {
@@ -61,7 +61,7 @@ final class ShareSuggestionTests: XCTestCase {
         let draft = Draft(to: ["Carlo Example <carlo@example.org>", "dee@example.com"],
                           cc: ["CARLO@example.org", "\"Ellis, Fay\" <fay@example.com>"],
                           bcc: ["hidden@example.com"])
-        let conversation = try XCTUnwrap(SentConversation.of(draft, mine: mine))
+        let conversation = try XCTUnwrap(SentConversation.of(draft, account: account))
         XCTAssertEqual(conversation.people, [
             MailFormat.Recipient(name: "Carlo Example", address: "carlo@example.org"),
             MailFormat.Recipient(name: nil, address: "dee@example.com"),
@@ -75,25 +75,45 @@ final class ShareSuggestionTests: XCTestCase {
     /// conversation: one circle, not one for each way he wrote them.
     func testTheSamePeopleAreOneConversation() async throws {
         let one = try XCTUnwrap(SentConversation.of(
-            Draft(to: ["carlo@example.org"], cc: ["Dee <dee@example.com>"]), mine: mine))
+            Draft(to: ["carlo@example.org"], cc: ["Dee <dee@example.com>"]), account: account))
         let other = try XCTUnwrap(SentConversation.of(
-            Draft(to: ["DEE@example.com", "Carlo <Carlo@Example.org>"]), mine: mine))
+            Draft(to: ["DEE@example.com", "Carlo <Carlo@Example.org>"]), account: account))
         XCTAssertEqual(one.identifier, other.identifier)
     }
 
-    /// A letter to nobody but himself, at any of his addresses, in any
-    /// case, under any name, tells iOS nothing; to him and Carlo, Carlo
-    /// alone. One with only a blind copy, an empty group or no address
-    /// names nobody either.
-    func testHisOwnAddressesAndBlindCopiesNameNobody() async throws {
-        XCTAssertNil(SentConversation.of(Draft(to: ["owner@example.com"]), mine: mine))
-        XCTAssertNil(SentConversation.of(Draft(to: ["Sam <sam.second@example.net>"],
-                                               cc: ["OWNER@example.com"]), mine: mine))
-        XCTAssertNil(SentConversation.of(Draft(bcc: ["carlo@example.org"]), mine: mine))
-        XCTAssertNil(SentConversation.of(Draft(to: ["undisclosed-recipients:;", "Carlo"]), mine: mine))
+    /// A letter to nobody but the account, at its own address or its
+    /// login, in any case, under any name, tells iOS nothing; to it and
+    /// Carlo, Carlo alone. One with only a blind copy, an empty group or no
+    /// address names nobody either.
+    func testTheAccountItselfAndBlindCopiesNameNobody() async throws {
+        XCTAssertNil(SentConversation.of(Draft(to: ["owner@example.com"]), account: account))
+        XCTAssertNil(SentConversation.of(Draft(to: ["Sam <OWNER@example.com>"],
+                                               cc: ["owner@EXAMPLE.com"]), account: account))
+        XCTAssertNil(SentConversation.of(Draft(bcc: ["carlo@example.org"]), account: account))
+        XCTAssertNil(SentConversation.of(Draft(to: ["undisclosed-recipients:;", "Carlo"]),
+                                         account: account))
         let both = try XCTUnwrap(SentConversation.of(
-            Draft(to: ["owner@example.com", "carlo@example.org"]), mine: mine))
+            Draft(to: ["owner@example.com", "carlo@example.org"]), account: account))
         XCTAssertEqual(both.people.map(\.address), ["carlo@example.org"])
+
+        var login = account
+        login.username = "sam.login@example.com"
+        XCTAssertNil(SentConversation.of(Draft(to: ["Sam.Login@example.com"]), account: login))
+    }
+
+    /// His other addresses, added under the account's own in Settings
+    /// (B-076), are told as anyone's, as Mail tells iOS of whoever a letter
+    /// went to and iOS decides which is he: his second address, where half
+    /// his shares go, is the circle this is for. With the account's own,
+    /// the second alone.
+    func testHisOtherAddressesAreToldAsAnyonesAre() async throws {
+        let second = try XCTUnwrap(SentConversation.of(
+            Draft(to: ["Sam <sam.second@example.net>"]), account: account))
+        XCTAssertEqual(second.people, [MailFormat.Recipient(name: "Sam", address: "sam.second@example.net")])
+        XCTAssertEqual(second.identifier, "sam.second@example.net")
+        let withOwn = try XCTUnwrap(SentConversation.of(
+            Draft(to: ["owner@example.com"], cc: ["Sam.Second@Example.net"]), account: account))
+        XCTAssertEqual(withOwn.people.map(\.address), ["Sam.Second@Example.net"])
     }
 
     // MARK: - To, for a share opened from a circle
@@ -120,7 +140,7 @@ final class ShareSuggestionTests: XCTestCase {
     /// people it went to.
     func testALettersCircleOpensOnItsPeople() async throws {
         let draft = Draft(to: ["Carlo Example <carlo@example.org>"], cc: ["dee@example.com"])
-        let conversation = try XCTUnwrap(SentConversation.of(draft, mine: mine))
+        let conversation = try XCTUnwrap(SentConversation.of(draft, account: account))
         XCTAssertEqual(SentConversation.to(people: conversation.people, identifier: conversation.identifier),
                        draft.to + draft.cc)
         XCTAssertEqual(SentConversation.to(people: [], identifier: conversation.identifier),
@@ -152,8 +172,9 @@ final class ShareSuggestionTests: XCTestCase {
     }
 
     /// A letter the server refused tells nothing, and nor does one to
-    /// nobody but himself that went.
-    func testALetterFromTheAppThatDidNotGoOrWentToHimIsNotTold() async throws {
+    /// nobody but the account itself that went; one to his second address
+    /// alone that went is told.
+    func testALetterFromTheAppThatDidNotGoOrWentToTheAccountIsNotTold() async throws {
         let refusing = ScriptedSubmission(letterReply: "552 5.3.4 Message too big")
         let told = Told()
         do {
@@ -167,11 +188,18 @@ final class ShareSuggestionTests: XCTestCase {
         removeTranscripts()
         let server = ScriptedSubmission()
         try await repository(server, told: told).send(
-            Draft(to: ["sam.second@example.net"], subject: "A link", body: "Hello"), progress: nil)
+            Draft(to: ["owner@example.com"], subject: "A link", body: "Hello"), progress: nil)
         let letters = await server.letters
         XCTAssertEqual(letters.count, 1, "it went")
         XCTAssertTrue(told.all.isEmpty)
         try await lettingGo(server)
+
+        removeTranscripts()
+        let second = ScriptedSubmission()
+        try await repository(second, told: told).send(
+            Draft(to: ["sam.second@example.net"], subject: "A link", body: "Hello"), progress: nil)
+        XCTAssertEqual(told.all.map(\.identifier), ["sam.second@example.net"])
+        try await lettingGo(second)
     }
 
     // MARK: - From the share sheet
@@ -196,7 +224,8 @@ final class ShareSuggestionTests: XCTestCase {
     }
 
     /// A share that went is told once, as the app's letters are; one that
-    /// did not is not, nor one to nobody but himself.
+    /// did not is not, nor one to nobody but the account itself; one to
+    /// his second address is.
     func testAShareThatWentIsToldAndOneThatDidNotIsNot() async throws {
         let server = ScriptedSubmission()
         let sent = sheet(server)
@@ -213,14 +242,25 @@ final class ShareSuggestionTests: XCTestCase {
         XCTAssertEqual(log, ["finish", "error"])
         XCTAssertEqual(told.count, 1, "nothing more for a share that did not go")
 
+        removeTranscripts()
         let toHim = ScriptedSubmission()
         let mineOnly = sheet(toHim)
         var own = mineOnly.letter(from: [.link(page, title: "Mercury")])
-        own.to = ["sam.second@example.net"]
+        own.to = ["owner@example.com"]
         await mineOnly.send { own }?.value
         XCTAssertEqual(log, ["finish", "error", "finish"])
-        XCTAssertEqual(told.count, 1, "nothing for one to him alone")
+        XCTAssertEqual(told.count, 1, "nothing for one to the account alone")
         try await lettingGo(toHim)
+
+        removeTranscripts()
+        let toSecond = ScriptedSubmission()
+        let secondSheet = sheet(toSecond)
+        var second = secondSheet.letter(from: [.link(page, title: "Mercury")])
+        second.to = ["sam.second@example.net"]
+        await secondSheet.send { second }?.value
+        XCTAssertEqual(log, ["finish", "error", "finish", "finish"])
+        XCTAssertEqual(told.map(\.identifier), ["carlo@example.org", "sam.second@example.net"])
+        try await lettingGo(toSecond)
     }
 
     /// A share opened from a circle begins with its people in To, which
@@ -242,6 +282,30 @@ final class ShareSuggestionTests: XCTestCase {
         let commands = await server.commands
         XCTAssertTrue(commands.contains("RCPT TO:<carlo@example.org>"), "\(commands)")
         try await lettingGo(server)
+    }
+
+    /// A YouTube video shared from a circle: To filled and Subject empty
+    /// while its title is asked, so the caret goes to Subject; once the
+    /// title has filled it, the caret the sheet put there goes on to the
+    /// body, where Mail's sheet opens with the YouTube app's title. Not
+    /// once he has moved it, nor with something over the sheet, nor from
+    /// To or the body.
+    func testFromACircleTheCaretEndsInTheBodyOnceTheTitleComes() async throws {
+        let video = URL(string: "https://youtu.be/dQw4w9WgXcQ")!
+        let sheet = sheet(ScriptedSubmission(), circle: ["Carlo <carlo@example.org>"])
+        let draft = sheet.letter(from: [.link(video, title: nil)])
+        XCTAssertEqual(sheet.videoToName(in: [.link(video, title: nil)]), video)
+        let first = ComposeForm.firstField(to: draft.to, subject: draft.subject)
+        XCTAssertEqual(first, .subject)
+        XCTAssertEqual(sheet.named("Tosca, Act 2", now: "", typed: false), "Tosca, Act 2")
+        XCTAssertTrue(ShareSheet.bodyOnceNamed(readiedInto: first, inSubject: true))
+        XCTAssertEqual(ComposeForm.firstField(to: draft.to, subject: "Tosca, Act 2"), .body,
+                       "where Mail's sheet would have opened")
+
+        XCTAssertFalse(ShareSheet.bodyOnceNamed(readiedInto: .subject, inSubject: false))
+        XCTAssertFalse(ShareSheet.bodyOnceNamed(readiedInto: .to, inSubject: true))
+        XCTAssertFalse(ShareSheet.bodyOnceNamed(readiedInto: .body, inSubject: true))
+        XCTAssertFalse(ShareSheet.bodyOnceNamed(readiedInto: nil, inSubject: true))
     }
 
     // MARK: - Declared, and wired, as Apple has it
@@ -280,8 +344,10 @@ final class ShareSuggestionTests: XCTestCase {
 
     /// The device's half, read from the source, as it never builds here:
     /// the sheet's To from the intent it was opened with, its letters told
-    /// by the one call, Intents linked, and what was told taken back with
-    /// the account.
+    /// by the one call, the app's by default, the count logged before iOS
+    /// is told, the caret moved once the title comes, Intents linked, and
+    /// what was told taken back in `CredentialStore.clear`, which nothing
+    /// calls yet.
     func testTheDeviceHalfIsWired() async throws {
         let sheet = try file("Sources/Blackmail/Share/ShareViewController.swift")
         XCTAssertTrue(sheet.contains("import Intents"))
@@ -295,6 +361,19 @@ final class ShareSuggestionTests: XCTestCase {
         XCTAssertTrue(told.contains("interaction.direction = .outgoing"))
         XCTAssertTrue(told.contains("conversationIdentifier: conversation.identifier"))
         XCTAssertTrue(told.contains("guard ShareMirror.app != nil else { return }"))
+        XCTAssertTrue(told.contains("Diagnostics.log(.note, \"SHARE-SUGGESTION people=\\(recipients.count)\") "
+                                    + "interaction.donate { error in"))
+
+        let repository = try file("Sources/Blackmail/Mail/IMAPMailRepository.swift")
+        XCTAssertTrue(repository.contains(
+            "donate: @escaping @Sendable (SentConversation) -> Void = SentConversation.fromTheApp,"))
+
+        XCTAssertTrue(sheet.contains("readiedInto = ComposeForm.firstField(to: toField.recipients, "
+                                     + "subject: subjectField.text ?? \"\") switch ComposeForm.firstField("))
+        XCTAssertTrue(sheet.contains("self.title = ComposeForm.title(subject: named) } "
+                                     + "if named != nil, ShareSheet.bodyOnceNamed( readiedInto: self.readiedInto, "
+                                     + "inSubject: self.subjectField.isFirstResponder && "
+                                     + "self.presentedViewController == nil) { self.bodyView.becomeFirstResponder()"))
 
         let package = try file("Package.swift")
         XCTAssertTrue(package.contains(".linkedFramework(\"Intents\", .when(platforms: [.iOS]))"))

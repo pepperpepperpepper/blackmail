@@ -39,12 +39,12 @@ final class ShareSheet {
     /// (`ShareMirror.noteSent`), and `donate` the people it went to, for
     /// their circle at the top of the share sheet (`SentConversation`,
     /// B-163): neither for a letter that did not go, and `donate` not for
-    /// one to nobody but himself. `circle` is To for a share opened from
-    /// one of those circles, its people, and nobody for one opened from
-    /// Blackmail's icon (`letter`). `openFile` says where a staged file is
-    /// read from at Send, as it goes (`ShareSheet.staged`). `memory` says
-    /// what the extension has left (`SharedPhoto.memory`), for the log at
-    /// each step of Send.
+    /// one to nobody but the account itself. `circle` is To for a share
+    /// opened from one of those circles, its people, and nobody for one
+    /// opened from Blackmail's icon (`letter`). `openFile` says where a
+    /// staged file is read from at Send, as it goes (`ShareSheet.staged`).
+    /// `memory` says what the extension has left (`SharedPhoto.memory`),
+    /// for the log at each step of Send.
     init(shared: ShareMirror.Shared,
          transport: @escaping MailTransportFactory,
          openFile: @escaping (DraftAttachment) throws -> LetterSource = ShareSheet.staged,
@@ -109,7 +109,7 @@ final class ShareSheet {
                 // Only after the server took it, as the app's book counts
                 // only letters that went.
                 noteSent(Submission.recipients(of: draft).map(MailFormat.bareAddress))
-                if let conversation = SentConversation.of(draft, mine: OwnAddresses(account: account)) {
+                if let conversation = SentConversation.of(draft, account: account) {
                     donate(conversation)
                 }
             },
@@ -161,6 +161,17 @@ final class ShareSheet {
               started.subject.isEmpty, now.isEmpty else { return nil }
         started.subject = subject
         return subject
+    }
+
+    /// Whether the caret goes into the body, at its start, once YouTube's
+    /// title has filled Subject (`named`): when the sheet put it in Subject
+    /// as it appeared, Subject being empty then (`readiedInto`), and it is
+    /// there still, with nothing over the sheet (`inSubject`). That is
+    /// where Mail's sheet opens with To filled from a circle and the
+    /// YouTube app's title in Subject (`ComposeForm.firstField`, B-120,
+    /// B-163). Anywhere else the caret stays where it is.
+    static func bodyOnceNamed(readiedInto: ComposeForm.FirstField?, inSubject: Bool) -> Bool {
+        readiedInto == .subject && inSubject
     }
 
     var isSending: Bool { actions.isSending }

@@ -2387,8 +2387,8 @@ actor IMAPMailRepository: MailRepository {
         hisLetters.forget()
         // And iOS told, for the people at the top of the share sheet, as
         // Mail tells it (B-163): after the server took it, as the book;
-        // never a letter to nobody but himself.
-        if let conversation = SentConversation.of(draft, mine: OwnAddresses(account: from)) {
+        // never a letter to nobody but the account itself.
+        if let conversation = SentConversation.of(draft, account: from) {
             donate(conversation)
         }
 

@@ -231,6 +231,10 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// Whether the sheet's one chance to be made ready to type has come
     /// and gone (`readyToType`).
     private var readied = false
+    /// Where `readyToType` put the caret, nil until it has: Subject, for a
+    /// share from a circle whose YouTube title had not come yet, is left
+    /// for the body once it does (`ShareSheet.bodyOnceNamed`, B-163).
+    private var readiedInto: ComposeForm.FirstField?
     /// The YouTube video whose title is asked for the subject, nil when
     /// nothing is asked (`ShareSheet.videoToName`, B-126).
     private var video: URL?
@@ -425,7 +429,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// A YouTube video shared with nothing naming it: its title asked of
     /// YouTube, and put in Subject when it comes, as Mail has it from the
     /// YouTube app, if he has typed nothing there and Send has not been
-    /// tapped (`ShareSheet.named`, B-126). Nothing waits for it; with no
+    /// tapped (`ShareSheet.named`, B-126); and the caret the sheet put in
+    /// Subject for it, To being filled from a circle, goes to the body
+    /// (`ShareSheet.bodyOnceNamed`, B-163). Nothing waits for it; with no
     /// answer Subject stays empty. The log says how long it took and
     /// whether it was used, in numbers alone.
     private func askForTheTitle() {
@@ -439,6 +445,15 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             if let named {
                 self.subjectField.text = named
                 self.title = ComposeForm.title(subject: named)
+            }
+            // And the caret the sheet put in Subject for it on to the body,
+            // where Mail's sheet opens with the title there (B-163).
+            if named != nil, ShareSheet.bodyOnceNamed(
+                readiedInto: self.readiedInto,
+                inSubject: self.subjectField.isFirstResponder && self.presentedViewController == nil) {
+                self.bodyView.becomeFirstResponder()
+                self.bodyView.selectedRange = NSRange(location: 0, length: 0)
+                self.keepCaretInView()
             }
             let ms = Int(Date().timeIntervalSince(asked) * 1000)
             Diagnostics.log(.note, "SHARE-TITLE answered=\(subject == nil ? 0 : 1) "
@@ -525,15 +540,19 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     /// Ready to type by the rule of the app's composer, which is Mail's
     /// composer's, its share sheet's too (`ComposeForm.firstField`, B-120):
-    /// a share has nobody in To, so To. Once, the first time the sheet
-    /// appears, never over Cancel's question and never once he is in a
-    /// field himself (`ComposeForm.readiesOnAppearing`).
+    /// a share from Blackmail's icon has nobody in To, so To; one from a
+    /// circle has its people there (B-163), so Subject while it is empty,
+    /// else the body. Once, the first time the sheet appears, never over
+    /// Cancel's question and never once he is in a field himself
+    /// (`ComposeForm.readiesOnAppearing`).
     private func readyToType() {
         let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
         let inAField = fields.contains { $0.isFirstResponder }
         defer { readied = true }
         guard ComposeForm.readiesOnAppearing(done: readied, covered: presentedViewController != nil,
                                              inAField: inAField) else { return }
+        // Where the caret goes, kept for YouTube's title (`askForTheTitle`).
+        readiedInto = ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "")
         switch ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "") {
         case .to:
             toField.becomeFirstResponder()

@@ -7356,47 +7356,77 @@ checks below is left as not needed, not open, and none is worth a round.*
       address; letters go only to A with `+b163` before the @ ("A+b163"),
       or to A alone, with subjects beginning "B-163", so nothing leaves the
       account. Settings > Siri & Search, "Show When Sharing": on, as it
-      comes from the factory; written down as found and left so. The app's
-      connection log read after each step. No fixture is needed: nothing
-      is read but the share sheet.
+      comes from the factory; written down as found and left so. Contacts,
+      My Card: whether it lists A or A+b163, written down as found and left
+      so; iOS takes from it who the owner is. In Blackmail's Settings,
+      A+b163 added under the account's addresses with "Add Another Email…",
+      and Save, as his second address will be at the install (B-076): its
+      circle is the one this is for. The logs: for the app's letters, the
+      app's connection log; for a share, the newest `blackmail-send-*.txt`
+      in the share extension's own tmp, from its last `SHARE-BEGIN` on, as
+      the share checks before read it. A share that ends in Cancel writes
+      no transcript, so what it did is read on the screen alone. No
+      fixture is needed: nothing is read but the share sheet.
       1. *Before* (no send): Safari, any page, Share. The row of people at
-      the top written down: none with Blackmail's badge. Close it. No
-      `SHARE-SUGGESTION` line in the log.
+      the top written down: none with Blackmail's badge. Close it.
       2. *Letters that go* (sends, test account only, needs the owner's
       go): from the app's composer, three letters to A+b163, "B-163 app 1"
-      to "B-163 app 3"; then, from Safari's share sheet by Blackmail's
-      icon, three shares of a page to A+b163, the subject typed over the
-      page's title as "B-163 share 1" to "B-163 share 3". After each, one
-      `SHARE-SUGGESTION people=1 donated` in the log; an `error=` line
-      written down with its number.
-      3. *A letter to himself alone* (sends, test account only, needs the
-      owner's go): from the app, one letter to A alone, "B-163 self". It
-      goes; no `SHARE-SUGGESTION` line for it.
-      4. *A share that does not go* (no send), on a build whose share
-      sheet stays up with its error when there is no connection (B-036);
-      skipped on one where such a share waits in the Outbox, since it
-      would go later: Airplane Mode on; Safari, a page, Share, Blackmail's
-      icon, To A+b163, Send: the sheet stays with the error. No
-      `SHARE-SUGGESTION` line. Cancel, Delete Draft. Airplane Mode off.
+      to "B-163 app 3": after each, in the app's log, one
+      `SHARE-SUGGESTION people=1`, then `SHARE-SUGGESTION donated`; an
+      `error=` line written down with its number. Then, from Safari's
+      share sheet by Blackmail's icon, three shares of a page to A+b163,
+      the subject typed over the page's title as "B-163 share 1" to
+      "B-163 share 3": each one's transcript holds, after the letter's
+      250, one `SHARE-SUGGESTION people=1`, and no `SHARE-SUGGESTION
+      opened` line. A `donated` or `error=` line after it is written down
+      if it is there; it may come after the transcript was written.
+      3. *A letter to the account alone* (sends, test account only, needs
+      the owner's go): from the app, one letter to A alone, "B-163 self".
+      It goes; no `SHARE-SUGGESTION` line for it in the app's log.
+      4. *A share that does not go, then goes* (sends, test account only,
+      needs the owner's go), on a build whose share sheet stays up with
+      its error when there is no connection (B-036); skipped on one where
+      such a share waits in the Outbox (B-153), since the app sends it
+      later: Airplane Mode on; Safari, a page, Share, Blackmail's icon, To
+      A+b163, Subject "B-163 offline", Send: the sheet stays with the
+      error. Airplane Mode off, Send again: it goes. Its transcript, from
+      its `SHARE-BEGIN` on, holds one `SHARE-SUGGESTION people=1`, after
+      the letter's 250: none for the Send that did not go.
       5. *The circle* (no send): Safari, a page, Share. Written down: the
       top row, and whether A+b163 is in it with Blackmail's badge, under
       its address, as no name was given, and where. Not there: close the
       sheet, open and leave Blackmail, wait a minute, and look again,
-      twice at most; written down either way. A, alone, with Blackmail's
-      badge is never there.
+      twice at most; written down either way, beside what My Card lists.
+      A, alone, with Blackmail's badge is never there.
       6. *Opened from it* (no send), where it is there: tap it. Blackmail's
       sheet comes up with one bubble in To, A+b163; the page's title in
-      Subject; the caret in the body (B-120). In the log
-      `SHARE-SUGGESTION opened people=1`. Cancel: the sheet goes with no
-      question.
-      7. *Blackmail's icon* (no send): Safari, a page, Share, Blackmail's
-      icon: To empty and the caret in it, as before; no
-      `SHARE-SUGGESTION opened` line. Cancel.
-      8. *Put back:* the "B-163" letters in the Inbox and in Sent Mail
-      moved to the Trash in the app, Edit and Trash, and nothing else;
-      Blackmail in front on the Inbox. The circles told stay on the test
-      iPad; written down. Nothing was sent but steps 2 and 3, to the test
-      account itself.
+      Subject; the caret in the body (B-120). Cancel: the sheet goes with
+      no question.
+      7. *Opened from it, and sent* (sends, test account only, needs the
+      owner's go): tap it again; Subject typed over as "B-163 circle";
+      Send: it goes. Its transcript, from its `SHARE-BEGIN` on:
+      `SHARE-SUGGESTION opened people=1`, `RCPT TO:<A+b163>`, then one
+      `SHARE-SUGGESTION people=1`.
+      8. *A YouTube video from it* (no send): the YouTube app, a video,
+      Share, and the system's share sheet (under More if the YouTube app's
+      own panel comes first): whether the A+b163 circle is in its row
+      with Blackmail's badge, written down. Where it is: tap it. To has
+      A+b163; Subject has the video's title at once or within a second or
+      two (B-126); where the caret is once it has, written down, and
+      whether the title was there from the sheet's first frame. The body,
+      at its start, is where Mail's would be. Cancel: no question.
+      9. *Blackmail's icon* (no send): Safari, a page, Share, Blackmail's
+      icon: To empty and the caret in it, as before. Cancel.
+      10. *Put back:* the "B-163" letters in the Inbox and in Sent Mail
+      moved to the Trash in the app, with Edit, then the Edit bar's red
+      button, "Delete" on a build without Mail's words and "Trash" on one
+      with them, and nothing else; A+b163 taken off the account's
+      addresses in Settings, and Save; Blackmail in front on the Inbox.
+      The circles told stay on the test iPad; written down. Nothing was
+      sent but steps 2, 3, 4 and 7, to the test account itself.
+      No send of its own: on the next five-photo share check, the
+      `SHARE-SEND` lines' least memory compared with B-109's 160 MB, which
+      matched B-070's, as the extension now loads Intents too.
 
 ## Blocked on the owner
 

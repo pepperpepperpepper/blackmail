@@ -30111,14 +30111,16 @@ not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
 
-## B-163 — FIXED 2026-10-26, not yet seen on the iPad. A share through Blackmail always began at its icon with To empty, as no letter of his was ever told to iOS; each letter that goes is told now, by the people it went to, so the people he writes to can come up at the top of the share sheet with Blackmail's badge, and a tap on one opens Blackmail's sheet with them in To
+## B-163 — FIXED 2026-10-26, not yet seen on the iPad. A share through Blackmail always began at its icon with To empty, as no letter of his was ever told to iOS; each letter that goes is told now, by the people it went to, his second address among them, so they can come up at the top of the share sheet with Blackmail's badge, and a tap on one opens Blackmail's sheet with them in To
 
 **Asked.** "His own circle at the top of the share sheet", under "Blocked
 on the owner" since the gap review of 2026-10-24: built only if he shares
 by tapping the circle, not built by default. The owner's ruling of
 2026-10-26, "close the gaps in our decision tree by copying Apple Mail",
 with Mail's factory behaviour where it hangs on his own settings, settles
-it: built.
+it: built. The circle the item is named for is his second address's: the
+gap review found about half of what he sends goes to it, 1,186 YouTube
+and 256 Wikipedia shares in 30 days.
 
 **What Mail does.** With Siri's "Show When Sharing" on, as it is from the
 factory, the share sheet opens with a row of people he writes to, each with
@@ -30132,7 +30134,10 @@ Tech Talk 210). That Mail's people are in the row is from third-party
 guides (medium). A man is not shown himself there: two people who send
 themselves links, one in Messages and one in Mail, write that their own
 circle never comes (Apple Community, 2025; MacRumors forums, 2024). Apple
-says nothing either way (low to medium).
+says nothing either way (low to medium). Those reports are of the
+account's own address; nothing was found of a second address of a man's
+own, on another domain. Nothing says Mail leaves anyone out of what it
+tells iOS: who is he is iOS's to know, from his contact card (low).
 
 **What Blackmail did.** Told iOS nothing, and its extension declared no
 intent. Through Blackmail every share began at its icon, with To empty.
@@ -30144,9 +30149,13 @@ intent. Through Blackmail every share began at its icon, with To empty.
    the case, the name the letter gave kept; one identifier for the same
    people in any order or case; a name for the circle, theirs with ", "
    between. Bcc is left out: the circle fills To, and a person sent a blind
-   copy put in To on the next share would be shown to everyone. His own
-   addresses are left out (`OwnAddresses`), and a letter to nobody else
-   tells iOS nothing.
+   copy put in To on the next share would be shown to everyone. The
+   account's own address and its login are left out, as the reports have
+   a man's own circle never come, and a letter to nobody else tells iOS
+   nothing. His other addresses, added under the account's own in Settings
+   (B-076), are told as anyone's are: his second address is the circle
+   the item asks for, and iOS decides from his contact card whether it is
+   he.
 2. *Told after each letter the server took*: the app's in
    `IMAPMailRepository.send`, which the composer and the Outbox both go
    through, after the book counts it; the share sheet's in `ShareSheet`,
@@ -30157,8 +30166,12 @@ intent. Through Blackmail every share began at its icon, with To empty.
    the circle's name, the identifier as the conversation's, "Blackmail" as
    the service, filed under the identifier. The app tells only in a build
    that carries the extension (`ShareMirror.app`), the one thing a circle
-   can open. The log says `SHARE-SUGGESTION people=N donated`, or the
-   error's number, and no address.
+   can open. The log says `SHARE-SUGGESTION people=N` as it is told, then
+   `SHARE-SUGGESTION donated` once iOS has it, or `error=` and the
+   error's number; no address. The first is written before iOS is told,
+   so a share's is in the transcript its send writes when its connection
+   is let go of (`blackmail-send-*.txt` in the extension's tmp); the
+   second comes when iOS answers and may miss it.
 3. *Declared*: `IntentsSupported`, `INSendMessageIntent`, in
    ShareInfo.plist's `NSExtensionAttributes`, as Apple's article has it;
    the activation rule as it was. And `NSUserActivityTypes`,
@@ -30170,12 +30183,19 @@ intent. Through Blackmail every share began at its icon, with To empty.
    people (`SentConversation.to`, `ShareSheet`'s `circle`). The
    share began with them, so Cancel asks nothing about them. The caret
    goes where the composer's rule puts it with To filled: Subject when
-   it is empty, the body when the page's title is there (B-120). The log
-   says `SHARE-SUGGESTION opened people=N`. From Blackmail's icon, To is
+   it is empty, the body when the page's title is there (B-120). A video
+   from the YouTube app comes with no title, which is asked of YouTube
+   (B-126), so the caret goes to Subject; once the title has filled it,
+   the caret goes on to the body, at its start, where Mail's sheet opens
+   with the YouTube app's title, if it is still in Subject and nothing is
+   over the sheet (`ShareSheet.bodyOnceNamed`). The log says
+   `SHARE-SUGGESTION opened people=N`. From Blackmail's icon, To is
    empty, as before.
-5. *The account taken out* (`CredentialStore.clear`): everything told is
-   taken back (`INInteraction.deleteAll`), as the extension's copy of the
-   account is.
+5. *For the day the account is taken out*: `CredentialStore.clear`
+   takes everything told back (`INInteraction.deleteAll`), beside the
+   extension's copy of the account. Nothing in the app calls `clear`
+   today, and it is never to be called by hand (B-031), so nothing told is
+   ever taken back.
 6. *Intents linked* (Package.swift). Both the app's and the extension's
    binaries load Intents and its Swift overlay; the overlay comes in by
    itself, the framework is named as UIKit's overlay is.
@@ -30208,38 +30228,48 @@ copies read were deleted from the host.
 names or addresses, which iOS draws; "Blackmail" goes in the intent as its
 service, which the row does not show.
 
-**Tests.** `ShareSuggestionTests`, eleven, new. The people: To then Cc,
-each once, the names kept, Bcc left out; the same people in another order
-or case one conversation; his own addresses, at any of them, in any case,
-under any name, a blind copy alone, an empty group or no address naming
-nobody, and him with Carlo naming Carlo. To from a circle: the people iOS
-hands back, each once, an entry that is no address left out; the
-conversation's addresses with no people; nobody with nothing; a letter's
-circle opening on its own To and Cc. The app: a letter the server took told
-once with its people, through the repository; one the server refused, and
-one to his second address alone that went, told nothing. The share sheet:
-one that went told once; one that did not go, and one to him alone, told
-nothing; one opened from a circle beginning with its people in To, Cancel
-asking nothing about them, and going to them on the wire. Both plists
-declare the intent. Read from the source, as it never builds here: the
-sheet's To from `extensionContext.intent`, its letters told by
+**Tests.** `ShareSuggestionTests`, thirteen, new. The people: To then
+Cc, each once, the names kept, Bcc left out; the same people in another
+order or case one conversation; the account's own address and its login,
+in any case, under any name, a blind copy alone, an empty group or no
+address naming nobody, and the account with Carlo naming Carlo; his
+second address named, alone or with the account's own. To from a circle:
+the people iOS hands back, each once, an entry that is no address left
+out; the conversation's addresses with no people; nobody with nothing; a
+letter's circle opening on its own To and Cc. The app: a letter the
+server took told once with its people, through the repository; one the
+server refused, and one to the account's own address alone that went,
+told nothing; one to his second address alone told. The share sheet: one
+that went told once; one that did not go, and one to the account alone,
+told nothing; one to his second address told; one opened from a circle
+beginning with its people in To, Cancel asking nothing about them, and
+going to them on the wire; a YouTube video from a circle, the caret in
+Subject going on to the body once the title fills it, and nowhere else.
+Both plists declare the intent. Read from the source, as it never builds
+here: the sheet's To from `extensionContext.intent`, its letters told by
 `SentConversation.donate`, the outgoing direction and the identifier,
-the app telling only with the extension, Intents linked, and everything
-told taken back in `CredentialStore.clear`.
+the count logged before iOS is told, the app telling only with the
+extension and by default, the caret moved once the title comes, Intents
+linked, and everything told taken back in `CredentialStore.clear`.
 
 Each part undone by hand, `ShareSuggestionTests` run, then put back and
-passing, counted as failures in tests; four runs, several parts undone in
-each, every failure naming its part: Bcc taken in, 4 in 2; told before the
-letter went, from the app, 3 in 2; the share's To left empty, 4 in 1; the
-extension's intent not declared, 1 in 1; nothing taken back with the
-account, 1 in 1; his own addresses taken in, 5 in 3; nothing told from the
-share sheet, 3 in 1; no addresses from the identifier, 2 in 2; the
-identifier as written, not sorted nor in lower case, 1 in 1; nothing told
-from the app, 1 in 1; the share's told before it went, 3 in 1; the sheet
-not handed the circle, 1 in 1; the extension's sheet not handed the call
-that tells iOS, 1 in 1.
+passing, counted as failures in tests, every failure naming its part.
+Four runs on the first form of this change, several parts undone in each:
+Bcc taken in, 4 in 2; told before the letter went, from the app, 3 in 2;
+the share's To left empty, 4 in 1; the extension's intent not declared, 1
+in 1; nothing taken back in `clear`, 1 in 1; nothing told from the share
+sheet, 3 in 1; no addresses from the identifier, 2 in 2; the identifier
+as written, not sorted nor in lower case, 1 in 1; nothing told from the
+app, 1 in 1; the share's told before it went, 3 in 1; the sheet not
+handed the circle, 1 in 1; the extension's sheet not handed the call that
+tells iOS, 1 in 1. Three more on this form: all his addresses left out,
+as the first form had it, 3 in 3; nothing of the account's left out, 10
+in 5; its login taken in, 1 in 1; the count logged only once iOS
+answers, 1 in 1; the app's repository telling nothing by default, 1 in 1;
+the caret never sent on to the body, 1 in 1; the sheet not calling for
+it, 1 in 1; the sheet not keeping where it put the caret, 1 in 1.
 
-The full suite, serially: 2,675 tests, 11 of them new, 6 skipped, none
+The full suite, serially: 2,677 tests, 13 of them new, 6 skipped, none
 failing. The release build for the iPad links, and both its binaries load
 Intents.
 
@@ -30254,20 +30284,30 @@ Intents.
 - A share opened from a circle reads the intent's people, and the
   conversation's identifier where there are none, as Apple's sample reads
   the identifier; which of the two iOS hands back was not seen.
-- *His second address.* Once it is added under his addresses in Settings
-  at the install (B-076), letters to it alone tell iOS nothing, so the
-  circle most of his shares would go to does not come from Blackmail.
-  Whether Mail on his iPad shows it as a circle hangs on whether iOS takes
-  it for his own, his contact card; not known. One look at his share sheet
-  on the day, which the install-day line asks for already.
+- *His second address.* Letters to it are told, listed under his
+  addresses or not. Whether iOS shows its circle, Blackmail's or Mail's,
+  hangs on whether iOS takes it for his own, from his contact card; not
+  known. The check tries it with a test address listed under the
+  account's; on his iPad, one look at his share sheet on the day, which
+  the install-day line asks for already.
 - Bcc left out by choice; what Mail tells iOS of a blind copy is not known.
 - A letter the Outbox could not be sure had gone, found in Sent Mail
   later (`IMAPMailRepository.sentMail(holds:)`), is not told, as the book
   does not count it.
 - Letters he receives are not told, though Apple allows it: the row is
   said to be people he sends to.
-- What was told is taken back only with the account. An address added to
-  his own later keeps any circle told for it before.
+- Nothing told is ever taken back: nothing in the app takes the account
+  out, and `forgetAll` waits in `clear` for the day something does.
+- Once B-153's Outbox for shares is in, a share that waits there tells
+  nothing from the sheet: the sheet's call is after the share's own send,
+  beside `noteSent`, and the app tells iOS when the letter goes, through
+  `IMAPMailRepository.send`.
+- Intents is loaded in the share extension too, whose memory is tight
+  (B-070); its cost there was not measured. The next five-photo share
+  check compares its least memory with B-109's.
+- Where the caret ends on the iPad, for a YouTube video shared from a
+  circle, was not seen: the title can come before the sheet appears, and
+  then the caret goes to the body by the composer's own rule.
 - The app's `NSUserActivityTypes` is from Apple's communication
   notifications article and from what other apps declare, not from the
   share suggestions article, which names the extension's key alone.
