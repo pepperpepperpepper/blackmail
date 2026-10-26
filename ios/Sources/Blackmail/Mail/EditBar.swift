@@ -35,6 +35,12 @@ enum EditBar {
     /// copy in the Trash, where the word was "Delete" in red. Left to the
     /// owner (TODO, "Blocked on the owner").
     static func deleteTitle(inFolderWithRole role: Mailbox.Role?) -> String {
-        EraseQuestion.erases(fromFolderWithRole: role) ? "Delete" : "Trash"
+        EraseQuestion.erases(fromFolderWithRole: role) ? delete : trash
     }
+
+    /// The two words, here and nowhere else: the bar's, a drag's button on
+    /// a row (`RowSwipes`) and the name of the step Undo takes back
+    /// (`UndoableMove`) say them from here.
+    static let trash = "Trash"
+    static let delete = "Delete"
 }

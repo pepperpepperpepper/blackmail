@@ -16,8 +16,9 @@ import Foundation
 /// has it, or Move to Inbox inside Junk, as Mail offers there: ruled
 /// 2026-10-26, copying Mail. Mail's words, the folder named by its role, as
 /// Mail shows Gmail's Spam as Junk; both titles are in `Item.title` and
-/// nowhere else. Never in Edit mode's Mark sheet (D-022), where Select All
-/// is the 30,000-letter accident and there is no Undo here.
+/// nowhere else. More's sheet from a drag on a row offers the same item
+/// (`RowMore`, B-156). Never in Edit mode's Mark sheet (D-022), where
+/// Select All is the 30,000-letter accident.
 ///
 /// Apart from `MessageDetailViewController`, which is UIKit and does not
 /// exist on the machine the suite runs on, so the items, their order and
@@ -78,12 +79,18 @@ enum FlagMenu {
         let flag: Item = flagged ? .unflag : .flag
         guard !local else { return [flag] }
         var items = [flag, read ? .markAsUnread : .markAsRead]
-        if folders.role != .junk, let junk = folders.junk {
-            items.append(.moveToJunk(junk))
-        } else if folders.role == .junk, let inbox = folders.inbox {
-            items.append(.moveToInbox(inbox))
-        }
+        if let junk = junkItem(in: folders) { items.append(junk) }
         return items
+    }
+
+    /// Move to Junk for a letter anywhere but Junk, when a folder with the
+    /// `\Junk` role is listed, Move to Inbox for one in Junk, when the Inbox
+    /// is listed, nil otherwise: for this sheet and for More's from a drag
+    /// on a row (`RowMore`), which offers the same item by the same rule.
+    static func junkItem(in folders: Folders) -> Item? {
+        if folders.role != .junk, let junk = folders.junk { return .moveToJunk(junk) }
+        if folders.role == .junk, let inbox = folders.inbox { return .moveToInbox(inbox) }
+        return nil
     }
 
     /// Where the letter is, and where Move to Junk and Move to Inbox go:
@@ -108,6 +115,16 @@ enum FlagMenu {
         /// on its way: the list answers a read mark by the letter's id, and
         /// the answer to the first of two on their way at once would act on
         /// the second.
+        var onItsWay: Bool
+    }
+
+    /// The flag on the list's row for the letter the sheet is for
+    /// (`ListLetters.flag(on:)`): Flag or Unflag, and whether it is
+    /// greyed. A drag's Flag on the row (B-156) leaves the pane as it was.
+    struct Flag: Equatable {
+        var flagged: Bool
+        /// A Flag on the letter is on its way to the server, from a drag,
+        /// More or the pane: one at a time, as the pane's own.
         var onItsWay: Bool
     }
 }

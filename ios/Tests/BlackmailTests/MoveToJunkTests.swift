@@ -205,16 +205,31 @@ final class MoveToJunkTests: XCTestCase {
         XCTAssertTrue(root.contains("if case .move = action { moving = self.list.working(StatusLine.moving) }"))
     }
 
-    /// The words are the sheet's alone: never in Edit mode, where Select
-    /// All is the thirty-thousand-letter accident, nor anywhere else.
+    /// The words are the sheet's alone, and More's from a drag on a row
+    /// (`RowMore`, B-156), which offers FlagMenu's item: never in Edit
+    /// mode, where Select All is the thirty-thousand-letter accident, nor
+    /// anywhere else.
     func testMoveToJunkIsInTheFlagButtonsSheetAlone() throws {
+        let sheets = ["Blackmail/Mail/FlagMenu.swift", "Blackmail/UI/MessageDetailViewController.swift",
+                      "Blackmail/Mail/RowSwipes.swift", "Blackmail/UI/MessageListViewController.swift"]
         for file in try sources() {
             let code = try source(file, under: "")
             for word in ["Move to Junk", "Move to Inbox", "Move to Spam", "moveToJunk", "moveToInbox"]
-            where file != "Blackmail/Mail/FlagMenu.swift" && file != "Blackmail/UI/MessageDetailViewController.swift" {
+            where !sheets.contains(file) {
                 XCTAssertFalse(code.contains(word), "\(file): \(word)")
             }
         }
+        // More's words are FlagMenu's, and the list's Edit mode has none.
+        for file in sheets.dropFirst(2) {
+            let code = try source(file, under: "")
+            XCTAssertFalse(code.contains("\"Move to"), "\(file): FlagMenu's words")
+        }
+        let list = try source("Blackmail/UI/MessageListViewController.swift", under: "")
+        let edit = try XCTUnwrap(list.range(of: "@objc private func markSelected()"))
+        let end = try XCTUnwrap(list.range(of: "private func applyRead(", range: edit.upperBound..<list.endIndex))
+        let editMark = String(list[edit.lowerBound..<end.lowerBound])
+        XCTAssertTrue(editMark.contains("Mark as Read"))
+        XCTAssertFalse(editMark.contains("Junk"), "never in Edit mode's Mark sheet")
         let flagMenu = try String(contentsOf: sourceRoot.appendingPathComponent("Blackmail/Mail/FlagMenu.swift"),
                                   encoding: .utf8)
         XCTAssertTrue(flagMenu.contains("case .moveToJunk: return \"Move to Junk\""))

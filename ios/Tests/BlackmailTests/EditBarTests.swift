@@ -60,7 +60,9 @@ final class EditBarTests: XCTestCase {
                  "editItems = [selectAllItem, flex, markItem, flex, moveItem, flex, deleteItem]"],
                 in: bar)
         XCTAssertFalse(list.contains("deleteItem.tintColor"), "the bar's own colour")
-        XCTAssertFalse(list.contains("Theme.destructive"))
+        // The red is a drag's Trash alone, as Mail's (B-156), never the bar's.
+        XCTAssertEqual(count("Theme.destructive", in: list), 1)
+        XCTAssertTrue(list.contains("case .trash, .delete: return Theme.destructive"))
         XCTAssertFalse(bar.contains("tintColor"), "no item of the bar has a colour of its own")
         XCTAssertEqual(count("deleteItem = ", in: list), 1)
         XCTAssertEqual(count("deleteItem.title", in: list), 0, "titled once, for its folder")
@@ -77,7 +79,10 @@ final class EditBarTests: XCTestCase {
             "navigationItem.rightBarButtonItem = UIBarButtonItem( title: EditBar.edit, style: .plain, "
                 + "target: self, action: #selector(editTapped))"))
         let edit = flat(body(after: "@objc private func editTapped()", in: list))
-        inOrder(["let editing = !tableView.isEditing",
+        // Edit mode is the list's own, not the table's `isEditing`, which a
+        // drag on a row turns on too (B-156).
+        inOrder(["let editing = !inEditMode",
+                 "inEditMode = editing",
                  "tableView.setEditing(editing, animated: true)",
                  "navigationItem.rightBarButtonItem?.title = editing ? EditBar.cancel : EditBar.edit"],
                 in: edit)

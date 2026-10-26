@@ -334,6 +334,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       coming back".*
 - [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
       app badge and notifications. *Owner decisions.*
+      *Undo for Delete and Move ruled 2026-10-26: copy Apple Mail. Built
+      as B-157, not yet seen on the iPad: a shake, three fingers or
+      Command-Z undoes a Trash or a Move, from a drag, Edit mode or the
+      pane, with UIKit's "Undo Trash" or "Undo Move", the letters moved
+      back and their rows where they stood, and a Flag, "Undo Flag", as
+      Mail is reported to; and its check under "Blocked on the iPad coming
+      back". Contacts and the badge still open.*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
       status bar to go to the top, Print. *The sent sound done 2026-10-22,
       seen on the iPad the same day, whether it is heard left for a
@@ -8194,6 +8201,129 @@ checks below is left as not needed, not open, and none is worth a round.*
       only the UIDs that move answered (`COPYUID`). Never anything found
       by subject or Message-ID: a UID not noted is left, and written down.
       Nothing else was written.
+- [ ] **B-156, Mail's drags on a row.** On the test iPad, the test
+      account only, from a build of the `bm-cm-swipe` worktree (branch
+      `copy-swipe`) or of the int it is merged into. Nothing is sent:
+      More's Reply and Forward are opened and closed with Cancel, and
+      Delete Draft if asked, nothing saved. A stands for the account's
+      address. The host makes nine letters, each From and To A with
+      `+b156` before the @, so that a Reply, Reply All or Forward sent by
+      mistake stays in the test account, with a new Message-ID of its own
+      and naming none on the account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      never the Inbox, letters 8 and 9 one conversation (9 answers 8,
+      In-Reply-To and References), each dated a minute after the one
+      before; it notes each UID from its APPENDUID, and stops if one has
+      none. Subjects "B-156 swipe N", N from 1 to 8, and letter 9's "Re:
+      B-156 swipe 8", as Gmail threads by subject too: the row of 8 and 9
+      shows "B-156 swipe 8" with 2 beside it. Organize by Thread on, three
+      panes, "Notes" open; the app's connection log read after each step;
+      a screenshot of each drag held open.
+      1. *A slow drag to the left* on letter 1's row, let go part way:
+      More grey, Flag orange and Trash red, the Trash at the row's right
+      edge, each with its symbol over its word; a tap elsewhere on the
+      list closes it, nothing sent.
+      2. *Flag:* letter 2 tapped, its letter in the pane; the drag, Flag:
+      the row's flag at once, one `UID STORE n +FLAGS.SILENT (\Flagged)`,
+      the row still highlighted; the pane's Flag button: Unflag offered,
+      Cancel. The drag again shows Unflag; tapped, the flag gone, one
+      `-FLAGS.SILENT (\Flagged)`.
+      3. *To the right:* letter 3, a slow drag to the right: Unread, blue;
+      a full drag: the dot at once, one STORE of `\Seen` off, the count
+      beside "Notes" up by one; then a slow drag to the right shows Read,
+      and a full drag takes the dot and the one off again.
+      4. *The Trash by a tap:* letter 4, the drag, Trash: no question, the
+      row gone at once, "Deleting…" under the list until one `UID MOVE n
+      "[Gmail]/Trash"` is answered.
+      5. *The Trash by a full drag,* the letter open: letter 5 tapped, its
+      letter in the pane; a full drag to the left on its row: no
+      question, the row gone and the pane empty at once, one MOVE. Watch
+      for the row sliding back into place before it vanishes, by eye and,
+      if it can be caught, in a screen recording: Mail's slides off. If
+      it slides back, the row is to be taken off the list in the button's
+      handler, before UIKit is told it is done, and this step tried
+      again.
+      6. *A conversation:* the row of letters 8 and 9, a full drag to the
+      left: the row gone, two MOVEs, letter 8's first; watched for the
+      slide back as in step 5.
+      7. *More:* letter 6, the drag, More: a sheet over the row with
+      Reply, Reply All, Forward, Trash Message, Flag, Mark as Unread and
+      Move Message, in that order. Reply: the composer, To A with
+      `+b156`, letter 6's words quoted; Cancel. Forward: the composer, no
+      To, the letter below; Cancel. Move Message: the folder sheet;
+      Cancel. Nothing in Drafts, nothing sent; nothing in the log but the
+      letter's FETCH. Then More again, Trash Message: no question, the
+      row gone, one MOVE, as step 4.
+      8. *Not in Edit mode:* Edit, a drag on letter 7's row: no buttons;
+      Done.
+      9. *Refused:* Airplane Mode on, a full drag to the left on letter
+      7's row: the row goes, and comes back where it stood with "Can't
+      connect to mail server."; Airplane Mode off.
+      10. *In the Trash:* Trash opened; letter 4's row, the drag: More,
+      Flag and Delete, red. Delete: "Delete Message?" with Cancel and
+      Delete; Cancel: the row stays, nothing sent. More on it: Delete
+      Message in Trash Message's place; tapped, the same question;
+      Cancel. A full drag on letter 5's row: the same question; Delete:
+      the row gone, one `UID STORE n +FLAGS.SILENT (\Deleted)` and one
+      `UID EXPUNGE n`, n the UID the MOVE of 5 answered.
+      11. *Put back:* "Notes" left, the Inbox at its top. The host moves
+      the UIDs it noted that are still in "Notes" to the Trash, and
+      deletes in the Trash only the UIDs those moves answered and the ones
+      the app's MOVEs of letters 4, 6, 8 and 9 were answered with
+      (`COPYUID`, in its log); "Notes" itself stays. Never anything found by subject
+      or Message-ID. Nothing was sent.
+- [ ] **B-157, Undo as in Mail.** On the test iPad, the test account
+      only, from the same build as B-156's check. Nothing is composed or
+      sent. Shake to Undo on (Settings > Accessibility > Touch), as it
+      comes. The host APPENDs seven letters to "Notes" as for B-156, From
+      and To A with `+b157`, "B-157 undo N", letters 1 to 6 read and
+      letter 7 unread, noting each UID. A shake by hand, or
+      AssistiveTouch's Shake; three fingers if they can be made. The app's
+      connection log read after each step.
+      0. *Informative, not blocking*, on any iPadOS 18 device with Mail, if
+      one is at hand (the test iPad has none, B-028): flag a letter, shake,
+      and write down the alert's words; Cancel. Unflag it, shake, the same.
+      Expect "Undo Flag", and say whether there is one after the Unflag.
+      1. *A drag's Trash:* a full drag to the left on letter 1's row, the
+      row gone. A shake: UIKit's alert, "Undo Trash", Cancel and Undo,
+      its words written down; Cancel: nothing sent. A shake again, Undo:
+      "Moving…", letter 1's row back where it stood; the log `UID FETCH n
+      (UID X-GM-MSGID)` in the Trash and one `UID MOVE n "Notes"`, n the
+      UID the Delete's MOVE answered; over IMAP letter 1 in "Notes" under
+      a new UID, not in the Trash.
+      2. *Edit mode, two as one:* Edit, letters 2 and 3 ticked, Delete. A
+      shake, Undo: both rows back, each where it stood, two FETCHes and
+      two MOVEs, letter 2's first, the older (B-084).
+      3. *The pane's Move:* letter 4 opened, Move, Spam. A shake: "Undo
+      Move"; Undo: its row back in "Notes", out of Spam.
+      4. *More than one step:* letters 5 and 6 deleted by drags, 5 first.
+      A shake, Undo: letter 6 back; a shake, Undo: letter 5 back.
+      5. *Three fingers,* if they can be made: letter 5 deleted by a drag,
+      three fingers swiped to the left: the banner "Undo Trash", letter 5
+      back.
+      6. *With no connection:* letter 6 deleted by a drag, Airplane Mode
+      on, a shake, Undo: "Can't connect to mail server.", the row not
+      back; Airplane Mode off, a shake: "Undo Trash" again; Undo: back.
+      7. *After the search field:* the search field tapped, a letter
+      typed, Cancel; letter 2 deleted by a drag; a shake: the alert comes.
+      Undo.
+      8. *A letter just opened, deleted in the pane:* the count beside
+      "Notes" noted; letter 7 tapped: the dot gone, the count down by
+      one; Delete in the pane. A shake, Undo: its row back with no dot,
+      the count as it was after the tap, not up by one; letter 7 tapped
+      again: the count as it was, nothing more taken off. A Refresh: the
+      same.
+      9. *Undo Flag:* a drag's Flag on letter 4. A shake: "Undo Flag", its
+      words written down; Undo: the flag gone at once, one `UID STORE n
+      -FLAGS.SILENT (\Flagged)`. Flag by a drag again, then Unflag by a
+      drag; a shake: the alert's words written down; Undo: the flag back,
+      one `+FLAGS.SILENT (\Flagged)`. A read mark by a drag to the right
+      on letter 5, then a shake: the alert names the Flag before it, not
+      the read mark; Cancel.
+      10. *Nothing after a relaunch:* letter 3 deleted by a drag; the app
+      ended in the app switcher and opened again; a shake: no alert.
+      Letter 3 is left in the Trash for the host.
+      11. *Put back:* as B-156's step 11, by the UIDs noted and the ones
+      every MOVE answered; Spam left as found. Nothing was sent.
 
 ## Blocked on the owner
 
@@ -8406,9 +8536,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Trash (Blackmail says "Delete"), and Gmail's "Sent Mail" and "Spam" as
       Mail names them, "Sent" and "Junk" (the default: Mail's words).
       *Ruled 2026-10-26: copy Apple Mail. Built as B-144.*
-- [ ] **Swipe to Trash on a row** (decided against by the spec): about 5
+- [x] **Swipe to Trash on a row** (decided against by the spec): about 5
       letters a day go to the bin unopened, each Edit, tick, Delete here.
       As decided (the default), or Mail's swipe.
+      *Ruled 2026-10-26: copy Apple Mail; the owner withdrew the brief's
+      no-swipe rule the same day. Built as B-156.*
 - [x] **"Open this link?"** (set by the spec, never asked of him): Mail opens
       a tapped link at once. As built (the default), or Mail's way.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-145.*

@@ -346,6 +346,15 @@ struct ReadBilling {
         return read(letter)
     }
 
+    /// An unread letter its Undo has brought back (B-157): the folders to
+    /// put one back on, when its leaving took one off them (`left`), nil
+    /// when nothing did. The billing is forgotten either way, so reading it
+    /// again takes the one off again.
+    mutating func returned(_ letter: MessageSummary) -> [String]? {
+        guard counted.remove(Letter(letter)) != nil, !letter.isRead else { return nil }
+        return Self.folders(of: letter)
+    }
+
     /// Every folder the letter is counted in; with no labels to say, the
     /// one it was listed from, which is right for a server where a letter
     /// is in one folder only.

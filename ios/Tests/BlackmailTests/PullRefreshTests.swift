@@ -332,7 +332,7 @@ final class PullRefreshTests: XCTestCase {
     func testThePullIsTakenOffWhereItWouldMoveHimOrWipeAnything() throws {
         let list = try list()
         XCTAssertTrue(body(after: "private var pullAllowed: Bool", in: list).contains(
-            "PullRefresh.allowed(editing: tableView.isEditing, "
+            "PullRefresh.allowed(editing: inEditMode, "
             + "searching: isSearchingOrTyping || searchBar.isExpanded, "
             + "fromNewest: reachedNewestMessage, moving: panesMoving)"))
 

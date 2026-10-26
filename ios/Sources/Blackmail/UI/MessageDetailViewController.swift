@@ -47,6 +47,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`FlagMenu.Folders`). From the container, which lists the folders;
     /// nil, or none listed, and neither item is offered.
     var foldersForJunk: ((MessageSummary) -> FlagMenu.Folders)?
+    /// The flag on the list's row for a letter the pane shows, which the
+    /// sheet offers Flag or Unflag by, as the dot for the read item: a
+    /// drag's Flag on the row (B-156) changes the row and not the pane.
+    /// Nil where the list has no row that is the letter
+    /// (`ListLetters.flag(on:)`).
+    var flagOnList: ((MessageSummary) -> FlagMenu.Flag?)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -1423,8 +1429,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// For the letter the toolbar acts on, in a conversation the one he
     /// opened last, and for that letter only: an item chosen after the
     /// pane has moved on does nothing. An item whose write on the letter
-    /// is still on its way as the sheet opens is greyed, the pane's own or,
-    /// for the read item, the list's.
+    /// is still on its way as the sheet opens is greyed, the pane's own or
+    /// the list's.
     ///
     /// Mark as Unread or Mark as Read as the dot on the list's row says,
     /// as Mail's item follows the letter (`dotOnList`). The pane's own idea
@@ -1433,13 +1439,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// the read mark of the tap that opened it refused and put back. The
     /// sheet then offered the item that changed nothing. The pane's own
     /// (`markedUnreadHere`) only where the list has no row that is the
-    /// letter.
+    /// letter. Flag or Unflag as the flag on the row says (`flagOnList`),
+    /// for the same reason: a drag's Flag on the row (B-156) leaves the
+    /// pane as it was.
     @objc private func flagTapped() {
         guard let s = summary else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]
         let dot = dotOnList?(s)
-        let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id),
+        let flag = flagOnList?(s)
+        let items = FlagMenu.items(flagged: flag?.flagged ?? s.isFlagged,
+                                   read: dot?.read ?? (markedUnreadHere != s.id),
                                    local: LocalDraft.key(ofRow: s.id) != nil,
                                    in: foldersForJunk?(s) ?? FlagMenu.Folders())
         for item in items {
@@ -1448,7 +1458,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 self.choose(item)
             }
             switch item {
-            case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)
+            case .flag, .unflag:
+                action.isEnabled = !writes.flagOnItsWay(s.id) && flag?.onItsWay != true
             case .markAsUnread, .markAsRead:
                 action.isEnabled = !writes.readOnItsWay(s.id) && dot?.onItsWay != true
             case .moveToJunk, .moveToInbox: break
@@ -1717,11 +1728,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Mail's question about the original's files (B-107), as an action
     /// sheet at the Reply button, where the choice was made: Include, Don’t
     /// Include, and Cancel, which on the iPad is a tap outside it, and
-    /// begins no letter. `answer` hears true for Include.
-    private func askAboutFiles(_ answer: @escaping (Bool) -> Void) {
+    /// begins no letter. `answer` hears true for Include. Over `row`, where
+    /// the choice was made on a row of the list, from More (B-156).
+    private func askAboutFiles(over row: (view: UIView, rect: CGRect)? = nil,
+                               _ answer: @escaping (Bool) -> Void) {
         let sheet = UIAlertController(title: ReplyFiles.question, message: nil,
                                       preferredStyle: .actionSheet)
-        sheet.popoverPresentationController?.barButtonItem = actionItems[.reply]
+        if let row {
+            sheet.popoverPresentationController?.sourceView = row.view
+            sheet.popoverPresentationController?.sourceRect = row.rect
+        } else {
+            sheet.popoverPresentationController?.barButtonItem = actionItems[.reply]
+        }
         sheet.addAction(UIAlertAction(title: ReplyFiles.include, style: .default) { _ in
             answer(true)
         })
@@ -1733,6 +1751,48 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     @objc private func composeTapped() { openCompose(replyTo: nil, all: false, forward: false) }
+
+    /// The letter whose More's Reply, Reply All or Forward is being made
+    /// ready, by its id, from the tap until the composer or the failure:
+    /// one at a time, so a second tap meanwhile makes no second letter.
+    private var answering: String?
+
+    /// More's Reply, Reply All or Forward on a row of the list (B-156), as
+    /// Mail's sheet answers a letter without opening it: the letter fetched
+    /// as the pane opens one (`openLetter`), from the copy kept on the iPad
+    /// when it is there, and shown nowhere; then the composer, as the Reply
+    /// button's sheet opens it, Mail's question about the files asked first
+    /// where that sheet would ask it, over the row (`row`). Nothing in the
+    /// pane changes, and the letter is not marked read.
+    ///
+    /// A failure is said as a letter that could not be opened is. A row
+    /// kept on the iPad that the server says is another letter now is
+    /// taken off the list, as when it is opened (D-016).
+    func answer(_ letter: MessageSummary, all: Bool, forward: Bool,
+                over row: (view: UIView, rect: CGRect)) {
+        guard answering == nil else { return }
+        answering = letter.id
+        let repository = self.repository
+        Task { @MainActor in
+            defer { self.answering = nil }
+            let m: Message
+            do {
+                m = try await repository.openLetter(letter)
+            } catch is MailShelf.NotTheKeptLetter {
+                self.onNotTheKeptLetter?(letter)
+                return
+            } catch {
+                ErrorPresenter.show(reaching: error, on: self)
+                return
+            }
+            guard forward ? ReplyFiles.forwardAsks(m) : ReplyFiles.asks(m) else {
+                return self.openCompose(replyTo: m, all: all, forward: forward)
+            }
+            self.askAboutFiles(over: row) { [weak self] in
+                self?.openCompose(replyTo: m, all: all, forward: forward, included: $0)
+            }
+        }
+    }
 
     /// Presents the composer. The DRAFT itself is built by `Draft.replying`
     /// and `Draft.forwarding`, which are pure and live in the model layer —

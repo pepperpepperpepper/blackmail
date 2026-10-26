@@ -368,7 +368,8 @@ final class FlagMenuTests: XCTestCase {
             "let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)",
             "sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]",
             "let dot = dotOnList?(s)",
-            "let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id), "
+            "let items = FlagMenu.items(flagged: flag?.flagged ?? s.isFlagged, "
+                + "read: dot?.read ?? (markedUnreadHere != s.id), "
                 + "local: LocalDraft.key(ofRow: s.id) != nil, in: foldersForJunk?(s) ?? FlagMenu.Folders())",
             "let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in "
                 + "guard let self, self.summary?.id == s.id else { return } self.choose(item) }",
@@ -667,6 +668,44 @@ final class FlagMenuTests: XCTestCase {
         XCTAssertEqual(list.dot(on: opened)?.onItsWay, false)
         list.endSearch()
         XCTAssertNil(list.dot(on: hit), "the pane's own, for a hit after its search")
+    }
+
+    /// Flag or Unflag as the flag on the list's row says, and greyed while
+    /// a Flag on the letter is on its way, as the read item goes by the
+    /// dot: a drag's Flag on the row of the letter open in the pane
+    /// (B-156) changes the row and not the pane, which then offered Flag
+    /// on a flagged letter, and its Flag went beside the drag's STORE.
+    @MainActor
+    func testTheFlagItemFollowsTheFlagOnTheListsRow() throws {
+        var opened = summary(id: "1/1", counted: ["INBOX"])
+        opened.gmailMessageID = 11
+        let (list, _) = makeList(folder: [opened])
+        XCTAssertEqual(list.flag(on: opened), FlagMenu.Flag(flagged: false, onItsWay: false))
+
+        // A drag's Flag on its row, on its way, then taken.
+        let started = PaneActions.start(.flag(true), on: opened, inFolderWithRole: .inbox,
+                                        list: list)
+        XCTAssertEqual(list.flag(on: opened), FlagMenu.Flag(flagged: true, onItsWay: true))
+        PaneActions.finish(started, failure: nil, requestSweep: {})
+        XCTAssertEqual(list.flag(on: opened), FlagMenu.Flag(flagged: true, onItsWay: false))
+        XCTAssertFalse(opened.isFlagged, "the pane's copy, as it was")
+        XCTAssertNil(list.flag(on: summary(id: "1/8")), "no row under its id: the pane's own")
+
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(pane.contains("var flagOnList: ((MessageSummary) -> FlagMenu.Flag?)?"))
+        let tapped = try section(of: pane, from: "@objc private func flagTapped() {",
+                                 to: "private func choose(")
+        for line in [
+            "let flag = flagOnList?(s)",
+            "FlagMenu.items(flagged: flag?.flagged ?? s.isFlagged, ",
+            "case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id) "
+                + "&& flag?.onItsWay != true",
+        ] {
+            XCTAssertTrue(tapped.contains(line), line)
+        }
+        let root = try source("UI/RootViewController.swift")
+        XCTAssertTrue(root.contains(
+            "detail.flagOnList = { [weak self] letter in self?.list.letters.flag(on: letter) }"))
     }
 
     /// No dot where the row under the letter's id is another letter now:

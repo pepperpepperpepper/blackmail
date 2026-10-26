@@ -537,7 +537,7 @@ final class LandedLetterTests: XCTestCase {
                                       + "landed.letGo() stopSearching()"), reload)
         let tap = flat(body(after: "override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath)",
                             in: list))
-        XCTAssertTrue(tap.hasPrefix("{ letGoOfVoiceOver() guard !t.isEditing else "
+        XCTAssertTrue(tap.hasPrefix("{ letGoOfVoiceOver() guard !inEditMode else "
                                     + "{ updateSelectAllTitle(); return } "
                                     + "if letters.isSearching { keepSearch(searchShown) } "
                                     + "landed.tapped(threads[ip.row]) switch rows[ip.row]"), tap)

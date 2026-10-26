@@ -81,16 +81,61 @@ struct IMAPMoveAnswer: Equatable {
     /// `* 68 EXPUNGE`, and on an untagged OK before the EXPUNGEs as RFC 6851
     /// has it; either is read. Of several, the one that names the letter.
     init(_ answer: IMAPCommandResult, uid: UInt32) {
-        let codes = [Self.copyUIDArgument(in: answer.detail)]
-            + answer.untagged.map { line -> String? in
-                let words = line.text.split(separator: " ", maxSplits: 2)
-                guard words.count == 3, words[0] == "*", words[1].uppercased() == "OK" else { return nil }
-                return Self.copyUIDArgument(in: String(words[2]))
-            }
-        let read = codes.compactMap { $0 }.map { Self.classify($0, uid: uid) }
+        let read = Self.copyUIDArguments(in: answer).map { Self.classify($0, uid: uid) }
         let order: [CopyUID] = [.names, .zero, .other]
         copyUID = order.first { read.contains($0) } ?? .none
         expunged = IMAPParser.sizeChanges(after: answer.untagged, from: 0)?.expunged ?? false
+    }
+
+    /// Where the answer to a MOVE or COPY of `uid` alone says the letter
+    /// went: the destination's UIDVALIDITY and the letter's UID there, from
+    /// the COPYUID that names it with a UID for it (`names`), at the place
+    /// it has in the source set. Nil from any other answer: none, a 0 as
+    /// Gmail's on the iPad, or one for other letters. For the letter's Undo
+    /// (B-157), which moves it back from there.
+    static func landing(in answer: IMAPCommandResult, uid: UInt32) -> IMAPMoveLanding? {
+        for argument in copyUIDArguments(in: answer) where classify(argument, uid: uid) == .names {
+            let parts = argument.split(separator: " ", omittingEmptySubsequences: true)
+            guard let validity = number(parts[0]), let source = ranges(parts[1]),
+                  let destination = ranges(parts[2]),
+                  let place = offset(of: uid, in: source),
+                  let landed = self.uid(at: place, in: destination) else { continue }
+            return IMAPMoveLanding(validity: validity, uid: landed)
+        }
+        return nil
+    }
+
+    /// How far into `ranges` `uid` is, counted from 0 in the order they are
+    /// written, each from its low end.
+    private static func offset(of uid: UInt32, in ranges: [ClosedRange<UInt32>]) -> UInt64? {
+        var before: UInt64 = 0
+        for range in ranges {
+            if range.contains(uid) { return before + UInt64(uid - range.lowerBound) }
+            before += UInt64(range.upperBound - range.lowerBound) + 1
+        }
+        return nil
+    }
+
+    /// The UID `offset` into `ranges`, counted as `offset(of:in:)` counts.
+    private static func uid(at offset: UInt64, in ranges: [ClosedRange<UInt32>]) -> UInt32? {
+        var left = offset
+        for range in ranges {
+            let size = UInt64(range.upperBound - range.lowerBound) + 1
+            if left < size { return range.lowerBound + UInt32(left) }
+            left -= size
+        }
+        return nil
+    }
+
+    /// The arguments of every COPYUID in the answer: on its tagged OK, as
+    /// Gmail puts it, and on an untagged OK, as RFC 6851 has it.
+    private static func copyUIDArguments(in answer: IMAPCommandResult) -> [String] {
+        ([copyUIDArgument(in: answer.detail)]
+            + answer.untagged.map { line -> String? in
+                let words = line.text.split(separator: " ", maxSplits: 2)
+                guard words.count == 3, words[0] == "*", words[1].uppercased() == "OK" else { return nil }
+                return copyUIDArgument(in: String(words[2]))
+            }).compactMap { $0 }
     }
 
     /// `"[COPYUID 2 343 0] (Success)"` -> `"2 343 0"`: the code's argument
@@ -146,4 +191,12 @@ struct IMAPMoveAnswer: Equatable {
     private static func count(_ ranges: [ClosedRange<UInt32>]) -> UInt64 {
         ranges.reduce(0) { $0 + UInt64($1.upperBound - $1.lowerBound) + 1 }
     }
+}
+
+/// Where a MOVE or COPY put a letter, as its answer's COPYUID says
+/// (`IMAPMoveAnswer.landing`): the destination's UIDVALIDITY and the
+/// letter's UID there.
+struct IMAPMoveLanding: Equatable, Sendable {
+    let validity: UInt32
+    let uid: UInt32
 }
