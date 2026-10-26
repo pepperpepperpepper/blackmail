@@ -968,6 +968,12 @@ final class LocalDraftStore {
         /// sent at once does (B-050). Absent for a letter quoting nothing.
         /// Its markup is in `quote.html`.
         var quote: StoredQuote?
+        /// `Draft.original` (B-152): the letter a reply answers or a forward
+        /// passes on, marked once this one has gone. Absent for every other
+        /// letter, and from one kept before it was, which reads as none, so
+        /// no new format. Read on its own, and one that cannot be read reads
+        /// as absent (`Lenient`): the letter goes, and nothing is marked.
+        var original: Lenient<StoredOriginal>?
         var files: [StoredFile]
 
         init(format: Int, key: String, version: String, tried: [String], unfinished: Bool,
@@ -989,6 +995,7 @@ final class LocalDraftStore {
             savedID = draft.savedID
             savedLetter = draft.savedLetter
             quote = draft.quote.map(StoredQuote.init)
+            original = draft.original.map { Lenient(StoredOriginal($0)) }
             self.files = files
         }
 
@@ -1006,6 +1013,7 @@ final class LocalDraftStore {
             draft.savedID = savedID
             draft.savedLetter = savedLetter
             draft.quote = quote?.original(markup: markup)
+            draft.original = original?.value?.letterNamed
             draft.attachments = files.compactMap { $0.attachment(in: folder) }
             return LocalDraft(key: key, draft: draft, version: version, tried: tried,
                               unfinished: unfinished, keptAt: keptAt, account: account,
@@ -1081,6 +1089,23 @@ final class LocalDraftStore {
         func original(markup html: String?) -> QuotedOriginal {
             QuotedOriginal(kind: forward ? .forward : .reply, region: region, html: html,
                            pictures: pictures.map(\.picture), isShortened: shortened ?? false)
+        }
+    }
+
+    /// `OriginalLetter`, field by field, for the reason `Stored` is.
+    private struct StoredOriginal: Codable {
+        var forward: Bool
+        var letter: UInt64
+        var mailboxID: String
+
+        init(_ original: OriginalLetter) {
+            forward = original.kind == .forward
+            letter = original.letter
+            mailboxID = original.mailboxID
+        }
+
+        var letterNamed: OriginalLetter {
+            OriginalLetter(kind: forward ? .forward : .reply, letter: letter, mailboxID: mailboxID)
         }
     }
 

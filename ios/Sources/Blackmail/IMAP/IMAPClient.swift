@@ -1668,6 +1668,36 @@ actor IMAPClient {
         guard result.status == .ok else { throw MailError.cannotConnect }
     }
 
+    /// Marks the letter Gmail knows as `letter` (X-GM-MSGID) with `flag` in
+    /// `mailbox`, if it is there, and returns its UID there under the
+    /// UIDVALIDITY it means something in: the mailbox's news asked for
+    /// first (`Freshness.now`), then `UID SEARCH X-GM-MSGID`, then
+    /// `UID STORE +FLAGS.SILENT` of the UID found, in one hold of the gate,
+    /// so the UID marked is the one the search found. Nil, with no STORE,
+    /// when the letter is not there, or the server cannot be asked, having
+    /// no Gmail extension or refusing the search. For the mark after a
+    /// reply or a forward has gone (`IMAPMailRepository.mark`, B-152).
+    ///
+    /// The news first, because a letter archived or deleted elsewhere since
+    /// the mailbox was selected on this connection is still in the
+    /// session's view of it until the server has said so (B-045), and a
+    /// STORE there marks nothing.
+    func mark(_ letter: UInt64, with flag: String,
+              in mailbox: String) async throws -> (validity: UInt32, uid: UInt32)? {
+        let cleaned = Self.sanitizedFlag(flag)
+        guard !cleaned.isEmpty else { return nil }
+        return try await inMailbox(mailbox, validity: nil, .interactive, catchingUp: .now,
+                                   writing: "UID STORE") { state in
+            guard try self.namesLetters(),
+                  let uid = try await self.performSearch("X-GM-MSGID \(letter)")?.last else {
+                return nil
+            }
+            let result = try await self.performCommand("UID STORE \(uid) +FLAGS.SILENT (\(cleaned))")
+            guard result.status == .ok else { throw MailError.cannotConnect }
+            return (state.uidValidity, uid)
+        }
+    }
+
     /// `stayingLabelled` is for a letter that stays in `mailbox` with the
     /// move, as the repository takes it to, filed from Gmail's All Mail in
     /// a label, All Mail holding every letter not binned: the X-GM-LABELS

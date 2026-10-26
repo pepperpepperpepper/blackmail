@@ -30110,3 +30110,161 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-152 — FIXED 2026-10-26, not yet seen on the iPad. A letter he answered or forwarded in Blackmail was never marked on Gmail, so it never had the arrow B-102 draws; once the server has taken the reply or the forward, its original is marked `\Answered` or `$Forwarded`, as Mail marks it, also when the letter goes later from the Outbox
+
+**What Mail does.** Read from iOS 18.6's Mail code (its symbols), the
+Outbox study and the 16.5 Envelope Index's schema, with medium
+confidence, and not seen on a device: once a reply or a forward has been
+delivered, Mail marks the letter it answers `\Answered`, or the letter it
+passes on `$Forwarded`, on the server; a letter sent later from its
+Outbox is marked when it goes; with no connection the change waits in
+Mail's own queue of actions. Its list shows the grey arrow (B-102), and
+nothing is said on the screen. Which keyword iPadOS 18 writes for a
+forward, `$Forwarded` or `Forwarded`, both of which its code knows, only
+a real iPadOS 18 device can show; `$Forwarded` is built.
+
+**What it was.** B-102 read both marks off the FLAGS each row is fetched
+with and drew the arrow, but nothing wrote them: `MailShelf.answered` and
+`forwarded` had no callers. A letter he answered or forwarded in
+Blackmail had no arrow, so an arrow missing said nothing. The TODO put
+the second half to the owner as a bounded exception to D-016's "no queue
+of offline changes", with the arrows to come out again if the answer was
+no.
+
+**Ruled** on 2026-10-26: "close the gaps in our decision tree by copying
+Apple Mail", which answers the TODO's question yes. This is the narrow
+exception to D-016 the TODO asked for, and no wider: the mark is kept
+only inside the letter it belongs to, written once when that letter goes,
+and a mark that cannot be written is dropped, never kept apart, queued or
+tried again.
+
+**Changed.**
+
+1. *The letter names its original* (`Draft.original`, `OriginalLetter`,
+   new). Reply, Reply All and Forward made from a letter carry Gmail's id
+   for it (X-GM-MSGID), the folder it was opened in, and which of the two
+   it is. None for a letter the server named no Gmail id for, a new
+   letter, a share, or a draft reopened from the server's Drafts.
+2. *Kept with the letter on the iPad* (`LocalDraftStore`, `original` in
+   `letter.json`), a new optional field. Absent reads as none, so a
+   letter kept by the build before reads as it did and no new format; one
+   that cannot be read reads as none (`Lenient`), and the letter still
+   goes, with nothing marked.
+3. *After the 250 and never before* (`IMAPMailRepository.send`). Once the
+   server has taken the letter, the mark is set off in a task of its own,
+   never awaited by Send, so the sheet closes at the 250 as before
+   (B-044); marks run one after the other. A letter refused, cut off or
+   never sent throws before it, and nothing is marked.
+4. *The write* (`IMAPClient.mark`, new), in one hold of the gate: the
+   mailbox's news first (a NOOP, unless a SELECT went), `UID SEARCH
+   X-GM-MSGID <id>`, and `UID STORE <uid> +FLAGS.SILENT (\Answered)`, or
+   `($Forwarded)`, on the UID found, so the UID marked is the one found,
+   and a letter archived elsewhere since the folder was selected is not
+   taken to be there still. In the folder it was opened in, then in All
+   Mail, where it is if moved or archived since; the Trash and Spam only
+   when it was opened there. Found in neither: no STORE, nothing said, and a
+   `SENT-MARK … original gone` line in the connection log. Anything that
+   fails, a STORE refused, a connection that cannot be made or goes: the
+   mark is dropped, a `SENT-MARK … dropped` line, no alert, and the
+   letter has gone as before. Sent once, by the rule every write keeps
+   (`sendingOnce`).
+5. *From the Outbox.* A letter that waited goes by the same `send`, so its
+   original is marked when it goes, by the pass after a relaunch too,
+   named by the letter kept on the iPad.
+6. *Once the server has it*, the kept copy has it wherever the letter is
+   kept (`MailShelf.answered`, `forwarded`, B-102's), and the lists are
+   told (`OriginalLetter.marked`): the message list puts the arrow on its
+   rows of that letter, by Gmail's id, the folder's, a search's hits and
+   the news held to go on (`ListLetters.originalMarked`), as the next
+   listing draws it from the server's flags.
+
+**What it reverses.** D-016's "no queue of offline changes", in this one
+case, as ruled above (DECISIONS.md is brought up to date at
+integration). B-102's first "Not covered": a letter answered or
+forwarded in Blackmail now gets its arrow, and the arrows stay in for
+the install.
+
+**What he sees.** A few moments after a reply's sheet has closed, the
+row of the letter he answered shows the grey reply arrow, and after a
+forward the forward arrow; on a row still unread its dot, as B-102 has
+it. A reply sent with no connection: the arrow once the reply goes. If
+the mark cannot be written, nothing at all, as before.
+
+**Tests.** `SentMarkTests`, eleven, new. Reply, Reply All and Forward
+name their original by Gmail's id and folder, and a letter with no Gmail
+id, a new letter and the two keywords as written. Over the composer's own
+wiring, the shipping `LocalDrafts` and repository, the scripted IMAP
+server and a scripted submission server: a reply, no STORE while its 250
+is held, then one `UID STORE … +FLAGS.SILENT (\Answered)` on the
+original, `\Answered` on the server, the kept page's row answered, the
+lists told once, and the next listing's row with the reply arrow; a
+forward, `$Forwarded` alone and the forward arrow; a reply refused after
+DATA, the sheet with the reason and no STORE; a reply sent with no
+connection, no STORE, the letter in the Outbox naming its original, then
+the app made again over the same directory and the line back, the pass
+sends it and the original is marked; the original archived elsewhere
+while the Inbox stays selected, marked in All Mail; the original deleted
+before the send, the reply gone, no STORE, its folder and All Mail
+searched and nothing else, nothing told and nothing said; the IMAP
+server not reached after the 250, the reply gone, not in the Outbox, no
+error and no STORE. Kept on the iPad: the original read back; a damaged
+field and an older build's letter with none read as none, the letter
+there. The list: the arrow on the marked letter's rows alone, the reply's
+and the forward's, a search's hit too, and nothing changed for a letter
+it does not hold. Read from the source: the list controller hears the
+mark and hands it on.
+
+`KeptReferencesTests` counts, command by command, what fetching an
+original's parts costs when a forward or a reply goes; its letters now
+name no original, so the mark's commands after the 250 are not among
+what it counts. Four of its tests failed on them before that, the mark
+being on the wire as they read it.
+
+Each rule broken in place, one at a time, the new tests of both
+entries run each time, counted as failures in tests (the first fourteen
+each with one of B-153's broken beside it in the same build, in code
+these tests never reach):
+the mark never set off, 15 in 5; a forward marked `\Answered`, 5 in 2;
+a reply naming no original, 15 in 5; the original not kept with the
+letter on the iPad, 5 in 2; kept without `Lenient`, so a damaged field
+loses the letter, 1 in 1; the mark set off before the 250, 5 in 3; All
+Mail not looked in, 3 in 2; no news asked before the search, so the
+Inbox's stale view is marked, 2 in 1; the list marking no row, 5 in 1;
+the list controller not handing the mark on, 1 in 1; the kept page not
+patched, 2 in 1; the lists not told, 1 in 1; the Trash looked in too, 4
+in 1; a mark that cannot be written failing the send, 17 in 6; a mark
+that failed tried again, 1 in 1. Then put back, the new tests passing.
+The full suite, serially, with nothing undone: 2,688 tests, the 24 of
+B-152 and B-153 among them, 6 skipped, none failing, run twice. The
+release build for the iPad links.
+
+**Not covered, and not seen.**
+
+- What Mail does is read from its code, not seen; nor which forward
+  keyword iPadOS 18 writes. If it is `Forwarded`, Mail's and Blackmail's
+  marks differ on the server; the arrow here is the same for both
+  (B-102 reads both). Whether Gmail keeps `$Forwarded` set over IMAP is
+  not tried on the test account (the device check asks).
+- Mail keeps a change it could not make in its queue of actions and makes
+  it later; here a mark that cannot be written is dropped (D-016): a
+  reply that goes while the IMAP server cannot be reached leaves its
+  original unmarked for good, and its row without the arrow.
+- The mark is not awaited by Send. Locked at once after a Send, the app
+  may be suspended before the STORE goes; it then goes when the app runs
+  again, or is lost if the app is ended. The composer's background time
+  runs until Drafts has been tidied after the 250, and the pass's until
+  its end, which usually covers it; not measured.
+- A draft reopened from the server's Drafts names no original, since
+  nothing on the server says which letter it answers but its
+  In-Reply-To; sent, nothing is marked. Mail, which keeps its drafts in
+  its own database, is taken to know; not seen.
+- An original in the Trash or Spam when the reply goes is not marked,
+  unless that is the folder it was answered from. Mail is taken to mark
+  a letter wherever it is; not seen.
+- A listing asked before the mark landed and drawn after it can take the
+  arrow off the row until the next listing: the list holds his own read
+  marks and flags over such a listing (`holdingHisMarks`), not this one.
+- The reading pane and a conversation's stack show no arrow (B-102).
+- Not seen on the iPad. The device check's sends wait for the owner's go.
+

@@ -7347,6 +7347,54 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-152, the original marked once a reply or a forward has gone.**
+      On the test iPad, the test account only, from a build of the
+      `bm-cm-sent` worktree (branch `copy-aftersend`) or of the int it is
+      merged into. Three panes, Organize by Thread on; the app's connection
+      log read after each step. The host makes the letters, each from
+      another address, with a new Message-ID of its own and naming none on
+      the account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      never the Inbox; it notes each UID from its APPENDUID, and stops if
+      one has none. The host reads a letter's flags with `UID FETCH … FLAGS`
+      in "Notes", never by subject.
+      1. *Nothing on reading.* The host APPENDs "B-152 one", "B-152 two"
+      and "B-152 three". Open "Notes", tap "B-152 one": its letter in the
+      pane, no arrow on any of the three rows; no `UID STORE` and no
+      `SENT-MARK` line in the log; the host reads neither `\Answered` nor
+      `$Forwarded` on any of them.
+      2. *A reply put away.* Reply on "B-152 one", type a word, Cancel,
+      Delete Draft: no `SENT-MARK` line; the host's flags as in 1.
+      3. *A forward put away.* Forward "B-152 two", Cancel, Delete Draft:
+      the same.
+      4. *(sends, test account only, needs the owner's go)* Reply on
+      "B-152 one", To the account's own address with `+b152` before the
+      @, Send: the sheet closes at the 250 as before; within a few seconds
+      the row of "B-152 one" shows the grey reply arrow; the log has one
+      `SENT-MARK answered folder=Notes`, after the send's `WIRE-` lines,
+      and one `UID STORE … +FLAGS.SILENT (\Answered)`; the host reads
+      `\Answered` on it, and nothing else changed on the three.
+      5. *(sends, test account only, needs the owner's go)* Forward
+      "B-152 two" to the same address: the forward arrow on its row,
+      `SENT-MARK forwarded`, `$Forwarded` on the host. Say whether Gmail
+      keeps the keyword: the host reads it again after a Refresh.
+      6. *(sends, test account only, needs the owner's go)* From the
+      Outbox: Airplane Mode on, Reply on "B-152 three", the same address,
+      Send: the Outbox's notice, no `SENT-MARK`. End the app in the
+      switcher, Airplane Mode off, open it: the letter goes at the first
+      pass, once, then `SENT-MARK answered` and the arrow on its row.
+      7. *(sends, test account only, needs the owner's go)* Gone by then:
+      the host APPENDs "B-152 four". Airplane Mode on, Reply on it, Send:
+      the Outbox. The host moves "B-152 four", by its noted UID, to the
+      Trash. Airplane Mode off, Refresh: the reply goes, once;
+      `SENT-MARK answered original gone, nothing sent` in the log, no
+      alert, and the host reads no `\Answered` on it in the Trash.
+      8. *Mail's side,* only if Mail is back on the test iPad (the owner's
+      question 25): the same reply and forward from Mail, then the host
+      reads which keyword Mail wrote, `$Forwarded` or `Forwarded`, and
+      whether it wrote it at once or only after the 250.
+      9. *Put back:* "Notes" left, the Inbox at its top. The host moves
+      the UIDs it noted, and only them, from "Notes" to the Trash; the
+      letters 4 to 7 sent to `+b152` are left for the owner to say.
 
 ## Blocked on the owner
 
@@ -7486,7 +7534,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       *Ruled 2026-10-06: "copy apple mail". What Mail does could not be
       found out: his mail has no such reply, and nothing published says.
       Kept as built: answered to himself (B-076).*
-- [ ] **B-102 part 2: write `\Answered` and `$Forwarded` after a send?**
+- [x] **B-102 part 2: write `\Answered` and `$Forwarded` after a send?**
       As Mail does, once, right after the reply's or forward's own 250. It
       needs a bounded exception to D-016's "no queue of offline changes":
       a reply waiting in the Outbox carries which letter it answers. If
@@ -7495,6 +7543,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       missing arrow mean nothing. Either way, VoiceOver's "Replied" and
       "Forwarded" await his approval, and are held from his iPad until he
       gives it (B-102).
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-152.*
 - [ ] **Move to Junk in the Flag sheet** (B-106): built on
       `feat-flagmenu`'s last commit, not merged.
 - [ ] **His own Sent Mail lines in a conversation after an offline
