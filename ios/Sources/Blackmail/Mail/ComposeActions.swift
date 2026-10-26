@@ -570,8 +570,12 @@ final class ComposeActions {
     /// this sheet came back with a reason, the server's refusal, which took
     /// the letter out of the Outbox if it was there: put back by a Cancel
     /// that asked nothing, the next pass would send what the server had
-    /// just refused.
-    var asksAnyway: Bool { itemsComing > 0 || refused }
+    /// just refused. Or the letter is a draft the pass has given up on
+    /// (`DraftKeeping.isHeldDraft`, B-165), whose row in Drafts says "Open
+    /// it, tap Cancel, then Save Draft.": closed with nothing asked, Save
+    /// Draft was never offered, and it stayed held. One held in the Outbox
+    /// still closes unasked, back there, its row saying to tap Send.
+    var asksAnyway: Bool { itemsComing > 0 || refused || keeping.isHeldDraft() }
 
     /// Cancel on a letter as it opened, or emptied by hand
     /// (`ComposeForm.asksBeforeClosing`): the sheet closes with nothing

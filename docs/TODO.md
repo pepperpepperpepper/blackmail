@@ -2176,6 +2176,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       *Seen 2026-10-01 for the Outbox letter: held, its row's first line
       "Not sent automatically. Open it and tap Send.", and his Send sent
       it once. The draft's row, with its new words, is still to see.*
+      *Seen 2026-10-26 for the draft, with a defect (round r6-g-store2,
+      step 08, on int17 939ad5a): held, not taken up, its row's line as
+      above; but opened and Cancelled untouched it closed at once with
+      nothing asked, no Save Draft, and stayed held. Fixed as B-165, whose
+      own check is below; the draft's Cancel, Save Draft here is that.*
       7. *Three tries after a DATA that may have gone.* As 6 for the Outbox
       letter, and also write its Message-ID down as an attempt whose DATA
       went, stamped with the count of passwords saved as the pass stamps
@@ -7347,6 +7352,36 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-165, a held draft's Cancel asks Save Draft.** On the test iPad,
+      the test account only, from a build of the `bm-helddraft` worktree
+      (branch `fix-helddraft`) or of the int it is merged into. Nothing is
+      sent: no Send is tapped in any step, and the letter is a draft
+      throughout. The files and the log as in B-057's check (`Local
+      Drafts/<UUID>/letter.json`; the connection log, five taps on the line
+      under the list).
+      1. *A held draft.* Airplane Mode on (guarded). A new letter to
+         carlo+b165@ (the round's carlo+TAG@ address), subject "B-165
+         held", Cancel, Save Draft: Drafts lists it under "On this iPad
+         only". End the app. In its `letter.json` write three tries the
+         app did not live through,
+         `sed -i '' 's/"format":1/"format":1,"autoAttempts":3/' letter.json`.
+      2. *Online.* Airplane Mode off, open the app: no `APPEND` and no
+         `MAIL FROM` in the log, which has `DRAFT-HELD unfinished-tries=3`;
+         the row in Drafts reads "On this iPad only", then "Not saved to
+         Gmail automatically. Open it, tap Cancel, then Save Draft."
+      3. *Cancel untouched.* Tap the row: the composer opens on it. Tap
+         Cancel without touching anything: the sheet comes, Save Draft and
+         Delete Draft, as for a changed letter. Its own Cancel (a tap
+         outside it): the sheet goes and the letter is still open. On int17
+         (939ad5a) the composer closed at once with nothing asked (B-165).
+      4. *Save Draft.* Cancel again, Save Draft: the composer closes; the
+         log has one `APPEND` to `"[Gmail]/Drafts"`, and no `MAIL FROM`,
+         `RCPT TO` or `DATA`; the row loses "On this iPad only" and its
+         held line; `letter.json` is gone from `Local Drafts`; one copy in
+         Drafts on the web.
+      5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
+         Draft: no copy in Drafts, in the app or on the web. Nothing was
+         sent.
 
 ## Blocked on the owner
 

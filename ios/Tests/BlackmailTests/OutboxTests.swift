@@ -1493,6 +1493,74 @@ final class OutboxTests: XCTestCase {
         XCTAssertNil(kept.store.letter("new"))
     }
 
+    /// A draft the pass has given up on (B-057), opened from its row and
+    /// Cancelled as it opened, asks Save Draft or Delete Draft, as its row
+    /// tells him it will (B-165): it closed with nothing asked, so Save
+    /// Draft was never offered and the draft stayed held. Save Draft there,
+    /// untouched, takes it to Drafts, once; Delete Draft takes another off
+    /// the iPad with nothing saved. A letter held in the Outbox still
+    /// closes unasked and stays there, held, even kept as a draft while it
+    /// was open, and so does a draft that is not held.
+    func testCancelOnAHeldDraftAsItOpenedAsks() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        keptDraft("Held draft", as: "draft", kept: kept)
+        keptDraft("Held too", as: "other", kept: kept)
+        keptDraft("Plain", as: "plain", kept: kept)
+        await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
+        for key in ["draft", "other", "held"] { XCTAssertTrue(kept.store.noteTries(key, 3)) }
+
+        let relaunched = makeKept()
+        try await page(repository)
+        let rows = relaunched.draftsRows(in: Server.drafts, from: "Owner")
+        let row = try XCTUnwrap(rows.first { $0.id == "local:draft" })
+        XCTAssertEqual(row.preview.components(separatedBy: "\n").dropFirst().first,
+                       LocalDraft.notSavedByItself, "what its row tells him to do")
+
+        // Held in the Outbox: Send is on the bar, and Cancel asks nothing.
+        let out = try XCTUnwrap(relaunched.letter("held")).draft
+        let outbox = makeActions("held", kept: relaunched, repository: repository)
+        XCTAssertFalse(outbox.asksAnyway)
+        var typed = out
+        typed.body += "x"
+        outbox.edited { typed }
+        try await until { pauses.waiting > 0 }
+        pauses.release()
+        try await until { relaunched.store.letter("held")?.outbox == nil }
+        XCTAssertFalse(outbox.asksAnyway, "kept as a draft while open, still the Outbox's")
+        outbox.closeWithoutAsking { out }
+        XCTAssertEqual(relaunched.outbox.map(\.key), ["held"], "back in the Outbox")
+        XCTAssertEqual(tries("held"), 3, "still held")
+
+        // Not held: as it opened, Cancel asks nothing.
+        let plain = try XCTUnwrap(relaunched.letter("plain")).draft
+        let unheld = makeActions("plain", kept: relaunched, repository: repository)
+        XCTAssertFalse(unheld.asksAnyway)
+        unheld.closeWithoutAsking { plain }
+
+        // Held, untouched: Cancel asks, and Save Draft takes it up, once.
+        let held = try XCTUnwrap(relaunched.letter("draft")).draft
+        let asking = makeActions("draft", kept: relaunched, repository: repository)
+        XCTAssertTrue(asking.asksAnyway, "Cancel asks, as its row says")
+        XCTAssertFalse(ComposeForm.asksBeforeClosing(held, opened: held), "though untouched")
+        await asking.saveAndClose({ held }, then: nil)?.value
+        XCTAssertEqual(appends.count, 1, "Save Draft: one APPEND")
+        XCTAssertNil(relaunched.store.letter("draft"), "on the server, off the iPad")
+
+        // Held, untouched, Delete Draft: off the iPad, nothing saved.
+        let deleting = makeActions("other", kept: relaunched, repository: repository)
+        XCTAssertTrue(deleting.asksAnyway)
+        await deleting.deleteAndClose(nil, letter: nil, then: nil)?.value
+        XCTAssertNil(relaunched.store.letter("other"))
+
+        try await afterAPage(relaunched, repository)
+        XCTAssertEqual(appends.count, 2, "and the plain draft by the pass, nothing else")
+        XCTAssertEqual(relaunched.waiting.count, 0)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0, "the held Outbox letter waits for his Send")
+        XCTAssertEqual(relaunched.outbox.map(\.key), ["held"])
+    }
+
     /// Opened from the Outbox and sent again, a Send the server refuses
     /// takes the letter out of the Outbox, and Cancel then asks, whatever
     /// the form reads: put back without a word, the next pass would send

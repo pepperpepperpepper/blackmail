@@ -1182,7 +1182,9 @@ final class ComposeViewController: UIViewController,
         // (`ComposeForm.asksBeforeClosing`). A new letter opens with his
         // signature in it, and asking whenever the body had anything in it
         // asked every time. A photo or a file still coming in is a change,
-        // and so is a Send the server refused (`ComposeActions.asksAnyway`).
+        // and so is a Send the server refused; and a draft the pass has
+        // given up on asks as it opened, its row telling him to tap Cancel
+        // then Save Draft (`ComposeActions.asksAnyway`, B-165).
         let letter = currentLetter()
         guard actions.asksAnyway
                 || ComposeForm.asksBeforeClosing(letter, opened: opened) else {

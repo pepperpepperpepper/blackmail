@@ -7504,6 +7504,17 @@ Not seen: the swipe in the app switcher, in the TODO's steps 1 and 8,
 which needs a person at the iPad, and a held draft's row, which needs the
 store edited and waits to be agreed.
 
+**Seen on the test iPad, 2026-10-26, with a defect:** the draft half of the
+TODO's step 6, in round r6-g-store2 (its step 08), on a build of int17
+(939ad5a). A draft saved with Airplane Mode on, the app ended, and
+`"autoAttempts":3` written into its `letter.json`: online, it was held,
+nothing took it up, and its row read "Not saved to Gmail automatically.
+Open it, tap Cancel, then Save Draft." But opened and Cancelled untouched
+it closed at once with nothing asked, so Save Draft was never offered, and
+it stayed held. B-069's rule that an untouched letter closes with nothing
+asked came after these words and made them impossible to follow. Fixed as
+B-165: Cancel asks for such a draft as it opened.
+
 ---
 
 ## B-058 — CHANGED 2026-10-01 and 2026-10-03, seen on the iPad. A letter dated wrong into the future would have taken every Go to Date jump for good
@@ -30110,3 +30121,97 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-165 — FIXED 2026-10-26, not yet seen on the iPad. A draft held after three tries said under its row "Open it, tap Cancel, then Save Draft.", but Cancel on it unchanged closed the composer with nothing asked, so Save Draft never came and it stayed held; Cancel now asks Save Draft or Delete Draft for such a draft as it opened
+
+**Found** on the test iPad on 2026-10-26, in round r6-g-store2, step 08
+(B-057's TODO step 6, its draft half), on a build of int17 (939ad5a). With
+Airplane Mode on, a letter to carlo+TAG@ saved by Save Draft, kept "On this
+iPad only"; the app ended and `"autoAttempts":3` written into its
+`letter.json`; online, the app opened, its row in Drafts read "Not saved to
+Gmail automatically. Open it, tap Cancel, then Save Draft." Tapped, the
+composer opened on it. Cancel with nothing touched closed it at once: no
+sheet, no Save Draft. The draft stayed held, its `letter.json` summing as
+before, `"autoAttempts":3`. A second look at its twin, held the same way,
+gave the same, Cancelled at once and again 6 s after it opened, past the
+autosave's 3 s pause; that launch's log had no `APPEND` and no `MAIL FROM`,
+and `OUTBOX-HELD` and `DRAFT-HELD` once each.
+
+**The cause.** `ComposeViewController.cancelTapped` asked only if
+`actions.asksAnyway` or `ComposeForm.asksBeforeClosing(letter, opened:)`.
+The second is "not as it opened", so an untouched letter went to
+`ComposeActions.closeWithoutAsking`, which leaves a letter kept before the
+sheet opened as it was (`DraftKeeping.abandon`): still held. `asksAnyway`
+was only something still coming in, or a Send the server refused; nothing in
+the composer knew the letter was held, which only the pass and the rows read
+(`LocalDrafts.isHeld`). Only Save Draft clears the count (`keep`). The words
+came with B-057 (2474965, 2026-10-01); B-069's rule that an untouched letter
+closes with nothing asked (374239a, 2026-10-05) came after them and made
+them impossible to follow, and nothing tied the two together.
+
+**What Mail does.** Mail has no held draft, and closes a letter he never
+touched with nothing asked (B-069), which stays the rule for every other
+letter here.
+
+**What he saw.** He has not had the app. A row telling him to tap Cancel
+then Save Draft, and Cancel closing the letter with no Save Draft: the
+draft would never have reached Gmail, its row saying the same for good.
+
+**Changed.**
+
+1. *`DraftKeeping.isHeldDraft`*, new, false unless set. The composer's
+   (`LocalDrafts.keeping`) says, at the tap, whether the letter is a draft
+   the pass has given up on: kept here, not gone, not in the Outbox nor
+   opened from it, its tries at three (`isHeld`).
+2. *`ComposeActions.asksAnyway`* is true for it, so Cancel, or a swipe at
+   the sheet, brings up the usual Save Draft / Delete Draft sheet for such
+   a draft as it opened. Save Draft keeps it as saved, which clears the
+   count, and takes it to Drafts, as ever; Delete Draft takes it off the
+   iPad; the sheet's own Cancel leaves the letter open.
+3. Comments on `asksAnyway`, `cancelTapped` and
+   `LocalDraft.notSavedByItself`.
+
+**Not changed.** The row's words. A letter held in the Outbox, opened and
+closed untouched, still closes with nothing asked and goes back to the
+Outbox, held: its row says "Open it and tap Send.", and Send is on the bar.
+That goes by where it was opened from, so one kept as a draft by the
+autosave while open, out of the Outbox, is still the Outbox's. Every other
+untouched letter closes as before (B-069). An untouched draft has no
+autosave, and one typed in is kept by the autosave with its count
+(`keep`, unfinished), so it still asks; Delete Draft takes the letter off
+the iPad whether it was changed or not (`forget`). The share sheet keeps
+nothing (`DraftKeeping.nowhere`, whose `isHeldDraft` is false) and its
+Cancel asks by its own rule (`ShareSheet.asksBeforeCancelling`), so it is
+as it was. A pass takes no letter open in the composer, so none becomes
+held while it is open.
+
+**Tests.** `OutboxTests.testCancelOnAHeldDraftAsItOpenedAsks`, new, through
+the composer's own wiring (`ComposeActions(letter:…)`) over the shipping
+`LocalDrafts` and the scripted server: two drafts and a letter in the Outbox
+each with three unfinished tries, and a plain draft; the app launched again.
+The held draft's row reads "Not saved to Gmail automatically. Open it, tap
+Cancel, then Save Draft."; opened, Cancel asks, though the form reads as it
+opened, and Save Draft from there, untouched, makes one `APPEND` and takes
+it off the iPad; the second held draft asks too, and Delete Draft takes it
+off with nothing saved. The held Outbox letter asks nothing, before and
+after the autosave has kept it as a draft while open, and closed it goes
+back to the Outbox with its three tries; the plain draft asks nothing. After
+a page and its pass the plain draft goes up, two `APPEND`s in all, nothing
+is sent, and the held letter is still in the Outbox.
+`ComposeActionsTests.testAHeldDraftIsOneCancelAsksAbout`, new:
+`asksAnyway` follows `isHeldDraft` as it reads at the time, and kept
+nowhere, as a share is, nothing is held.
+
+Each part undone by hand, the two new tests run, then put back and
+passing: `asksAnyway` not reading `isHeldDraft`, 3 failures in 2 tests
+(both held drafts and the stand-in not asking); the Outbox letter not
+left out (no `fromOutbox` check) together with every draft counted held
+(no `isHeld`), 2 failures in 1 test, one for each: the Outbox letter kept
+as a draft while open asking, and the plain draft asking.
+
+The full suite, serially: 2,666 tests, 2 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.** The sheet is UIKit: that `cancelTapped` brings it up when
+`asksAnyway` is true is read from the source (`ComposeLikeMailTests` pins
+the guard), not run. Not seen on the iPad: the TODO's B-165 check.
