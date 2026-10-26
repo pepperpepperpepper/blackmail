@@ -30146,6 +30146,13 @@ had answered the first one.
    - the row below, which takes its place; at the foot of the list, the
      one above; nothing when no other row is left, and the pane stays
      empty as before;
+   - nothing at the foot of the pages loaded so far while older letters
+     are still on the server, nor at the foot of a day's list after Go
+     to Date (`olderToCome`, the list's `reachedOldestMessage`): the
+     letter Mail would open, the next older, is not on the list yet, and
+     the one above is a newer letter it would not open; the pane stays
+     empty as before. A row below, or a conversation's own, opens there
+     as anywhere;
    - a conversation that keeps other letters keeps its row: it opens
      again without the letter, its newest open, as a tap on it opens it,
      highlighted where the list draws it. A row goes by its newest letter,
@@ -30158,8 +30165,13 @@ had answered the first one.
    - a letter moved out of All Mail stays there, and so does its row
      (`PaneActions.effect`): it is passed over, for the row below;
    - in a search, the rows are the hits, one letter each: the next
-     result; an All Mailboxes hit binned takes its copy under the Inbox's
-     id with it, so that copy is passed over;
+     result;
+   - the letter never opens again under another mailbox's id, a copy of
+     it (`ListEdit.twins`), whether its take hides the copy, as a Delete
+     does, or leaves it, as a Move does: it is the letter he has just put
+     away. No list of the app's holds both ids today, an All Mailboxes
+     search listing All Mail, Trash and Spam and a folder its own, so
+     this is for safety alone;
    - never a draft, an Outbox letter or a letter "On this iPad only":
      nothing opens in Drafts or the Outbox, whose rows open the composer,
      and a row kept on the iPad is passed over anywhere;
@@ -30211,7 +30223,14 @@ showed one of the letters ticked, and open nothing. Mail's setting is
 named for the open message's own Delete or Move; what its Select bar's
 Trash does to the pane on an iPad was not found. The swipes are not on
 this branch: a swipe on the open letter's row, once built, would go the
-same way through `letterAfter` and `openNext`. Move to Junk is on another
+same way through `letterAfter` and `openNext`. Where the swipes are
+merged, that wiring is to be made: a swipe of the open row chooses the
+next by `letterAfter` at the swipe and opens it by `openNext` once the
+row is off, into a pane its swipe has emptied only, as `detail.perform`
+does; one that goes Edit mode's way, by `runBatch` and
+`onLettersLeaving`, empties the pane and opens nothing until it is. The
+suite's read of `RootViewController` no longer counts the calls of
+`openNext`, so that wiring does not trip it. Move to Junk is on another
 branch: from the pane, through `detail.perform` with the pane emptied as
 Move empties it, it opens the next letter with nothing more; if it
 leaves the pane as it is, nothing opens. What Delete, Move and the list
@@ -30222,37 +30241,40 @@ before.
 **New words.** None. Nothing new is on the screen. The setting's two
 names are Mail's, in the code for a later Settings row.
 
-**Tests.** `NextLetterTests`, fourteen, new. The rule: the row below, the
+**Tests.** `NextLetterTests`, sixteen, new. The rule: the row below, the
 one above at the foot, none for the only row, for Delete, a Move to a
 folder, to Trash and to Junk, and an erase in Trash; a conversation of
 three or two that loses one opening again by a letter it still holds; a
 letter moved out of All Mail passed over, binned from it not; a search's
-next result, an All Mailboxes hit's copy passed over when it goes with it
-and not when it stays; nothing in Drafts or the Outbox and a row kept on
-the iPad passed over below and above; nothing for a Flag, a read mark or a
-letter not on the list. Over the list's own letters (`ListLetters`), each
-row deleted in turn as `PaneActions.start` takes it: the letter chosen is
-in the list after, in the gone row's place, or above it at the foot, or in
-the conversation's own row, drawn under the next row once its newest has
-gone. The setting: View Next Message from the factory,
-its key, its round trip, a value it does not know read as the default.
-`PaneWrites`: under View Next Message never grey, a tap within half a
-second doing nothing and not starting the half second again, a Delete
-going with the last unanswered; under Don't Select a Message grey until
-answered. Over the scripted server: `taken` run once, with the row off and
-nothing sent, then the `UID MOVE`; a refused MOVE putting the row back
-after it ran; two Deletes on their way at once, each row off at its tap,
-two MOVEs, both landed. A row the list holds under the letter's id that is
-another letter (D-016): `taken` not run and nothing taken off. And read
-from the source: the container choosing
-only into an empty pane and opening once the row is off, the pane's alone;
-the list choosing only under View Next Message and out of Edit mode,
-opening as a tap opens a row, with no scroll; Delete going by the half
-second and greying only under Don't Select a Message, still emptying the
-pane, as Move does; `taken` between the list's edit and the write; Edit
-mode's path untouched. `PaneActionsTests`' Delete-at-a-time test, and
-`EraseQuestionTests`' and `StackHeaderAtTheTapTests`' pins of the pane's
-Delete, read the new lines.
+next result; the letter's copy under another mailbox's id passed over,
+binned, moved out of All Mail and moved out of the Inbox, and at the foot
+the one above it; at the foot of the rows with older letters to come,
+nothing, for a Delete and a Move, but a row below and a conversation that
+keeps its row, and the one above once the oldest is on the list; nothing
+in Drafts or the Outbox and a row kept on the iPad passed over below and
+above; nothing for a Flag, a read mark or a letter not on the list. Over
+the list's own letters (`ListLetters`), each row deleted in turn as
+`PaneActions.start` takes it: the letter chosen is in the list after, in
+the gone row's place, or above it at the foot, or in the conversation's
+own row, drawn under the next row once its newest has gone. The setting:
+View Next Message from the factory, its key, its round trip, a value it
+does not know read as the default. `PaneWrites`: under View Next Message
+never grey, a tap within half a second doing nothing and not starting the
+half second again, a Delete going with the last unanswered; under Don't
+Select a Message grey until answered. Over the scripted server: `taken`
+run once, with the row off and nothing sent, then the `UID MOVE`; a
+refused MOVE putting the row back after it ran; two Deletes on their way
+at once, each row off at its tap, two MOVEs, both landed. A row the list
+holds under the letter's id that is another letter (D-016): `taken` not
+run and nothing taken off. And read from the source: the container
+choosing only into an empty pane and opening once the row is off; the list
+choosing only under View Next Message and out of Edit mode, telling the
+rule whether older letters are to come, opening as a tap opens a row, with
+no scroll; Delete going by the half second and greying only under Don't
+Select a Message, still emptying the pane, as Move does; `taken` between
+the list's edit and the write; Edit mode's path untouched.
+`PaneActionsTests`' Delete-at-a-time test, and `EraseQuestionTests`' and
+`StackHeaderAtTheTapTests`' pins of the pane's Delete, read the new lines.
 
 Each part undone by hand, in three groups whose tests do not cross,
 `NextLetterTests`, `PaneActionsTests` and `EraseQuestionTests` run, then
@@ -30265,14 +30287,19 @@ server's 5, its pin 1); the next letter chosen into a pane not emptied, 1
 in 1. Second: a conversation never opened again, 8 in 3 (the conversation
 4, All Mail 1, the list's letters 3); Drafts, the Outbox and kept rows not
 passed over, 5 in 1; a Flag or a read mark opening one, 4 in 1; no half
-second, 4 in 1; `taken` run whatever the list's row is, 2 in 2 (the
-D-016 test, its pin); opened in Edit mode, 1 in 1. Third: a letter that
-stays taken as gone and its row opened again, 1 in 1 (All Mail); its
-copies not gone with it, 1 in 1 (the search); the tap greyed as before, 2
-in 2 (`EraseQuestionTests`, the pin); one removal on its way at a time, 2
-in 1 (two Deletes). Every new test failed in one of them at least.
+second, 4 in 1; `taken` run whatever the list's row is, 2 in 2 (the D-016
+test, its pin); opened in Edit mode, 1 in 1. Third: a letter that stays
+taken as gone and its row opened again, 1 in 1 (All Mail); its copies not
+gone with it, 1 in 1 (the search's test then, the copy's now); the tap
+greyed as before, 2 in 2 (`EraseQuestionTests`, the pin); one removal on
+its way at a time, 2 in 1 (two Deletes). Later, three more, each alone,
+`NextLetterTests` run: a copy the letter leaves on the list taken for
+another letter, as the first build had it, 4 in 1 (the copy's test); the
+one above opened with older letters to come, 3 in 1 (the foot's test); the
+list not telling the rule so, 1 in 1 (its pin). Every new test failed in
+one of them at least.
 
-The full suite, serially: 2,678 tests, 14 of them new, 6 skipped, none
+The full suite, serially: 2,680 tests, 16 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not seen.**
@@ -30289,9 +30316,13 @@ failing. The release build for the iPad links.
   its letters, which can be far down the list, out of sight: it opens in
   the pane and its row is highlighted there, and the list is not scrolled
   to it. What Mail's list does then was not found.
-- At the foot of the pages the list has loaded, the row above opens,
-  where Mail, holding the whole folder, would open the next older letter.
-  So too at the foot of a day's list after Go to Date.
+- At the foot of the pages the list has loaded, with older letters still
+  on the server, and at the foot of a day's list after Go to Date,
+  nothing opens, where Mail, holding the whole folder, would open the
+  next older letter; the first build of B-158 opened the one above, a
+  newer letter. Rare: scrolling to the foot loads the next page. The
+  kept page shown at a launch until the fresh one lands counts as the
+  whole list, as its footer does, and at its foot the one above opens.
 - Whether a frame of "No message selected" shows between the two
   letters.
 - The half second is counted from the Delete that went, not from the next

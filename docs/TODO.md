@@ -7406,7 +7406,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       UID it noted still in "Notes" is moved to the Trash the same way.
       Nothing else was written.
       Not on the iPad: Don't Select a Message, which no Settings row sets
-      yet (host tests alone), and Trash's question before an erase.
+      yet (host tests alone), Trash's question before an erase, and the
+      foot of the pages loaded while older letters are still to come,
+      where nothing opens (host tests alone).
 
 ## Blocked on the owner
 
