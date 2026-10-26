@@ -26648,6 +26648,19 @@ the iPad links.
   words kept: one FETCH a carry into the folder's rows would save, left
   out so that the folder's rows take nothing kept, as before the fix.
 
+**Since: B-143 (2026-10-26).** In round r6-s7-fixes, check 6, on int17
+(92f2cb9), fourteen letters APPENDed to "Notes" for each try ("R6 B-135
+rows try N letter M"), the folder opened and the list scrolled a row at a
+time once their previews had landed: in one try of ten a row came into
+sight with its two grey lines empty, 2.3 s after its preview had come, and
+stayed so until it was scrolled away and back. Not this entry's carry: the
+preview was in the list, and the cell the table had made ahead past the
+bottom before it came was not drawn again as it came in. But nothing asks
+for a preview the list holds, nor, since this entry, for a letter drawn
+with no words, so nothing came to draw that row again. B-143 draws a row
+whole as it comes into sight. A row seen to come in blank in this entry's
+check is B-143's (TODO).
+
 ## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
 
 Built in the `bm-searchprev` worktree (branch `fix-searchprev`), after
@@ -28081,3 +28094,174 @@ none failing. The release build for the iPad links.
   was on, A's own line closed and opened again.
 - A row among another letter's words, or a picture, shows nothing while
   its file comes, as before (B-113, B-122).
+
+## B-143 — FIXED 2026-10-26, not yet seen on the iPad. A row came into sight with its two grey preview lines empty after its preview had come, and stayed so until it was scrolled away and back; a row is drawn whole from what it is now as it comes into sight, so a cell the table made ahead of time comes in with its preview, its spinner and its date
+
+**Found** on the test iPad on 2026-10-26, in round r6-s7-fixes, check 6,
+on a build of int17 (92f2cb9). A review of int17 had predicted it, and
+B-139's entry had named it among what it left ("The previews' patch
+(`apply`) goes by the rows in sight alike"). Ten tries. For each, the host
+first APPENDed fourteen new letters, read (`\Seen`), to "Notes", "R6 B-135
+rows try N letter M", none of them ever drawn, so the folder's top rows
+came up without their preview lines. The empty label "Drafts" tapped, then
+"Notes"; about a second for the previews to land, in one preview FETCH of
+the fourteen (in one try `a283`, UIDs 270:283, answered 2.7 s after the
+folder's tap); then the list scrolled one row (77 view px, 400 ms) at a
+time, six times, 0.6 s apart, in a burst of 55 frames about 0.14 s apart.
+In each try the top rows came up grey for about half a second and then
+all had their lines together.
+
+One try of ten showed a blank row, try 6. The row of letter 9, "Try6
+Writer9" (Notes UID 275, whose preview was answered with 83 bytes at
+22:27:57.84 in that FETCH), came into sight at the bottom at about 5.0 s,
+some 2.3 s after the previews had landed, with both grey lines empty,
+while the rows above it and the rows below it (Writer10, Writer11) had
+theirs. It stayed blank in every frame until the burst ended at 7.46 s,
+at least 2.4 s. Scrolled away past it and back (22:32), the row had its
+lines. In tries 1 to 5 and 7 to 10 no row came into sight blank. A pilot
+try over letters already drawn was not counted.
+
+**The cause** (the round's reading, and the code's; not proven on the
+iPad). A landed preview was drawn into the cells of the rows in sight
+alone (`apply`, by `indexPathsForVisibleRows`). Since iOS 15 the table
+makes the cell for the row just past the edge ahead of time (cell
+prefetching, on by default, `prefetchingEnabled`) and shows it later
+without asking for it again, and that row is not among the rows in sight.
+As the cell came into sight (`tableView(_:willDisplay:forRowAt:)`) only its
+date and VoiceOver's words were written again (B-139's `writeDate`), so it
+came in with the empty lines it was made with. Nothing drew it again after:
+the list asks for no preview it holds (`toDraw`; since B-135 not for a
+letter drawn with no words either), so it stayed blank until its cell was
+made again. Which cell the table made ahead, and when, was not seen; why
+one try in ten, not known.
+
+The same gap, by the code and not seen, in the draft spinner
+(`showDraftSpinners`): a draft tapped while its row's cell waited past the
+edge would come in without its spinner, and one whose draft landed while
+the cell waited would come in still turning. B-139 had closed it for the
+date and its words, as a row comes into sight. The Mailboxes column has
+one patch, a folder's count (`adjustUnreadCounts`), and it asks the table
+for the cell at the folder's place (`cellForRow(at:)`), which since iOS 15
+gives "any existing visible or prepared cell" (the SDK's header): no gap
+there, by that header, not seen.
+
+**What Mail does.** Not looked at in the round. Mail fills its previews
+behind the rows as this list does (`loadPreviews`); a row of Mail's whose
+words are on the iPad is not known ever to come in blank. Nothing here is
+a word or a look of Mail's.
+
+**What he saw.** He has not had the app; this is what it drew. A row of
+two grey lines with no words, between rows with theirs, until he scrolled
+it away and back: a letter that looks empty, or not yet come, when its
+words were there.
+
+**Changed.**
+
+1. *One writer of a row's cell* (`MessageListViewController.draw(_:at:_:)`),
+   by the parts each moment names (`RowParts`, new, out of the controller
+   so the suite can run it): the lines (the names, the subject, the two
+   preview lines, the dot, the arrow, the paperclip, the flag, the mark,
+   and the date with them, `MessageCell.configure`), the date alone
+   (`drawDate`), the spinner (`isBusy`) and VoiceOver's words. Whole as the
+   table makes a cell (`cellForRowAt`, `made`) and as the previews land
+   (`apply`, `previewsLanded`, its spinner and words drawn with the lines
+   now, the same as they were); the date and the words as the dates change
+   (`datesChanged`, as B-139 drew them); the spinner as a draft is tapped
+   or comes (`showDraftSpinners`). The three patches go by one place that
+   names the rows in sight (`drawRowsInSight`).
+2. *A row coming into sight is drawn whole*, from its row as it is now
+   (`willDisplay`, `comingIntoSight`), first, before the pages are asked
+   for. So any cell the table made ahead before a patch it was not among
+   comes in as a cell made for it then would: its preview, its spinner,
+   its date and its words. Every part a patch draws is drawn as a row
+   comes in (`RowParts.patchesInSight`), so a patch added later needs to
+   reach no cell made ahead. B-139's `writeDate` is folded into the
+   writer, its date and words drawn as before.
+3. *Not `reconfigureRows(at:)`*, Apple's call for drawing again the cells
+   the table holds, those made ahead too (iOS 15, and it compiles against
+   the 16.5 SDK). Each patch would then go through `cellForRowAt` for its
+   rows, and the call is an update of the table, checked by UIKit against
+   its own count of rows as `reloadRows` is (not tried), so a mismatch
+   would stop the app where the worst before was a blank row; what it
+   does to a row's open swipe was not seen. The draw as a row
+   comes in needs no new call, loads no row, touches no selection, no
+   Edit-mode tick and no scroll, fetches nothing, and covers whatever cell
+   comes in stale, however the table came to hold it.
+4. *The Mailboxes column* is as it was; its comment says why it needs
+   nothing (above).
+5. *Comments* on `apply`, `datesChanged`, `showDraftSpinners`, `willDisplay`
+   and `adjustUnreadCounts`. The pins that read the old lines read the
+   writer: `DatesRedrawnTests` (its two list tests), `SentRowNamesTests`
+   and `SentRowLikeMailTests`.
+
+**Not changed.** What is fetched and when: the preview pass, `toDraw`,
+B-135's rule. The cell's layout, its heights and its words. The selection,
+Edit mode and the scroll. No row is loaded again; the list still draws
+its rows afresh by `reloadData` where it did.
+
+**What he sees.** Every row that comes into sight, at the bottom or the
+top, has its two lines if its words have come, wherever the table made its
+cell; the same for a draft's spinner and for the dates' form. A row already
+right is drawn again with the same words just before it shows, with
+nothing to see.
+
+**Tests.** `RowComingIntoSightTests`, seven, new. The parts: whatever a
+patch of the rows in sight draws, a row coming into sight draws too, whole
+as a cell made now; the dates' patch the date and the words, the spinner's
+the spinner, the previews' the whole row. Over a model of the table (the
+rows in sight, the cell made ahead past the bottom, each cell drawn by
+`RowParts` as the controller draws it, with the list's real `ListLetters`
+and `MessageThread` rows): the round's try 6, fourteen letters in "Notes",
+eight rows in sight, Writer9's cell made ahead with empty lines, the
+previews landing into the rows in sight alone and held, never asked for
+again, then six rows scrolled, every row coming in as a cell made then
+would be, Writer9's with its words, none blank; the same table drawn as
+before B-143, a row coming in having its date and words alone, Writer9's
+row coming in blank as the round saw it and the rows made after the
+answer with theirs; a draft tapped while the cell waits coming in turning,
+one made ahead turning whose draft landed coming in still, and the dates'
+form changed coming in in the new form with its words. And read from the
+source: the one writer, its body, each part only where named, nothing in it
+that loads, selects, scrolls or fetches; `cellForRowAt` drawing whole and
+`willDisplay` drawing whole first; one writer of the lines, the date, the
+spinner and the words; the rows in sight named only where his place is
+read and by the one place the three patches go through, as many patches as
+`RowParts` names, no `reloadRows`, `reconfigureRows` or `visibleCells`; the
+Mailboxes column asking for the cell at the folder's place and never by
+the rows in sight.
+
+Each part undone by hand, `RowComingIntoSightTests`, `DatesRedrawnTests`,
+`SentRowNamesTests`, `SentRowLikeMailTests` and `FolderCountsTests` run,
+then put back and passing, counted as failures in tests: a row coming into
+sight drawing its date and words alone, as before (`comingIntoSight`), 16
+in 3; the controller's `willDisplay` drawing the dates' parts alone, 2 in
+2; the previews patched by the old loop, 9 in 4; the spinners by the old
+loop, 5 in 2; the controller as on int17, whole, 19 in 6; the previews'
+patch drawing no lines, 38 in 4; the dates' patch drawing the lines too, 2
+in 2; a cell made without its lines, 4 in 3; the Mailboxes column's patch
+going by the rows in sight, 2 in 2. The model of the wiring before B-143
+passes with the fix undone, by design; it fails with a cell made without
+its lines.
+
+The full suite, serially: 2,631 tests, 7 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad (TODO, B-143's check).
+- The list is UIKit: its wiring is read from the source, and the parts run
+  over a model of the table, not a `UITableView`. That the table calls
+  `willDisplay` for every cell as it comes into sight, one made ahead
+  too, is Apple's documentation and its account of cell prefetching, not
+  seen; the fix rests on it, as B-139's date did.
+- The cause is the round's reading and the code's; the fix covers it
+  whichever cell came in stale and however, so long as `willDisplay` is
+  called for it.
+- A cell made ahead keeps its old words until it comes into sight, where
+  nothing shows them.
+- Each row made just as it comes in is drawn twice, by `cellForRowAt` and
+  `willDisplay`: its words, one attributed string and VoiceOver's words a
+  row. Not measured on the iPad.
+- The Mailboxes column: by the SDK's header, not seen.
+- The spinner's part is by the code: a draft's download is seldom long
+  enough to scroll its row in while it turns, and the check does not try.

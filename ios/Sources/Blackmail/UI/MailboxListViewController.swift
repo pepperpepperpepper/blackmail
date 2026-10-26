@@ -184,6 +184,15 @@ final class MailboxListViewController: UITableViewController {
     /// read. The visible cell is patched directly instead, exactly as
     /// `MessageListViewController.apply(_:in:)` does for the same reason.
     ///
+    /// Asked by its place, not found among the rows in sight: the table
+    /// gives the cell it holds for the row, in sight or made ahead of time
+    /// for a row past the edge (cell prefetching, iOS 15; the SDK's header
+    /// for `cellForRowAtIndexPath:`, "Returns any existing visible or
+    /// prepared cell"). So a count changed while its row's cell waited past
+    /// the edge comes into sight right, by that header, not seen; the
+    /// list's patches, which named the rows in sight, did not (B-143). A
+    /// row with no cell is drawn from the counts when it is made.
+    ///
     /// A sweep still on its way may have counted these folders before the
     /// change reached the server, and would put the old count back when it
     /// lands: so the change is put on its count when that count is the

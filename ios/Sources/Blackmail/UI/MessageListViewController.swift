@@ -1293,38 +1293,71 @@ final class MessageListViewController: UITableViewController {
     /// drew it anew. The line under the list says its age again, its
     /// "Updated at" a time too.
     ///
-    /// Only the rows in sight are named here; a row out of sight has its
-    /// date written as it comes into it (`willDisplay`). Since iOS 15 the
-    /// table prepares the cell for the row just past the edge ahead of
-    /// time (cell prefetching, on by default) and shows it later without
-    /// asking for it again. That row is not among
-    /// `indexPathsForVisibleRows`, so a cell prepared before the change
-    /// would come in with the old words, "9:14 PM" after 24-Hour Time,
-    /// "11:50 PM" after midnight. From the SDK's header, not seen.
+    /// Only the rows in sight are named here (`drawRowsInSight`); a row out
+    /// of sight has its date written as it comes into it, with the rest of
+    /// the row (`willDisplay`, B-143). Since iOS 15 the table prepares the
+    /// cell for the row just past the edge ahead of time (cell prefetching,
+    /// on by default) and shows it later without asking for it again. That
+    /// row is not among `indexPathsForVisibleRows`, so a cell prepared
+    /// before the change would come in with the old words, "9:14 PM" after
+    /// 24-Hour Time, "11:50 PM" after midnight. From the SDK's header, not
+    /// seen.
     ///
-    /// The words alone, the cells patched in place as for the previews
-    /// (`apply`): no row is loaded again, so the list does not move, the
-    /// selection, the letter open in the pane, stays highlighted, and Edit
-    /// mode keeps its ticks; nothing is fetched.
+    /// The words alone (`RowParts.datesChanged`), the cells patched in place
+    /// as for the previews (`apply`): no row is loaded again, so the list
+    /// does not move, the selection, the letter open in the pane, stays
+    /// highlighted, and Edit mode keeps its ticks; nothing is fetched.
     @objc private func datesChanged() {
-        for indexPath in tableView.indexPathsForVisibleRows ?? [] {
-            guard let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
-            writeDate(of: cell, at: indexPath)
-        }
+        drawRowsInSight(.datesChanged)
         showAge()
     }
 
-    /// One row's date written again from the cell's own, and what
-    /// VoiceOver reads of the row with it; nothing else on the row is
-    /// touched (B-139). For each row in sight as the form, the zone or the
-    /// day changes (`datesChanged`), and for each row as it comes into
-    /// sight (`willDisplay`).
-    private func writeDate(of cell: MessageCell, at indexPath: IndexPath) {
-        guard indexPath.row < rows.count else { return }
-        cell.drawDate()
-        switch rows[indexPath.row] {
+    /// One row's cell drawn from the row as it is now, the parts named
+    /// (`RowParts`): whole as the table makes it and as it comes into sight
+    /// (`cellForRowAt`, `willDisplay`), and as the previews land (`apply`);
+    /// the date and VoiceOver's words as the dates change
+    /// (`datesChanged`, B-139); the spinner as a draft is tapped or comes
+    /// (`showDraftSpinners`). The one writer of a row's cell, so a cell
+    /// coming into sight is drawn as a cell made for it now would be.
+    ///
+    /// Nothing but the cell's own views and words: no row is loaded again,
+    /// nothing is selected, deselected or scrolled, and nothing is fetched.
+    /// A part already right is set to what it shows, which draws nothing
+    /// new; the spinner is started or stopped only when it changes
+    /// (`MessageCell.isBusy`).
+    private func draw(_ cell: MessageCell, at ip: IndexPath, _ parts: RowParts) {
+        guard ip.row < rows.count else { return }
+        switch rows[ip.row] {
         case let .thread(thread):
-            cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
+            // In Sent Mail, Drafts and the Outbox the top line names whom
+            // the letters are to (`RowNames`, B-060, B-075). In every
+            // folder a conversation is marked after the date, with no
+            // count, and VoiceOver reads what it names and how many
+            // (B-080).
+            if parts.contains(.lines) {
+                cell.configure(with: thread.displayRow(in: mailbox, mine: mine),
+                               marked: thread.marksConversation(in: mailbox))
+            } else if parts.contains(.date) {
+                cell.drawDate()
+            }
+            if parts.contains(.busy) {
+                cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
+            }
+            if parts.contains(.label) {
+                cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
+            }
+        }
+    }
+
+    /// The cells of the rows in sight drawn where they are with `parts`:
+    /// the patches (`RowParts.patchesInSight`), so that no row is loaded
+    /// again. A cell the table has prepared for a row past the edge is not
+    /// among them; it is drawn whole as it comes into sight (`willDisplay`,
+    /// B-143), which draws every part a patch draws.
+    private func drawRowsInSight(_ parts: RowParts) {
+        for ip in tableView.indexPathsForVisibleRows ?? [] {
+            guard let cell = tableView.cellForRow(at: ip) as? MessageCell else { continue }
+            draw(cell, at: ip, parts)
         }
     }
 
@@ -1837,9 +1870,12 @@ final class MessageListViewController: UITableViewController {
     ///
     /// `reloadRows` deselects what it reloads, and on the iPad the selected
     /// row is the message open in the pane to the right — so filling in a
-    /// preview would visibly unhighlight the letter being read. Off-screen
-    /// rows need no help: they pick the new text up from the model when they
-    /// are next dequeued.
+    /// preview would visibly unhighlight the letter being read. A row out
+    /// of sight picks the new text up from the model as it comes into
+    /// sight: drawn whole then (`willDisplay`), the cell the table made
+    /// ahead of time for the row just past the edge too, which is not among
+    /// the rows in sight. That one used to come in with its two grey lines
+    /// empty, its preview held and never asked for again (B-143).
     ///
     /// Into the rows of the folder the previews were asked of alone
     /// (`ListLetters.apply(previews:in:)`).
@@ -1851,15 +1887,7 @@ final class MessageListViewController: UITableViewController {
         // cannot change, since a preview does not decide what threads
         // with what, so the cells can be patched in place.
         rebuildRows()
-        for indexPath in tableView.indexPathsForVisibleRows ?? [] {
-            guard indexPath.row < rows.count,
-                  let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
-            switch rows[indexPath.row] {
-            case let .thread(t):
-                cell.configure(with: t.displayRow(in: mailbox, mine: mine),
-                               marked: t.marksConversation(in: mailbox))
-            }
-        }
+        drawRowsInSight(.previewsLanded)
     }
 
     private func updateEmptyState() {
@@ -2654,16 +2682,12 @@ final class MessageListViewController: UITableViewController {
     }
 
     /// The spinner on the row of the draft being downloaded, and on no
-    /// other. Cells scrolled in later ask `drafts` for themselves.
+    /// other, in the rows in sight. Cells coming into sight later ask
+    /// `drafts` for themselves (`willDisplay`), the one the table made
+    /// ahead of time for the row past the edge too (B-143).
     @MainActor
     private func showDraftSpinners() {
-        for ip in tableView.indexPathsForVisibleRows ?? [] where ip.row < rows.count {
-            guard let cell = tableView.cellForRow(at: ip) as? MessageCell else { continue }
-            switch rows[ip.row] {
-            case let .thread(t):
-                cell.isBusy = t.messages.contains { $0.id == drafts.loading }
-            }
-        }
+        drawRowsInSight(.draftSpinners)
     }
 
     @objc private func composeTapped() {
@@ -2863,8 +2887,8 @@ final class MessageListViewController: UITableViewController {
         isOutbox ? 0 : searchBar.wantedHeight
     }
 
-    /// Writes the row's date again as it comes into sight (B-139), and
-    /// starts the next page while there is still a screenful to read.
+    /// Draws the row whole as it comes into sight (B-143), and starts the
+    /// next page while there is still a screenful to read.
     ///
     /// Ten rows of lead time rather than waiting for the last one, so the
     /// fetch is usually finished before he scrolls far enough to notice it
@@ -2872,11 +2896,15 @@ final class MessageListViewController: UITableViewController {
     /// dead every fifty messages.
     override func tableView(_ t: UITableView, willDisplay cell: UITableViewCell,
                             forRowAt ip: IndexPath) {
-        // The row's date written again as it comes into sight (B-139): the
-        // table may have prepared this cell ahead, for the row past the
-        // edge, before 24-Hour Time, the zone or the day changed, and shows
-        // it now without drawing it again (`datesChanged`).
-        if let cell = cell as? MessageCell { writeDate(of: cell, at: ip) }
+        // The row drawn whole from what it is now as it comes into sight
+        // (B-143): its preview, its spinner, its date and VoiceOver's words.
+        // The table may have prepared this cell ahead, for the row past the
+        // edge, before a preview landed, a draft was tapped, or 24-Hour
+        // Time, the zone or the day changed (B-139), and shows it now
+        // without asking for it again; those patches name the rows in sight
+        // alone (`drawRowsInSight`). A cell made just now is drawn again as
+        // it was: the same words, nothing moved or fetched.
+        if let cell = cell as? MessageCell { draw(cell, at: ip, .comingIntoSight) }
 
         // Upward first. After a date jump the list runs in both directions,
         // and the top of it is no longer the top of the folder.
@@ -2952,18 +2980,7 @@ final class MessageListViewController: UITableViewController {
         cell.indent = 0
         cell.separatorInset = UIEdgeInsets(top: 0, left: Theme.messageSeparatorInset,
                                            bottom: 0, right: 0)
-        switch rows[ip.row] {
-        case let .thread(thread):
-            // In Sent Mail, Drafts and the Outbox the top line names whom
-            // the letters are to (`RowNames`, B-060, B-075). In every
-            // folder a conversation is marked after the date, with no
-            // count, and VoiceOver reads what it names and how many
-            // (B-080).
-            cell.configure(with: thread.displayRow(in: mailbox, mine: mine),
-                           marked: thread.marksConversation(in: mailbox))
-            cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
-            cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
-        }
+        draw(cell, at: ip, .made)
         return cell
     }
 

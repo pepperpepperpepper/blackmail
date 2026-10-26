@@ -366,16 +366,21 @@ final class SentRowLikeMailTests: XCTestCase {
         let list = try source("UI/MessageListViewController.swift")
         for wiring in [
             "private lazy var mine = OwnAddresses(account: CredentialStore.loadAccount())",
-            "case let .thread(t): cell.configure(with: t.displayRow(in: mailbox, mine: mine), "
-                + "marked: t.marksConversation(in: mailbox))",
-            "case let .thread(thread): cell.configure(with: thread.displayRow(in: mailbox, mine: mine), "
-                + "marked: thread.marksConversation(in: mailbox))",
+            "case let .thread(thread): if parts.contains(.lines) { "
+                + "cell.configure(with: thread.displayRow(in: mailbox, mine: mine), "
+                + "marked: thread.marksConversation(in: mailbox)) }",
+            "draw(cell, at: ip, .made) return cell }",
+            "rebuildRows() drawRowsInSight(.previewsLanded) }",
             "case let .thread(thread) where thread.count > 1:",
             "open(thread, at: ip)",
         ] {
             XCTAssertTrue(list.contains(wiring), wiring)
         }
-        XCTAssertEqual(list.components(separatedBy: "cell.configure(with:").count - 1, 2)
+        // One writer since B-143, which draws the lines at first and when
+        // previews come (`RowParts`).
+        XCTAssertEqual(list.components(separatedBy: "cell.configure(with:").count - 1, 1)
+        XCTAssertTrue(RowParts.made.contains(.lines))
+        XCTAssertTrue(RowParts.previewsLanded.contains(.lines))
 
         let cell = try source("UI/MessageCell.swift")
         for wiring in [

@@ -393,12 +393,21 @@ final class SentRowNamesTests: XCTestCase {
             .joined(separator: " ")
             .split(whereSeparator: { $0 == " " || $0 == "\t" })
             .joined(separator: " ")
+        // One writer of a row's cell since B-143 (`draw(_:at:_:)`), drawing
+        // the lines and VoiceOver's words as the cell is made and as the
+        // previews land (`RowParts`).
         for wiring in [
-            "case let .thread(t): cell.configure(with: t.displayRow(in: mailbox, mine: mine),",
-            "case let .thread(thread): cell.configure(with: thread.displayRow(in: mailbox, mine: mine),",
-            "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)",
+            "case let .thread(thread): if parts.contains(.lines) { "
+                + "cell.configure(with: thread.displayRow(in: mailbox, mine: mine),",
+            "if parts.contains(.label) { "
+                + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) }",
+            "draw(cell, at: ip, .made) return cell }",
+            "rebuildRows() drawRowsInSight(.previewsLanded) }",
         ] {
             XCTAssertTrue(code.contains(wiring), wiring)
+        }
+        for moment in [RowParts.made, RowParts.previewsLanded] {
+            XCTAssertTrue(moment.isSuperset(of: [.lines, .label]))
         }
         XCTAssertFalse(code.contains("displayRow()"))
         XCTAssertFalse(code.contains(".participants"))
