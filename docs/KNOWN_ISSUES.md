@@ -27271,10 +27271,6 @@ the iPad links.
   words kept: one FETCH a carry into the folder's rows would save, left
   out so that the folder's rows take nothing kept, as before the fix.
 
-## B-136 — FIXED 2026-10-25, seen on the test iPad 2026-10-25. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
-
----
-
 *Since B-143 (2026-10-26): in round r6-s7-fixes, check 6, on int17
 (92f2cb9), fourteen letters APPENDed to "Notes" for each try ("R6 B-135
 rows try N letter M"), the folder opened and the list scrolled a row at a
@@ -27288,7 +27284,7 @@ with no words, so nothing came to draw that row again. B-143 draws a row
 whole as it comes into sight. A row seen to come in blank in this entry's
 check is B-143's (TODO).*
 
-## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
+## B-136 — FIXED 2026-10-25, seen on the test iPad 2026-10-25. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
 
 Built in the `bm-searchprev` worktree (branch `fix-searchprev`), after
 B-135.
@@ -29126,8 +29122,6 @@ skipped, none failing. The release build for the iPad links.
 - A picture called off says "left out, called off" in its line, and a
   video `went=called off`, whether it was set aside or let go; the
   `COMPOSE-ITEM` line says which.
-
----
 
 ## B-143 — FIXED 2026-10-26, not yet seen on the iPad. A row came into sight with its two grey preview lines empty after its preview had come, and stayed so until it was scrolled away and back; a row is drawn whole from what it is now as it comes into sight, so a cell the table made ahead of time comes in with its preview, its spinner and its date
 

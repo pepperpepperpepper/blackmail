@@ -6629,7 +6629,6 @@ checks below is left as not needed, not open, and none is worth a round.*
       9. *Put back:* from Drafts, the Inbox, at its top; the search's
       scope left on All Mailboxes, as step 8 left it. Nothing else:
       nothing was written to the mailbox.
-- [x] **B-136, the kept copy's free-space reading.** On the test iPad
       *Since B-143 (2026-10-26): a row that comes into sight with its two
       lines empty after its preview's FETCH has answered, as round
       r6-s7-fixes saw once in ten tries on int17 (92f2cb9) over letters
@@ -6637,7 +6636,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       in the list and the cell made ahead was not drawn again as it came
       in. Written down with its UID and the time its preview was answered,
       and B-143's check (below) runs it again.*
-- [ ] **B-136, the kept copy's free-space reading.** On the test iPad
+- [x] **B-136, the kept copy's free-space reading.** On the test iPad
       (16.5.1), the test account only, from a build of the `bm-searchprev`
       worktree (branch `fix-searchprev`). Eight letters of about 3 MB, a
       photo in each, made on the host and APPENDed by it, read (\Seen),
