@@ -5167,7 +5167,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. *Several.* Three files at once: three rows; Remove one; the two
       arrive.
       4. *Too large.* The 30 MB file: "The file could not be attached.",
-      no row, and nothing is sent.
+      no row, and nothing is sent. *Since B-144, Mail's alert: "Unable
+      to Attach", "One or more attachments failed to load."*
       5. *A video.* The 19 MB video through Photo Library: one
       `WIRE-OUT`, `LETTER-LATCH ok`, and the CRC matches the app's own
       H.264 copy, whose bytes its `SHARE-VIDEO made H.264` line gives
@@ -7539,6 +7540,75 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-144, Mail's words.** On the test iPad, the test account only,
+      from a build of the `bm-cm-words` worktree (branch `copy-words`) or
+      of the int it is merged into. No step sends, saves, moves or deletes
+      anything in the app, and no draft is tapped. The host first APPENDs,
+      read (`\Seen`), to the label "Notes", never the Inbox, one letter from
+      another address with a new Message-ID of its own and naming none on
+      the account, "B-144 forward letter", with a small PDF attached,
+      "B-144 plans.pdf"; it notes the UID from its APPENDUID, and stops if
+      there is none. It puts a file of 30 MB, "B-144 large.bin", in On My
+      iPad. Three panes; a screenshot of each screen named.
+      1. *The Mailboxes pane.* Gmail's folders read, in this order, Inbox,
+      Drafts, Sent, Junk, Trash, All Mail, then Starred and the others
+      inside "[Gmail]", then the labels, "Notes" among them; "Sent Mail"
+      and "Spam" nowhere.
+      2. *The list's title.* Sent tapped: the list is titled "Sent". Junk:
+      "Junk". All Mail: "All Mail". Trash: "Trash". Nothing in them is
+      opened.
+      3. *Edit in the Inbox.* With a letter already read open in the
+      pane, Edit: the button at the top right reads "Cancel", whole; the
+      bar at the bottom reads Select All, Mark, Move and Trash, Trash in
+      the same blue as Mark and Move, not red. Nothing ticked, nothing
+      else tapped. Cancel: the button reads "Edit" again, the bottom bar
+      is back as it was, and the letter still open has its row
+      highlighted again (B-133).
+      4. *Edit in the Trash.* The Trash opened, Edit: the third button
+      reads "Delete", in the bar's blue. Not tapped: Cancel.
+      5. *Edit elsewhere.* In "Notes", Sent and Junk, Edit: "Trash" each
+      time, then Cancel.
+      6. *The widths (D-009).* In "Notes", Edit, in three panes and then
+      in two (the view button; "< Mailboxes" and the calendar before the
+      title): "Cancel" whole at the right, the title whole or cut with
+      "…", never under a button; the same in Important, All Mail and
+      Starred, and in the label with the longest name the account has,
+      each title's look written down with Edit and with Cancel. Expected
+      in two panes with Cancel, from the reading of 2026-10-25 (B-144's
+      widths): "Important" cut, about "Impor…", and "All Mail" and
+      "Starred" whole, only just. Each time Cancel, then back to three
+      panes.
+      7. *The Move sheet.* In "Notes", Edit, the "B-144 forward letter"
+      ticked, Move: the sheet lists the folders by the names of step 1,
+      "Sent" and "Junk" among them. Its Cancel: nothing moved, and the
+      letter still in "Notes"; Cancel in the list.
+      8. *Found in Sent.* Only if the Inbox has a conversation of two
+      letters or more, all read, with a reply of the account's own that is
+      only in Sent (B-104): Organize by Thread on, Complete Threads on, the
+      conversation tapped, the reply's line tapped in the stack: "Found in
+      Sent" over its body, never "Found in Sent Mail". Its body is peeked
+      at, nothing marked. With none, written down, and left to
+      `CompleteThreadsTests`.
+      9. *Forward's question.* The "B-144 forward letter" opened (read, so
+      the tap writes nothing), Reply, Forward: "Include attachments from
+      original message?" with "Include" and "Don’t Include", the
+      apostrophe curly in a screenshot zoomed in. A tap outside the
+      question closes it; no composer opens.
+      10. *Unable to Attach.* The compose button, Attach File, "B-144
+      large.bin" from On My iPad: an alert titled "Unable to Attach",
+      "One or more attachments failed to load.", with OK; no row. OK,
+      then the composer's Cancel, and Delete Draft if it asks: nothing is
+      saved, and Drafts and the Outbox are as they were.
+      11. *Not on this iPad.* On any iPadOS 18 device with Mail and a
+      Gmail account, never his: whether Mail's Trash button is red or
+      blue, what Mail calls Gmail's All Mail, whether its Edit mode ends
+      with "Cancel", whether its bar says "Archive" for that account, and
+      when "Unable to Attach" shows. The test iPad has no Mail (B-028).
+      12. *Put back:* "Notes" left, the Inbox at its top. The host moves
+      the UID it noted, and only it, from "Notes" to the Trash (`UID
+      MOVE`), and deletes in the Trash only the UID that move answered
+      (`COPYUID`); "Notes" itself stays. It takes "B-144 large.bin" off the
+      iPad. Never anything found by subject or Message-ID.
 
 ## Blocked on the owner
 
@@ -7743,9 +7813,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **His own circle at the top of the share sheet**: if he shares by
       tapping it, Blackmail would need to donate its sends to get one (not
       built, the default; with Apple Mail kept on, Mail's circle works).
-- [ ] **Mail's words in three places**: the Edit bar's "Trash" outside
+- [x] **Mail's words in three places**: the Edit bar's "Trash" outside
       Trash (Blackmail says "Delete"), and Gmail's "Sent Mail" and "Spam" as
       Mail names them, "Sent" and "Junk" (the default: Mail's words).
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-144.*
 - [ ] **Swipe to Trash on a row** (decided against by the spec): about 5
       letters a day go to the bin unopened, each Edit, tick, Delete here.
       As decided (the default), or Mail's swipe.
@@ -7776,7 +7847,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       its page cannot be drawn, its header alone (built, the default), as
       the pane never says it has no text; or "This message has no text."
       under it, as before, true of its words and not of the letter.
-- [ ] **The new words on his screen**, each held from his iPad until the
+- [x] **The new words on his screen**, each held from his iPad until the
       owner approves it, the entry listing them: VoiceOver's "Replied" and
       "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's
       page is out (B-103); "Complete Threads", the line under it and
@@ -7788,6 +7859,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       with OK, once a day in the app's last thirty days, the day the one
       its profile says, written in the iPad's way (B-137). It names Mail,
       so it goes with "Apple Mail after the install", above.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-144.*
+      *B-137's sentence is not among them: its words wait with "His iPad's
+      iOS version", above.*
 - [ ] **A Delete or Move whose answer is lost** (B-132): the connection
       dropping after Gmail has carried out a MOVE and before its answer
       comes, the row comes back with "Can't connect to mail server."
@@ -7797,9 +7871,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       As built (the default, B-092's "refused as not moved"), or a look
       in the folder on the next connection after such a failure, the row
       taken off if the letter has gone (not built).
-- [ ] **Edit mode's Done** (B-133): guides to Mail describe leaving its
+- [x] **Edit mode's Done** (B-133): guides to Mail describe leaving its
       edit mode with Cancel, not seen on an iPad; Blackmail's button says
       Done. As built (the default), or Mail's word once seen on his iPad.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-144.*
 - [x] **A YouTube share's subject** (B-125): Mail's is the video's title,
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a
@@ -7848,6 +7923,16 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       for the first letter after a launch. As built (the default), or a
       cover over the pane from the tap, lifted once WebKit has painted
       "Loading…", which would hide the letter if it ever failed to lift.
+- [ ] **Trash for letters only on the iPad** (B-144): in the Outbox, and
+      for the letters kept on the iPad at the top of Drafts, Edit mode's
+      third button says "Trash" in the bar's blue, the ruling's word
+      outside the Trash, and its tap takes them off the iPad with nothing
+      asked and no copy in the Trash: a letter not yet sent, or a draft
+      not yet on the server, cannot be got back. Before B-144 it said
+      "Delete", in red. What Mail's Outbox bar says was not seen. As built
+      (the default), or "Delete" there: one line for the Outbox; in
+      Drafts, which holds the server's drafts too, the word would follow
+      his ticks.
 
 ## Open, recorded, not scheduled
 

@@ -271,7 +271,7 @@ final class ReplyFilesTests: XCTestCase {
     // MARK: - The rows
 
     /// The rule's rows are a forward's, byte for byte, made by the one
-    /// mapper: every part, the pictures the body shows among them. Don't
+    /// mapper: every part, the pictures the body shows among them. Don’t
     /// Include leaves a forward those pictures alone.
     func testTheRowsAreAForwardsByteForByte() throws {
         let m = letter()
@@ -330,7 +330,7 @@ final class ReplyFilesTests: XCTestCase {
     /// Each of Mail's four answers: Never carries nothing and follows
     /// nothing; When Adding Recipients opens with none and follows; Always
     /// opens with them and follows nothing; Ask opens with them for
-    /// Include, and with none for Don't Include or with no question.
+    /// Include, and with none for Don’t Include or with no question.
     func testTheFourModes() throws {
         XCTAssertEqual(ReplyFiles.mode, .whenAddingRecipients)
         let m = letter()
@@ -378,11 +378,14 @@ final class ReplyFilesTests: XCTestCase {
         }
     }
 
-    /// Mail's words for the question and its answers.
+    /// Mail's words for the question and its answers, "Don’t Include" with
+    /// Mail's curly apostrophe (B-144).
     func testTheQuestionIsInMailsWords() {
         XCTAssertEqual(ReplyFiles.question, "Include attachments from original message?")
         XCTAssertEqual(ReplyFiles.include, "Include")
-        XCTAssertEqual(ReplyFiles.dontInclude, "Don't Include")
+        XCTAssertEqual(ReplyFiles.dontInclude, "Don\u{2019}t Include")
+        XCTAssertEqual(Array(ReplyFiles.dontInclude.unicodeScalars)[3].value, 0x2019)
+        XCTAssertFalse(ReplyFiles.dontInclude.contains("'"), "no straight apostrophe")
     }
 }
 
@@ -544,7 +547,7 @@ final class ReplyFilesWiringTests: XCTestCase {
 
     /// Forward asks Mail's question only of a letter with files the header
     /// lists, at the Reply button, in Mail's words, with Cancel; Include
-    /// and Don't Include each begin the forward with their rows. Reply and
+    /// and Don’t Include each begin the forward with their rows. Reply and
     /// Reply All ask only under Ask.
     func testForwardAsksMailsQuestionAtTheReplyButton() throws {
         let code = try source(Self.pane)
@@ -570,11 +573,13 @@ final class ReplyFilesWiringTests: XCTestCase {
         XCTAssertEqual(count("UIAlertController(title: ReplyFiles.question", in: code), 1)
         // Mail's words are said once, in `ReplyFiles`, and nowhere else.
         let all = try everySource()
-        for words in ["Include attachments from original message?", "\"Don't Include\"",
+        for words in ["Include attachments from original message?", "\"Don\u{2019}t Include\"",
                       "\"Include\""] {
             XCTAssertEqual(all.filter { $0.value.contains(words) }.keys.sorted(),
                            ["Blackmail/Mail/ReplyFiles.swift"], words)
         }
+        // The straight apostrophe's answer is said nowhere (B-144).
+        XCTAssertEqual(all.filter { $0.value.contains("\"Don't Include\"") }.keys.sorted(), [])
     }
 
     /// The pane's Reply and Reply All alone hand the composer the rule,

@@ -17,6 +17,9 @@ final class ComposerFilesTests: XCTestCase {
     private var log: [String] = []
     private var draws: [ComposeActions.Look] = []
     private var told: [String] = []
+    /// Each alert's title, beside its words in `told`: Mail's "Unable to
+    /// Attach" over a file's (B-144), none over the share sheet's.
+    private var titles: [String?] = []
     /// The letter's rows, as the composer's `draft.attachments` holds them.
     private var rows: [DraftAttachment] = []
     private var sends = 0
@@ -32,6 +35,7 @@ final class ComposerFilesTests: XCTestCase {
         log = []
         draws = []
         told = []
+        titles = []
         rows = []
         sends = 0
         saves = 0
@@ -85,8 +89,9 @@ final class ComposerFilesTests: XCTestCase {
             },
             changed: {},
             tell: { [unowned self] in
-                told.append($0)
-                log.append("told \($0)")
+                told.append($0.message)
+                titles.append($0.title)
+                log.append("told \($0.message)")
             },
             sleep: { try await bound.sleep($0) })
     }
@@ -559,7 +564,8 @@ final class ComposerFilesTests: XCTestCase {
         XCTAssertFalse(loads[2].begun, "the third never began")
         XCTAssertFalse(plans.begun)
         XCTAssertEqual(intake.coming, [])
-        XCTAssertEqual(told, ["3 photos and 1 file could not be attached."], "one alert")
+        XCTAssertEqual(told, ["One or more attachments failed to load."], "one alert")
+        XCTAssertEqual(titles, ["Unable to Attach"], "Mail's, a file among them (B-144)")
         XCTAssertEqual(sends, 0, "sendLetter never called")
         XCTAssertEqual(draws, [.sending("Sending…"), .writing])
         XCTAssertTrue(actions.isWriting)
@@ -1545,7 +1551,8 @@ final class ComposerFilesTests: XCTestCase {
         await sending.value
         XCTAssertEqual(sends, 0)
         XCTAssertEqual(draws, [.sending("Sending…"), .writing])
-        XCTAssertEqual(told, ["The file could not be attached."])
+        XCTAssertEqual(told, ["One or more attachments failed to load."])
+        XCTAssertEqual(titles, ["Unable to Attach"])
     }
 
     /// Something that failed before the tap, its pick ended and said, does
@@ -1643,7 +1650,8 @@ final class ComposerFilesTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: video.path), "and the one left out removed")
         XCTAssertTrue(FileManager.default.fileExists(atPath: elsewhere.path), "the copied one left")
         XCTAssertTrue(FileManager.default.fileExists(atPath: large.path), "nothing outside it removed")
-        XCTAssertEqual(told, ["2 files could not be attached."])
+        XCTAssertEqual(told, ["One or more attachments failed to load."])
+        XCTAssertEqual(titles, ["Unable to Attach"])
         AttachmentStore.removeStaged(moved)
         AttachmentStore.removeStaged(copied)
 
@@ -1653,7 +1661,8 @@ final class ComposerFilesTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         intake.take([ComposeIntake.file(at: folder, inbox: inbox, mimeType: { types[$0] })])
         try await until { told.count == 2 }
-        XCTAssertEqual(told.last, "The file could not be attached.")
+        XCTAssertEqual(told.last, "One or more attachments failed to load.")
+        XCTAssertEqual(titles.last, "Unable to Attach")
         XCTAssertEqual(rows, [])
         XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
     }
@@ -1737,11 +1746,18 @@ final class ComposerFilesTests: XCTestCase {
     // MARK: - The words
 
     /// Every combination: the share sheet's own words for photos and
-    /// videos, the owner's for files, and a list for a mix.
+    /// videos, alone and with no title, and Mail's alert wherever a file
+    /// is missing, a mix too (B-144).
     func testTheWordsForEveryCombination() {
-        func words(_ p: Int, _ a: Int, _ v: Int, _ va: Int, _ f: Int = 0, _ fa: Int = 0) -> String? {
+        func alert(_ p: Int, _ a: Int, _ v: Int, _ va: Int, _ f: Int = 0, _ fa: Int = 0) -> MailAlert? {
             ComposeIntake.words(pictures: p, attached: a, videos: v, videosAttached: va,
                                 files: f, filesAttached: fa)
+        }
+        func words(_ p: Int, _ a: Int, _ v: Int, _ va: Int, _ f: Int = 0, _ fa: Int = 0) -> String? {
+            guard let said = alert(p, a, v, va, f, fa) else { return nil }
+            XCTAssertNil(said.title, "the share sheet's words have no title")
+            XCTAssertFalse(said.offersSettings)
+            return said.message
         }
         XCTAssertNil(words(0, 0, 0, 0))
         XCTAssertNil(words(3, 3, 2, 2, 1, 1))
@@ -1760,15 +1776,17 @@ final class ComposerFilesTests: XCTestCase {
         XCTAssertEqual(words(1, 0, 1, 1), "1 photo could not be attached.")
         XCTAssertEqual(words(1, 0, 0, 0, 1, 1), "1 photo could not be attached.",
                        "a file came, so not 'The photo'")
-        XCTAssertEqual(words(0, 0, 0, 0, 1, 0), "The file could not be attached.")
-        XCTAssertEqual(words(0, 0, 0, 0, 2, 0), "2 files could not be attached.")
-        XCTAssertEqual(words(0, 0, 0, 0, 3, 2), "1 file could not be attached.")
-        XCTAssertEqual(words(0, 0, 0, 0, 5, 1), "4 files could not be attached.")
-        XCTAssertEqual(words(1, 1, 0, 0, 1, 0), "1 file could not be attached.")
-        XCTAssertEqual(words(0, 0, 1, 1, 2, 0), "2 files could not be attached.")
-        XCTAssertEqual(words(1, 0, 0, 0, 1, 0), "1 photo and 1 file could not be attached.")
-        XCTAssertEqual(words(0, 0, 2, 0, 3, 0), "2 videos and 3 files could not be attached.")
-        XCTAssertEqual(words(2, 1, 1, 0, 1, 0), "1 photo, 1 video and 1 file could not be attached.")
+
+        // Mail's, word for word, for any file missing, alone or in a mix.
+        XCTAssertEqual(ComposeIntake.unableToAttach.title, "Unable to Attach")
+        XCTAssertEqual(ComposeIntake.unableToAttach.message, "One or more attachments failed to load.")
+        XCTAssertFalse(ComposeIntake.unableToAttach.offersSettings)
+        for (p, a, v, va, f, fa) in [(0, 0, 0, 0, 1, 0), (0, 0, 0, 0, 2, 0), (0, 0, 0, 0, 3, 2),
+                                     (0, 0, 0, 0, 5, 1), (1, 1, 0, 0, 1, 0), (0, 0, 1, 1, 2, 0),
+                                     (1, 0, 0, 0, 1, 0), (0, 0, 2, 0, 3, 0), (2, 1, 1, 0, 1, 0)] {
+            XCTAssertEqual(alert(p, a, v, va, f, fa), ComposeIntake.unableToAttach,
+                           "\((p, a, v, va, f, fa))")
+        }
     }
 }
 

@@ -192,7 +192,7 @@ final class ComposeViewController: UIViewController,
         rows: { [weak self] in self?.draft.attachments ?? [] },
         landed: { [weak self] url, row in self?.landed(url, row) },
         changed: { [weak self] in self?.rebuildAttachments() },
-        tell: { [weak self] words in self?.say(words) })
+        tell: { [weak self] alert in self?.say(alert) })
 
     /// A reply's files (`ReplyFiles`, B-107): the original's parts, put in
     /// as rows once the reply goes to someone the original did not go to,
@@ -921,16 +921,17 @@ final class ComposeViewController: UIViewController,
     /// What could not be attached, said over the sheet in an alert, once
     /// nothing else is up over it: the picker sliding away, or a notice
     /// already up, which UIKit would not put another over. Nothing once
-    /// the sheet has gone.
-    private func say(_ words: String) {
+    /// the sheet has gone. With its title, where it has one: Mail's
+    /// "Unable to Attach" for a file (B-144).
+    private func say(_ alert: MailAlert) {
         guard viewIfLoaded?.window != nil else { return }
         guard presentedViewController == nil else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                self?.say(words)
+                self?.say(alert)
             }
             return
         }
-        ErrorPresenter.tell(words, on: self)
+        ErrorPresenter.say(alert, on: self)
     }
 
     private func row(label text: String, field: UITextField, text value: String) -> UIView {

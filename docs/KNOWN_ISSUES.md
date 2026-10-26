@@ -313,7 +313,7 @@ and never clear it. Leaving a letter unread is how a great many people say
 "come back to this", and for someone whose mail is his main correspondence
 that is a real way of keeping track.
 
-It lives in the edit-mode toolbar, which is now **Mark / Move / Trash** (*the code's word is "Delete", since; Mail's "Trash" is an open owner question, 2026-10-24*) —
+It lives in the edit-mode toolbar, which is now **Mark / Move / Trash** (*the code's word was "Delete" until B-144, 2026-10-26: "Trash" again, Mail's, and "Delete" inside the Trash*) —
 Mail's own bar, in Mail's order. Deliberately not a swipe or a long press:
 BRIEF.md's promise is that nothing needs a gesture beyond tap and
 ordinary scrolling.
@@ -30400,3 +30400,236 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-144 — FIXED 2026-10-26, not yet seen on the iPad. Mail's words where the app had its own: Gmail's Sent Mail and Spam are "Sent" and "Junk", by their role; Edit mode's third button is "Trash", "Delete" inside the Trash, in the bar's blue, not red, and "Cancel" ends Edit mode where it said "Done"; Forward's question says "Don’t Include" with Mail's apostrophe; a file Attach File could not attach says Mail's "Unable to Attach"
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision tree
+by copying Apple Mail". Three items of TODO's "Blocked on the owner": "Mail's
+words in three places", "Edit mode's Done" (B-133) and "The new words on his
+screen". Of the last, only the words the ruling's record lists are built
+here: the curly apostrophe and the failed file. B-137's sentence ("This app
+will stop opening on September 18, 2027. After that, use Mail.") is still
+the owner's, with "His iPad's iOS version"; the share sheet's photo and
+video sentences, approved on 2026-10-05, are not changed, in the share sheet
+or in the composer.
+
+**What Mail does**, as the ruling's record has it, from Apple's iPadOS 18
+guide (delete and recover email), Mail's English strings in iOS 18.6
+(MessageUI, MobileMailUI, MailUI) and third-party guides; none of it seen on
+a screen here: Mail is not on the test iPad (B-028), and no iPadOS 18
+device with Mail was at hand.
+
+- *The Select bar*, US English, his replies having US dates: Mark, Move,
+  Trash; inside the Trash, Delete. Mail puts Archive in Trash's place on an
+  account whose Move Discarded Messages Into says Archive. Whether Mail's
+  Trash is red or in the bar's colour is not established (medium): the
+  record's decision is the bar's colour.
+- *Gmail's folders*: Sent Mail shown "Sent", Spam shown "Junk". All Mail,
+  Drafts and Trash keep their names. How Mail names Gmail's All Mail is not
+  established.
+- *Leaving Edit mode*: "Cancel", from a guide to Mail and Apple's support
+  article 102428, as the record cites them (medium, nothing first-hand). With Categories, from 18.4,
+  the button that begins it says "Select"; "Edit" stays here (D-008).
+- *Forward's question*: "Include attachments from original message?",
+  "Include" and "Don’t Include", the apostrophe U+2019.
+- *A file that could not be attached*: "Unable to Attach", "One or more
+  attachments failed to load." When Mail shows it is not established.
+
+**What it was.**
+
+- *The folders* were called by the last part of Gmail's name, the Inbox
+  alone excepted (B-047, which kept Gmail's names on purpose: "Gmail's
+  'Sent Mail', 'All Mail', 'Starred' and the rest read as before"): "Sent
+  Mail" and "Spam" in the Mailboxes pane and VoiceOver's word for its rows,
+  the list's title, the Move sheet, and "Found in Sent Mail" over his letter
+  brought in from Sent (B-104). Search's scope buttons say "Current
+  Mailbox" and "All Mailboxes", no folder's name, and no other words on the
+  screen name a folder: every one goes through `Mailbox.displayName`.
+- *Edit mode's bar* said Select All, Mark, Move and "Delete" in red
+  (`Theme.destructive`) in every folder, where B-019 had written down
+  Mail's "Mark / Move / Trash"; its italic note now says when the word
+  changed.
+- *Edit mode's button* said "Done" while it was on (B-133).
+- *Forward's "Don't Include"* had a straight apostrophe.
+- *A file from Attach File* that could not be attached, past the letter's
+  25 MB, unreadable, or not in by its three minutes, said "The file could
+  not be attached." when it was all he picked, "1 file could not be
+  attached." or "N files could not be attached." otherwise, and with photos
+  or videos missing too, one list, "1 photo and 1 file could not be
+  attached." (B-108), all with no title.
+
+**Changed.**
+
+1. *Sent and Junk* (`Mailbox.displayName`). A folder whose role is `.sent`
+   is "Sent", `.junk` "Junk", as the Inbox is "Inbox". By the role LIST
+   gives (`\Sent`, `\Junk`, `IMAPMailboxListing.specialUse`), never by the
+   name: a label of his called "Sent Mail", "Spam" or "Sent" keeps its own,
+   and a server whose `\Sent` is "Sent Items" says "Sent" as Gmail's does.
+   All Mail, Drafts, Trash and the Outbox keep theirs. The id and the name
+   stay the server's, so what goes on the wire, what is kept on the iPad
+   (`MailShelf`) and the pane's order, which goes by the role (`FolderTree`),
+   are as they were. Every screen that names a folder follows: the
+   Mailboxes pane and VoiceOver's word for its rows, the list's title, the
+   Move sheet, and "Found in Sent" (`CompleteThreads.foundIn`, from the
+   folder's `displayName`).
+2. *The bar's third button* (`EditBar.deleteTitle`, new;
+   `MessageListViewController.buildBottomBar`). "Delete" in the Trash, where
+   it erases after `EraseQuestion`'s question, "Trash" in every other list,
+   by the list's folder, the ruling's word. "Trash" is not always where the
+   tap puts the letters: in the Outbox, and for the letters kept on the
+   iPad at the top of Drafts, it takes them off the iPad with nothing asked
+   (see "Also seen"). Its colour is the bar's blue, as Mark's and Move's:
+   `deleteItem.tintColor` is gone. What it does is unchanged.
+3. *Cancel* (`EditBar.edit`, `EditBar.cancel`; `editTapped`, the one place
+   that switches the title). What it does is Done's: Edit mode ends, his
+   ticks are let go, nothing is done, and the open letter's row is
+   highlighted again (B-133).
+4. *"Don’t Include"* (`ReplyFiles.dontInclude`), U+2019.
+5. *A file Attach File could not attach* (`ComposeIntake.words`, now a
+   `MailAlert`; `ComposeIntake.unableToAttach`, new): Mail's alert, titled
+   "Unable to Attach", "One or more attachments failed to load.", with OK,
+   however many files. Photos and videos alone keep the share sheet's
+   sentences, with no title, as before. With a file missing among photos or
+   videos missing, which happens only when a Send's or a Save Draft's
+   bound counts out a Photo Library pick and an Attach File pick together,
+   Mail's alert alone, whose words hold for all of them: one alert, as
+   before, and the photos' count is not said. The composer puts it up with
+   its title (`ComposeViewController.say`, `ErrorPresenter.say`).
+6. *Comments*: `Theme.destructive`'s note says Remove stays red and Edit
+   mode's Trash is the bar's blue; B-108's device check, step 4, says the
+   new words.
+
+**Reverses** B-047's keeping of Gmail's names for Sent Mail and Spam (its
+Inbox rule stands). Corrects B-019's wording, the code's word now being
+Mail's "Trash" that B-019 wrote down. B-133's "Done" becomes "Cancel"; its
+highlight is unchanged. B-108's words for a file, never approved, give way
+to Mail's.
+
+**Not changed.** "Edit" (D-008). Mark, Move, Select All and Deselect All.
+The erase question's words and its red Delete (`EraseQuestion`). The share
+sheet's words, and the composer's for photos and videos. "Recent Searches",
+"Checking for Mail…", "Photo Library", "Attach File": already Mail's.
+VoiceOver's "Replied" and "Forwarded" (`RowArrow`) keep their capitals: he
+does not use VoiceOver (2026-10-24), and the record's lowercase is optional.
+B-137's sentence.
+
+**Widths (D-009)**, read from the layout code and summed with word widths
+estimated on the host (Arial at 17 pt; SF is a few per cent wider), not
+measured on the iPad, and in two panes set by what the iPad showed. The
+Edit button is the list's right bar item, with no width of its own, 15 pt
+from the pane's edge (`rowTextRightInset`), its word at 17 pt
+(`fontBarButton`, the text size held at the default, B-071): "Edit" about
+29 pt, "Done" 41, "Cancel" 53. So in Edit mode it is about 12 pt wider
+than Done was. UIKit gives a bar's buttons their width first and the title
+what is left, cut with "…" if it does not fit; nothing else moves, and
+"Cancel" is never cut. On his iPad, 1080 pt wide, the list is 300 pt in
+three panes (27.6% is 298, held at `listColumnMin`), the calendar alone
+before the title, which leaves about 165 pt for the title in Edit mode by
+the sum, 12 pt less than with Done. In two panes it is 375 pt
+(`twoPaneLeftColumnWidth`), with the view button, "< Mailboxes" and the
+calendar before the title. The sum gave about 100 pt there, against 112
+with Done, and is some 30 pt too generous: on the test iPad on 2026-10-25
+(D-015's check, TODO) the bar with Edit read "Unopene…" for "Unopened
+4/17/17" and "Note to…" for "Note to Self: Letters to Himself", which in
+the title's weight (Arial Bold standing in for SF Semibold) are about
+90 pt and "Note to S…" about 92, so the title has about 90 pt with Edit,
+about 79 with Done and about 66 with Cancel. D-015's own estimate was 75
+to 85. In two panes' Edit mode, then, Gmail's "Important" (about 78 pt)
+fitted with Done, only just, and is now cut, likely "Impor…"; "All Mail"
+and "Starred" (about 60 pt each) fit with some 6 pt to spare; "Sent"
+(about 37), "Junk" (40), "Drafts", "Trash" and "Inbox" fit with room, and
+"Sent Mail" (about 75), which fitted with Done, would now be cut were it
+not "Sent". A label of more than about seven letters ("Holidays", about
+71 pt) is cut in two panes' Edit mode, where with Done it was more than
+about nine. The three-pane figure is the sum's alone, and may be as
+generous: 30 pt less still holds every Gmail folder whole. The bottom bar
+in Edit mode, Deselect All (about 89 pt), Mark, Move and Trash (about
+43 pt, 6 pt narrower than Delete) with flexible space between, fits 300 pt
+with room. The Mailboxes pane and the Move sheet only get shorter names.
+D-009's notes are not edited here.
+
+**Tests.** `EditBarTests`, five, new: "Edit" and "Cancel"; the third
+button "Delete" in the Trash and "Trash" in every other role, the Outbox
+and a label included; "Delete" exactly where `EraseQuestion` asks first,
+so the bar's word and the question's agree; and from the controller's
+source, the bar in Mail's order with the third button titled once by the
+list's folder and no colour of its own, no `Theme.destructive` in the
+list, "Edit" as it opens and "Cancel" while Edit mode is on in the one
+place that switches it, no "Done", "Delete", "Edit" or "Trash" literal in
+the list, and no width set on the button. `MailboxNameTests`, one new and
+three changed: Sent and Junk by role whatever the server calls them ("Sent
+Mail", "Sent Items", "Spam", "Junk E-mail"), ids and names kept; labels
+called "Sent Mail", "Spam", "Sent" or "Junk" with no role keep their
+names, as do All Mail, Drafts, Trash, a Trash called "Bin" and the Outbox;
+VoiceOver's "Sent, 2 unread" and "Junk"; the scripted Gmail's folders in
+the pane's order, Drafts, Sent, Junk, Trash, All Mail, Starred, their
+names Gmail's. `CompleteThreadsTests`, three changed: the lookup through
+the repository from the scripted Gmail gives "Sent", and the page says
+"Found in Sent", never "Found in Sent Mail"; a server's `\Sent` called
+"Sent Items" says "Found in Sent"; the remembered lookup's folder "Sent".
+`ReplyFilesTests` and `ReplyFilesWiringTests`: "Don’t Include" with U+2019
+and no straight apostrophe, said only in `ReplyFiles`, and the straight
+one nowhere. `ComposerFilesTests`: every combination, the share sheet's
+sentences with no title, Mail's alert, word for word, for every one with a
+file missing; two files left out of one pick, a folder picked, a load that
+fails while Send waits, and a photo pick and a file pick counted out
+together at Send's bound, each told Mail's alert with its title.
+`ComposerFilesWiringTests`: the composer puts it up with its title.
+
+Each part undone by hand, the seven classes run (131 tests), then put back
+and passing, counted as failures in tests: the folders named as before,
+the Inbox alone renamed, 14 in 6; renamed by the name, not the role, 8 in
+3; the third button "Delete" in every folder, 13 in 2; its red put back, 3
+in 1; "Done" in `editTapped`, 2 in 1; `EditBar.cancel` "Done", 1 in 1; the
+straight apostrophe, 5 in 2; the old sentences for a file, no title, 17 in
+4; the composer saying the words with no title, 1 in 1.
+
+The full suite, serially: 2,670 tests, 6 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not seen, and not covered.**
+
+- None of Mail's behaviour above was seen: the colour of its Trash button,
+  its name for Gmail's All Mail, its "Cancel" on iPadOS 18, and when it
+  shows "Unable to Attach", all from strings and guides. The device check's
+  last step asks for any iPadOS 18 device with Mail.
+- The screens are UIKit: the words they show are read from their source,
+  and the widths above are a sum, not a measure. The device check looks at
+  both, in two panes and three.
+- *His Move Discarded Messages Into.* If his iPad's Mail says Archive, as
+  the record has Mail doing for Gmail accounts, Mail's bar says "Archive"
+  and its tap leaves the letter in All Mail; here it says "Trash" and the
+  letter goes to the Trash. Not built: the ruling's record says Trash, and
+  his setting has not been read (TODO, "His iPad's own settings").
+- *A label of his called "Sent"*, if he has one, shows beside Gmail's Sent
+  as a second "Sent", as it would in Mail. The test account has none.
+
+**Also seen, differing from Mail, not built.**
+
+- *The Outbox, and the letters kept on the iPad at the top of Drafts*:
+  Edit mode's third button says "Trash" there too, the ruling's word for
+  every list but the Trash, and its tap takes them off the iPad
+  (`LocalDrafts.delete`), with nothing asked and no copy in the Trash (any
+  copy an upload left in Drafts is expunged): a letter not yet sent, or a
+  draft not yet on the server, cannot be got back. Before this the word
+  there was "Delete", in red. In Drafts one selection can hold both, the
+  server's drafts going to the Trash and the kept ones off the iPad. What
+  Mail's Outbox bar says, and what its tap does with an unsent letter, was
+  not looked at. Not changed here, the ruling being "Trash" outside the
+  Trash: put to the owner (TODO, "Blocked on the owner", "Trash for
+  letters only on the iPad"). "Delete" in the Outbox would be one line in
+  `EditBar.deleteTitle`; in Drafts the word would have to follow his
+  ticks, not the folder.
+- *An All Mailboxes search* keeps its folder's word: from the Trash the
+  button says "Delete" while some hits go to the Trash, which the erase
+  question says; from elsewhere "Trash" for hits that are in the Trash and
+  are erased, after the question. What Mail's bar says in a search was not
+  looked at.
+- *The status line* says "Deleting…" after a tap on Trash (`StatusLine`);
+  what Mail's says, if anything, was not looked at.
+- *The erase question's sentence*, "You can't undo this action.", has a
+  straight apostrophe, from the Finder's sentence as its users quote it
+  (`EraseQuestion`); Apple's own strings would have U+2019.
+- *A file shared to Blackmail* from another app's share sheet that could
+  not be attached keeps the share sheet's words; Mail's share sheet was not
+  looked at for it.

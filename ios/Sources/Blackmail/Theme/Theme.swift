@@ -434,10 +434,11 @@ extension Theme {
     /// because a display filter cannot know that a hue carries meaning. Blue
     /// on black is what every other app on his iPad uses for "you can tap
     /// this", and that consistency is worth more than matching the filter's
-    /// side effect. Same reasoning keeps Delete red and the flag orange:
+    /// side effect. Same reasoning keeps Remove red and the flag orange:
     /// inverted they read as cyan and blue, and a destructive control that
     /// does not look destructive is a safety regression, not a style choice.
     /// If he wants the literal inversion, these three are the whole change.
+    /// Edit mode's Trash is in the bar's blue since B-144, as Mail's is.
     static let tintBlue = UIColor(red: 10 / 255, green: 132 / 255, blue: 255 / 255, alpha: 1)
     static let destructive = UIColor(red: 255 / 255, green: 69 / 255, blue: 58 / 255, alpha: 1)
     static let flagTint = UIColor(red: 255 / 255, green: 159 / 255, blue: 10 / 255, alpha: 1)

@@ -182,13 +182,14 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "rows: { [weak self] in self?.draft.attachments ?? [] },",
                  "landed: { [weak self] url, row in self?.landed(url, row) },",
                  "changed: { [weak self] in self?.rebuildAttachments() },",
-                 "tell: { [weak self] words in self?.say(words) })"], in: code)
-        inOrder(["private func say(_ words: String) {",
+                 "tell: { [weak self] alert in self?.say(alert) })"], in: code)
+        // With its title: Mail's "Unable to Attach" over a file's (B-144).
+        inOrder(["private func say(_ alert: MailAlert) {",
                  "guard viewIfLoaded?.window != nil else { return }",
                  "guard presentedViewController == nil else {",
-                 "self?.say(words)",
+                 "self?.say(alert)",
                  "return",
-                 "ErrorPresenter.tell(words, on: self)"], in: code)
+                 "ErrorPresenter.say(alert, on: self)"], in: code)
     }
 
     /// The bound on what is coming in stops as the app goes into the

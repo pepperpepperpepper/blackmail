@@ -43,7 +43,8 @@ enum ErrorPresenter {
     }
 
     /// Puts up `alert` as it is worded: the sign-in check's word on a
-    /// password it kept (`SignInCheck.Outcome`).
+    /// password it kept (`SignInCheck.Outcome`), and what the composer
+    /// could not attach (`ComposeIntake.words`, B-144).
     static func say(_ alert: MailAlert, on vc: UIViewController) {
         put(alert.message, title: alert.title, offeringSettings: alert.offersSettings, on: vc)
     }

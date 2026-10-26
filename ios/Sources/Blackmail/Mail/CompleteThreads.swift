@@ -94,9 +94,9 @@ enum CompleteThreads {
     }
 
     /// What his letter says above its body once opened: where it was found,
-    /// by the folder's name as the Mailboxes pane shows it, "Sent Mail" on
-    /// Gmail. Mail's short form, "Found in %@", which Mail fills with a
-    /// name of its own.
+    /// by the folder's name as the Mailboxes pane shows it, "Sent" on Gmail,
+    /// Mail's word for Gmail's Sent Mail (B-144). Mail's short form, "Found
+    /// in %@", which Mail fills with a name of its own.
     static func foundIn(_ folderName: String) -> String {
         "Found in " + folderName
     }

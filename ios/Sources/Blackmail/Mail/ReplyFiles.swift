@@ -66,11 +66,12 @@ struct ReplyFiles: Equatable {
     static let mode = Mode.whenAddingRecipients
 
     /// Mail's question, which Forward asks of a letter with files, and Reply
-    /// and Reply All under `ask`, and its two answers. Mail's words, held
-    /// from his iPad until he has approved them.
+    /// and Reply All under `ask`, and its two answers. Mail's words, the
+    /// owner ruled on 2026-10-26, to the letter (B-144): "Don’t Include"
+    /// with Mail's curly apostrophe, U+2019, where it had a straight one.
     static let question = "Include attachments from original message?"
     static let include = "Include"
-    static let dontInclude = "Don't Include"
+    static let dontInclude = "Don’t Include"
 
     /// Where the rule is for a letter.
     enum State: Equatable {

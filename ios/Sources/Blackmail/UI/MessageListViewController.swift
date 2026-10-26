@@ -547,7 +547,7 @@ final class MessageListViewController: UITableViewController {
         // lives once, in the detail pane's toolbar, so there is exactly one
         // place to start a letter.
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Edit", style: .plain, target: self, action: #selector(editTapped))
+            title: EditBar.edit, style: .plain, target: self, action: #selector(editTapped))
         navigationItem.rightBarButtonItem?.setTitleTextAttributes(
             [.font: Theme.fontBarButton], for: .normal)
 
@@ -1089,7 +1089,7 @@ final class MessageListViewController: UITableViewController {
     /// Puts the fresh page in place of the kept one, where `KeptSwap` says,
     /// or leaves it waiting for a finger to lift or his ticks to go. Called
     /// as it comes, and again whenever the finger may have lifted, and at
-    /// Done and the last tick taken off.
+    /// Cancel and the last tick taken off.
     @MainActor
     private func landFreshPage() {
         guard overKept.waiting != nil, isViewLoaded else { return }
@@ -1103,7 +1103,7 @@ final class MessageListViewController: UITableViewController {
         // the page is dropped: that list has the say.
         guard let fresh = overKept.landing(showingKept: letters.fromShelf, swap) else {
             // A finger lifted from a tap tells the list nothing, so it is
-            // looked for; Done and the last tick taken off call this again.
+            // looked for; Cancel and the last tick taken off call this again.
             if swap == .waitForLift, overKept.waiting != nil { waitForLift() } else { stopWaitingForLift() }
             return
         }
@@ -1994,9 +1994,10 @@ final class MessageListViewController: UITableViewController {
                                    target: self, action: #selector(markSelected))
         moveItem = UIBarButtonItem(title: "Move", style: .plain,
                                    target: self, action: #selector(moveSelected))
-        deleteItem = UIBarButtonItem(title: "Delete", style: .plain,
-                                     target: self, action: #selector(deleteSelected))
-        deleteItem.tintColor = Theme.destructive
+        // "Trash", or "Delete" inside the Trash, in the bar's own blue, as
+        // Mail's (`EditBar`, B-144). It was "Delete" in red everywhere.
+        deleteItem = UIBarButtonItem(title: EditBar.deleteTitle(inFolderWithRole: mailbox.role),
+                                     style: .plain, target: self, action: #selector(deleteSelected))
         // Mark All as Read, as Mail actually offers it.
         //
         // Mail has no button by that name. What it has is Select All in
@@ -2326,7 +2327,8 @@ final class MessageListViewController: UITableViewController {
         tableView.setEditing(editing, animated: true)
         // No pull in Edit mode, where the page would drop his ticks (B-103).
         placePull()
-        navigationItem.rightBarButtonItem?.title = editing ? "Done" : "Edit"
+        // Mail's word for leaving it (B-144).
+        navigationItem.rightBarButtonItem?.title = editing ? EditBar.cancel : EditBar.edit
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
         // His ticks have gone with Edit mode: what the watch held can go on,
@@ -2342,7 +2344,7 @@ final class MessageListViewController: UITableViewController {
 
     /// Highlights the row of the letter the reading pane shows, if the list
     /// has it (`ListEdit.paneRow`), where the table has dropped the
-    /// highlight with the letter still open: at Done, Edit mode having
+    /// highlight with the letter still open: at Cancel, Edit mode having
     /// cleared the selection as it began, and on a day's list, whose rows
     /// replace the list's (B-133). Mail keeps the open message's row
     /// selected. Not scrolled to, and nothing opened: `selectRow` tells the
