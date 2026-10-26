@@ -7347,6 +7347,60 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-158, the letter after a Delete or Move in the pane.** On the
+      test iPad, the test account only, from a build of the `bm-cm-next`
+      worktree (branch `copy-nextletter`) or of the int it is merged into.
+      Nothing is composed, sent or saved as a draft, and the app's Deletes
+      and its Move go onto the host's letters alone. The host makes nine
+      letters, each from another address, with a new Message-ID of its own
+      and naming none on the account, and APPENDs them to the label
+      "Notes", never the Inbox, each with its Date as its internal date;
+      it notes each UID from its APPENDUID, and stops if one has none.
+      First a conversation of three, "B-158 talk" (a), (b) and (c), each
+      reply's References naming the one before, read (`\Seen`); then six
+      letters alone, "B-158 next 6" down to "B-158 next 1", all read but
+      "next 3", which is APPENDed unread. So the list goes, from the top:
+      next 1 to next 6, then the conversation, then Notes' own. It also
+      makes the label "B-158 moved", if the account has none. Organize by
+      Thread on, three panes, nothing set: View Next Message, Mail's
+      factory default, is what the app does. A screen recording through
+      each step, and the app's connection log read after each.
+      1. *Delete opens the one below.* "Notes" tapped, then next 2's row:
+      next 2 in the pane. Delete, once. Next 2's row goes, and next 3 is in
+      the pane with its row highlighted, in the first frame without next
+      2's row; any frame of "No message selected" between written down.
+      Next 3's dot goes and Notes' count is one less; the log: the `UID
+      MOVE` of next 2 to the Trash, next 3's body FETCH, and its `UID STORE
+      … +FLAGS (\Seen)`. Delete is blue over next 3, not grey.
+      2. *A double tap.* Delete tapped twice, as fast as a double tap, the
+      gap between the taps written down from the recording: next 3 goes,
+      next 4 opens, highlighted, and stays; the log has one `UID MOVE`,
+      next 3's. A second or more later, Delete once: next 4 goes, next 5
+      opens. Delete was never grey.
+      3. *A Move.* Move, then "B-158 moved": next 5's row goes as the sheet
+      slides away, next 6 opens, highlighted; the log's `UID MOVE` of next
+      5 to that label.
+      4. *A conversation.* The conversation's row tapped: its stack, (c)
+      open. Delete: (c) goes; the row stays, of (b) and (a), highlighted,
+      and the pane shows it again without (c), (b) open; no other row
+      opens. A second later, Delete: (b) goes, and the row, now (a) alone,
+      opens as one letter.
+      5. *A search, at its foot.* The search field, Current Mailbox, "B-158
+      next": two results, next 1 and next 6. Next 6, the last, tapped, and
+      Delete: next 6 goes, next 1, the one above, opens, highlighted, the
+      search's words and its one result still there. Delete: no result
+      left, and the pane empty, "No message selected", as before B-158.
+      6. *Edit mode as before.* Cancel the search; (a) tapped. Edit, (a)'s
+      row ticked, Delete in the Edit bar ("Trash" once Mail's words for it
+      are in): the pane empties and nothing else opens. Done.
+      7. *Put back:* "Notes" left, the Inbox at its top. The host takes
+      out of the Trash and out of "B-158 moved" only the letters with the
+      Message-IDs it made, which nothing else on the account has, deletes
+      them there, and deletes the label "B-158 moved" if it made it. Any
+      UID it noted still in "Notes" is moved to the Trash the same way.
+      Nothing else was written.
+      Not on the iPad: Don't Select a Message, which no Settings row sets
+      yet (host tests alone), and Trash's question before an erase.
 
 ## Blocked on the owner
 
@@ -7535,11 +7589,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       the fallback on 2027-09-18; Mail hidden in the share sheet with
       Blackmail first, Blackmail in Mail's Dock place, Mail's badge off), or
       Mail turned off for it.
-- [ ] **The letter after a Delete or Move in the pane**: Mail opens the next
+- [x] **The letter after a Delete or Move in the pane**: Mail opens the next
       one; Blackmail empties the pane on purpose (B-041), so a second tap
       cannot bin another. Copy Mail (the default, unless his iPad's Delete
       or Move Message Action says "Don't Select a Message", with Delete grey
       for a second after the next letter shows), or keep it empty.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-158.*
 - [ ] **A share with no connection**: Mail's sheet closes and the letter
       waits in its Outbox; Blackmail's stays up with "Can't connect to mail
       server." Close it and let the letter wait in Blackmail's Outbox, to go

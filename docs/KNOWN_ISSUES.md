@@ -30110,3 +30110,190 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
+
+**What Mail does.** Since iOS 18.4 it is a setting, Settings > Apps >
+Mail > Message List > Delete or Move Message Action: "View Next Message",
+the factory default, opens the next letter in the list once the open one
+is binned or moved, and marks it read as any letter opened is; "Don't
+Select a Message" opens none (on an iPhone, back to the list). Before
+18.4 there was no setting, and the next letter always opened: users
+report it on an iPad on iOS 5, where the one above opened, and on iOS 13
+and 15.4.1. The setting and its default are from 9to5Mac (26 February
+2025) and the three strings in iOS 18.6's Mail settings, read from the
+simulator runtime on the Mac in the gap audit of 2026-10-24; that an iPad
+shows the setting is medium (Apple's iPad guide does not list it). Mail
+greys nothing after a Delete; its Undo, a shake or a three-finger swipe,
+is the safety. Which neighbour opens is not documented: most likely the
+row that takes the gone one's place, the one below, and the one above at
+the foot. His own setting cannot be read from here; the owner ruled on
+2026-10-26 to copy Mail, with Mail's factory behaviour where it turns on
+his settings.
+
+**What Blackmail did.** Delete and Move from the pane's toolbar emptied
+the pane at the tap ("No message selected") and let the row's highlight
+go, on purpose (B-041), so that a second tap on Delete could not bin a
+letter that had opened by itself; and Delete stayed grey until the server
+had answered the first one.
+
+**Changed.**
+
+1. *The rule* (`NextLetter.after`, new, `Mail/NextLetter.swift`, out of
+   the controller so the suite can run it). Chosen at the tap, from the
+   list's rows as they stand before the gone row comes off, and opened
+   once it has:
+   - the row below, which takes its place; at the foot of the list, the
+     one above; nothing when no other row is left, and the pane stays
+     empty as before;
+   - a conversation that keeps other letters keeps its row: it opens
+     again without the letter, its newest open, as a tap on it opens it,
+     highlighted where the list draws it. A row goes by its newest letter,
+     so a conversation whose newest has gone can be drawn under the row
+     below it, and its highlight goes there with it. The pane's Delete and
+     Move act on the conversation's letter he opened last, not on the
+     whole of it (B-129). Mail is taken to leave a conversation on screen
+     when one of its letters is binned by that letter's own button; not
+     seen;
+   - a letter moved out of All Mail stays there, and so does its row
+     (`PaneActions.effect`): it is passed over, for the row below;
+   - in a search, the rows are the hits, one letter each: the next
+     result; an All Mailboxes hit binned takes its copy under the Inbox's
+     id with it, so that copy is passed over;
+   - never a draft, an Outbox letter or a letter "On this iPad only":
+     nothing opens in Drafts or the Outbox, whose rows open the composer,
+     and a row kept on the iPad is passed over anywhere;
+   - nothing for a Flag or a read mark, nor for a letter the list has no
+     row for, a hit after its search has ended.
+2. *The setting* (`NextLetter.action`): View Next Message or Don't Select
+   a Message, by Mail's words, read from one place, under its own key in
+   `UserDefaults`, View Next Message unless set otherwise, so a later
+   Settings row can switch it. There is no row now. Under Don't Select a
+   Message everything is as B-041 built it.
+3. *Opened as a tap opens a row.* The container chooses the letter only
+   when the pane is empty by then, which the pane's Delete and Move make
+   it (`RootViewController`, `detail.perform`); one showing another letter
+   is his and is left. The list highlights the row, with no scroll, and
+   opens it as a tap does (`MessageListViewController.openNext`): the
+   pane shows it from its row at once, the dot goes and its STORE and the
+   counts follow, as for any letter opened. Not in Edit mode, where a
+   selected row is a tick of his. Nothing else a tap does: no search kept
+   among the recent ones (the letter binned was opened from it already),
+   no VoiceOver, no date-jump row let go. `PaneActions.refusal` runs it
+   right after the row is off and before the write goes (`taken`), so the
+   rows it finds the letter in are the ones on screen; not when the
+   list's row under the letter's id is another letter now, a row kept on
+   the iPad that a listing has replaced (D-016), which stays, and nothing
+   opens. The pane still empties at the tap, and the next letter goes
+   into it in the Delete's or the Move's own task on the main thread,
+   the next thing it runs, before the write is sent; whether a frame of
+   the empty pane is drawn between the two was not seen.
+4. *Delete's double tap* (`PaneWrites`). Under View Next Message Delete is
+   no longer greyed while a Delete is on its way, as Mail's is not: the
+   next letter opens with it live, and a second Delete can go while the
+   first is on its way, each taking its own row. What is kept of B-041's
+   guard is invisible: a tap on Delete within half a second of the last
+   Delete that went does nothing (`NextLetter.doubleTap`), so a double tap
+   bins one letter, not the one it opened. Asked before Trash's question
+   too, so a double tap there does not put the question up over the next
+   letter. Not Mail's: Mail has none. Under Don't Select a Message, Delete
+   is grey until answered, as before, and the half second applies as well.
+
+**What it reverses.** B-041's empty pane after a Delete or Move from the
+pane, and its "The Delete button stays grey until the server has the
+first one", both under View Next Message only. The gap audit's
+suggestion to hold Delete for about a second after the next letter shows
+(TODO, Blocked on the owner) is not built: Mail greys nothing. The owner's
+item in TODO is ticked.
+
+**Not changed.** Edit mode: its Delete and Move empty the pane when it
+showed one of the letters ticked, and open nothing. Mail's setting is
+named for the open message's own Delete or Move; what its Select bar's
+Trash does to the pane on an iPad was not found. The swipes are not on
+this branch: a swipe on the open letter's row, once built, would go the
+same way through `letterAfter` and `openNext`. Move to Junk is on another
+branch: from the pane, through `detail.perform` with the pane emptied as
+Move empties it, it opens the next letter with nothing more; if it
+leaves the pane as it is, nothing opens. What Delete, Move and the list
+do with the write, the counts and a refusal: a refused write puts its row
+back where it stood and the letter opened stays open, with the alert as
+before.
+
+**New words.** None. Nothing new is on the screen. The setting's two
+names are Mail's, in the code for a later Settings row.
+
+**Tests.** `NextLetterTests`, fourteen, new. The rule: the row below, the
+one above at the foot, none for the only row, for Delete, a Move to a
+folder, to Trash and to Junk, and an erase in Trash; a conversation of
+three or two that loses one opening again by a letter it still holds; a
+letter moved out of All Mail passed over, binned from it not; a search's
+next result, an All Mailboxes hit's copy passed over when it goes with it
+and not when it stays; nothing in Drafts or the Outbox and a row kept on
+the iPad passed over below and above; nothing for a Flag, a read mark or a
+letter not on the list. Over the list's own letters (`ListLetters`), each
+row deleted in turn as `PaneActions.start` takes it: the letter chosen is
+in the list after, in the gone row's place, or above it at the foot, or in
+the conversation's own row, drawn under the next row once its newest has
+gone. The setting: View Next Message from the factory,
+its key, its round trip, a value it does not know read as the default.
+`PaneWrites`: under View Next Message never grey, a tap within half a
+second doing nothing and not starting the half second again, a Delete
+going with the last unanswered; under Don't Select a Message grey until
+answered. Over the scripted server: `taken` run once, with the row off and
+nothing sent, then the `UID MOVE`; a refused MOVE putting the row back
+after it ran; two Deletes on their way at once, each row off at its tap,
+two MOVEs, both landed. A row the list holds under the letter's id that is
+another letter (D-016): `taken` not run and nothing taken off. And read
+from the source: the container choosing
+only into an empty pane and opening once the row is off, the pane's alone;
+the list choosing only under View Next Message and out of Edit mode,
+opening as a tap opens a row, with no scroll; Delete going by the half
+second and greying only under Don't Select a Message, still emptying the
+pane, as Move does; `taken` between the list's edit and the write; Edit
+mode's path untouched. `PaneActionsTests`' Delete-at-a-time test, and
+`EraseQuestionTests`' and `StackHeaderAtTheTapTests`' pins of the pane's
+Delete, read the new lines.
+
+Each part undone by hand, in three groups whose tests do not cross,
+`NextLetterTests`, `PaneActionsTests` and `EraseQuestionTests` run, then
+put back and passing, counted as failures in tests. First: the row above
+tried before the row below, 10 in 4 (the row below 5, All Mail 1, the row
+kept on the iPad 1, the list's letters 3); Don't Select a Message made the
+factory's, 2 in 1; Delete never grey, 6 in 2 (Don't Select a Message's 4,
+the Delete-at-a-time test 2); `taken` never run, 6 in 2 (the scripted
+server's 5, its pin 1); the next letter chosen into a pane not emptied, 1
+in 1. Second: a conversation never opened again, 8 in 3 (the conversation
+4, All Mail 1, the list's letters 3); Drafts, the Outbox and kept rows not
+passed over, 5 in 1; a Flag or a read mark opening one, 4 in 1; no half
+second, 4 in 1; `taken` run whatever the list's row is, 2 in 2 (the
+D-016 test, its pin); opened in Edit mode, 1 in 1. Third: a letter that
+stays taken as gone and its row opened again, 1 in 1 (All Mail); its
+copies not gone with it, 1 in 1 (the search); the tap greyed as before, 2
+in 2 (`EraseQuestionTests`, the pin); one removal on its way at a time, 2
+in 1 (two Deletes). Every new test failed in one of them at least.
+
+The full suite, serially: 2,678 tests, 14 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not seen.**
+
+- Nothing of it on the iPad, and Mail's own not seen either: the test iPad
+  has no Mail, and there is no iOS 18 device.
+- Which neighbour Mail opens, below or above, and that the iPad shows the
+  setting.
+- What Mail shows after a letter of a conversation is binned from the
+  toolbar above it: whether its Trash bins the conversation, and what
+  opens then (the gap audit could not find it). Here one letter goes and
+  the conversation opens again.
+- A conversation whose newest letter has gone is drawn by the next of
+  its letters, which can be far down the list, out of sight: it opens in
+  the pane and its row is highlighted there, and the list is not scrolled
+  to it. What Mail's list does then was not found.
+- At the foot of the pages the list has loaded, the row above opens,
+  where Mail, holding the whole folder, would open the next older letter.
+  So too at the foot of a day's list after Go to Date.
+- Whether a frame of "No message selected" shows between the two
+  letters.
+- The half second is counted from the Delete that went, not from the next
+  letter on the screen; a tap later than that bins the letter opened, as
+  Mail's would. Undo, on another branch, is Mail's answer to it.
