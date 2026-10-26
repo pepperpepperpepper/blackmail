@@ -6558,9 +6558,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       try, about 0.14 s apart, as the round recorded them.
       1. *The round again.* Ten tries. For each, the host first APPENDs
       fourteen new letters, "B-143 rows try N letter M", M from 1 to 14,
-      each from "TryN WriterM", letter 1 the newest and a minute apart,
-      so they are the folder's top rows and none has been drawn. The
-      empty label "Drafts" tapped, then "Notes"; the previews let land
+      each from "TryN WriterM", letter 14 first and letter 1 last, so
+      letter 1 has the folder's highest UID. The list goes by UID, the
+      folder's order (`PageWindow`, `MessageThread.group`), so the
+      fourteen are its top rows whatever the letters of the tries before
+      are dated, and none has been drawn. The dates run with the UIDs:
+      each letter dated a minute after the one APPENDed before it, a
+      try's letter 14 a minute after the try before's letter 1, and the
+      first try's letter 14 dated 160 minutes before that try, so the
+      eleven tries' 154 letters (step 2 is the eleventh) never mix by
+      date and none is dated after the run began. The empty label
+      "Drafts" tapped, then "Notes"; the previews let land
       (one preview FETCH of the fourteen in the log, the time of its
       answer written down); then the list scrolled one row (77 view px,
       400 ms) at a time, six times, 0.6 s apart. Every row coming into

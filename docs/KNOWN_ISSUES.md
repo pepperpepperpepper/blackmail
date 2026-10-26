@@ -26648,7 +26648,7 @@ the iPad links.
   words kept: one FETCH a carry into the folder's rows would save, left
   out so that the folder's rows take nothing kept, as before the fix.
 
-**Since: B-143 (2026-10-26).** In round r6-s7-fixes, check 6, on int17
+*Since B-143 (2026-10-26): in round r6-s7-fixes, check 6, on int17
 (92f2cb9), fourteen letters APPENDed to "Notes" for each try ("R6 B-135
 rows try N letter M"), the folder opened and the list scrolled a row at a
 time once their previews had landed: in one try of ten a row came into
@@ -26659,7 +26659,7 @@ bottom before it came was not drawn again as it came in. But nothing asks
 for a preview the list holds, nor, since this entry, for a letter drawn
 with no words, so nothing came to draw that row again. B-143 draws a row
 whole as it comes into sight. A row seen to come in blank in this entry's
-check is B-143's (TODO).
+check is B-143's (TODO).*
 
 ## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
 
@@ -27646,6 +27646,12 @@ failing. The release build for the iPad links.
   (TODO, steps 2 and 6). The previews' patch (`apply`) goes by the rows
   in sight alike, so a row prepared before its preview came would come
   in without it until drawn again; not a date, not B-139's, not changed.
+  *Since B-143 (2026-10-26): this gap was seen once on the test iPad and
+  is fixed in that entry, not yet seen fixed: a row coming into sight is
+  drawn whole from its row, its preview, spinner, date and words.
+  `writeDate` is now the list's one writer of a cell, `draw(_:at:_:)`,
+  the dates drawn by its parts `RowParts.datesChanged`, the date and the
+  words as before.*
 - iOS's order: that `significantTimeChangeNotification` comes at midnight
   and, queued, as the app comes back, is Apple's documentation, not seen
   here; nor how soon after the change in Settings the locale's and the
@@ -28145,10 +28151,9 @@ for the cell at the folder's place (`cellForRow(at:)`), which since iOS 15
 gives "any existing visible or prepared cell" (the SDK's header): no gap
 there, by that header, not seen.
 
-**What Mail does.** Not looked at in the round. Mail fills its previews
-behind the rows as this list does (`loadPreviews`); a row of Mail's whose
-words are on the iPad is not known ever to come in blank. Nothing here is
-a word or a look of Mail's.
+**What Mail does.** Not looked at in the round, nor how Mail fills its
+previews. A row of Mail's whose words are on the iPad is not known ever to
+come in blank. Nothing here is a word or a look of Mail's.
 
 **What he saw.** He has not had the app; this is what it drew. A row of
 two grey lines with no words, between rows with theirs, until he scrolled
@@ -28178,15 +28183,16 @@ words were there.
    reach no cell made ahead. B-139's `writeDate` is folded into the
    writer, its date and words drawn as before.
 3. *Not `reconfigureRows(at:)`*, Apple's call for drawing again the cells
-   the table holds, those made ahead too (iOS 15, and it compiles against
-   the 16.5 SDK). Each patch would then go through `cellForRowAt` for its
-   rows, and the call is an update of the table, checked by UIKit against
-   its own count of rows as `reloadRows` is (not tried), so a mismatch
-   would stop the app where the worst before was a blank row; what it
-   does to a row's open swipe was not seen. The draw as a row
-   comes in needs no new call, loads no row, touches no selection, no
-   Edit-mode tick and no scroll, fetches nothing, and covers whatever cell
-   comes in stale, however the table came to hold it.
+   the table holds, those made ahead too (declared from iOS 15 in the
+   16.5 SDK's header, `UITableView.h`; not built here). Each patch would
+   then go through `cellForRowAt` for its rows, and the call is an update
+   of the table, checked by UIKit against its own count of rows as
+   `reloadRows` is (not tried), so a mismatch would stop the app where the
+   worst before was a blank row; what it does to a row's open swipe was
+   not seen. The draw as a row comes in needs no new call, loads no row,
+   touches no selection, no Edit-mode tick and no scroll, fetches nothing,
+   and covers whatever cell comes in stale, however the table came to hold
+   it.
 4. *The Mailboxes column* is as it was; its comment says why it needs
    nothing (above).
 5. *Comments* on `apply`, `datesChanged`, `showDraftSpinners`, `willDisplay`
