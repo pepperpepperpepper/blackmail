@@ -577,7 +577,7 @@ final class ExpiryWarningTests: XCTestCase {
                             to: "private func prepareInlineImages(")
         XCTAssertTrue(open.contains("let shown = loads.shown "
                                     + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
-                                    + "guard fileTaps.tapped(file) else { return } filesOpening += 1 "
+                                    + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "
                                     + "Task { @MainActor in defer { filesOpening -= 1 fileTaps.ended(file) "
                                     + "if message?.id == m.id {"), open)
         XCTAssertEqual(open.components(separatedBy: "filesOpening").count - 1, 2, open)
@@ -590,13 +590,21 @@ final class ExpiryWarningTests: XCTestCase {
                        + "attachment.id, of: m.id, mailboxID: m.mailboxID) "
                        + "guard loads.stillShows(shown) else { return } "
                        + "guard fileTaps.opens(file) else { return } "
+                       + "let use = fileTaps.item(of: file) ?? item "
+                       + "if !use.presents { keep(data, of: attachment, by: use) return } "
                        + "guard presentedViewController == nil else { return } "
                        + "if let shown = previewURL { AttachmentStore.removeStaged(shown) } "
                        + "previewURL = nil "
-                       + "previewURL = try AttachmentStore.write(data, named: attachment.filename) "
+                       + "let url = try AttachmentStore.write(data, named: attachment.filename) "
+                       + "previewURL = url switch use { case .saveToFiles: "
+                       + "present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true) "
+                       + "case .share: let share = UIActivityViewController(activityItems: [url], "
+                       + "applicationActivities: nil) share.popoverPresentationController?.sourceView = webView "
+                       + "share.popoverPresentationController?.sourceRect = pictureSpot present(share, animated: true) "
+                       + "case .quickLook, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.modalPresentationStyle = .fullScreen "
-                       + "present(preview, animated: true) ")
+                       + "present(preview, animated: true) } ")
         XCTAssertEqual(shown.components(separatedBy: "await").count - 1, 1, shown)
         for hop in ["DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {
             XCTAssertFalse(shown.contains(hop), hop)

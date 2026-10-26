@@ -387,10 +387,12 @@ final class PictureTapTests: XCTestCase {
                 + "section: bmPictureIn(img), width: img.naturalWidth, height: img.naturalHeight, "
                 + "drawnWidth: drawn.width, drawnHeight: drawn.height });",
             "function bmWirePictures(root) { try { var pictures = root.querySelectorAll('img'); "
-                + "for (var i = 0; i < pictures.length; i++) { if (bmOwnPicture(pictures[i])) "
-                + "pictures[i].addEventListener('click', bmPictureTapped); } } catch (e) {} }",
+                + "for (var i = 0; i < pictures.length; i++) { if (!bmOwnPicture(pictures[i])) continue; "
+                + "pictures[i].addEventListener('click', bmPictureTapped);",
+            "} } catch (e) {} }",
             "body.innerHTML = html; bmWirePictures(body); }",
-            "(function () { if (document.body) bmWirePictures(document.body); })(); "
+            "(function () { if (document.body) bmWirePictures(document.body);",
+            "window.addEventListener('touchcancel', bmPictureLetGo, { capture: true, passive: true }); })(); "
                 + "(function () { if (document.getElementById('bm')) return;",
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
@@ -419,8 +421,9 @@ final class PictureTapTests: XCTestCase {
 
         let handled = try XCTUnwrap(code.range(of: "didReceive scriptMessage: WKScriptMessage) { "
                                                    + "if scriptMessage.name == PanePictures.handler { "
-                                                   + "if let tap = PanePictures.Tap(scriptMessage.body) "
-                                                   + "{ openPicture(tap) } return } "
+                                                   + "if let tap = PanePictures.Tap(scriptMessage.body) { "
+                                                   + "if tap.isHold { holdPicture(tap) } else { openPicture(tap) } } "
+                                                   + "return } "
                                                    + "guard scriptMessage.name == \"bmLetter\","))
         XCTAssertLessThan(handled.lowerBound, try XCTUnwrap(code.range(of: "related.entryID(forSection:")).lowerBound)
         XCTAssertTrue(code.contains(
@@ -429,6 +432,7 @@ final class PictureTapTests: XCTestCase {
                 + "alone: message, stack: loaded, his: { related.letter(inSection: $0) }) else { return } "
                 + "openAttachment(opening.part, of: opening.letter) }"))
         XCTAssertEqual(code.components(separatedBy: "openPicture(").count - 1, 2, "defined, and called by a tap")
+        XCTAssertEqual(code.components(separatedBy: "holdPicture(").count - 1, 2, "defined, and called by a hold")
         XCTAssertTrue(code.contains("related.keep(m, for: load) fill(related.bodyCame(for: load), body)"))
 
         let loader = try source("UI/InlineImageLoader.swift")
@@ -466,17 +470,21 @@ final class PictureTapTests: XCTestCase {
 
         let code = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(code.contains(
-            "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) { "
+            "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil, "
+                + "for item: PanePictures.Item = .quickLook) { "
                 + "guard let m = letter ?? message else { return } "
                 + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
+                + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) "
                 + "let shown = loads.shown "
                 + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
-                + "guard fileTaps.tapped(file) else { return } filesOpening += 1 "
+                + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "
                 + "Task { @MainActor in"))
         XCTAssertTrue(code.contains(
             "let data = try await repository.fetchAttachmentData( attachment.id, of: m.id, mailboxID: m.mailboxID) "
                 + "guard loads.stillShows(shown) else { return } "
                 + "guard fileTaps.opens(file) else { return } "
+                + "let use = fileTaps.item(of: file) ?? item "
+                + "if !use.presents { keep(data, of: attachment, by: use) return } "
                 + "guard presentedViewController == nil else { return }"))
         XCTAssertTrue(code.contains(
             "} catch { guard loads.stillShows(shown), fileTaps.opens(file) else { return } "

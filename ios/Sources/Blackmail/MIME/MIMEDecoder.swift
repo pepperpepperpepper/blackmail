@@ -1144,6 +1144,14 @@ enum MIMEDecoder {
         body.textIsFlowed = plan.textIsFlowed
         var attachments: [Attachment] = []
         collectAttachments(part, skipping: plan.sections, depth: 0, into: &attachments)
+        // Each file the HTML draws among its words says so, from the
+        // structure alone, for a row as for the letter (B-148).
+        let among = filesAmongWords(plan)
+        if !among.isEmpty {
+            for i in attachments.indices where among.contains(attachments[i].id) {
+                attachments[i].isAmongWords = true
+            }
+        }
         body.attachments = attachments
         return body
     }
@@ -1686,6 +1694,54 @@ enum MIMEDecoder {
             }
         }
         return out
+    }
+
+    /// The files the HTML draws among its words, by section (B-148): each
+    /// one a row the pane makes of its mark where it sat (`BodyFiles`), so
+    /// the header lists it no more (`BodyFiles.inHeader`), as Mail lists a
+    /// file once. The pieces `joined` draws (`drawnPieces`), from the
+    /// letter's structure alone, so the header drawn at the tap leaves out
+    /// the files the body will draw and keeps its height when it comes.
+    ///
+    /// None where the HTML has no part of HTML, which `joined` makes
+    /// nothing of, and the pane draws the plain words, with no rows. And a
+    /// file whose mark could fall after a cut keeps its row in the header:
+    /// one with no words after it, whose mark goes in only at the end of a
+    /// body that came whole; and one whose words before it, or the first
+    /// after it, a letter too large to fetch whole would not have whole,
+    /// each part of the HTML given its share of `limit` as such a letter's
+    /// fetch gives it (`Allowance`), or of a size not known. Whether the
+    /// letter is that large is not in its structure, so every letter is
+    /// read as if it were: for Mail's shape, a few kilobytes of HTML on
+    /// each side of the file, it changes nothing.
+    static func filesAmongWords(_ plan: BodyPlan,
+                                limit: Int = IMAPMailRepository.largeLetterSectionBytes) -> Set<String> {
+        let drawn = drawnPieces(plan.html, asHTML: true)
+        guard drawn.contains(where: isHTML), drawn.contains(where: { !isWords($0) }) else { return [] }
+        let shares = Allowance(plan, limit: limit).html
+        func whole(_ part: MIMEPart) -> Bool {
+            guard let size = part.size, let share = shares[part.section] else { return false }
+            return share > 0 && size <= share
+        }
+        var among = Set<String>()
+        // Whether every part of words so far would come whole.
+        var wholeSoFar = true
+        var waiting: [String] = []
+        for piece in drawn {
+            switch piece {
+            case .words(let part):
+                // The marks waiting go in with these words, if any of them
+                // come: as `joined` puts them, before the words.
+                if wholeSoFar, (shares[part.section] ?? 0) > 0 { among.formUnion(waiting) }
+                waiting = []
+                if !whole(part) { wholeSoFar = false }
+            case .file(let part):
+                waiting.append(part.section)
+            case .forwarded:
+                continue
+            }
+        }
+        return among
     }
 
     private static func section(of piece: BodyPiece) -> String {

@@ -31003,3 +31003,484 @@ build for the iPad links.
   colour important. Mail draws each letter of a conversation in a page of
   its own. An HTML letter's quotes were open to it already; a plain
   letter's are new to it. Not built.
+
+## B-148 — FIXED 2026-10-26, not yet seen on the iPad. A PDF put among a letter's words had two rows, one there and one in the header's list of files; it has the one among the words, and the header, decided from the letter's structure at the tap, does not change height when the body comes
+
+**Found** in the owner's question "A PDF's two rows" (TODO, under
+"Blocked on the owner"), ruled on 2026-10-26: "close the gaps in our
+decision tree by copying Apple Mail".
+
+**What Mail does.** Mail's header has no list of files: every file of a
+letter is drawn in its body where it sits, as a tile of about 160 by 120
+with "Tap to Download" (the style sheet for attachments in iOS 18.6's Mail,
+and Apple's iPadOS 18 guide). A PDF put among the words is on the screen
+once, there. High confidence; read, not seen on a screen.
+
+**What it was.** Since B-113 a PDF put among a letter's words, as Mail on
+an iPhone or an iPad sends one, had its row there, its name and size in
+blue where it sat (`BodyFiles`), and its row in the header as well: B-113's
+step 3, "The header keeps its row, grey from the tap and blue once the
+letter has come, as B-101 has it". Two rows for one file, each 44 pt or
+more, one of them above the words.
+
+**Changed.**
+
+1. *Which files are among the words* (`MIMEDecoder.filesAmongWords`): from
+   the letter's structure alone, by the pieces its HTML draws
+   (`drawnPieces`, the one function `joined` draws the body by, now called
+   by both): a file with words before it and after it, in a letter whose
+   HTML has a part of HTML. A file before or after all the words, one in a
+   plain letter, which draws no rows, and a picture shown by `cid:`, which
+   is no file to him, are not.
+2. *A file whose mark could fall after a cut keeps its row in the header.*
+   A letter over 5 MB is fetched in part, the parts of its HTML sharing
+   2 MiB in turn (`Allowance`, B-113), and nothing is drawn after words cut
+   short or before words not fetched. The letter's size is not in its
+   structure, so every letter is read as if it were that large: a file
+   after a part of words longer than its share, or of a size not known, or
+   before a part given nothing, keeps its row. And so does a file with no
+   words after it, whose mark goes in only at the end of a body that came
+   whole. For Mail's shape, a few kilobytes of HTML on each side of the
+   file, nothing of this changes anything.
+3. *Each file says so* (`Attachment.isAmongWords`), set by `flatten` by the
+   one rule, for a list row's files from its BODYSTRUCTURE
+   (`MIMEDecoder.listedAttachments(in:)`) as for the letter downloaded,
+   whole or in part; kept on the iPad with the row (`MailShelf`'s file
+   record, `among`, written only when true: no new format).
+4. *The header* (`MessageHeaderView`) lists `BodyFiles.inHeader(m)`: the
+   files `listedAttachments` has, less those among the words. At the tap the
+   header is drawn from the row (`Message.heading(for:)`), so the PDF is not
+   in it from the first frame, and the letter landing takes nothing away:
+   the header keeps its height. Once the body has come, a file the page
+   does not draw among the words after all keeps its row, so that once the
+   body has come no file is left with no row anywhere: the HTML refused by
+   the server and the plain words shown in its place (B-114), HTML with
+   nothing in it to show ("This message has no text."), or a mark not in
+   the HTML that came. Only then does the header grow, by that row, as the
+   body comes. Before the body has come the file has no row, and a letter
+   that could not be downloaded leaves it so (Not covered).
+5. Everything else that goes by a letter's files still has the PDF: its
+   row among the words opens it (`openFile`), Forward and Reply's question
+   (`ReplyFiles`), the paperclip on its list row, and a printed letter's
+   header (`PrintPage`), whose words draw no rows.
+6. *Its row shows it coming* (`BodyFiles.Busy`, the script's
+   `bmFileBusy`). The header's row had its spinner from the tap until the
+   file opened or was let go, and the row among the words had nothing, so
+   a file among the words, with no row in the header now, showed nothing
+   at all while it came: 5.7 s for the PDF of 21.7 MB in B-141's check.
+   Now `openAttachment` shows the row among the words coming as it shows
+   the header's row busy, from the tap: dimmed to half, important, and
+   "Loading…", the pane's word for what is on its way, after its name;
+   and the `defer` that ends its download puts it back as it was, on the
+   page it was shown on only, since on a page given since the same row can
+   be coming for a tap of its own. For the letter alone and for any letter
+   of a conversation, whose rows among the words had no spinner anywhere
+   before. Every link on the page to the file, so one with a row in the
+   header too (2) has both shown. Said twice, it has one mark; a link the
+   page has no row for, a picture's or a page drawn since, changes nothing.
+
+**What it reverses.** B-113's step 3, "The header keeps its row", and,
+for a file among the words, B-101's row in the header from the tap ("A PDF
+from Apple Mail on an iPhone or an iPad has its row in the header from the
+tap"). Every other file keeps B-101's row. B-141's check, still open,
+tapped its large PDF's row in the header, which a build with this change
+does not have: its steps now say, for such a build, the row among A's
+words and its "Loading…" (TODO).
+
+**Not changed.** What a file is (`MIMEPart.isListedFile`,
+`Attachment.isShownInBody`), the paperclip, what is fetched and when, the
+row among the words and what it opens (B-113). Files before or after all
+the words keep their rows in the header, where Mail draws them as tiles at
+the top or the bottom of the body: that wider move is a question of its
+own, not built. Nothing like Mail's tile is drawn: a row of words, as
+before.
+
+**What he sees.** A letter from Mail on an iPad or an iPhone with a PDF
+among its words: no file in the header, from the tap; the PDF's name and
+size in blue where it sat, as before, which opens it; and the header the
+same height before and after the letter comes. The blue name tapped: it
+dims, with "Loading…" after it, until the PDF opens. A letter with a PDF
+attached after its words: its row in the header, as before. No new
+words: "Loading…" is the pane's.
+
+**Tests.** `FileListedOnceTests`, seven, new. Apple Mail's shape: no row in
+the header at the tap, from the row's structure, nor once the letter has
+come; the PDF still listed for its row among the words, Forward's question
+and the paperclip; the page and the stack's body each with its one row.
+Eight shapes, each the files the header leaves out exactly the files the
+page draws, and the same at the tap as once come: Apple Mail's two, plain
+words split by a file, a file after all the words and one before, two
+among the words and one at the end, a picture by `cid:` among them, and a
+note, a file and a letter forwarded inline. The cut, at a limit of a
+kilobyte, 400, 999, 999 with the words after it cut, 1,000 and 1,001
+bytes before the file, and at the app's own 2 MiB, one byte under and one
+over, a letter of the latter fetched whole drawing its row and keeping its
+header row. Once the body has come: the HTML refused, HTML with nothing to
+show and HTML cut before the mark keep the row, a mark drawn leaves it out,
+and a letter not come goes by the structure. And read from the source: the
+header lists `BodyFiles.inHeader` alone, `drawnPieces` called by `joined`
+and `filesAmongWords`, and `flatten` marking the files. The row coming,
+in node on the model of the pane's page (`ModelPage`, which now runs the
+pane's `BodyFiles.Busy` and keeps each link to a file with what the
+script put in it): on the letter's own page and in a body of a stack,
+dimmed and "Loading…" after its name, once when said twice, as it was
+when the pane says it ended, and a file of another letter changing
+nothing; and read from the source, the tap showing it, the `defer`
+putting it back only while the pane still shows what it did, by script
+in the app's world. `LastFileTappedTests` and `PictureTapTests`, one
+each, read `openAttachment` with the two lines in it. `MailShelfTests`,
+one, new: a row kept with a PDF among its words, its record with `among`
+for that file alone, the format 1, read back with it and its header at the
+tap leaving the PDF out, and a record with no `among`, as every page kept
+before has, read as not among. `PrintWiringTests`, one changed: the
+printed header is the pane's but for the files, which a printed letter
+lists all of.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run (`PictureTapTests`, `PrintWiringTests`, `BodyInOrderTests` among
+them), then put back and passing, counted as failures in tests: no file
+marked as among the words (`flatten`), 13 in 3; the header listing every
+file again, as before, 3 in 2; no cut, every file between words taken as
+among them, 5 in 1; no part of HTML asked for, plain words split by a file
+taken as drawing its row, 2 in 1; nothing looked at once the body has
+come, a file the page does not draw left out all the same, 3 in 1; the
+kept row's record without `among`, 4 in 1. And the row never shown
+coming, 2 in 1; never put back as it was, 3 in 1; the pane not showing
+it at the tap and putting it back on any page, 5 in 3.
+
+The full suite, serially, with B-149 and B-150 beside it: 2,689 tests, 8
+of them this entry's, 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: the header's height from the tap through the
+  letter landing, in a recording at 60 frames a second (the check, step 2);
+  the row among the words dimmed with "Loading…" (the check, step 5, and
+  B-141's).
+- A letter that could not be downloaded, offline or refused by the server,
+  says "This message could not be downloaded." under the header drawn from
+  its row, which leaves such a PDF out, and the page has no rows: the PDF
+  has no row anywhere until a tap on the letter fetches it. Before this
+  change its row was in that header, grey and not to be tapped (the header
+  is given nothing to open with after a failure), so nothing he could do is
+  lost. What Mail shows for a letter it could not download was not seen.
+  The check, step 8.
+- Whether and how Mail's tile shows its download coming, a bar, a ring or
+  words, was not seen. "Loading…" after a long name can take the row to a
+  second line while it comes, moving the words under it by a line and back.
+  A page drawn again in its place while the file comes, as after WebKit
+  lost it, has the row as it was, not coming.
+- Mail was not looked at on a screen, 16.5.1's or 18's; its tiles are not
+  copied.
+- A letter whose HTML before the PDF is over 2 MiB, fetched whole: its PDF
+  has its row among the words and in the header, two, as before, the rule
+  reading every letter as if it were large.
+- A row kept on the iPad by a build before this one has no `among`: the
+  header lists the PDF at the tap and loses that row when the letter comes,
+  until the folder is next listed from the top. His iPad has had no build.
+- The rule reads the app's limit, 2 MiB; the suite's repositories made
+  with limits of a kilobyte cut sooner, and there the file's row comes back
+  to the header when the body comes, as the rule after the body has it.
+- Whether the body draws the mark is looked for in the HTML on the main
+  thread as the header is drawn, only for a letter with such a file: a
+  search of up to 2 MiB, not timed on the iPad.
+- A picture shown by `cid:` among the words is marked as among them too;
+  it is no file, and nothing lists it, so nothing changes for it.
+
+## B-149 — FIXED 2026-10-26, not yet seen on the iPad. At a tap on another letter the letter he left stayed under the new header for a frame or two; the pane is covered in its own colour from the tap until WebKit has painted what comes in its place, and never longer than half a second
+
+**Found** as B-098, recorded and left; the owner's question "One frame of
+the letter before" (TODO, under "Blocked on the owner"), ruled on
+2026-10-26: "close the gaps in our decision tree by copying Apple Mail".
+
+**What Mail does.** Not seen. Mail's code in iOS 18.6 has a view named
+`MFMessageContentLoadingView` and a `renderingProgressDidChange`, WebKit's
+word of what it has painted (names in MobileMailUI, read; nothing run),
+which reads as a cover over the letter until WebKit's first paint. Low
+confidence: a recording of Mail at 60 frames a second, going from letter
+to letter, would settle it, and needs Mail restored on the test iPad
+(B-028), or an iPadOS 18 device. The half-second limit is the app's own,
+not Mail's.
+
+**What it was.** B-098: the header is UIKit's and changes in the frame of
+the tap; the web view shows what it painted last until it has painted the
+new document, "Loading…" or a conversation's lines, a frame or two later.
+On the test iPad on 2026-10-25 the letter before stood under the new
+header, or beside the new selection, for 17 to 33 ms in 3 taps of 7 (5 of
+7 on 2026-10-21), and the first letter after a launch had two frames of an
+empty pane. B-098 left it, a cover that failed to lift being worse than a
+frame of the letter before.
+
+**Changed.**
+
+1. *The cover* (`MessageDetailViewController.cover`): a plain view over
+   the web view, its four edges on the web view's, under "No message
+   selected", in `Theme.canvas`, the web view's own colour; hidden at
+   first. It takes the touches that land on it, so nothing of the letter
+   hidden under it can be tapped.
+2. *Up at the tap* (`coverPane`): first thing in `show(summary:)` and
+   `show(thread:)`, before the header is given the letter, so the header
+   and the cover change in the same frame; the first letter after a launch
+   too. Nowhere else: not for a letter opened by its line in a
+   conversation, which goes into the page already there, nor a body put
+   in, his letters from Sent Mail, a letter come into the conversation or a
+   page drawn again after WebKit lost it. Down as the pane empties.
+3. *Down at the paint* (`PaneCover`, out of the controller so the suite can
+   run it): of the document the pane gave the web view last while it was
+   up, "Loading…", the conversation's lines, or the letter's own page if it
+   came first, once WebKit has committed that navigation
+   (`webView(_:didCommit:)`), at the first painting milestone after it,
+   which WebKit sends with the layers that show it: the first layout with
+   something to see, the first paint with a good part of the view painted,
+   the first paint, the first paint that means something (bits 1, 2, 6 and
+   8 of `_WKRenderingProgressEvents`, as WebKit's source has them, not read
+   from the iPad's own). A paint of a document given before
+   the tap, or before its commit, lifts nothing. WebKit tells these to its
+   navigation delegate's private `_webView:renderingProgressDidChange:`
+   once asked by its private `_setObservedRenderingProgressEvents:`, which
+   the pane reaches by key-value coding only where the web view responds
+   to it, as `LetterPrint` reaches `setShouldPrintBackgrounds:`. Where it
+   does not, the cover lifts at the end of the document instead
+   (`didFinish`).
+4. *Never longer than half a second* (`PaneCover.limit`): a timer from each
+   tap lifts it then, whatever WebKit has said, and writes "pane: cover
+   lifted by its limit" in the connection log; the timer of an earlier tap
+   lifts nothing.
+
+**What it reverses.** B-098's "For a frame, it is left as it is", and its
+"Still left as it is" of 2026-10-25.
+
+**Not changed.** The header at the tap (B-127), the "Loading…" page and
+the letter's page after it, the list's selection, the stack.
+
+**What he sees.** At a tap on a row, the new header over the pane's black,
+then "Loading…" or the conversation, as before; never the letter he left.
+Were WebKit slow to paint, black for up to half a second, then whatever
+the web view has by then. No new words.
+
+**Tests.** `PaneCoverTests`, seven, new. Up at the tap, down at the first
+paint of the document given after it once committed, not at a paint of the
+letter before, of a document from before the tap, or before the commit;
+down once. "Loading…" given and the letter's page given before it painted:
+the cover waits for the page. Each of the four milestones lifts it, alone
+or with others, and the first layout and the other bits do not; the bits,
+the private names and the key that reaches the setter. The limit of the
+last tap lifts it, an earlier tap's does not, and a cover painted first
+is not lifted again by its limit. With no word of the paint, the end of
+the document awaited lifts it, another's does not, and with the word it
+does not; a document with no navigation waits for the limit. A document
+given while the cover was down, or under the tap before, is not waited
+for. And read from the source: the cover over the web view, edge to edge,
+under the words of an empty pane, in the pane's colour and hidden; up
+first in each `show` and in nothing else, not in `loadBody`, `fill`,
+`takeArrivals`, `takeRelated`, `drawAgain` or `focusRow`; down in
+`showEmpty`; every document given by `load`, which tells the cover; the
+commit, the paint by the private name, the end, and the limit with its
+line in the log; the events asked for only where the setter is.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run, then put back and passing, counted as failures in tests: a paint
+before the commit lifting it, 13 in 4; the first document given waited
+for, not the last, 2 in 1; the limit of any tap lifting it, 3 in 1; the
+first layout lifting it, 5 in 1; the end of the document lifting it though
+WebKit tells of its paint, 3 in 1; a tap keeping the document of the tap
+before, 3 in 1; the cover not put up at a tap on a row, read from the
+source, 2 in 1.
+
+The full suite, serially, with B-148 and B-150 beside it: 2,689 tests, 7
+of them this entry's, 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: that no frame of the letter before shows, in a
+  recording at 60 frames a second (the check); whether WebKit on 16.5.1,
+  and on 18, sends these milestones to the private method at all, and
+  when. If it does not, every tap logs "pane: cover lifted by its limit"
+  and shows half a second of black; if it sends them before the layers are
+  on the glass, the letter before could still show for a frame.
+- Mail's own way was not seen; the half second is the app's own.
+- If WebKit has painted nothing in half a second, the cover lifts and the
+  web view shows what it has, which can be the letter before, until it
+  paints.
+- In one tap of 2026-10-25 a frame had the list's selection moved under
+  the old header and body before the pane was told of the tap; the cover
+  goes up at `show`, so such a frame, if it still comes, is not covered.
+- A tap on the pane in the instant the cover is up lands on the cover and
+  does nothing, half a second at most.
+
+## B-150 — FIXED 2026-10-26, not yet seen on the iPad. A finger held on a photo in a letter gave WebKit's menu, with Save to Photos and no Save to Files; it gives Mail's: Quick Look, Save Image, Save to Files, Share and Copy
+
+**Found** in B-122's "Not changed" and "Not covered", the touch and hold
+left as WebKit's (B-067); among the older questions closed on 2026-10-26:
+"close the gaps in our decision tree by copying Apple Mail".
+
+**What Mail does.** A file of a letter touched and held gives Mail's menu:
+Quick Look, Markup and Reply, Save Image, Save to Files, Share and Copy, as
+read from an iPhone on iOS 16 (Apple Community, thread 254539724). Apple's
+iPadOS 18 guide, "Download email attachments in Mail on iPad", names Save
+Image, Save to Files and Share for an attachment held, and Look Up for a
+photo held. Medium confidence; the iPad's menu on iPadOS 18 was not seen.
+A picture from the web is no file of the letter's.
+
+**What it was.** B-122 made a tap on a picture of the letter's own open it
+in Quick Look and left the hold as it was: "Not changed. The touch and
+hold: WebKit's menu with Save to Photos, as before (B-067)". On iPadOS
+16.5.1 that menu, from about 0.35 s, was Share…, Save to Photos, Copy and
+Show Text, with no Save to Files.
+
+**Changed.**
+
+1. *WebKit's menu kept off* (`ConversationDocument.script`): each picture
+   the script wires for a tap, a picture of the letter's own by `cid:` and
+   not in a link, an image map or a button, has `-webkit-touch-callout:
+   none` and `-webkit-user-select: none` on itself, important, which no
+   rule of a letter outranks. A picture from the web, or in a link, is not
+   wired and keeps WebKit's menu.
+2. *The hold, heard on the window* as the lines' touches are (B-095), on
+   every page: a lone finger landing on such a picture and staying within
+   10 px of where it landed for half a second (`bmPictureHold`, UIKit's own
+   for a touch and hold) is posted to `bmPicture` as a tap is, with `hold`
+   and where the finger is in the web view, its place in the page's
+   viewport scaled by a pinch (`visualViewport`). A lift before then, a
+   move of more than 10 px, a second finger or a touch WebKit cancels is no
+   hold; nor a finger that lands on the letter while it still scrolls,
+   within a fifth of a second of its last scroll, as he stops a letter
+   coasting, which UIKit gives to the scroll view and the lines' script
+   takes as no tap (B-095). For that the page's scrolls are heard on every
+   page (`bmScroll`, the lines' own), where they were heard in a stack
+   alone; a scroll the stack's script made itself is none. The lift after
+   a hold stops WebKit's own tap (`preventDefault`), and a click on the
+   picture before the next touch opens nothing, so a hold never opens
+   Quick Look as well.
+3. *The menu* (`holdPicture`): a sheet at the finger, in a popover from the
+   web view, as the Flag and Reply buttons have theirs: Quick Look, Save
+   Image, Save to Files, Share and Copy (`PanePictures.menu`), and a tap
+   outside to close it. For any picture of the letter's own, whatever its
+   size (`PanePictures.opening`, `Tap.isHold`): a hold is never made by
+   chance, as a tap on a logo can be, and WebKit's menu had the logo too.
+   Not while something else is over the pane.
+4. *Each item* downloads the picture as a tap does, by `openAttachment`
+   (B-122, with B-141's last tap), unless the pane has been given something
+   else since the hold, and does what it says with the bytes: Quick Look,
+   full screen; Save Image, into Photos as they came
+   (`PHAssetCreationRequest`), asking to add to Photos only
+   (`requestAuthorization(for: .addOnly)`; the words iOS asks with,
+   `NSPhotoLibraryAddUsageDescription`, have been in Info.plist since
+   B-067: checked), and where Photos will not take them so, as a picture
+   made from them; Save to Files, Files' own sheet for a copy
+   (`UIDocumentPickerViewController(forExporting:asCopy:)`), from the one
+   copy staged as a tap stages it (B-063); Share, the share sheet at the
+   finger; Copy, the bytes on the pasteboard under their kind
+   (`UTType(mimeType:)`), or a picture made from them where the kind is not
+   known. A picture still coming does what the last tap on it asked
+   (`FileTaps`, which keeps the item with the tap).
+5. `llvm-objdump --dylibs-used` on the release build lists Photos.framework
+   and libswiftUniformTypeIdentifiers, which the composer's imports of
+   PhotosUI and UniformTypeIdentifiers bring in already (not compared with
+   a build of master); no linker setting was added.
+
+**What it reverses.** B-122's "Not changed. The touch and hold", and with
+it B-067's Save to Photos as the way to keep a picture of a letter's from
+the letter.
+
+**Not changed.** A tap on a picture (B-122): Quick Look for one large
+enough, nothing for a logo. Pictures from the web and pictures in a link:
+WebKit's menu. A file's row, in the header or among the words: a tap opens
+it, a hold does nothing, where Mail's tile has a menu of its own (noted,
+not built). The share sheet's extension.
+
+**What he sees.** His finger held on a photo in a letter: after half a
+second, a small menu beside it, Quick Look, Save Image, Save to Files,
+Share and Copy. Save Image puts the photo in Photos, the first time after
+iOS asks whether Blackmail may add to his Photos; Save to Files opens
+Files to choose where; Share the share sheet; Copy puts it on the
+clipboard. A tap on the photo opens it, as before. The menu's words are
+Mail's.
+
+**Tests.** `PictureHoldTests`, ten, new. A hold read as the script posts
+it, its place as WebKit or Swift hands numbers over, `hold` false a tap,
+and a hold with no place, a place not a number or not finite, or a `hold`
+of another kind, nothing. The menu, Mail's words in Mail's order, and which
+items put something over the pane. A hold opens the menu for the photo,
+his logo drawn small and a photo not yet come, where a tap opens neither of
+the last two; none for a part the letter lacks, or a letter of the stack
+not come. The last tap on a picture still coming says what it is opened
+for, a second download never started. In node, on the model of the pane's
+page (`ModelPage`, which now lands a finger on an element and keeps each
+picture's style): on a letter's own page a hold of half a second on the
+photo posts once, with the finger's place, its lift stopped and the click
+after it opening nothing, and a tap after that opens it; his logo held
+posts; a picture in a link and one from the web held post nothing; the
+photo and the logo have WebKit's menu and selection kept off, important,
+and the other two not; a lift before the half second is a tap, a move of
+20 px no hold, a move of 8 px a hold; in a stack, a hold names its
+letter's section and opens or closes no letter; a finger put on the photo
+as the letter coasts after a flick, held there, no hold, on a letter's own
+page and in a stack, and a hold once it is still posts. And read from the
+source: the pane sending a hold to `holdPicture` and a tap to
+`openPicture`, the menu at the finger, each item through `openAttachment`
+for that item while the pane still shows what it did, the last tap's
+item done as it lands, Save Image asking to add only, Files' export sheet,
+Share at the finger, and the key in Info.plist; the script's style, its
+half second, the picture under the finger and the page not still
+scrolling, the scrolls heard on every page, the lift stopped and the
+click let pass.
+Changed, as the code they read changed: `PictureTapTests` (three),
+`LastFileTappedTests`, `ExpiryWarningTests`, `AttachmentStoreTests`,
+`PaneNavigationTests` and `LinePressTests`, the last now counting eight
+touch listeners on the window, the lines' four and the picture's four, and
+two `preventDefault`s.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run, then put back and passing, counted as failures in tests: WebKit's
+menu not kept off, 3 in 3; the lift after a hold not stopped, 4 in 4,
+`LinePressTests`' count among them; the click after a hold opening the
+picture as well, 5 in 2; a hold not read as one, 12 in 2; a hold held to a
+tap's bound of size, 3 in 2; a picture still coming done for the first
+tap's item, not the last's, 1 in 1; a hold sent to `openPicture`, 2 in 2;
+the hold taking five seconds, 12 in 4; a finger that moves still taken as
+a hold, 2 in 1; what lands done as Quick Look whatever was chosen, 4 in 4;
+the menu out of Mail's order, 2 in 1. And a hold taken on a letter still
+coasting, 5 in 2; the page's scrolls heard in a stack alone, as before,
+3 in 2.
+
+The full suite, serially, with B-148 and B-149 beside it: 2,689 tests, 10
+of them this entry's, 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: that `-webkit-touch-callout: none` keeps
+  WebKit's menu off a picture on 16.5.1, and on 18; whether WebKit's own
+  long press, at about 0.35 s, starts a selection of the words near the
+  picture or its loupe before the half second; whether a click still comes
+  after a hold that the script's `preventDefault` does not stop.
+- WebKit's drag of a picture: on an iPad a long press can lift a picture
+  to be dragged, and a drag that begins cancels the page's touches
+  (`touchcancel`, which lets the hold go) before the half second: then no
+  menu, or the photo lifting under the finger. The pictures are not kept
+  from dragging (`-webkit-user-drag`), as Mail lets a file be dragged out
+  of a letter; whether the lift comes first was not seen (the check, step
+  2).
+- A finger landing on a letter still scrolling is told by the page's last
+  scroll within a fifth of a second, the lines' rule (B-095); WebKit's
+  scroll events while the letter coasts were not timed on the iPad for a
+  letter on its own (the check, step 10).
+- The menu is a sheet of words at the finger, not Mail's menu with the
+  picture shown large above it: UIKit has no public way to open such a
+  menu at the page's word.
+- Its place under a pinch: from `visualViewport`, not tried.
+- Save Image after he has said Don't Allow: nothing happens, a line in the
+  log only; what Mail does then is not known. A picture Photos will not
+  take as it came is saved as a picture made from it, not in its own
+  format.
+- Mail's Markup and Reply and Look Up are not built.
+- A hold on a picture of a letter in a stack whose body has not come does
+  nothing.
+- A second finger is no hold by the script's own test; the model of the
+  page has one finger, so that is read, not run.

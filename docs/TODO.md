@@ -7143,7 +7143,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       made by the host, sent among the letter's words as Mail on an iPad
       sends one (an HTML part, the PDF, an HTML part), so its row is among
       A's words (B-113) as well as in the header, and "note.txt" of a few
-      hundred bytes, so the letter is over 5 MiB and opened in parts. (B)
+      hundred bytes, so the letter is over 5 MiB and opened in parts. On a
+      build with B-148 the PDF has no row in the header: its one row is
+      the one among A's words, which shows it coming, dimmed with
+      "Loading…" after its name, where the header's row had its spinner.
+      There, in 1 to 4, "the large PDF's row" is that row among A's words
+      and "its spinner" its "Loading…", and in 1 A's header has one row,
+      note.txt's. (B)
       "Re: B-141 files", an hour later, its In-Reply-To and References
       naming A, with a PDF of about 100 KB.
       1. *The round's race:* "Notes", the conversation's row: B open, the
@@ -7175,8 +7181,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *One file tapped twice:* the header on A. Scroll to the large PDF's
       row among A's words, which has no spinner, and tap it; two seconds
       later tap it again, and a third time. The header's row has its
-      spinner throughout. The log has the PDF's part fetched once, and
-      Quick Look comes as that fetch ends, once. As first built, each tap
+      spinner throughout; on a build with B-148, which has no such row,
+      the row among A's words has its "Loading…" throughout. The log has
+      the PDF's part fetched once, and Quick Look comes as that fetch
+      ends, once. As first built, each tap
       fetched it again and Quick Look came after the last. Done. Tap it again: it opens
       again. Done.
       6. *Put back:* the host moves the two UIDs it noted, and only them,
@@ -7743,6 +7751,170 @@ checks below is left as not needed, not open, and none is worth a round.*
       with iPadOS 18 and Mail is at hand: (a) and (b) there, the bars, the
       colours, the 5 pt, and how Mail draws the ">From" line, the flowed
       "> > " line and the fourth level, written down beside 1's and 2's.
+- [ ] **B-148, a PDF among the words listed once.** On the test iPad, the
+      test account only, from a build of the `bm-cm-pane` worktree (branch
+      `copy-pane`) or of the int it is merged into. Nothing is composed,
+      sent, saved, moved or deleted in the app: one of the test accounts
+      is signed in on the owner's phone and new mail rings it. The host
+      makes the letters, each from another address, with a new Message-ID
+      of its own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox, each with its Date
+      as its internal date; it notes each UID from its APPENDUID, and stops
+      if one has none. Three panes unless a step says two; the app's
+      connection log read after each step; the screen recorded at 60
+      frames a second for 2 and 5.
+      1. *The letters,* "B-148 one", "B-148 two", "B-148 end", "B-148
+      three" and "B-148 large": one, and two made as it is, Apple Mail's
+      shape for a PDF among the words, as B-113's
+      check made it (multipart/alternative of the plain words and a
+      multipart/mixed of an HTML part, a PDF of about 300 KB sent inline
+      with no `Content-ID`, and an HTML part after it ending "Sent from my
+      iPad"); end, an HTML part and a PDF attached after it; three, HTML,
+      a PDF, HTML, a second PDF, HTML, and a third PDF after all the words;
+      large, Apple Mail's shape with a PDF of about 6 MB, over 5 MB, so it
+      is opened in part.
+      2. *One:* "Notes" opened, "B-148 one" tapped. From the first frame
+      after the tap to the letter drawn, no file in the header, under the
+      date only the rule; in the body the words before, "Programme.pdf"
+      (or the name the host gave it) and its size in blue on a line of its
+      own, the words after and "Sent from my iPad". In the recording the
+      header's lower rule is at the same height in every frame from the tap
+      to the letter drawn: the height written down. The blue name tapped:
+      the PDF in Quick Look; Done, the letter as it was. Its list row has
+      the paperclip.
+      3. *End:* "B-148 end" tapped: the PDF's row in the header, grey from
+      the tap then blue, as before; none in the body. Its row tapped:
+      Quick Look; Done.
+      4. *Three:* the header has the third PDF's row alone; the first two
+      have their blue rows among the words, where they sat, each opening
+      its own PDF.
+      5. *Large:* "B-148 large" tapped: the log has its BODYSTRUCTURE first
+      and then its words, not the PDF; no file in the header from the tap,
+      and the header's lower rule at the same height in every frame to the
+      letter drawn; the PDF's blue row among the words, tapped: it dims,
+      "Loading…" after its name, from the tap until Quick Look comes, in
+      the recording; the log has the PDF's FETCH, then Quick Look on it;
+      Done, the row as it was, blue, no "Loading…".
+      6. *Forward's question,* on "B-148 one": the Reply button, Forward:
+      Mail's question about its file (B-107) is asked, the PDF being the
+      letter's file still. Cancel at the question, so nothing is begun.
+      7. *Two panes,* 2 and 3 again, then three panes.
+      8. *No connection:* Airplane Mode on, "B-148 two", not opened before,
+      tapped: "This message could not be downloaded." under its header,
+      no file in the header and none in the body (B-148, Not covered).
+      Written down if it is shown whole instead, kept on the iPad. Airplane
+      Mode off, "B-148 two" tapped again: as "one" in 2.
+      9. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash, and deletes
+      in the Trash only the UIDs that move answered. Nothing else was
+      written.
+- [ ] **B-149, the pane covered from the tap to the paint.** On the test
+      iPad, the test account only, from a build of the `bm-cm-pane`
+      worktree (branch `copy-pane`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app. The
+      host makes the letters, each from another address, with a new
+      Message-ID of its own and naming none on the account, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, each
+      with its Date as its internal date; it notes each UID from its
+      APPENDUID, and stops if one has none. Three panes; the screen
+      recorded at 60 frames a second through each step and read frame by
+      frame; the app's connection log read after each step.
+      1. *The letters,* "B-149 colour 1" to "B-149 colour 8": each an HTML
+      letter that is one block of a colour of its own filling the pane,
+      as B-041's check of 2026-10-25 had them, and "B-149 thread 1" and
+      "B-149 thread 2", one conversation, the second's References naming
+      the first, the first a block of one colour and the second of
+      another.
+      2. *Seven taps,* "Notes" opened, then the colour letters tapped one
+      after another, 1.5 s apart. In every frame from each tap until
+      "Loading…" or the letter, the pane under the header is black: never
+      the letter before's colour beside the new selection or under the new
+      header. Written down for each tap: the frames of black before
+      "Loading…" or the letter, at most 30, and any frame with the
+      selection moved and the old letter still under the old header (B-149,
+      Not covered). The log has no "pane: cover lifted by its limit"; any
+      such line written down with its tap, as it means WebKit said nothing
+      of its paint.
+      3. *Quick taps:* four colour letters tapped 0.2 s apart: no frame of
+      any letter but the last's under the header; the pane ends on the
+      last.
+      4. *A conversation:* "B-149 thread 2" tapped, its conversation in the
+      pane; then "B-149 thread 1"'s line tapped open: the stack stays on
+      the screen, no black over it, the letter's body coming into its
+      place as before.
+      5. *After a launch:* the app ended from the app switcher and opened
+      again, "Notes", the first colour letter tapped: black under its
+      header, then "Loading…" or the letter, as in 2.
+      6. *No connection:* Airplane Mode on, a colour letter not opened in
+      this launch tapped: black, then "Loading…" within half a second,
+      then "This message could not be downloaded." if it is not kept on
+      the iPad. Airplane Mode off.
+      7. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash, and deletes
+      in the Trash only the UIDs that move answered. Nothing else was
+      written.
+- [ ] **B-150, Mail's menu on a photo held.** On the test iPad, the test
+      account only, from a build of the `bm-cm-pane` worktree (branch
+      `copy-pane`) or of the int it is merged into. Nothing is composed,
+      sent, saved as a draft, moved or deleted in the app. The host makes
+      the letters, each from another address, with a new Message-ID of its
+      own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox, each with its Date
+      as its internal date; it notes each UID from its APPENDUID, and stops
+      if one has none. The test iPad's Photos may be used (B-067). Three
+      panes unless a step says two; holds timed from the screen recording.
+      1. *The letters,* "B-150 photo": an HTML letter with words, a JPEG
+      photo of about 1 MB shown among them by `cid:` as an iPhone sends
+      one, a picture from the web, the same photo inside a link to a web
+      page, and the account's signature logo by `cid:`, with words enough
+      for the letter to scroll twice the pane's height (10); and "B-150
+      thread 1" and "B-150 thread 2", one conversation, the second with a
+      photo by `cid:`.
+      2. *The hold:* "B-150 photo" opened, a finger held on the photo for
+      about 0.6 s: a menu beside the finger, Quick Look, Save Image, Save
+      to Files, Share, Copy, and none of WebKit's (no Save to Photos, no
+      Show Text); no Quick Look under it or after the finger lifts. Written
+      down: whether words near the photo were selected, or the loupe came,
+      before the menu, and whether the photo lifted under the finger to be
+      dragged, with no menu after it (B-150, Not covered). A tap outside:
+      the menu goes, nothing done.
+      3. *Quick Look:* held again, Quick Look: the photo full screen; Done,
+      the letter as it was.
+      4. *Save Image:* held again, Save Image. The first time, iOS asks to
+      add to Photos: Allow. The photo in Photos, its size and kind as the
+      host made it (Photos' info), written down.
+      5. *Save to Files:* held again, Save to Files: Files' sheet; On My
+      iPad, Save; the file there under its name. Then deleted in Files.
+      6. *Share:* held again, Share: the share sheet beside the photo;
+      closed with nothing chosen.
+      7. *Copy:* held again, Copy; in Notes, if Notes is on the test iPad, a
+      new note, Paste: the photo. The note deleted. Without Notes, written
+      down as not tried.
+      8. *A tap and a short press:* a tap on the photo: Quick Look, as
+      before; Done. A press of about 0.3 s: Quick Look, no menu.
+      9. *The others:* the logo held: the menu (any picture of the letter's
+      own); the logo tapped: nothing, as before. The picture from the web
+      held: WebKit's menu as before (Save to Photos among it), tapped:
+      nothing. The photo in the link held: WebKit's menu for the link,
+      closed with a tap outside. Tapped: Safari opens at the page at once,
+      with no "Open this link?" (B-145): back to the app with the iPad's
+      own back link, the letter as it was.
+      10. *Moving:* a finger landing on the photo and dragging the letter:
+      it scrolls, no menu. A flick of the letter, then a finger put on the
+      photo as it coasts, to stop it, and held there a second: the letter
+      stops, no menu; lifted, and held again on the still photo: the menu.
+      Written down if the first hold gave the menu. A pinch on it: the
+      letter zooms, no menu; then a hold on the zoomed photo: the menu by
+      the finger, written down where.
+      11. *A conversation:* "B-150 thread 2" opened, its photo held: the
+      menu; Quick Look: that letter's photo. Done.
+      12. *Two panes,* 2 and 3 again, then three panes.
+      13. *Put back:* the photo saved in 4 deleted from Photos and from
+      Recently Deleted, or left as the owner prefers; Files as found;
+      "Notes" left, the Inbox at its top. The host moves the UIDs it
+      noted, and only them, from "Notes" to the Trash, and deletes in the
+      Trash only the UIDs that move answered. Nothing else was written to
+      the account.
 
 ## Blocked on the owner
 
@@ -7901,8 +8073,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       printed, WebKit lightens a sender's light colours, small grey print
       all but gone. As built, Mail's light print (the default), or the
       sender's backgrounds printed.
-- [ ] **A PDF's two rows** (B-113), one in the header and one among the
+- [x] **A PDF's two rows** (B-113), one in the header and one among the
       words: both (the default), or one.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-148.*
 - [x] **Go to Date with Organize by Thread on** (B-117): a jump lands on
       the row that holds the day's first letter; when that letter was
       answered, the row is its conversation's, placed by its newest letter,
@@ -8052,7 +8225,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       install, now or never): fetching unread mail ahead for reading with
       no connection; keeping more than one page of each folder; searching
       with no connection. As built (none of them, the default), or which.
-- [ ] **One frame of the letter before** (B-098): at a tap from letter to
+- [x] **One frame of the letter before** (B-098): at a tap from letter to
       letter, the letter he left stays beside the new selection for a frame
       or two, 17 to 33 ms, the new header over it in the last, before
       "Loading…" comes, in 3 taps of 7 on the test iPad 2026-10-25 (5 of 7
@@ -8060,6 +8233,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       for the first letter after a launch. As built (the default), or a
       cover over the pane from the tap, lifted once WebKit has painted
       "Loading…", which would hide the letter if it ever failed to lift.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-149.*
 - [ ] **Trash for letters only on the iPad** (B-144): in the Outbox, and
       for the letters kept on the iPad at the top of Drafts, Edit mode's
       third button says "Trash" in the bar's blue, the ruling's word

@@ -35,6 +35,11 @@ import Foundation
 /// already, closed and opened again, takes a number: the header stays
 /// where it was, and so does what he tapped.
 ///
+/// What a file is opened for goes with the last tap on it (B-150): Quick
+/// Look, for a tap, or the item he chose in a held picture's menu, Save
+/// Image say. A picture tapped and then held, its download still running,
+/// is saved as it lands, and not shown.
+///
 /// Out of the controller, which is UIKit and does not build on the host,
 /// for the reason `StackFocus` is.
 struct FileTaps: Equatable {
@@ -53,18 +58,30 @@ struct FileTaps: Equatable {
     /// any.
     private(set) var lastFileTapped = 0
 
-    /// The downloads running, each with the number of the last tap on its
-    /// file.
-    private var running: [File: Int] = [:]
+    /// A download running: the number of the last tap on its file, and
+    /// what that tap opens it for.
+    private struct Running: Equatable {
+        let tap: Int
+        let item: PanePictures.Item
+    }
 
-    /// `file` tapped: true when its download is to start; false when it is
-    /// running already, and opens it as it lands now that this tap is the
-    /// last.
-    mutating func tapped(_ file: File) -> Bool {
+    /// The downloads running, by their files.
+    private var running: [File: Running] = [:]
+
+    /// `file` tapped, for `item`: true when its download is to start; false
+    /// when it is running already, and opens it as it lands, for `item`, now
+    /// that this tap is the last.
+    mutating func tapped(_ file: File, for item: PanePictures.Item = .quickLook) -> Bool {
         lastFileTapped += 1
         let starts = running[file] == nil
-        running[file] = lastFileTapped
+        running[file] = Running(tap: lastFileTapped, item: item)
         return starts
+    }
+
+    /// What `file`, landing, is opened for: what the last tap on it asked;
+    /// nil when it is not running.
+    func item(of file: File) -> PanePictures.Item? {
+        running[file]?.item
     }
 
     /// The letter `id` opened by its line, the header on `headerWasOn`
@@ -80,7 +97,7 @@ struct FileTaps: Equatable {
     /// tap was on it, and no other letter has been opened by its line
     /// since.
     func opens(_ file: File) -> Bool {
-        running[file] == lastFileTapped
+        running[file]?.tap == lastFileTapped
     }
 
     /// `file`'s download has ended, however: a tap on it after this

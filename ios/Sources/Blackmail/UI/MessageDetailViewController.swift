@@ -6,6 +6,8 @@
 import UIKit
 import WebKit
 import QuickLook
+import Photos
+import UniformTypeIdentifiers
 
 /// The right column. Never navigates — it only ever swaps content, so nothing
 /// in it moves between one message and the next.
@@ -89,9 +91,21 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// while no other letter of the conversation has been opened by its
     /// line since, and which are coming (`FileTaps`, B-141).
     private var fileTaps = FileTaps()
+    /// Where the finger was held on a picture, in the web view, for the
+    /// share sheet its menu's Share puts up there (B-150).
+    private var pictureSpot = CGRect.zero
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
+    /// Over the web view, in the pane's own colour, from a tap on another
+    /// letter until WebKit has painted what goes in its place, half a
+    /// second at most (`PaneCover`, B-149): no frame of the letter he left
+    /// under the new letter's header.
+    private let cover = UIView()
+    private var paneCover = PaneCover()
+    /// Whether WebKit tells the pane what it has painted (`PaneCover`):
+    /// asked for by its private setter, where the web view has it.
+    private let painting: Bool
     private let placeholder = UILabel()
     private var actionItems: [Theme.ToolbarAction: UIBarButtonItem] = [:]
     /// Answers the `cid:` images inside whatever message is on screen.
@@ -152,6 +166,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             WKUserScript(source: ConversationDocument.script, injectionTime: .atDocumentEnd,
                          forMainFrameOnly: true, in: .defaultClient))
         self.webView = WKWebView(frame: .zero, configuration: config)
+        // What WebKit has painted, told to `renderingProgressDidChange`,
+        // for the cover at a tap (B-149). Private, by its name, and only
+        // where the web view has the setter; with none, the cover lifts at
+        // the document's end, or at its limit.
+        let painting = webView.responds(to: NSSelectorFromString(PaneCover.setter))
+        if painting { webView.setValue(NSNumber(value: PaneCover.painted), forKey: PaneCover.key) }
+        self.painting = painting
 
         super.init(nibName: nil, bundle: nil)
 
@@ -185,8 +206,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         placeholder.textAlignment = .center
         placeholder.translatesAutoresizingMaskIntoConstraints = false
 
+        // The pane's own colour, as the web view's is; taking the touches
+        // that land on it, so nothing of the letter hidden under it is
+        // tapped.
+        cover.backgroundColor = Theme.canvas
+        cover.isHidden = true
+        cover.translatesAutoresizingMaskIntoConstraints = false
+
         view.addSubview(header)
         view.addSubview(webView)
+        view.addSubview(cover)
         view.addSubview(placeholder)
 
         NSLayoutConstraint.activate([
@@ -198,6 +227,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            cover.topAnchor.constraint(equalTo: webView.topAnchor),
+            cover.leadingAnchor.constraint(equalTo: webView.leadingAnchor),
+            cover.trailingAnchor.constraint(equalTo: webView.trailingAnchor),
+            cover.bottomAnchor.constraint(equalTo: webView.bottomAnchor),
 
             placeholder.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             placeholder.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -244,6 +278,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// world (`ConversationDocument.Dates`).
     private func run(_ dates: ConversationDocument.Dates) {
         webView.callAsyncJavaScript(ConversationDocument.Dates.script, arguments: dates.arguments,
+                                    in: nil, in: .defaultClient)
+    }
+
+    /// A file's row among the words shown coming, or as it was, by script,
+    /// in the app's content world (`BodyFiles.Busy`, B-148).
+    private func run(_ busy: BodyFiles.Busy) {
+        webView.callAsyncJavaScript(BodyFiles.Busy.script, arguments: busy.arguments,
                                     in: nil, in: .defaultClient)
     }
 
@@ -296,6 +337,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     func showEmpty() {
         loads.supersede()
+        liftCover()
         summary = nil
         message = nil
         loaded = [:]
@@ -354,6 +396,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     func show(summary: MessageSummary) {
+        coverPane()
         self.summary = summary
         message = nil
         loaded = [:]
@@ -446,6 +489,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// date, and the letter the stack opens at is the one it would have
     /// opened at without them, one line below the top of the pane.
     func show(thread: MessageThread, completing: UInt64?) {
+        coverPane()
         summary = thread.newest
         message = nil
         loaded = [:]
@@ -602,10 +646,51 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
              as: .conversation(entries))
     }
 
-    /// Gives the web view a document, and `document` what it holds.
+    /// Gives the web view a document, and `document` what it holds; and,
+    /// while the cover is up, the cover the document to wait for.
     private func load(_ html: String, as content: PaneDocument.Content) {
         let navigation = webView.loadHTMLString(html, baseURL: nil)
         document.loaded(content, navigation: navigation.map(ObjectIdentifier.init))
+        paneCover.loaded(navigation.map(ObjectIdentifier.init))
+    }
+
+    /// A tap on another letter (B-149): the cover up over the web view in
+    /// the frame the header changes, until WebKit has painted the document
+    /// the pane gives it now, "Loading…" or the conversation's lines, or
+    /// the letter itself if it comes first, and at most `PaneCover.limit`,
+    /// so a letter is never left hidden. Called first in `show`, before the
+    /// header is given the letter; never for a letter opened by its line in
+    /// a conversation, which goes into the page already there. Lifted by
+    /// its limit, it says so in the connection log, as WebKit's word of its
+    /// paint should have lifted it first.
+    private func coverPane() {
+        let tap = paneCover.tapped()
+        cover.isHidden = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + PaneCover.limit) { [weak self] in
+            guard let self, self.paneCover.limitPassed(tap) else { return }
+            self.cover.isHidden = true
+            Diagnostics.log(.note, "pane: cover lifted by its limit")
+        }
+    }
+
+    private func liftCover() {
+        paneCover.lift()
+        cover.isHidden = true
+    }
+
+    /// WebKit has committed a document: the one the cover waits for, if it
+    /// is the one the pane gave it last.
+    func webView(_ w: WKWebView, didCommit navigation: WKNavigation!) {
+        guard let navigation else { return }
+        paneCover.committed(ObjectIdentifier(navigation))
+    }
+
+    /// WebKit's word of what it has painted (`PaneCover.callback`), private
+    /// and asked for in `init`: the cover lifts at the first paint of the
+    /// document it waits for.
+    @objc(_webView:renderingProgressDidChange:)
+    func webView(_ w: WKWebView, renderingProgressDidChange events: UInt) {
+        if paneCover.rendered(events) { cover.isHidden = true }
     }
 
     /// Fetches one letter of the conversation and puts it in its section.
@@ -806,7 +891,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     func userContentController(_ controller: WKUserContentController,
                                didReceive scriptMessage: WKScriptMessage) {
         if scriptMessage.name == PanePictures.handler {
-            if let tap = PanePictures.Tap(scriptMessage.body) { openPicture(tap) }
+            if let tap = PanePictures.Tap(scriptMessage.body) {
+                if tap.isHold { holdPicture(tap) } else { openPicture(tap) }
+            }
             return
         }
         guard scriptMessage.name == "bmLetter",
@@ -939,7 +1026,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// row among the words of another letter of the conversation, or a
     /// picture tapped in one, or in his from Sent Mail (B-122). The
     /// header's row shows it busy only when the header shows its letter;
-    /// a picture the body shows by `cid:` has no row there.
+    /// a picture the body shows by `cid:` has no row there. Its row among
+    /// the words, if it has one, shows it coming whatever the header shows
+    /// (`BodyFiles.Busy`, B-148).
     ///
     /// Shown only if the pane still shows what it was opened from when the
     /// file has come (`PaneLoads.stillShows`): a file, or a picture, whose
@@ -955,15 +1044,25 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// `defer`, and the last one keeps its spinner until it opens. A file
     /// tapped again while it is still coming starts no second download:
     /// the one running opens it as it lands.
-    private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
+    ///
+    /// `item` is what it is opened for: Quick Look, or an item of the menu
+    /// of a picture held (`holdPicture`, B-150), Save Image, Save to Files,
+    /// Share or Copy, each done with the bytes as they land by the same
+    /// rules, and what the last tap on it asked for wins.
+    private func openAttachment(_ attachment: Attachment, of letter: Message? = nil,
+                                for item: PanePictures.Item = .quickLook) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
+        // And its row among the words: the only row of a file drawn there
+        // since B-148, and of any file of a letter the header is not on.
+        run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))
         let shown = loads.shown
         let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown)
         // Already coming: this tap makes it the last again, and its
-        // download, running, opens it (B-141). A second behind it on the
-        // one connection made him wait for both.
-        guard fileTaps.tapped(file) else { return }
+        // download, running, opens it (B-141), for what this tap asked
+        // (B-150). A second behind it on the one connection made him wait
+        // for both.
+        guard fileTaps.tapped(file, for: item) else { return }
         // Counted at the tap, not once the task runs, so that no check of
         // the watch comes between (`isOpeningFile`). A file let go for a
         // later one is still counted until its download ends: the warning
@@ -980,6 +1079,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 filesOpening -= 1
                 fileTaps.ended(file)
                 if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }
+                // Only on the page it was shown coming on: on a page given
+                // since, the same row can be coming for a tap of its own.
+                if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) }
             }
             do {
                 let data = try await repository.fetchAttachmentData(
@@ -989,6 +1091,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // Another file tapped since, or another letter opened by
                 // its line: that is what he wants now (B-141).
                 guard fileTaps.opens(file) else { return }
+                // What the last tap on it asked for (B-150). Save Image and
+                // Copy put nothing over the pane, and need no file.
+                let use = fileTaps.item(of: file) ?? item
+                if !use.presents {
+                    keep(data, of: attachment, by: use)
+                    return
+                }
                 // A file that comes while a preview, or anything else, is up
                 // over the pane could not be shown: UIKit presents nothing
                 // over a controller already presenting. It is not written
@@ -1004,15 +1113,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // URL synchronously the moment it appears, and handing it one
                 // that is not on disk yet shows "No preview available"
                 // permanently rather than retrying.
-                previewURL = try AttachmentStore.write(data, named: attachment.filename)
+                let url = try AttachmentStore.write(data, named: attachment.filename)
+                previewURL = url
 
-                let preview = QLPreviewController()
-                preview.dataSource = self
-                // Full screen, not a sheet. A scanned letter or a receipt is
-                // the thing he is trying to read, and the whole point of the
-                // iPad is that it can be as large as the glass.
-                preview.modalPresentationStyle = .fullScreen
-                present(preview, animated: true)
+                switch use {
+                case .saveToFiles:
+                    // Files' own sheet, which copies it where he picks.
+                    present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true)
+                case .share:
+                    let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                    share.popoverPresentationController?.sourceView = webView
+                    share.popoverPresentationController?.sourceRect = pictureSpot
+                    present(share, animated: true)
+                case .quickLook, .saveImage, .copy:
+                    let preview = QLPreviewController()
+                    preview.dataSource = self
+                    // Full screen, not a sheet. A scanned letter or a receipt is
+                    // the thing he is trying to read, and the whole point of the
+                    // iPad is that it can be as large as the glass.
+                    preview.modalPresentationStyle = .fullScreen
+                    present(preview, animated: true)
+                }
             } catch {
                 // Nor is a failure said over another letter, or for a file
                 // he has tapped past.
@@ -1064,9 +1185,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// A document has finished loading: his letters from Sent Mail and the
     /// conversation's bodies that came before it had, go in now. See
-    /// `PaneDocument`.
+    /// `PaneDocument`. And the cover lifts, if it waits for this one and
+    /// WebKit tells nothing of its paint (`PaneCover.finished`, B-149).
     func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
         guard let navigation else { return }
+        if paneCover.finished(ObjectIdentifier(navigation), painting: painting) { cover.isHidden = true }
         let finished = document.didFinish(ObjectIdentifier(navigation))
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
@@ -1178,6 +1301,76 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                                  stack: loaded, his: { related.letter(inSection: $0) })
         else { return }
         openAttachment(opening.part, of: opening.letter)
+    }
+
+    /// A finger held on a picture of a letter's own (B-150): Mail's menu
+    /// for a file of the letter's, Quick Look, Save Image, Save to Files,
+    /// Share and Copy (`PanePictures.menu`), as a sheet at the finger, as
+    /// the Flag and Reply buttons have theirs, where WebKit's own menu was,
+    /// with Save to Photos and no Save to Files. The picture is the one a
+    /// tap would open, any size; each item downloads it as a tap does
+    /// (`openAttachment`), unless the pane has been given something else
+    /// meanwhile, and does with it what it says. A tap outside closes it
+    /// with nothing done.
+    private func holdPicture(_ tap: PanePictures.Tap) {
+        guard presentedViewController == nil,
+              let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,
+                                                 stack: loaded, his: { related.letter(inSection: $0) })
+        else { return }
+        let bounds = webView.bounds
+        let spot = CGRect(x: min(max(CGFloat(tap.x), 0), bounds.width) - 1,
+                          y: min(max(CGFloat(tap.y), 0), bounds.height) - 1, width: 2, height: 2)
+        let shown = loads.shown
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        sheet.popoverPresentationController?.sourceView = webView
+        sheet.popoverPresentationController?.sourceRect = spot
+        for item in PanePictures.menu {
+            sheet.addAction(UIAlertAction(title: item.title, style: .default) { [weak self] _ in
+                guard let self, self.loads.stillShows(shown) else { return }
+                self.pictureSpot = spot
+                self.openAttachment(opening.part, of: opening.letter, for: item)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    /// Save Image and Copy, with the picture's bytes (B-150). Into Photos
+    /// as they came, as Mail's Save Image keeps a picture as it is, asking
+    /// to add to Photos alone (`NSPhotoLibraryAddUsageDescription`, which
+    /// iOS asks him for once, B-067), and as a picture made from them where
+    /// Photos will not take them as they are. Onto the pasteboard as the
+    /// kind of picture they are, or as a picture made from them where the
+    /// kind is not known. Nothing is said: the save is iOS's own, and a
+    /// save he has not allowed is noted in the log alone.
+    private func keep(_ data: Data, of picture: Attachment, by use: PanePictures.Item) {
+        switch use {
+        case .copy:
+            if let kind = UTType(mimeType: picture.mimeType), kind.conforms(to: .image) {
+                UIPasteboard.general.setData(data, forPasteboardType: kind.identifier)
+            } else if let image = UIImage(data: data) {
+                UIPasteboard.general.image = image
+            }
+        case .saveImage:
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { allowed in
+                guard allowed == .authorized else {
+                    Diagnostics.log(.note, "photos: save not allowed \(allowed.rawValue)")
+                    return
+                }
+                PHPhotoLibrary.shared().performChanges({
+                    PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: nil)
+                }) { saved, _ in
+                    guard !saved, let image = UIImage(data: data) else { return }
+                    PHPhotoLibrary.shared().performChanges({
+                        _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
+                    }) { saved, _ in
+                        if !saved { Diagnostics.log(.note, "photos: save failed") }
+                    }
+                }
+            }
+        case .quickLook, .saveToFiles, .share:
+            break
+        }
     }
 
     /// A tapped link opens at once, in Safari or the app that claims it, as

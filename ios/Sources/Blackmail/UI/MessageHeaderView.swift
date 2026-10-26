@@ -192,7 +192,10 @@ final class MessageHeaderView: UIView {
         // letter by the `cid:` resolver, and a row for each would list the
         // signature's logo on every message. See Attachment.isShownInBody:
         // any other part sent inline, as Apple Mail sends a PDF, is a file.
-        let listed = m.listedAttachments
+        // But for a file drawn among the words, which has its row there
+        // and none here, as Mail lists it once (`BodyFiles.inHeader`,
+        // B-148).
+        let listed = BodyFiles.inHeader(m)
         for row in attachmentStack.arrangedSubviews { row.removeFromSuperview() }
         attachmentButtons.removeAll()
         attachmentStack.isHidden = listed.isEmpty

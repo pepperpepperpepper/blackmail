@@ -293,15 +293,20 @@ final class AttachmentStoreTests: XCTestCase {
     /// last copy removed as the next is written, and there alone, then
     /// presented. Never as the preview closes: Print reads the file after
     /// its panel has closed. Nothing hears the preview close, and the item
-    /// is never force-unwrapped.
+    /// is never force-unwrapped. The same one copy for Save to Files and
+    /// Share from a held picture's menu (B-150).
     func testThePaneKeepsOneCopyOfAnOpenedFileAndRemovesItOnlyAsTheNextIsWritten() throws {
         let code = try source("MessageDetailViewController.swift")
         inOrder(["guard presentedViewController == nil else { return }",
                  "if let shown = previewURL { AttachmentStore.removeStaged(shown) }",
                  "previewURL = nil",
-                 "previewURL = try AttachmentStore.write(data, named: attachment.filename)",
+                 "let url = try AttachmentStore.write(data, named: attachment.filename)",
+                 "previewURL = url",
+                 "UIDocumentPickerViewController(forExporting: [url], asCopy: true)",
+                 "UIActivityViewController(activityItems: [url], applicationActivities: nil)",
                  "preview.dataSource = self",
                  "present(preview, animated: true)"], in: code)
+        XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "previewURL = nil").count - 1, 1)
         XCTAssertTrue(code.contains("extension MessageDetailViewController: QLPreviewControllerDataSource {"))

@@ -150,7 +150,8 @@ final class PaneNavigationTests: XCTestCase {
                                   + "{ $0.id == section }) else { return } openAttachment(file, of: m) }",
                               in: code))
         XCTAssertNotNil(place(of: "private func openAttachment(_ attachment: Attachment, of letter: "
-                                  + "Message? = nil) { guard let m = letter ?? message else { return } "
+                                  + "Message? = nil, for item: PanePictures.Item = .quickLook) { "
+                                  + "guard let m = letter ?? message else { return } "
                                   + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }",
                               in: code))
         XCTAssertNotNil(place(of: "if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }",

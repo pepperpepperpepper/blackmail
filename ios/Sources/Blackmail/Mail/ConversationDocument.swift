@@ -507,6 +507,39 @@ enum ConversationDocument {
     /// child, so a letter's markup cannot name another letter's. The
     /// wiring never throws, so nothing a letter holds stops a body going in
     /// or the stack's lines being wired.
+    ///
+    /// **A picture held** (B-150). Each picture wired for a tap has
+    /// WebKit's own menu kept off it, `-webkit-touch-callout: none`, and
+    /// its selection, both on the picture itself and important, which no
+    /// rule of a letter's outranks. A finger that lands on it alone and
+    /// stays within 10 px of where it landed for `bmPictureHold`, half a
+    /// second, UIKit's own for a touch and hold, is a hold: the script
+    /// tells the pane through `bmPicture` as of a tap, with `hold` and
+    /// where the finger is in the web view, its place in the page's
+    /// viewport scaled by a pinch (`visualViewport`), and the pane puts up
+    /// Mail's menu there (`PanePictures.menu`). The lift after a hold stops
+    /// WebKit's own tap by its `preventDefault`, and a click on the picture
+    /// before the next touch opens nothing, so a hold never opens Quick
+    /// Look as well. A second finger, a finger that moves, a lift before
+    /// the half second, or a touch WebKit cancels is no hold; nor a finger
+    /// that lands on a page still scrolling, as on a line, which only
+    /// stops it, as UIKit gives such a touch to the scroll view: the
+    /// page's scrolls are heard on every page for it (`bmScroll`), and a
+    /// scroll the stack's script made itself is none. The touches are
+    /// heard on the window, as the lines' are, on every page. A picture
+    /// from the web, in a link, an image map or a button is not wired, and
+    /// keeps WebKit's menu.
+    ///
+    /// **A file's row coming** (B-148). While the pane downloads a file,
+    /// `bmFileBusy`, called through `callAsyncJavaScript` (`BodyFiles.Busy`),
+    /// dims each link on the page to it, the row the pane made of the
+    /// file's mark among the words, important, and puts the pane's word
+    /// for something on its way after its name; once the file has opened
+    /// or been let go, it takes both off again. Each mark it put in is
+    /// kept, so it takes off its own and nothing of the letter's, and a
+    /// file shown coming twice has one mark. On any page, in a letter's own
+    /// or a body `bmFill` put in; a link with no row on the page changes
+    /// nothing, and it never throws.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -726,6 +759,27 @@ enum ConversationDocument {
       }
       return true;
     }
+    var bmComing = [];
+    function bmFileBusy(link, busy, words) {
+      try {
+        for (var i = bmComing.length - 1; i >= 0; i--) {
+          if (bmComing[i].link !== link) continue;
+          var was = bmComing.splice(i, 1)[0];
+          if (was.mark.parentNode) was.mark.parentNode.removeChild(was.mark);
+          was.row.style.removeProperty('opacity');
+        }
+        if (!busy) return;
+        var links = document.querySelectorAll('a');
+        for (var j = 0; j < links.length; j++) {
+          if (links[j].getAttribute('href') !== link) continue;
+          var mark = document.createElement('span');
+          mark.textContent = ' ' + words;
+          links[j].appendChild(mark);
+          links[j].style.setProperty('opacity', '0.5', 'important');
+          bmComing.push({ link: link, row: links[j], mark: mark });
+        }
+      } catch (e) {}
+    }
     function bmPictureIn(node) {
       for (; node && node.parentNode; node = node.parentNode) {
         if (node.parentNode === document.body) {
@@ -749,6 +803,7 @@ enum ConversationDocument {
     function bmPictureTapped(event) {
       var img = event.currentTarget;
       if (!bmOwnPicture(img)) return;
+      if (bmPictureHeld === img) { bmPictureHeld = null; return; }
       if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
       var drawn = img.getBoundingClientRect();
       window.webkit.messageHandlers.bmPicture.postMessage({
@@ -760,12 +815,64 @@ enum ConversationDocument {
       try {
         var pictures = root.querySelectorAll('img');
         for (var i = 0; i < pictures.length; i++) {
-          if (bmOwnPicture(pictures[i])) pictures[i].addEventListener('click', bmPictureTapped);
+          if (!bmOwnPicture(pictures[i])) continue;
+          pictures[i].addEventListener('click', bmPictureTapped);
+          pictures[i].style.setProperty('-webkit-touch-callout', 'none', 'important');
+          pictures[i].style.setProperty('-webkit-user-select', 'none', 'important');
         }
       } catch (e) {}
     }
+    var bmPictureHolding = null;
+    var bmPictureHeld = null;
+    var bmPictureHold = 500;
+    function bmPictureLetGo() {
+      if (!bmPictureHolding) return;
+      clearTimeout(bmPictureHolding.timer);
+      bmPictureHolding = null;
+    }
+    function bmPictureDown(event) {
+      bmPictureLetGo();
+      bmPictureHeld = null;
+      if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return;
+      var img = event.target;
+      if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) return;
+      var touch = event.touches[0];
+      var holding = { img: img, x: touch.clientX, y: touch.clientY };
+      holding.timer = setTimeout(function () { bmPictureHeldDown(holding); }, bmPictureHold);
+      bmPictureHolding = holding;
+    }
+    function bmPictureHeldDown(holding) {
+      if (bmPictureHolding !== holding) return;
+      bmPictureHolding = null;
+      var img = holding.img;
+      bmPictureHeld = img;
+      if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
+      var drawn = img.getBoundingClientRect();
+      var view = window.visualViewport;
+      var scale = view && view.scale > 0 ? view.scale : 1;
+      window.webkit.messageHandlers.bmPicture.postMessage({
+        src: bmPictureSrc(img), section: bmPictureIn(img),
+        width: img.naturalWidth, height: img.naturalHeight,
+        drawnWidth: drawn.width, drawnHeight: drawn.height, hold: true,
+        x: (holding.x - (view ? view.offsetLeft : 0)) * scale,
+        y: (holding.y - (view ? view.offsetTop : 0)) * scale });
+    }
+    function bmPictureMove(event) {
+      if (bmPictureHolding && (event.touches.length !== 1 || !bmStill(bmPictureHolding, event.touches[0]))) {
+        bmPictureLetGo();
+      }
+    }
+    function bmPictureUp(event) {
+      bmPictureLetGo();
+      if (bmPictureHeld && event.touches.length === 0) event.preventDefault();
+    }
     (function () {
       if (document.body) bmWirePictures(document.body);
+      window.addEventListener('scroll', bmScroll, { passive: true });
+      window.addEventListener('touchstart', bmPictureDown, { capture: true, passive: true });
+      window.addEventListener('touchmove', bmPictureMove, { capture: true, passive: true });
+      window.addEventListener('touchend', bmPictureUp, { capture: true, passive: false });
+      window.addEventListener('touchcancel', bmPictureLetGo, { capture: true, passive: true });
     })();
     (function () {
       if (document.getElementById('bm')) return;
@@ -788,7 +895,6 @@ enum ConversationDocument {
       ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (name) {
         window.addEventListener(name, bmFinger, { capture: true, passive: true });
       });
-      window.addEventListener('scroll', bmScroll, { passive: true });
       window.addEventListener('load', bmKeep);
       bmKeep();
     })();

@@ -881,6 +881,13 @@ final class MailShelf: @unchecked Sendable {
         var size: Int64?
         var contentID: String?
         var inline: Bool
+        /// `Attachment.isAmongWords` (B-148): written only for a file drawn
+        /// among the words, and absent for every other and in a page kept
+        /// before rows carried it, which reads as not among them. No new
+        /// format: a row kept so lists the file in the header at the tap,
+        /// and the header loses that row when the letter comes, until the
+        /// folder is listed again.
+        var among: Bool?
 
         init(_ attachment: Attachment) {
             id = attachment.id
@@ -889,11 +896,12 @@ final class MailShelf: @unchecked Sendable {
             size = attachment.size
             contentID = attachment.contentID
             inline = attachment.isInline
+            among = attachment.isAmongWords ? true : nil
         }
 
         var attachment: Attachment {
             Attachment(id: id, filename: filename, mimeType: mimeType, size: size,
-                       contentID: contentID, isInline: inline)
+                       contentID: contentID, isInline: inline, isAmongWords: among ?? false)
         }
     }
 }
