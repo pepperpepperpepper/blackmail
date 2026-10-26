@@ -7371,8 +7371,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       top-left "◀ Blackmail": the same letter in the pane, where it was.
       2. *Plain, `www.`:* the same, Safari at `http://www.example.com`.
       3. *Plain, `mailto:`:* the composer opens, To the address with
-      `+b145`, Subject "B-145", as before (B-036). Cancel, then Delete
-      Draft. Nothing sent.
+      `+b145`, Subject "B-145", as before (B-036). Cancel: it closes
+      with nothing asked, nothing in it having changed, and Drafts has
+      nothing new. Nothing sent.
       4. *HTML:* "B-145 HTML", "Example" tapped: Safari at once; back. The
       YouTube address tapped: YouTube, or Safari if it is not installed,
       at once; back.

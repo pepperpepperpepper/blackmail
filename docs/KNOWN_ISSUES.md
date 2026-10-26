@@ -30175,8 +30175,8 @@ the question found in `MessageDetailViewController`;
 test pins where a tap goes, which B-145 leaves as it was, so the code
 B-145 changed does not fail it.
 
-The full suite, serially, on the branch with B-146 and B-147: 2,680
-tests, 20 of them new for the three, 6 skipped, none failing. The release
+The full suite, serially, on the branch with B-146 and B-147: 2,681
+tests, 21 of them new for the three, 6 skipped, none failing. The release
 build for the iPad links.
 
 **Not covered.**
@@ -30187,6 +30187,11 @@ build for the iPad links.
   Mail; iOS asks before a call itself. Not seen. A link of a scheme no app
   claims does nothing, as Open did; a `javascript:` link the parser drops
   with the letter's script off (B-055).
+- Every scheme but `mailto:` opens at once, not `http(s)` alone, as the
+  decision's build note words it: `tel:`, `sms:`, an app's own scheme,
+  `shortcuts:` or `itms-services:`, as Mail opens them. The question was
+  the one pause before a stranger's link opened another app. For
+  DECISIONS.md to say so with this ruling.
 - A link that a universal link claims, YouTube's, opens its app, as
   `open` does by default and Mail does: seen with Open on 2026-10-21
   (B-055's check), not since.
