@@ -738,8 +738,9 @@ final class CompleteThreadsTests: XCTestCase {
     /// one UID SEARCH X-GM-THRID and one UID FETCH of the hits' summaries,
     /// then one FETCH of their previews, and nothing else: no STORE, MOVE,
     /// COPY or APPEND. His reply comes as a row of Sent Mail's, with its few
-    /// words, and the folder's name as the Mailboxes pane has it. Opened, it
-    /// comes from Sent Mail, its body peeked at, nothing marked.
+    /// words, and the folder's name as the Mailboxes pane has it, "Sent",
+    /// Mail's word (B-144). Opened, it comes from Sent Mail, its body peeked
+    /// at, nothing marked.
     func testALookupIsASelectASearchAndAFetchInSentMailAndThePreviews() async throws {
         let uid = roof()
         let repository = makeRepository()
@@ -756,7 +757,11 @@ final class CompleteThreadsTests: XCTestCase {
                       server.log[3].command)
         XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
 
-        XCTAssertEqual(found.folderName, "Sent Mail")
+        XCTAssertEqual(found.folderName, "Sent")
+        let html = ConversationDocument.html(entries: ConversationDocument.stack(of: thread, related: found),
+                                             inset: 20, bodyPointSize: 17, lineHeight: 1.4)
+        XCTAssertTrue(html.contains("<div class=\"bm-found\">Found in Sent</div>"), html)
+        XCTAssertFalse(html.contains("Found in Sent Mail"), html)
         let mine = try XCTUnwrap(found.letters.first)
         XCTAssertEqual(found.letters.count, 1)
         XCTAssertEqual(mine.id, "\(server.uidValidity(of: Server.sent))/\(uid)")
@@ -807,18 +812,19 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertEqual(server.log.map(\.command), [])
     }
 
-    /// The label is built from the folder's name: a server whose `\Sent`
-    /// is called "Sent" says "Found in Sent".
+    /// The label is built from the folder's name as the Mailboxes pane
+    /// shows it, by its role: a server whose `\Sent` is called "Sent Items"
+    /// says "Found in Sent", as Gmail's Sent Mail does (B-144).
     func testTheLabelIsBuiltFromTheSentFoldersName() async throws {
         server.unlistedMailboxes = [Server.sent]
-        server.addFolder("Sent", attributes: ["\\HasNoChildren", "\\Sent"], label: "\\Sent",
+        server.addFolder("Sent Items", attributes: ["\\HasNoChildren", "\\Sent"], label: "\\Sent",
                          validity: 77, firstUID: 10)
-        roof(sentIn: "Sent")
+        roof(sentIn: "Sent Items")
         let repository = makeRepository()
         let (thread, number, besides) = try await inboxConversation(repository)
         server.clearLog()
         let found = await repository.lettersOfHis(inThread: number, besides: besides)
-        XCTAssertEqual(server.log.first?.command, "SELECT \"Sent\"")
+        XCTAssertEqual(server.log.first?.command, "SELECT \"Sent Items\"")
         XCTAssertEqual(found.folderName, "Sent")
         XCTAssertEqual(found.letters.map(\.id), ["77/10"])
         let html = ConversationDocument.html(entries: ConversationDocument.stack(of: thread, related: found),
@@ -939,7 +945,7 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertEqual(repository.rememberedLettersOfHis(inThread: number, besides: besides), first)
         let mine = try XCTUnwrap(first.letters.first?.gmailMessageID)
         XCTAssertEqual(repository.rememberedLettersOfHis(inThread: number, besides: besides.union([mine])),
-                       RelatedLetters(folderName: "Sent Mail", letters: []))
+                       RelatedLetters(folderName: "Sent", letters: []))
         XCTAssertEqual(server.log.map(\.command), [])
 
         clock.advance(by: 600)

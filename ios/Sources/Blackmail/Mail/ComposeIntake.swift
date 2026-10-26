@@ -5,7 +5,7 @@ import Foundation
 /// sheet's own intake (`ShareItems.read`, `ShareItems.Staging`), onto the
 /// disk and into the letter as a row, a row with its name and a spinner
 /// while it comes, and what could not be attached said, in the share
-/// sheet's words.
+/// sheet's words for photos and videos and in Mail's for a file (B-144).
 ///
 /// Out of `ComposeViewController` for the reason `ComposeActions` is: the
 /// controller is UIKit, and the suite runs where there is none.
@@ -236,7 +236,7 @@ final class ComposeIntake {
     private let rows: () -> [DraftAttachment]
     private let landed: (URL, DraftAttachment) -> Void
     private let changed: () -> Void
-    private let tell: (String) -> Void
+    private let tell: (MailAlert) -> Void
     private let staging: (_ room: Int64, _ unnamed: Int, _ moves: Bool) -> ShareItems.Staging
     private let discard: @Sendable (URL) -> Void
     private let limit: Duration
@@ -253,7 +253,7 @@ final class ComposeIntake {
          rows: @escaping () -> [DraftAttachment],
          landed: @escaping (URL, DraftAttachment) -> Void,
          changed: @escaping () -> Void,
-         tell: @escaping (String) -> Void,
+         tell: @escaping (MailAlert) -> Void,
          staging: @escaping (Int64, Int, Bool) -> ShareItems.Staging = ComposeIntake.staging,
          discard: @escaping @Sendable (URL) -> Void = { AttachmentStore.removeStaged($0) },
          bound: Duration = ComposeIntake.bound,
@@ -679,14 +679,14 @@ final class ComposeIntake {
         changed()
         for _ in done { actions.itemLanded(cameShort: words != nil) }
         if let words {
-            Diagnostics.log(.note, "COMPOSE-PICK left out: \(words)")
+            Diagnostics.log(.note, "COMPOSE-PICK left out: \(words.message)")
             tell(words)
         }
         startNext()
     }
 
     /// What is said of `picks` ended together, counted as one.
-    private static func words(for picks: [Pick]) -> String? {
+    private static func words(for picks: [Pick]) -> MailAlert? {
         var pictures = 0, attached = 0, videos = 0, videosAttached = 0, files = 0, filesAttached = 0
         for pick in picks {
             pictures += pick.tally.pictures
@@ -702,35 +702,33 @@ final class ComposeIntake {
 
     /// What is said when something he picked could not be attached: the
     /// share sheet's words for photos and videos (`ShareItems.leftOut`),
-    /// and for any other file "The file could not be attached." when it
-    /// was the one thing picked, "1 file could not be attached." or "N
-    /// files could not be attached." otherwise. Nil when everything came.
+    /// alone, as before; and for any other file, Attach File's, Mail's own
+    /// alert (B-144), "Unable to Attach" over "One or more attachments
+    /// failed to load.", however many. It used to say "The file could not
+    /// be attached.", "1 file could not be attached." or "N files could
+    /// not be attached.". With a file missing among photos or videos
+    /// missing too, which only a Send's or a Save Draft's bound ends
+    /// together, Mail's alert alone, whose words hold for them all: one
+    /// alert, as before. Nil when everything came.
     nonisolated static func words(pictures: Int, attached: Int, videos: Int, videosAttached: Int,
-                                  files: Int, filesAttached: Int) -> String? {
-        let photosMissing = max(0, pictures - attached)
-        let videosMissing = max(0, videos - videosAttached)
-        let filesMissing = max(0, files - filesAttached)
-        guard filesMissing > 0 else {
+                                  files: Int, filesAttached: Int) -> MailAlert? {
+        guard files - filesAttached > 0 else {
             switch ShareItems.leftOut(pictures: pictures, attached: attached, videos: videos,
                                       videosAttached: videosAttached, others: files) {
-            case .line(let words)?, .instead(let words)?: return words
+            case .line(let words)?, .instead(let words)?:
+                return MailAlert(title: nil, message: words, offersSettings: false)
             case nil: return nil
             }
         }
-        func counted(_ count: Int, _ one: String, _ many: String) -> String {
-            count == 1 ? "1 \(one)" : "\(count) \(many)"
-        }
-        if photosMissing == 0, videosMissing == 0 {
-            if files == 1, pictures == 0, videos == 0 { return "The file could not be attached." }
-            return counted(filesMissing, "file", "files") + " could not be attached."
-        }
-        var parts: [String] = []
-        if photosMissing > 0 { parts.append(counted(photosMissing, "photo", "photos")) }
-        if videosMissing > 0 { parts.append(counted(videosMissing, "video", "videos")) }
-        parts.append(counted(filesMissing, "file", "files"))
-        let last = parts.removeLast()
-        return parts.joined(separator: ", ") + " and " + last + " could not be attached."
+        return unableToAttach
     }
+
+    /// Mail's alert for an attachment it could not put in the letter, its
+    /// words read from iOS 18.6's Mail frameworks, not seen on a screen
+    /// (B-144).
+    nonisolated static let unableToAttach = MailAlert(
+        title: "Unable to Attach", message: "One or more attachments failed to load.",
+        offersSettings: false)
 
     /// A file Attach File handed over at `url`, the document picker's copy
     /// in the app's Inbox (B-108): moved into the staging, measured, and

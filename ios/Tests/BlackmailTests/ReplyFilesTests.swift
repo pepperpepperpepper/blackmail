@@ -378,11 +378,14 @@ final class ReplyFilesTests: XCTestCase {
         }
     }
 
-    /// Mail's words for the question and its answers.
+    /// Mail's words for the question and its answers, "Don’t Include" with
+    /// Mail's curly apostrophe (B-144).
     func testTheQuestionIsInMailsWords() {
         XCTAssertEqual(ReplyFiles.question, "Include attachments from original message?")
         XCTAssertEqual(ReplyFiles.include, "Include")
-        XCTAssertEqual(ReplyFiles.dontInclude, "Don't Include")
+        XCTAssertEqual(ReplyFiles.dontInclude, "Don\u{2019}t Include")
+        XCTAssertEqual(Array(ReplyFiles.dontInclude.unicodeScalars)[3].value, 0x2019)
+        XCTAssertFalse(ReplyFiles.dontInclude.contains("'"), "no straight apostrophe")
     }
 }
 
@@ -570,11 +573,13 @@ final class ReplyFilesWiringTests: XCTestCase {
         XCTAssertEqual(count("UIAlertController(title: ReplyFiles.question", in: code), 1)
         // Mail's words are said once, in `ReplyFiles`, and nowhere else.
         let all = try everySource()
-        for words in ["Include attachments from original message?", "\"Don't Include\"",
+        for words in ["Include attachments from original message?", "\"Don\u{2019}t Include\"",
                       "\"Include\""] {
             XCTAssertEqual(all.filter { $0.value.contains(words) }.keys.sorted(),
                            ["Blackmail/Mail/ReplyFiles.swift"], words)
         }
+        // The straight apostrophe's answer is said nowhere (B-144).
+        XCTAssertEqual(all.filter { $0.value.contains("\"Don't Include\"") }.keys.sorted(), [])
     }
 
     /// The pane's Reply and Reply All alone hand the composer the rule,
