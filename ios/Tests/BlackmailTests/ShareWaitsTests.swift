@@ -336,6 +336,40 @@ final class ShareWaitsTests: XCTestCase {
         XCTAssertEqual(kept.outbox.count, 2)
     }
 
+    /// A share the app cannot keep, its folder blocked as a full iPad
+    /// leaves a write: the sheet closed on it as sent, so it waits in the
+    /// Keychain, nothing in the Outbox and the lists not told. Taken at
+    /// the next take once the app can keep it: one letter, the item
+    /// forgotten then. Async for the host alone: a seventh test here that
+    /// is not leaves the test list Linux derives from the class untyped.
+    func testAShareTheAppCannotKeepWaitsForTheNextTake() async throws {
+        let share = handOver()
+        let kept = makeKept()
+        var told = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: LocalDrafts.changed, object: nil, queue: nil) { _ in told += 1 }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let blocked = root.appendingPathComponent(share.key)
+        try Data("in the way".utf8).write(to: blocked)
+
+        kept.takeShares(from: mirror)
+
+        XCTAssertEqual(keychain.items.keys.sorted(), [ShareMirror.waitingPrefix + share.key],
+                       "still there")
+        XCTAssertNil(kept.store.letter(share.key))
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(told, 0)
+
+        try FileManager.default.removeItem(at: blocked)
+        kept.takeShares(from: mirror)
+
+        XCTAssertEqual(kept.outbox.map(\.key), [share.key])
+        XCTAssertEqual(kept.store.letter(share.key)?.outbox, share.messageID)
+        XCTAssertTrue(keychain.items.isEmpty, "forgotten once kept")
+        XCTAssertEqual(told, 1)
+    }
+
     /// A letter put in the Outbox by a build before shares were, and one
     /// kept since, read as no share; a share opened from the Outbox in the
     /// composer and kept again is a share still.
@@ -385,8 +419,9 @@ final class ShareWaitsTests: XCTestCase {
 
     /// When the app stops, read from the extension: the app's profile, two
     /// folders up from the extension's bundle in the app's PlugIns; the
-    /// extension's own where the app's has none, or there is no app;
-    /// nothing where neither has one.
+    /// extension's own where the app's has none or cannot be read, or there
+    /// is no app; nothing where neither has one, the app's unreadable one
+    /// said as such.
     func testTheExtensionReadsWhenTheAppStops() throws {
         let files = FileManager.default
         let container = root.appendingPathComponent("Container", isDirectory: true)
@@ -413,6 +448,11 @@ final class ShareWaitsTests: XCTestCase {
         XCTAssertEqual(AppExpiry.forShare(app: held, appex: appex, now: now), .stops(appStops))
         XCTAssertEqual(AppExpiry.forShare(app: held, appex: appex, now: now).stops, appStops)
         XCTAssertEqual(AppExpiry.forShare(app: nil, appex: appex, now: now), .stops(appexStops))
+        try Data("not a profile".utf8).write(to: app.appendingPathComponent("embedded.mobileprovision"))
+        XCTAssertEqual(AppExpiry.forShare(app: held, appex: appex, now: now), .stops(appexStops),
+                       "the app's unreadable, the extension's own")
+        try files.removeItem(at: appex.appendingPathComponent("embedded.mobileprovision"))
+        XCTAssertEqual(AppExpiry.forShare(app: held, appex: appex, now: now), .unreadable)
         XCTAssertNil(AppExpiry.Found.noProfile.stops)
         XCTAssertNil(AppExpiry.Found.trollStore.stops)
     }

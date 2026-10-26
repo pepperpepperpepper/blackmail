@@ -30332,13 +30332,14 @@ TODO's default).
 3. *The day it stops* (`ShareSheet.waits`, `ShareSheet.containingApp`,
    `AppExpiry.containingApp`, `forShare`). The extension reads the app's
    profile, two folders up from its own bundle in the app's PlugIns, as
-   the app reads its own (B-137), or its own profile where it cannot read
-   the app's. Asked only once a share could not go, so a share that goes
-   reads no profile. From the start of the day the app stops opening, in
-   the iPad's calendar, a share is refused as before: a letter would wait
-   for an app that may never open again, and the sheet would have said it
-   was as good as sent. The decision has it refused again "after
-   2027-09-18"; this is the safer reading, from the start of that day.
+   the app reads its own (B-137), or its own profile where the app's is
+   not there or cannot be read. Asked only once a share could not go, so
+   a share that goes reads no profile. From the start of the day the app
+   stops opening, in the iPad's calendar, a share is refused as before:
+   a letter would wait for an app that may never open again, and the
+   sheet would have said it was as good as sent. The decision has it
+   refused again "after 2027-09-18"; this is the safer reading, from the
+   start of that day.
 4. *The app takes it* (`LocalDrafts.takeShares`,
    `LocalDraftStore.keepShared`), as its screens come up at launch,
    before the first pass, and each time it comes back to the front,
@@ -30352,7 +30353,9 @@ TODO's default).
    again, to be taken next time: never both. One whose key is kept
    already, an app ended between the two, is only forgotten, the letter
    left as it is. One that cannot be read is forgotten, with a line in
-   the log.
+   the log. One the app cannot keep, a write refused on a full iPad,
+   stays in the Keychain for the next take: the sheet has closed on it
+   as sent.
 5. *It goes as a share* (`LocalDraft.isShared`, `OutgoingLetter.isShared`):
    by the app's pass, made by the share's own `ShareLetter.letter`, so the
    web addresses in his words are links in the HTML, as the extension
@@ -30370,7 +30373,7 @@ Opening Blackmail, or coming back to it: the Outbox in the Mailboxes,
 letter goes at the first pass. A photo shared with no connection: "Can't
 connect to mail server." as before.
 
-**Tests.** `ShareWaitsTests`, thirteen, new. The sheet, against a
+**Tests.** `ShareWaitsTests`, fourteen, new. The sheet, against a
 scripted submission server and a Keychain group in memory: a link shared
 with no connection closes the share, once, with one sound and no error,
 and leaves one item under the share's key, its letter, account,
@@ -30380,23 +30383,26 @@ a cut after DATA waits with the time of the cut, the attempt on the wire
 under the Message-ID and Date handed over; a share with a photo, a
 refusal after DATA, and a handover the Keychain refuses are refused as
 before; on the day the app stops a share is refused, the day before it
-waits, and the rule at the start of that day both ways. The app: a
-share taken into the Outbox under its key and Message-ID, with what it
-was sent with, dated by his Send, a share, listed, "1 Unsent Message",
-the lists told and the item forgotten; taken once, the item left over an
-end not taking it again over the letter as it now is, a Keychain that
-keeps the item leaving the letter out of the Outbox until it can be
-forgotten, and an unreadable item forgotten; a share kept again is a
-share still, and a letter kept by the build before none. Over the
-shipping repository and the scripted IMAP server: the share taken in and
-sent by the pass, once, From the name, dated by his Send, under the
-share's Message-ID, its HTML and words those of the same share sent at
-once; one cut after its DATA, taken in unsettled and found in Sent Mail,
-not sent again. The profile read from the extension: the app found two
-folders up only in its PlugIns, its profile, then the extension's own,
-then none. Read from the source: the app takes the shares at launch
-and on its return before that return's pass, and the extension hands
-them over with the app's stopping day.
+waits, and the rule at the start of that day both ways. The app: a share
+taken into the Outbox under its key and Message-ID, with what it was
+sent with, dated by his Send, a share, listed, "1 Unsent Message", the
+lists told and the item forgotten; taken once, the item left over an end
+not taking it again over the letter as it now is, a Keychain that keeps
+the item leaving the letter out of the Outbox until it can be forgotten,
+and an unreadable item forgotten; a share the app cannot keep, its
+folder blocked, left in the Keychain with nothing in the Outbox and
+nothing told, then taken at the next take, one letter, the item gone; a
+share kept again is a share still, and a letter kept by the build before
+none. Over the shipping repository and the scripted IMAP server: the
+share taken in and sent by the pass, once, From the name, dated by his
+Send, under the share's Message-ID, its HTML and words those of the same
+share sent at once; one cut after its DATA, taken in unsettled and found
+in Sent Mail, not sent again. The profile read from the extension: the
+app found two folders up only in its PlugIns, its profile, then the
+extension's own where the app's is missing or unreadable, then none, an
+unreadable one said as such. Read from the source: the app takes the
+shares at launch and on its return before that return's pass, and the
+extension hands them over with the app's stopping day.
 
 `OwnEntitlementsTests` keeps the app from looking beside its own bundle
 (B-137): the walk two folders up to the app is in `ShareSheet`, not
@@ -30417,10 +30423,15 @@ letter of the app's, 2 in 1; taken in settled, 3 in 1; not taken on the
 app's return, 2 in 1; the extension reading its own profile alone, 2
 in 1; no app found above the extension, 3 in 1; taken in without what
 it was sent with, 4 in 2; a share written twice two items, 3 in 2. Then
-put back, the new tests passing.
-The full suite, serially, with nothing undone: 2,688 tests, the 24 of
-B-152 and B-153 among them, 6 skipped, none failing, run twice. The
-release build for the iPad links.
+put back, the new tests passing. Added since, in one build with one of
+B-152's broken beside them, each in code the other tests never reach: a
+share the app could not keep forgotten from the Keychain, 4 in 1; the
+extension's own profile not read past the app's unreadable one, 1 in 1.
+Put back, passing.
+The full suite, serially, with nothing undone: 2,690 tests, the 26 of
+B-152 and B-153 among them, 6 skipped, none failing (2,688 and 24, run
+twice, before the three added since). The release build for the iPad
+links.
 
 **Not covered, and not seen.**
 

@@ -61,19 +61,24 @@ enum AppExpiry {
 
     /// What the app at `app` that holds the share extension at `appex`
     /// says, as of `now`: the app's bundle and its executable's signature,
-    /// as the app reads its own; where that has no profile, or there is no
-    /// app, the extension's own bundle.
+    /// as the app reads its own; where that has no profile or one that
+    /// cannot be read, or there is no app, the extension's own bundle,
+    /// signed with the same. The app's unreadable profile is what is said
+    /// when the extension has none.
     static func forShare(app: URL?, appex: URL, now: Date,
                          files: FileManager = .default) -> Found {
+        var fromApp: Found?
         if let app {
             let found = read(bundle: app, containerRequired: OwnEntitlements.containerRequired(
                                 executable: Bundle(url: app)?.executableURL),
                              now: now, files: files)
-            if found != .noProfile { return found }
+            if found != .noProfile && found != .unreadable { return found }
+            fromApp = found
         }
-        return read(bundle: appex, containerRequired: OwnEntitlements.containerRequired(
-                        executable: Bundle(url: appex)?.executableURL),
-                    now: now, files: files)
+        let own = read(bundle: appex, containerRequired: OwnEntitlements.containerRequired(
+                           executable: Bundle(url: appex)?.executableURL),
+                       now: now, files: files)
+        return own == .noProfile ? fromApp ?? own : own
     }
 
     /// What the bundle at `bundle` says, as of `now`, its executable's
