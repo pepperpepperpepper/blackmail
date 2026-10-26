@@ -4810,6 +4810,48 @@ Draft does. Nothing read "On this iPad only" after the day's sends, saves
 and Deletes. The app was ended by a kill in 2, not by a swipe in the app
 switcher.
 
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+three panes, on the test account, the owner having said yes that day to
+writes into the app's containers. The TODO's case 3 as Save Draft and its
+case 5 up to his Send, each made by hand in the store with the app ended
+by a kill from the host. Letters To A with a tag before the "@", subjects
+beginning "R6 B-051", the originals put in the Inbox by the host. Nothing
+was sent.
+
+- *A file nowhere, saved as drafts.* With Airplane Mode on, a draft, a
+  forward of a letter with a PDF, a forward of a letter whose photo shows
+  in its words, and a second draft, each saved: "On this iPad only", with
+  no line under it. With the app ended, the PDF's `"letter":` and the
+  quoted picture's written one higher, an id no letter has. Airplane Mode
+  off: the two drafts went up, one APPEND each, and the two forwards
+  stayed "On this iPad only" with "Attachment could not be downloaded."
+  under it. For each, `CARRIED-PART folder=INBOX reason=another-letter`,
+  with no FETCH at its UID before it, `UID SEARCH X-GM-MSGID` in All Mail
+  and in the Trash, both empty, `CARRIED-PART not-found nothing-sent` and
+  `DRAFT-UPLOAD refused`; no part fetched whole, no ENVELOPE, and nothing
+  more at the watch's next two checks.
+- *Opened and saved again,* a letter typed: the same words, the search
+  made again and nothing found, no APPEND.
+- *The file taken off* with its row's Remove, and saved: one APPEND each,
+  Gmail's draft with neither the PDF nor the photo, only the signature's
+  logo, and the letter's folder gone from the store.
+- *A letter cut off after its DATA before a password save.* A Send with
+  Airplane Mode on put a letter in the Outbox. With the app ended its
+  Message-ID was written down as an attempt, unstamped, `password-saves`
+  reading 1. Opened offline: its row "May already have been sent." over
+  "1 Unsent Message", no ENVELOPE. Online for two minutes, nothing
+  touched: no ENVELOPE, no `UID SEARCH HEADER Message-ID`, no `OUTBOX-`
+  line, the row the same, and no copy in any of Gmail's folders. Opened
+  offline again, a letter typed, Delete Draft: the Outbox gone, the store
+  holding `password-saves` alone, and nothing went after.
+
+Not run, under the round's rule against sending: case 3's Sends after its
+Outbox row, which was seen 2026-09-30 (above), and case 5's Send from its
+row and its pass with no `password-saves`. Seen beside them: a draft
+reopened from its "On this iPad only" row and saved again went to the top
+of Drafts while the list kept its place, so the row sat just above the
+visible top and seemed gone until the list was scrolled up.
+
 ---
 
 ## B-049 — CHANGED 2026-09-30, seen on the iPad. New mail arrives on its own
@@ -6103,6 +6145,46 @@ frame, 0.35 s, before its sign-in was answered. Not possible: the drafts
 "On this iPad only" and the Outbox through the save, none being there at
 the start and none made; the save leaves Local Drafts alone but for its
 own count of saves (B-051). Nothing was sent.
+
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+three panes, on the test account, the owner having said yes that day to
+writes into the app's containers. Nothing was sent.
+
+- *A letter opened from another mailbox's copy.* A letter the host put in
+  the Inbox, opened online, so kept. With the app ended, its row on the
+  kept Inbox page given a Gmail message id of no letter, the real one's
+  last digit changed. Opened with Airplane Mode on: the kept page in the
+  first frame, that row on top; tapped, its header, then "This message
+  could not be downloaded.", none of its words, and the log only its
+  EXPIRY line. Airplane Mode off and the row tapped 0.18 s later, before
+  any listing: on the new connection `UID FETCH n (UID X-GM-MSGID
+  BODY.PEEK[])` answered with the letter's own id, then `KEPT-UNVOUCHED
+  folder=INBOX nothing-shown`; the row went from the list, the pane read
+  "No message selected", and no STORE, MOVE, EXPUNGE or APPEND went, no
+  `KEPT-DISCARDED`. The watch's listing then said nothing of it, and after
+  Refresh the row was back under its own id; tapped, it opened from its
+  copy, `KEPT-LETTER shown`, with no FETCH of its body.
+- *The drafts and the Outbox through the password saved again.* A draft
+  "On this iPad only" and a letter in the Outbox, made with Airplane Mode
+  on in B-057's check, held by three tries written into each, so that no
+  pass would take them. The test account's password typed into Settings,
+  never on a screen kept, and Save: the check, its AUTH answered 235,
+  the old connection's LOGOUT, `PASSWORD-SAVED signed in afresh` and a new
+  LOGIN; the Inbox empty under "Checking for Mail…" 2.1 s after the tap,
+  its rows at 2.6 s, their previews at 4.0 s, the counts at 7.7 s. The
+  kept letters were wiped, and the recent searches with them (B-105), run
+  again by hand. Both letters stayed, their files byte for byte as before.
+  Ended from the host and opened: the kept Inbox, the page listed since
+  the save, with its previews and counts in the app's first frame, 0.41 s
+  after the open, before its sign-in was answered; the draft still "On
+  this iPad only", the letter in the Outbox over "1 Unsent Message";
+  `OUTBOX-HELD` and `DRAFT-HELD` once each, no ENVELOPE, no APPEND. The
+  two letters were then moved out of the store by hand with the app ended,
+  unsent: Airplane Mode, to delete them in the app, would have cut the
+  iPad's one way in that day, its Wi-Fi. A first try at this that morning
+  was cut before the save by a lost connection to the iPad.
+
+Nothing of B-053's checks is left for the test iPad.
 
 *Phase 2, the letters he opened, built 2026-10-22: B-111.*
 
@@ -7504,6 +7586,41 @@ Not seen: the swipe in the app switcher, in the TODO's steps 1 and 8,
 which needs a person at the iPad, and a held draft's row, which needs the
 store edited and waits to be agreed.
 
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+three panes, on the test account, the owner having said yes that day to
+writes into the app's containers: the TODO's step 6 for the draft, with
+its control, and a held draft's row. With Airplane Mode on, three drafts
+saved and a letter put in the Outbox by Send, never sent; with the app
+ended, `"autoAttempts":3` written into two drafts' and the letter's
+`letter.json`, `"autoAttempts":2` into the third draft's. Opened with
+Airplane Mode still on: in Drafts the two held drafts under "On this iPad
+only" with "Not saved to Gmail automatically. Open…", cut by the row's
+width, the third with its words alone; the Outbox's row "Not sent
+automatically. Open it and tap Send." over "1 Unsent Message"; in the log,
+as the Outbox was opened, `OUTBOX-HELD unfinished-tries=3` once and
+`DRAFT-HELD unfinished-tries=3` once for each held draft, no ENVELOPE and
+no APPEND. Airplane Mode off: the draft of two tries went up by itself,
+once, Gmail's copy dated 2 s after; for the next two and a half minutes,
+with Refreshes and a visit to another app, the held letters stayed, their
+files byte for byte as written, and nothing reached Sent Mail.
+
+The held draft's row could not be followed as written. Opened and
+Cancelled with nothing touched, the composer closed at once with no sheet,
+so there was no Save Draft, and the draft stayed held, its file unchanged.
+A second run made it again twice on the other held draft, the second
+Cancel after the autosave's pause. The composer asks only for a letter
+changed since it opened (B-069, which came after the row's words were
+written), nothing in it knows a letter is held, and only Save Draft clears
+the tries. Recorded as B-165, on a branch of its own. With one letter
+typed, Cancel brought the sheet, and Save Draft sent one APPEND, one copy
+in Drafts, the held line gone. The Outbox letter's Send was not tapped,
+under the round's rule against sending; his Send of a held Outbox letter
+was seen 2026-10-01, and the Outbox letter's control with two tries, which
+sends, was not run. The held draft and the letter left were kept through
+B-053's password save the same day, then moved out of the store by hand
+with the app ended, unsent. Not seen: the swipe in the app switcher, which
+needs a person at the iPad, and that control.
+
 ---
 
 ## B-058 — CHANGED 2026-10-01 and 2026-10-03, seen on the iPad. A letter dated wrong into the future would have taken every Go to Date jump for good
@@ -8798,6 +8915,17 @@ tagged line 6 seconds after is `ms=9000 quiet=6000`, and `quiet` timed on
 the long bound's waits alone fails that test (1 in 1). The full suite,
 serially: 1,216 tests, 4 skipped, none failing. The release build for
 the iPad links.
+
+**Seen on the test iPad, 2026-10-26**, print tried with B-110's check, on
+a build of int17 (939ad5a), the owner having said yes that day to paper:
+the 1 MB one-page PDF of a letter the host put in Notes, from Quick Look's
+Share, Print, to an AirPrint laser printer on the home network, the
+panel's preview the whole page. Done tapped about 0.9 s after Print, as
+the panel had just gone. The iPad's print service took the job 1.4 s after
+the Print tap, 0.5 s after Done, as Quick Look closed, as one page;
+`tmp/Attachments` kept the one PDF, the same size and hash, the copy going
+as the next file is written or at launch (item 5 above). The printer
+listed it completed, one impression. The sheet is the owner's to look at.
 
 ---
 
@@ -15336,7 +15464,7 @@ The draft is in Trash only, and the mailbox is as found.
 
 ---
 
-## B-088 — FIXED 2026-10-20, found on the iPad and seen there fixed but for another letter under the original's UID. A forward whose original had moved looked for it in All Mail once for each file
+## B-088 — FIXED 2026-10-20, found on the iPad and seen there fixed, another letter under the original's UID seen only on a forward saved as a draft, not on one sent. A forward whose original had moved looked for it in All Mail once for each file
 
 **What was seen.** On the iPad on 2026-09-30, in B-051's check: a forward
 of a letter with two PDFs, sent with no connection, its files' UID written
@@ -15534,13 +15662,39 @@ Home Screen was up; the swipe into the app switcher was not made.
 
 The letters are in Trash only, and the mailbox is as found.
 
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+three panes, on the test account, the owner having said yes that day to
+writes into the app's containers. Nothing was sent, so the forward was
+saved as a draft where the TODO sends it. The original, "R6 B-088 three"
+with three photos of about 66 KB, was put in the Inbox by the host and
+opened online. Forward, Include, To A with `+b088fwd`, the three photos'
+rows; Airplane Mode on, Cancel, Save Draft: "On this iPad only". With the
+app ended, the three photos' `"messageID"` in its `letter.json` written
+one lower, another letter's UID in the Inbox, the TODO's step 3. Airplane
+Mode off and the app opened, nothing touched: after the Inbox's page,
+whose listing had named that UID, `CARRIED-PART folder=INBOX
+reason=another-letter` once, with no FETCH at that UID before it; one `UID
+SEARCH X-GM-MSGID` in All Mail, giving one UID; then for each photo the
+FETCH that describes the letter, answered with its id, and its
+`BODY.PEEK[n]` at that UID, each followed by `CARRIED-PART found
+folder=[Gmail]/All Mail`, with no search or SELECT between the photos;
+then one APPEND to Drafts. No part fetched in the Inbox, no ENVELOPE.
+Gmail's draft held the three photos once each, byte for byte the
+original's, beside the signature's logo, and the letter's folder was gone
+from the store. The draft was deleted in the app, the original put in the
+Trash by the host. Not seen, under the round's rule against sending: the
+forward sent from the Outbox, and so the TODO's steps 4 and 5 after the
+edit on a sent forward (2 and 5 without the edit were seen 2026-10-20,
+above).
+
 **Not covered.**
 
-- Another letter under the original's UID, the case found, was not seen on
-  the iPad: it needs the store edited, the TODO's step 3, and editing the
-  store waits to be agreed. The archived original, seen there, goes by the
-  same search, and the parts after the first by the same UID kept; the
-  suite holds the other letter.
+- Another letter under the original's UID, the case found, was seen on the
+  iPad on 2026-10-26 (above) on a forward saved as a draft, and not on one
+  sent from the Outbox, under that round's rule against sending. The
+  archived original, seen there on 2026-10-20, goes by the same search,
+  and the parts after the first by the same UID kept; the suite holds the
+  forward sent.
 - A letter that moved in the moment between two of its parts, on the
   iPad. Its UID in All Mail is not known to change as its labels do, only
   with All Mail renumbered or the letter binned and brought back, and
@@ -21354,9 +21508,10 @@ release build for the iPad links.
   from the main thread, with nothing to wait on.
 - With no connection, pictures are missing for a letter neither the last
   downloaded nor kept on the iPad (B-111).
-- Paper was not tried: no printer has been used, the owner's question.
-  The check on the simulator and the test iPad, under "Blocked on the iPad
-  coming back", built from the worktree before it is merged.
+- Paper was tried only on 2026-10-26, at the owner's yes: four sheets
+  (below), whose look is his to judge. The check on the simulator and the
+  test iPad, under "Blocked on the iPad coming back", built from the
+  worktree before it is merged.
 - Whether the panel is a presentation over the pane (`PRINT panel
   over=`): if it is not, a print started while a panel is up would not
   wait for it, and Print would have to be greyed while one is up too.
@@ -21640,6 +21795,45 @@ date and the file's line grey, two rules, the subject bold black, the
 words black, the photo in its colours, nothing inverted, no black box, no
 page break. Not looked for: the Mac's Printer Simulator. Nothing was sent
 or printed on paper.
+
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+three panes, on the test account, the owner having said yes that day to
+four sheets of paper: three in step 14 of the check and one in 15, on an
+AirPrint laser printer on the home network, the one printer the panel
+listed. The letters were the host's, put in the label Notes, as on
+2026-10-25. No Local Network prompt. Each panel offered Copies 1, Letter
+and colour, and Double-sided, on by default for that printer, switched
+off at the first print and kept off by the panel after.
+
+- *Step 2's plain letter:* `PRINT ready pages=1 bytes=15976 ms=169`,
+  `PRINT panel over=true`. The preview: white paper, the sender blue, To
+  and Cc grey, a rule, the subject bold black, "October 26, 2026 at
+  6:53 AM", a rule, the words black.
+- *Step 3's newsletter,* its three remote pictures in the pane first:
+  `PRINT ready pages=2 bytes=504202 ms=330`, the range set to page 1.
+  The preview: the header as in 2; the banner's words, white on navy in
+  the letter, grey on white with no navy band; the red headline red, the
+  green paragraph green, the first picture in its colours, the violet
+  caption violet; nothing inverted, no black box.
+- *Step 6's middle letter,* opened from its line in the stack: `PRINT
+  ready pages=1 bytes=15530 ms=168`; its header, "7:08 AM", and its words
+  alone, no stack line, nothing of the first or the last.
+- *Step 15, B-063's print:* the PDF from Quick Look, Share, Print, Done
+  about 0.9 s after Print, as the panel had just gone: the preview the
+  whole page, its frame, corner labels, twenty lines and grey box. The
+  print service took the job 1.4 s after the Print tap, 0.5 s after Done,
+  as Quick Look closed (B-063).
+
+Each Print was tapped once. For the three letters the log had `PRINT
+closed done=true` and no `PRINT ended` or `PRINT words` line; Quick Look's
+panel is its own and wrote none. The iPad's print service took each as a
+one-page PDF and sent it on rendered for the printer, which listed each
+job completed, one impression, 15 to 29 s after it was made and within
+35 s of its tap. Four sheets in all, the day's limit; their look is the
+owner's to judge. Not on paper: the dark newsletter, the Apple Mail letter
+with the dark head, and the rest, judged on the panel's preview and its
+PDFs on 2026-10-23. Not looked for: the Mac's Printer Simulator. Nothing
+was sent.
 
 ## B-111 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
@@ -24120,8 +24314,8 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the test iPad: another region (the check's step 10), with
-  no yes from the owner to change the test iPad's.
+- Another region seen on the test iPad once, the United Kingdom,
+  2026-10-26 (below); no other.
 - The strings pinned are this host's ICU's. The iPad's are its own, which
   is what its Mail writes, and can differ in a detail: the space before
   AM and PM, an abbreviation ("Sep" or "Sept"), Canada's "a.m.". The
@@ -24138,10 +24332,11 @@ failing. The release build for the iPad links.
   "12/28/25" the same eight characters as "28/12/25", which B-080
   measured at about 63 points, and "10/3/26" narrower. A British
   region's "28/12/2025" is ten, about as wide as "Wednesday", 80 points,
-  which B-080 fitted in Edit mode in three panes; not measured on a
-  screen.
+  which B-080 fitted in Edit mode in three panes; not measured, but seen
+  whole there on the test iPad 2026-10-26 (below).
 - Go to Date's calendar (`UIDatePicker`) is the system's, the region's
-  already; not looked at for this.
+  already; seen with its weeks from Monday in the United Kingdom on the
+  test iPad 2026-10-26 (below).
 - What it costs: nothing more; one formatter kept for each form, as one
   was for each pattern.
 
@@ -24170,6 +24365,38 @@ and one the evening before. Their rows read "12:39 PM" and "Yesterday";
 opened, their headers "Today at 12:39 PM" and "Yesterday at 8:15 PM". Not
 run: step 10, another region, with no yes from the owner. Nothing was
 sent.
+
+**Seen on the test iPad, 2026-10-26**, on a build of int17 (939ad5a),
+three panes, Organize by Thread on, the owner having said yes that day to
+a region change: the check's step 10, another region, and 11. As found:
+the United States, 24-Hour Time off, the Date Format "8/19/26". Go to Date
+to 1 June 2012 there: "6/1/12" (763) on top, "June 1, 2012 at 11:02 AM".
+Then in Settings Region United Kingdom, "Keep English (US)" at iOS's
+question about the language: the Date Format "19/08/2026", the example
+"Wednesday 19 August 2026" and "00:34", and 24-Hour Time on, the region's
+own, with °C, UK measures and weeks from Monday; the language still
+English (US), and no preference key added. Back in Blackmail 66 s later,
+the same process: at once and 3 s later the rows "01/06/2012",
+"30/05/2012", "29/05/2012" and on, 763 still highlighted, its header "1
+June 2012 at 11:02", the status bar in 24-hour time; in the log the
+return's NOOP and sign-in and then the watch's checks, no SELECT, SEARCH
+or FETCH from the change. The line under the list read "Showing June 1,
+2012" until the next jump (B-139). Rows scrolled into sight, 1 to 10 June,
+each day first with the year whole, none month first, no FETCH. Reply on
+763: "On 1 Jun 2012, at 11:02, Museum Members <…> wrote:"; Cancel closed
+it with nothing asked, nothing typed. Edit in three panes: "01/06/2012" to
+"26/05/2012" whole beside the marks, the sender's name cut instead. Ended
+from the host and opened: the kept Inbox with "Yesterday" and "14/08/2026"
+in the frames at about 1 s and 5 s, never month first; Go to Date's
+calendar on June 2012, its weeks from Monday; "Showing 1 June 2012", 763
+"01/06/2012", "1 June 2012 at 11:02". In Notes, today's rows "07:18" and
+"06:53", the header "Today at 06:53". Put back: Region United States,
+which iOS said would restart the iPad, and nothing restarted; Language &
+Region and Date & Time as found, the global preferences' keys and values
+the same; back in Blackmail without a relaunch the rows "6/1/12" and the
+header "June 1, 2012 at 11:02 AM"; the jump to 20 October, the day and
+scope remembered as found. Not run: step 6's Forward in that form, not in
+step 10. Nothing was sent or saved.
 
 ## B-120 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A letter opened with no caret and no keyboard; Mail's opens ready to type
 
@@ -28000,11 +28227,10 @@ line before its alert.
 
 **Not covered.**
 
-- Seen on the test iPad since the change only under TrollStore
-  (2026-10-26, below). The warning itself, and the profile read under a
-  certificate's signature, wait for the check's steps 2 to 11, gated on a
-  write into the bundle container the owner has not cleared (TODO, B-137's
-  check).
+- Seen on the test iPad 2026-10-26 under TrollStore and, in a later round
+  the same day, under a certificate's signature, the warning itself
+  included (below). Not seen there: the check's step 8, the warning held
+  back under a finger, a still hold needing a person at the iPad.
 - TrollStore Lite, for jailbroken iPads, adds no such entitlement (its
   helper signs ad hoc and adds `jb.pmap_cs.custom_trust` instead, in the
   same source): an app it installs reads as a certificate's, and says the
@@ -28089,6 +28315,70 @@ of the same kind, needless with the bundle untouched; its clock was put
 back in step 1, and every launch in that step logged "EXPIRY none,
 TrollStore". So the warning itself, and the profile read under a
 certificate's signature, were not seen. Nothing was sent.
+
+**Seen on the test iPad again, 2026-10-26**, on a build of int17
+(939ad5a), the owner having said yes that day to writes into the app's
+containers, the gate the run above was held at: the check's steps 1 to 7
+and 9 to 11; step 8 not done. Another try that day, just before, stopped
+at its start. The prefs held 1 September 2027, and it stayed. Every clock
+was set with Settings' date picker, in Los Angeles, the zone last set by
+hand; every kill and launch was a kill and a launch from the host, not
+the app switcher and the icon.
+
+- *1, TrollStore.* The clock automatic: no warning for a minute, "EXPIRY
+  none, TrollStore", no "EXPIRY entitlements unread". 2 September 2027,
+  9:12 AM: "Can't connect to mail server.", OKed, no warning at 30 to
+  76 s, the same line.
+- *2, a certificate's signature.* The same commit's IPA, signed by the
+  certificate, copied over TrollStore's install by a script of the
+  round's, with no build, in place of `tools/deploy-to-ipad.sh`, its md5
+  read back. The clock automatic: the Inbox, signed in, no warning at 5 or
+  30 s, "EXPIRY stops 2027-09-18 10:22:36 +0000", the profile's instant as
+  read from the IPA, no "unread".
+- *3, 18 August, 11:18 PM:* no warning for a minute after the launch and
+  after the connection alert's OK; no "EXPIRY-WARNING shown".
+- *4, 19 August, 9:20 AM:* the connection alert OKed at 19 s; the warning
+  at 33 s, 14 s after that OK: no title, "This app will stop opening on
+  September 18, 2027. After that, use Mail.", OK alone, and
+  "EXPIRY-WARNING shown". OK: the list and the pane as they were. The
+  prefs held the moment of the OK.
+- *5, again on the 19th:* no warning for two minutes after a kill and
+  launch, nor after a minute in Settings and back.
+- *6, 20 August,* the clock changed with a word typed in a new letter:
+  back, the composer as left, its word and caret, no alert over it at 5,
+  30 or 60 s. Cancel, Delete Draft: the warning 21 s later. Nothing kept,
+  nothing in Gmail's Drafts.
+- *7, 21 August, two panes:* the warning over them 33 s after the launch,
+  19 s after the connection alert's OK; then three panes again, as found.
+- *9, 23 August, 11:53 PM:* the connection alert OKed and Sent Mail
+  tapped, its own fetch failing and OKed; the warning over Sent Mail
+  within 20 s, 11:53 PM on the status bar. Left up, Settings opened, the
+  clock to 24 August, 9:54 AM. Back: the same warning, under it the Inbox
+  at its top in place of Sent Mail (B-003); OK, then the return's "Can't
+  connect", which had waited for it; no warning for two minutes. The prefs
+  held 24 August.
+- *10, 18 September 2027, 1:02 AM in Los Angeles,* 2 h 20 min before the
+  instant: kill and launch, the warning with "September 18, 2027" 33 s
+  after the launch; OK. Set Automatically on at once: the clock was on the
+  18th about two minutes; a watchdog running on the iPad itself, to set
+  it back after 40 minutes had the connection been lost, never fired.
+- *11, put back.* Set Automatically on; the IPA installed again by
+  TrollStore's helper; kill and launch: no warning, "EXPIRY none,
+  TrollStore"; TrollStore listing Blackmail as before. The prefs keep 18
+  September 2027. The share extension then opened its sheet from Safari
+  (B-036).
+
+Step 8 not done: back on 22 August, "Can't connect to mail server." was up
+within 10 s, before the slow pull standing in for a still hold, which
+injected touches cannot make, could take the list, and still up at a
+second pull, as an OK tapped after the first was stopped did not take; the
+warning came 29 s after the alert's OK, the list at rest at its top, and
+OK left no spinner. Once, a time set on the picker's wheels and left open
+across a visit to Blackmail stayed on its Time button and was taken by the
+next day tapped; caught by reading the clock, and set right before
+Blackmail was opened. iOS moved its Wi-Fi private address's rotation date
+into 2027 while the clock was there, left so. Nothing was sent, and
+nothing written to the mailbox.
 
 ## B-138 — FIXED 2026-10-25, seen in part on the test iPad 2026-10-25. provision-ipad.sh called every 16.7.x, 17.0.1 to 17.0.3 and iOS 10 to 13 within TrollStore's range; it reads the build too, says in or past as TrollStore's own list has it, and stops before registration on an iOS older than the app's 16.0
 
