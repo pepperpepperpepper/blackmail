@@ -66,7 +66,8 @@ final class ShareWaitsTests: XCTestCase {
     /// The extension's sheet over `server`, handing a letter that cannot go
     /// to this test's Keychain group, the app stopping at `appStops`.
     private func sheet(_ server: @escaping @Sendable () -> ScriptedSubmission,
-                       appStops: Date? = nil, files: [URL: Data] = [:]) -> ShareSheet {
+                       appStops: Date? = nil, files: [URL: Data] = [:],
+                       donate: @escaping (SentConversation) -> Void = { _ in }) -> ShareSheet {
         let shared = ShareMirror.Shared(account: account, password: "app-password",
                                         signatureImages: [], recipients: [])
         let mirror = self.mirror
@@ -90,7 +91,8 @@ final class ShareWaitsTests: XCTestCase {
             wait: { mirror.wait($0) },
             appStops: { appStops },
             calendar: utc,
-            now: { at })
+            now: { at },
+            donate: donate)
     }
 
     private var utc: Calendar {
@@ -507,6 +509,37 @@ final class ShareWaitsTests: XCTestCase {
         XCTAssertEqual(server.violations, [])
     }
 
+    /// A share that waits is told to iOS for the people at the top of the
+    /// share sheet (B-163) only as it goes: not by the sheet, which closed
+    /// with nothing sent, and once by the app as its Outbox sends it.
+    func testAShareThatWaitsIsToldOnlyAsItGoes() async throws {
+        var bySheet: [SentConversation] = []
+        let offline = sheet({ ScriptedSubmission(failsToOpen: true) }, donate: { bySheet.append($0) })
+        let draft = letter(offline, [.link(page, title: "Mercury - Wikipedia")])
+        await offline.send { draft }?.value
+        XCTAssertEqual(log, ["finish"])
+        XCTAssertTrue(bySheet.isEmpty, "nothing told for a share that waits")
+
+        let server = ScriptedIMAPServer(inboxCount: 6)
+        let submissions = ScriptedSubmission()
+        let imap = server.transportFactory
+        let byApp = ToldByTheApp()
+        let repository = IMAPMailRepository(
+            account: server.account, password: server.password,
+            transport: { host, port in port == 465 ? submissions as any MailTransport : imap(host, port) },
+            recipients: book, signatureImages: { [] }, donate: { byApp.add($0) })
+        let kept = makeKept()
+        kept.takeShares(from: mirror)
+        XCTAssertTrue(byApp.all.isEmpty, "nor as the app takes it in")
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        await kept.uploadWaiting(to: repository)?.value
+        let sent = await submissions.letters
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(byApp.all.map(\.identifier), ["owner@example.net"], "told once, as it went")
+        XCTAssertTrue(bySheet.isEmpty)
+        XCTAssertEqual(server.violations, [])
+    }
+
     /// Cut off after its DATA in the sheet: taken in unsettled, and found
     /// in Sent Mail by its Message-ID, it is not sent again.
     func testAShareCutOffAfterItsDataIsNotSentTwice() async throws {
@@ -565,4 +598,22 @@ private final class HandoverKeychain: SharedKeychain {
     }
 
     func names() -> [String] { Array(items.keys) }
+}
+
+/// What the app told iOS, from whatever thread its send ends on.
+private final class ToldByTheApp: @unchecked Sendable {
+    private let lock = NSLock()
+    private var told: [SentConversation] = []
+
+    var all: [SentConversation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return told
+    }
+
+    func add(_ conversation: SentConversation) {
+        lock.lock()
+        told.append(conversation)
+        lock.unlock()
+    }
 }

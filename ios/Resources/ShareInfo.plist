@@ -38,6 +38,14 @@
 		<string>ShareViewController</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
+			<!-- The people at the top of the share sheet (B-163), as Apple's
+			     "Supporting suggestions in your app's share extension" has
+			     it: a tap on one opens this sheet with the intent the app
+			     told iOS of (`SentConversation`), its people in To. -->
+			<key>IntentsSupported</key>
+			<array>
+				<string>INSendMessageIntent</string>
+			</array>
 			<!-- Five, as the composer's photo picker allows. Each photo is
 			     taken one at a time, in an extension allowed far less
 			     memory than the app: a JPEG that fits as its own bytes,

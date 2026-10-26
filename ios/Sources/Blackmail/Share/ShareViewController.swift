@@ -5,6 +5,7 @@
 import UIKit
 import UniformTypeIdentifiers
 import AudioToolbox
+import Intents
 
 /// The share extension (B-036): what Safari, YouTube or Photos show when
 /// Blackmail is chosen in the share sheet.
@@ -99,13 +100,30 @@ public final class ShareViewController: UIViewController,
         var line: String?
         if case .line(let words) = leftOut { line = words }
         let form = ShareComposeViewController(
-            shared: shared, items: items, leftOut: line,
+            shared: shared, items: items, leftOut: line, to: circle(),
             finish: { [weak self] in
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
             },
             cancel: { [weak self] in self?.cancel() })
         self.form = form
         nav.setViewControllers([form], animated: false)
+    }
+
+    /// To, for a share opened from a circle at the top of the share sheet:
+    /// the people iOS hands back with it, as Blackmail told it of them
+    /// (`SentConversation`, B-163); nobody for a share opened from
+    /// Blackmail's icon, which hands back nothing. The log says how many,
+    /// and no address.
+    private func circle() -> [String] {
+        guard let intent = extensionContext?.intent as? INSendMessageIntent else { return [] }
+        let people = (intent.recipients ?? []).compactMap { person -> MailFormat.Recipient? in
+            guard let address = person.personHandle?.value else { return nil }
+            let name = person.displayName == address ? nil : person.displayName
+            return MailFormat.Recipient(name: name, address: address)
+        }
+        let to = SentConversation.to(people: people, identifier: intent.conversationIdentifier)
+        Diagnostics.log(.note, "SHARE-SUGGESTION opened people=\(to.count)")
+        return to
     }
 
     /// The window as well as this controller is dark, so what is put up
@@ -213,6 +231,10 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// Whether the sheet's one chance to be made ready to type has come
     /// and gone (`readyToType`).
     private var readied = false
+    /// Where `readyToType` put the caret, nil until it has: Subject, for a
+    /// share from a circle whose YouTube title had not come yet, is left
+    /// for the body once it does (`ShareSheet.bodyOnceNamed`, B-163).
+    private var readiedInto: ComposeForm.FirstField?
     /// The YouTube video whose title is asked for the subject, nil when
     /// nothing is asked (`ShareSheet.videoToName`, B-126).
     private var video: URL?
@@ -247,7 +269,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private let sendingSpinner = UIActivityIndicatorView(style: .medium)
     private lazy var sendingSpinnerItem = UIBarButtonItem(customView: sendingSpinner)
 
-    init(shared: ShareMirror.Shared, items: [SharedItem], leftOut: String?,
+    /// `to` is who To begins with: the people of the circle the share was
+    /// opened from, or nobody (B-163).
+    init(shared: ShareMirror.Shared, items: [SharedItem], leftOut: String?, to: [String],
          finish: @escaping () -> Void, cancel: @escaping () -> Void) {
         draft = Draft()
         self.leftOut = leftOut
@@ -270,7 +294,12 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             // A share with no files and no connection waits in the app's
             // Outbox, while the app opens (B-153).
             wait: { ShareMirror.device.wait($0) },
-            appStops: { AppExpiry.containingApp.stops })
+            appStops: { AppExpiry.containingApp.stops },
+            // The circle the share was opened from, its people in To, and
+            // his circles at the top of the share sheet, as the app's
+            // letters make them too (B-163).
+            circle: to,
+            donate: SentConversation.donate)
         draft = sheet.letter(from: items)
         began = draft.body
         title = ComposeForm.title(subject: draft.subject)
@@ -404,7 +433,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// A YouTube video shared with nothing naming it: its title asked of
     /// YouTube, and put in Subject when it comes, as Mail has it from the
     /// YouTube app, if he has typed nothing there and Send has not been
-    /// tapped (`ShareSheet.named`, B-126). Nothing waits for it; with no
+    /// tapped (`ShareSheet.named`, B-126); and the caret the sheet put in
+    /// Subject for it, To being filled from a circle, goes to the body
+    /// (`ShareSheet.bodyOnceNamed`, B-163). Nothing waits for it; with no
     /// answer Subject stays empty. The log says how long it took and
     /// whether it was used, in numbers alone.
     private func askForTheTitle() {
@@ -418,6 +449,15 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             if let named {
                 self.subjectField.text = named
                 self.title = ComposeForm.title(subject: named)
+            }
+            // And the caret the sheet put in Subject for it on to the body,
+            // where Mail's sheet opens with the title there (B-163).
+            if named != nil, ShareSheet.bodyOnceNamed(
+                readiedInto: self.readiedInto,
+                inSubject: self.subjectField.isFirstResponder && self.presentedViewController == nil) {
+                self.bodyView.becomeFirstResponder()
+                self.bodyView.selectedRange = NSRange(location: 0, length: 0)
+                self.keepCaretInView()
             }
             let ms = Int(Date().timeIntervalSince(asked) * 1000)
             Diagnostics.log(.note, "SHARE-TITLE answered=\(subject == nil ? 0 : 1) "
@@ -504,15 +544,19 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     /// Ready to type by the rule of the app's composer, which is Mail's
     /// composer's, its share sheet's too (`ComposeForm.firstField`, B-120):
-    /// a share has nobody in To, so To. Once, the first time the sheet
-    /// appears, never over Cancel's question and never once he is in a
-    /// field himself (`ComposeForm.readiesOnAppearing`).
+    /// a share from Blackmail's icon has nobody in To, so To; one from a
+    /// circle has its people there (B-163), so Subject while it is empty,
+    /// else the body. Once, the first time the sheet appears, never over
+    /// Cancel's question and never once he is in a field himself
+    /// (`ComposeForm.readiesOnAppearing`).
     private func readyToType() {
         let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
         let inAField = fields.contains { $0.isFirstResponder }
         defer { readied = true }
         guard ComposeForm.readiesOnAppearing(done: readied, covered: presentedViewController != nil,
                                              inAField: inAField) else { return }
+        // Where the caret goes, kept for YouTube's title (`askForTheTitle`).
+        readiedInto = ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "")
         switch ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "") {
         case .to:
             toField.becomeFirstResponder()

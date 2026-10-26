@@ -43,6 +43,9 @@ final class ShareSheet {
     private var started = Draft()
     /// Send has been tapped, whether or not the letter went.
     private var sendTapped = false
+    /// To, for a share opened from a circle at the top of the share sheet
+    /// (B-163); empty for one opened from Blackmail's icon.
+    private let circle: [String]
 
     /// `finish` ends the share once the letter has gone and `cancel` once
     /// Cancel has put it away: the extension's `completeRequest` and
@@ -51,10 +54,15 @@ final class ShareSheet {
     /// plays its sent sound as it goes (B-100); never before `cancel`, nor
     /// for a letter that did not go.
     /// `noteSent` hears who a letter that went was addressed to
-    /// (`ShareMirror.noteSent`). `openFile` says where a staged file is
-    /// read from at Send, as it goes (`ShareSheet.staged`). `memory` says
-    /// what the extension has left (`SharedPhoto.memory`), for the log at
-    /// each step of Send.
+    /// (`ShareMirror.noteSent`), and `donate` the people it went to, for
+    /// their circle at the top of the share sheet (`SentConversation`,
+    /// B-163): neither for a letter that did not go, and `donate` not for
+    /// one to nobody but the account itself. `circle` is To for a share
+    /// opened from one of those circles, its people, and nobody for one
+    /// opened from Blackmail's icon (`letter`). `openFile` says where a
+    /// staged file is read from at Send, as it goes (`ShareSheet.staged`).
+    /// `memory` says what the extension has left (`SharedPhoto.memory`),
+    /// for the log at each step of Send.
     ///
     /// `wait` leaves a letter that could not go for the app's Outbox
     /// (`ShareMirror.wait`, B-153), and says whether it is there; one that
@@ -77,8 +85,11 @@ final class ShareSheet {
          wait: @escaping (ShareMirror.WaitingShare) -> Bool = { _ in false },
          appStops: @escaping () -> Date? = { nil },
          calendar: Calendar = .current,
-         now: @escaping @Sendable () -> Date = { Date() }) {
+         now: @escaping @Sendable () -> Date = { Date() },
+         circle: [String] = [],
+         donate: @escaping (SentConversation) -> Void = { _ in }) {
         self.shared = shared
+        self.circle = circle
         let account = shared.account
         let messageID = RFC5322Builder.freshMessageID(for: account.address)
         self.messageID = messageID
@@ -154,6 +165,9 @@ final class ShareSheet {
                 // Only after the server took it, as the app's book counts
                 // only letters that went.
                 noteSent(Submission.recipients(of: draft).map(MailFormat.bareAddress))
+                if let conversation = SentConversation.of(draft, account: account) {
+                    donate(conversation)
+                }
             },
             // Never asked: Cancel puts a share away without keeping a
             // draft, and a share has no copy in Drafts to tidy.
@@ -191,9 +205,14 @@ final class ShareSheet {
         return app
     }
 
-    /// The letter a share starts as, signed as the app signs a new one.
+    /// The letter a share starts as, signed as the app signs a new one,
+    /// with the people of the circle the share was opened from in To
+    /// (`circle`, `SentConversation.to`, B-163), as Mail's share sheet has
+    /// them there, or nobody. Begun with them, Cancel asks nothing about
+    /// them.
     func letter(from items: [SharedItem]) -> Draft {
         started = ShareLetter.draft(from: items, signature: shared.account.signature)
+        started.to = circle
         return started
     }
 
@@ -220,6 +239,17 @@ final class ShareSheet {
               started.subject.isEmpty, now.isEmpty else { return nil }
         started.subject = subject
         return subject
+    }
+
+    /// Whether the caret goes into the body, at its start, once YouTube's
+    /// title has filled Subject (`named`): when the sheet put it in Subject
+    /// as it appeared, Subject being empty then (`readiedInto`), and it is
+    /// there still, with nothing over the sheet (`inSubject`). That is
+    /// where Mail's sheet opens with To filled from a circle and the
+    /// YouTube app's title in Subject (`ComposeForm.firstField`, B-120,
+    /// B-163). Anywhere else the caret stays where it is.
+    static func bodyOnceNamed(readiedInto: ComposeForm.FirstField?, inSubject: Bool) -> Bool {
+        readiedInto == .subject && inSubject
     }
 
     var isSending: Bool { actions.isSending }
@@ -308,12 +338,15 @@ extension ShareSheet {
                      wait: @escaping (ShareMirror.WaitingShare) -> Bool = { _ in false },
                      appStops: @escaping () -> Date? = { nil },
                      calendar: Calendar = .current,
-                     now: @escaping @Sendable () -> Date = { Date() }) {
+                     now: @escaping @Sendable () -> Date = { Date() },
+                     circle: [String] = [],
+                     donate: @escaping (SentConversation) -> Void = { _ in }) {
         self.init(shared: shared, transport: transport,
                   openFile: { .bytes(try readFile($0)) },
                   memory: memory, noteSent: noteSent, finish: finish, cancel: cancel,
                   sent: sent, showError: showError, draw: draw, background: background,
-                  wait: wait, appStops: appStops, calendar: calendar, now: now)
+                  wait: wait, appStops: appStops, calendar: calendar, now: now,
+                  circle: circle, donate: donate)
     }
 }
 

@@ -33,6 +33,12 @@ let package = Package(
                 // this Linux host to run the parser tests, and there is no
                 // swiftUIKit to link there.
                 .linkedLibrary("swiftUIKit", .when(platforms: [.iOS])),
+                // Intents, for the people at the top of the share sheet
+                // (B-163, `SentConversation`): the app and the extension
+                // tell iOS of each letter that goes, and the extension
+                // reads the one it was opened with. Named for the reason
+                // the overlay above is.
+                .linkedFramework("Intents", .when(platforms: [.iOS])),
             ]
         ),
         .executableTarget(

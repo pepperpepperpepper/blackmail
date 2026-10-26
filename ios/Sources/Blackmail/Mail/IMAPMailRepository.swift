@@ -47,6 +47,10 @@ actor IMAPMailRepository: MailRepository {
     /// them. The app's come from the standard defaults; the host tests hand
     /// in their own, for the same reason as the recipient book's.
     private let signatureImages: @Sendable () -> [SignatureImages.InlineImage]
+    /// Told of each letter that went, by the people it went to, for their
+    /// circle at the top of the share sheet (`SentConversation`, B-163).
+    /// The app's tells iOS; a test hands in its own.
+    private let donate: @Sendable (SentConversation) -> Void
 
     /// Role → real IMAP name, learned from LIST's special-use attributes.
     /// Never hard-code "Trash": Gmail calls it "[Gmail]/Trash", and on an
@@ -191,6 +195,7 @@ actor IMAPMailRepository: MailRepository {
          signatureImages: @escaping @Sendable () -> [SignatureImages.InlineImage]
             = { SignatureImages.load() },
          shelf: MailShelf? = nil,
+         donate: @escaping @Sendable (SentConversation) -> Void = SentConversation.fromTheApp,
          largeLetterBytes: Int = IMAPMailRepository.largeLetterBytes,
          largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes,
          aheadLetters: Int = IMAPMailRepository.mostAhead,
@@ -209,6 +214,7 @@ actor IMAPMailRepository: MailRepository {
         self.calendar = calendar
         self.signatureImages = signatureImages
         self.shelf = shelf
+        self.donate = donate
         self.hisLetters = RelatedMemo(now: now)
         // His own address, always offered, from the very first launch.
         // He writes to himself constantly and it is the one address the
@@ -2634,6 +2640,12 @@ actor IMAPMailRepository: MailRepository {
         // it (B-152), after the 250 and never before; not awaited, so the
         // sheet closes at the 250 as it always has.
         if let original = draft.original { mark(original) }
+        // And iOS told, for the people at the top of the share sheet, as
+        // Mail tells it (B-163): after the server took it, as the book;
+        // never a letter to nobody but the account itself.
+        if let conversation = SentConversation.of(draft, account: from) {
+            donate(conversation)
+        }
 
         // No APPEND to Sent. Gmail files SMTP-sent mail into Sent itself, and
         // appending as well produces two copies of every letter he sends —
