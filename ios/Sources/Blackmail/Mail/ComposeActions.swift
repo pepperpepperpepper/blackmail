@@ -59,10 +59,9 @@ final class ComposeActions {
     private var words = ""
 
     /// Photos, videos and files chosen in Photo Library or Attach File
-    /// that are still being read in, and so are not in the letter yet, and
-    /// what is waiting for them (B-108).
+    /// that are still being read in, and so are not in the letter yet
+    /// (B-108).
     private var itemsComing = 0
-    private var waitingForItems: [CheckedContinuation<Void, Never>] = []
     /// A pick came short while Send waited for it: something he chose is
     /// not in the letter, and he is being told so only now
     /// (`itemLanded(cameShort:)`). The letter does not go (`send`).
@@ -74,9 +73,12 @@ final class ComposeActions {
     /// nor set aside as the app went (`reading`, B-142); with nothing to
     /// ask, all that is coming is.
     private var isReading: () -> Bool = { true }
-    /// The keeps as he leaves the app that wait for what is being read in
-    /// (`putAside`), each to look again when something lands or is set
-    /// aside.
+    /// Told as the sheet is done with what is coming, nothing waiting for
+    /// it (`whenClosed`, B-142).
+    private var closing: () -> Void = {}
+    /// Everything waiting for what is coming in, Send, Save Draft and the
+    /// keep as he leaves the app (`itemsLanded`, `readingEnded`), each to
+    /// look again when something lands, is set aside or begins to be read.
     private var lookingAgain: [CheckedContinuation<Void, Never>] = []
 
     private let sendLetter: (Draft, @escaping UploadProgress) async throws -> Void
@@ -175,10 +177,23 @@ final class ComposeActions {
         self.isReading = isReading
     }
 
-    /// What was being read in has been set aside as the app went, without
-    /// landing (`ComposeIntake.away`, B-142): a keep that waits for it
-    /// (`putAside`) waits no longer. Still coming, it counts as before.
-    func itemSetAside() {
+    /// `closing` is told once the sheet is done with what is coming in and
+    /// nothing waits for it (B-142): Delete Draft, a Cancel that asked
+    /// nothing, the sheet put away, or a Send that has gone. Not Save
+    /// Draft, which waits for it after the sheet has gone. What is reading
+    /// it in calls the read under way off (`ComposeIntake.close`): left
+    /// running, Photos' copy of a large video kept a claim on the app that
+    /// got it ended by iOS once he left the app.
+    func whenClosed(_ closing: @escaping () -> Void) {
+        self.closing = closing
+    }
+
+    /// What is being read in has changed without landing
+    /// (`ComposeIntake`, B-142): set aside as the app went, so a keep that
+    /// waits for it (`putAside`) waits no longer, and a Send or a Save
+    /// Draft gives its background time back; or begun, so they ask for it
+    /// again. Still coming, it counts as before.
+    func readingChanged() {
         lookAgain()
     }
 
@@ -198,10 +213,6 @@ final class ComposeActions {
         if short, case .sending = stage { cameShort = true }
         itemsComing = max(0, itemsComing - 1)
         lookAgain()
-        guard itemsComing == 0 else { return }
-        let waiting = waitingForItems
-        waitingForItems = []
-        for continuation in waiting { continuation.resume() }
     }
 
     /// Returns once nothing he chose is still on its way into the letter.
@@ -215,9 +226,19 @@ final class ComposeActions {
     /// has gone, and take the letter once they are in. Each is bounded, and
     /// the wait of Send or Save Draft is, as a whole, from the tap
     /// (`whenWaiting`, `ComposeIntake.bound`).
-    private func itemsLanded() async {
-        guard itemsComing > 0 else { return }
-        await withCheckedContinuation { waitingForItems.append($0) }
+    ///
+    /// `time` is Send's or Save Draft's background time. It is given back
+    /// while nothing is being read in, all of it set aside as the app went
+    /// or waiting its turn, none of which is read while the app is away
+    /// (`isReading`, B-142), and asked for again once something is, or all
+    /// of it is in. Held, it kept the app running for nothing until iOS
+    /// took it back.
+    private func itemsLanded(holding time: BackgroundStretch) async {
+        while itemsComing > 0 {
+            if isReading() { time.resume() } else { time.pause() }
+            await withCheckedContinuation { lookingAgain.append($0) }
+        }
+        time.resume()
     }
 
     /// Returns once nothing he chose is being read in (`isReading`): all
@@ -262,7 +283,9 @@ final class ComposeActions {
     /// (`LocalDrafts.replacedInDrafts`).
     ///
     /// Background time is asked for at the tap and given back once Drafts
-    /// has been tidied, or when iOS wants it back first. That second case
+    /// has been tidied, or when iOS wants it back first; and given back
+    /// while what it waits for is all set aside as the app went, asked for
+    /// again once it is read (`itemsLanded`, B-142). That second case
     /// ends nothing else. The letter carries on if iOS lets the app run,
     /// the sheet stays, and nothing is said until the send itself is
     /// answered, however it is: a letter that went is not reported as
@@ -272,7 +295,13 @@ final class ComposeActions {
     /// The letter is kept on the iPad as it is taken, and put in the Outbox
     /// by `sendLetter`, so one whose send is cut off by iOS ending the app is
     /// in the Outbox at the next launch, and taken off the iPad once it has
-    /// gone, before the sheet closes.
+    /// gone, before the sheet closes. With something still coming at the
+    /// tap it is kept at the tap as well, as the autosave stopped there
+    /// would have kept it (B-142): the wait can outlast the app. What is
+    /// set aside as the app goes is read again only on his return
+    /// (`ComposeIntake.away`), so a Send left waiting for it goes then,
+    /// and an app iOS ends meanwhile leaves the letter in Drafts on the
+    /// iPad, not sent.
     ///
     /// A letter that could not reach the server, `Outbox.Waiting` from
     /// `sendLetter`, waits in the Outbox: the sheet closes as for a letter
@@ -295,7 +324,13 @@ final class ComposeActions {
         cameShort = false
         words = Self.sendingWords(written: 0, of: 0)
         draw(.sending(words))
-        if itemsComing > 0 { waiting() }
+        if itemsComing > 0 {
+            // Kept now, as the autosave stopped here would have kept it:
+            // the wait can outlast the app (B-142).
+            let draft = letter()
+            if !draft.isEmptyLetter { keeping.keep(draft, false) }
+            waiting()
+        }
 
         let time = BackgroundStretch("Send", from: background)
         // Holds this strongly, as the send's task below does anyway, and
@@ -305,7 +340,7 @@ final class ComposeActions {
         }
         return Task {
             defer { time.end() }
-            await itemsLanded()
+            await itemsLanded(holding: time)
             // Something he chose came to nothing while this waited, and he
             // is told so now: nothing is taken or sent, and the sheet is
             // his again, with what did come (B-108).
@@ -330,6 +365,7 @@ final class ComposeActions {
                 // sheet is done with it, and from now on the pass takes it.
                 stage = .sent
                 keeping.letGo()
+                closing()
                 sent()
                 queued()
                 dismiss()
@@ -352,6 +388,7 @@ final class ComposeActions {
             }
             stage = .sent
             keeping.forget()
+            closing()
             sent()
             dismiss()
             // A sent letter must not stay in Drafts. Without this, finishing
@@ -380,7 +417,9 @@ final class ComposeActions {
     /// failed.
     ///
     /// Background time is asked for before the sheet goes and given back
-    /// once the save is answered, or when iOS wants it back first. Without
+    /// once the save is answered, or when iOS wants it back first, and
+    /// meanwhile while what it waits for is all set aside as the app went
+    /// (`itemsLanded`, B-142). Without
     /// it a photo draft saved just before he locked the iPad could be an
     /// APPEND cut off halfway, and with no sheet left to say so, the draft
     /// would simply not be there.
@@ -427,7 +466,7 @@ final class ComposeActions {
         dismiss()
         return Task {
             defer { time.end() }
-            await itemsLanded()
+            await itemsLanded(holding: time)
             let draft = letter()
             if itemsWaiting {
                 keeping.keep(draft, true)
@@ -462,6 +501,7 @@ final class ComposeActions {
         stage = .closed
         stopAutosave()
         keeping.forget()
+        closing()
         dismiss()
         return Task {
             if let saved { try? await deleteDraft(saved, letter) }
@@ -552,6 +592,7 @@ final class ComposeActions {
             keeping.putBack()
         }
         keeping.abandon()
+        closing()
         dismiss()
     }
 
@@ -571,6 +612,7 @@ final class ComposeActions {
         } else {
             keeping.abandon()
         }
+        closing()
     }
 
     private func stopAutosave() {
@@ -636,18 +678,45 @@ struct BackgroundTime {
 @MainActor
 final class BackgroundStretch {
     private let time: BackgroundTime
+    private let name: String
     private var id: Int?
+    /// Given back by `pause`, to be asked for again by `resume`.
+    private var paused = false
 
     init(_ name: String, from time: BackgroundTime) {
         self.time = time
+        self.name = name
+        begin()
+    }
+
+    private func begin() {
         // Held strongly by the handler, so a stretch nobody else holds is
         // still there to be given back when iOS asks.
         id = time.begin(name) { self.end() }
     }
 
+    /// Given back, for good: done, or iOS wants it back.
     func end() {
+        paused = false
         guard let id else { return }
         self.id = nil
         time.end(id)
+    }
+
+    /// Given back for now, while the work it is for waits on what is not
+    /// happening (B-142), to be asked for again by `resume`. Nothing once
+    /// it has been given back.
+    func pause() {
+        guard id != nil else { return }
+        end()
+        paused = true
+    }
+
+    /// Asked for again, under its name, after `pause`; nothing otherwise,
+    /// nor after iOS took it back.
+    func resume() {
+        guard paused else { return }
+        paused = false
+        begin()
     }
 }

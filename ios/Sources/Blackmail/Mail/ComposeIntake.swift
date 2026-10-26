@@ -42,7 +42,16 @@ import Foundation
 /// about 30 seconds: then it ended the app, and the letter he was writing
 /// went with it (seen on the test iPad, 2026-10-25). A read that cannot be
 /// called off, a file Attach File handed over, which is read where it is
-/// at once, goes on.
+/// at once, goes on. With a Send or a Save Draft waiting for it, the read
+/// under way is let run `grace`, 20 seconds, first, well inside those 30:
+/// a photo that comes in a second or two still goes while he is away.
+///
+/// And no read is left running once nothing will take what it brings:
+/// counted out at its bound or a wait's, or the sheet closed with no Send
+/// or Save Draft waiting (`close`), it is called off there, as it is as
+/// the app goes. Left running after a count-out, Photos' copy went on for
+/// over a minute more, its claim with it, and leaving the app then got the
+/// app ended all the same.
 ///
 /// Never short: everything chosen counts in `ComposeActions` from the pick
 /// until it is in, has failed or has been counted out (`itemComing`,
@@ -116,6 +125,14 @@ final class ComposeIntake {
     /// How long each thing he chose is given to come in.
     nonisolated static let bound: Duration = .seconds(180)
 
+    /// How long the read under way is let run on as the app goes, when a
+    /// Send or a Save Draft waits for what is coming, before it is called
+    /// off and set aside (`away`, B-142). iOS gave Photos' claim on the app
+    /// 26 seconds in the background to its warning and 31 to the end, from
+    /// the moment the app went (the test iPad, 2026-10-25): 20 leaves the
+    /// call-off time to take.
+    nonisolated static let grace: Duration = .seconds(20)
+
     /// Everything chosen and not yet in, failed or counted out, in the
     /// order he chose it: the rows with a spinner.
     private(set) var coming: [Coming] = []
@@ -143,7 +160,8 @@ final class ComposeIntake {
     /// call back carries: one set aside (`away`) and begun again is
     /// another read of the same row, and the first one's call back is told
     /// from the second's. `loading` is the read, to call it off; nil where
-    /// it cannot be.
+    /// it cannot be. `grace` is the time it is let run on as the app goes,
+    /// a Send or a Save Draft waiting (`ComposeIntake.grace`).
     private struct Current {
         let id: Int
         let read: Int
@@ -153,6 +171,14 @@ final class ComposeIntake {
         let staging: ShareItems.Staging
         var loading: ShareItems.Loading?
         var timer: Task<Void, Never>?
+        var grace: Task<Void, Never>?
+
+        /// Its bound and its grace stopped, and its read called off.
+        func callOff() {
+            timer?.cancel()
+            grace?.cancel()
+            loading?.cancel()
+        }
     }
 
     /// A read called off as the app went (`away`), its row back at the
@@ -168,6 +194,17 @@ final class ComposeIntake {
     private var queue: [Queued] = []
     private var current: Current?
     private var setAside: [Int: SetAside] = [:]
+    /// The rows counted out, at their own bound or a wait's: what a read of
+    /// one set aside brings after is thrown away, and the log says why.
+    private var countedOut: Set<Int> = []
+    /// Reads let go before they called back, by number, with what let
+    /// them go where it was not their bound: what each brings after is
+    /// thrown away, and the log says why. The letter closed, or a read of
+    /// the same row set aside before it bringing the row (`cameSetAside`).
+    private var late: [Int: String] = [:]
+    /// The sheet is done with what is coming (`close`): nothing more is
+    /// begun.
+    private var isClosed = false
     private var numbered = 0
     private var reads = 0
     /// A Send or a Save Draft is waiting for what is still coming, which
@@ -189,14 +226,15 @@ final class ComposeIntake {
     private let staging: (_ room: Int64, _ unnamed: Int, _ moves: Bool) -> ShareItems.Staging
     private let discard: @Sendable (URL) -> Void
     private let limit: Duration
+    private let graceLimit: Duration
     private let sleep: @Sendable (Duration) async throws -> Void
 
     /// `rows` are the letter's files now, which the room is measured from.
     /// `landed` puts one in: the staged file, and its row. `changed` is told
     /// when `coming` has changed; `tell` says what could not be attached.
     /// `staging` makes each one's staging, `discard` removes what one
-    /// counted out staged after all, and `sleep` waits `bound`: the test's
-    /// own clock in a test.
+    /// counted out staged after all, and `sleep` waits `bound` and `grace`:
+    /// the test's own clock in a test.
     init(actions: ComposeActions,
          rows: @escaping () -> [DraftAttachment],
          landed: @escaping (URL, DraftAttachment) -> Void,
@@ -205,6 +243,7 @@ final class ComposeIntake {
          staging: @escaping (Int64, Int, Bool) -> ShareItems.Staging = ComposeIntake.staging,
          discard: @escaping @Sendable (URL) -> Void = { AttachmentStore.removeStaged($0) },
          bound: Duration = ComposeIntake.bound,
+         grace: Duration = ComposeIntake.grace,
          sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
         self.actions = actions
         self.rows = rows
@@ -214,9 +253,11 @@ final class ComposeIntake {
         self.staging = staging
         self.discard = discard
         self.limit = bound
+        self.graceLimit = grace
         self.sleep = sleep
         actions.whenWaiting { [weak self] in self?.hurry() }
         actions.reading { [weak self] in self?.isReading ?? false }
+        actions.whenClosed { [weak self] in self?.close() }
     }
 
     /// Whether something is being read in now: not waiting its turn, nor
@@ -248,16 +289,20 @@ final class ComposeIntake {
     }
 
     /// The next in the queue begun, while nothing is and the app is in
-    /// front: nothing is begun while it is away (B-142).
+    /// front: nothing is begun while it is away (B-142), nor once the sheet
+    /// is done with what is coming (`close`). `ComposeActions` is told, so
+    /// a Send or a Save Draft that gave its background time back while
+    /// nothing was read asks for it again.
     private func startNext() {
-        guard current == nil, !isAway, !queue.isEmpty else { return }
+        guard current == nil, !isAway, !isClosed, !queue.isEmpty else { return }
+        defer { actions.readingChanged() }
         let next = queue.removeFirst()
         reads += 1
         let read = reads
         let staging = self.staging(ShareItems.Staging.room(after: rows()), unnamed, next.item.moves)
         let tally = ShareItems.Tally()
         current = Current(id: next.id, read: read, pick: next.pick, item: next.item, tally: tally,
-                          staging: staging, loading: nil, timer: timer(for: read))
+                          staging: staging, loading: nil, timer: timer(for: read), grace: nil)
         let discard = self.discard
         let loading = next.item.load(staging, tally) { [weak self] item in
             Task { @MainActor [weak self] in
@@ -322,6 +367,12 @@ final class ComposeIntake {
     /// claim on the app while it is made, and iOS ends an app that holds
     /// one in the background for more than about 30 seconds. A read that
     /// cannot be called off goes on, and nothing after it is begun.
+    ///
+    /// With a Send or a Save Draft waiting (`hurry`), the read under way is
+    /// first let run `grace`, and set aside only if it has not come by
+    /// then: a photo a second or two from coming goes in, and the letter
+    /// with it, while he is away, as before B-142, and a long video is
+    /// still called off well inside iOS's 30 seconds.
     func away() {
         guard !isAway else { return }
         isAway = true
@@ -330,29 +381,76 @@ final class ComposeIntake {
         guard var now = current else { return }
         now.timer?.cancel()
         now.timer = nil
-        guard let loading = now.loading else {
-            current = now
-            return
-        }
-        loading.cancel()
+        current = now
+        guard now.loading != nil else { return }
+        guard hurried else { return putAsideCurrent("as the app went") }
+        current?.grace = graceTimer(for: now.read)
+        Diagnostics.log(.note, "COMPOSE-ITEM let run \(graceLimit.components.seconds) s as the app went, "
+                        + "a Send or Save Draft waiting")
+    }
+
+    /// The read under way called off and set aside (`away`): its row back
+    /// at the head of the queue, still turning, nothing counted out and
+    /// nothing said, to be begun again on his return.
+    private func putAsideCurrent(_ when: String) {
+        guard let now = current, now.loading != nil else { return }
+        now.callOff()
         current = nil
         setAside[now.read] = SetAside(id: now.id, pick: now.pick, tally: now.tally,
                                       staging: now.staging)
         queue.insert(Queued(id: now.id, pick: now.pick, item: now.item), at: 0)
-        Diagnostics.log(.note, "COMPOSE-ITEM set aside as the app went, called off")
-        actions.itemSetAside()
+        Diagnostics.log(.note, "COMPOSE-ITEM set aside \(when), called off")
+        actions.readingChanged()
+    }
+
+    /// The `grace` of the read numbered `read`, from now: not come by its
+    /// end, with the app still away, it is set aside.
+    private func graceTimer(for read: Int) -> Task<Void, Never> {
+        let grace = graceLimit
+        let sleep = self.sleep
+        return Task { [weak self] in
+            do { try await sleep(grace) } catch { return }
+            guard !Task.isCancelled, let self, self.isAway, self.current?.read == read else { return }
+            self.putAsideCurrent("\(grace.components.seconds) s after the app went")
+        }
     }
 
     /// The app is in front again: the one being read, and a wait already
-    /// bounded, each have their bound again from now; and one set aside as
-    /// the app went begun again, with a bound of its own from now
-    /// (B-142).
+    /// bounded, each have their bound again from now, one let run as the
+    /// app went no longer set aside; and one set aside as the app went
+    /// begun again, with a bound of its own from now (B-142).
     func back() {
         guard isAway else { return }
         isAway = false
-        if let read = current?.read, current?.timer == nil { current?.timer = timer(for: read) }
+        if var now = current {
+            now.grace?.cancel()
+            now.grace = nil
+            if now.timer == nil { now.timer = timer(for: now.read) }
+            current = now
+        }
         if hurried, hurryTimer == nil { hurryTimer = hurryBound() }
         startNext()
+    }
+
+    /// The sheet is done with what is coming (`ComposeActions.whenClosed`):
+    /// Delete Draft, a Cancel that asked nothing, the sheet put away, or a
+    /// Send that has gone. The read under way is called off, so Photos'
+    /// copy and its claim on the app end with it (B-142), and nothing more
+    /// is begun; nothing is said. A Save Draft is not this: it waits for
+    /// what is coming after the sheet has gone.
+    func close() {
+        guard !isClosed else { return }
+        isClosed = true
+        hurryTimer?.cancel()
+        hurryTimer = nil
+        queue = []
+        guard let now = current else { return }
+        now.callOff()
+        current = nil
+        late[now.read] = "the letter closed"
+        if now.loading != nil {
+            Diagnostics.log(.note, "COMPOSE-ITEM called off, the letter closed")
+        }
     }
 
     /// The staged file of `item`, where it is one.
@@ -364,15 +462,19 @@ final class ComposeIntake {
     private func arrived(_ read: Int, _ item: SharedItem?) {
         if let aside = setAside.removeValue(forKey: read) { return cameSetAside(aside, item) }
         guard let now = current, now.read == read else {
-            // Counted out at its bound, and come after all: not in the
-            // letter, which he has been told, nor left on the disk.
+            // Counted out at its bound, and come after all, having ended
+            // before it could be called off: not in the letter, which he
+            // has been told, nor left on the disk. Or let go as the letter
+            // closed, or as an earlier read of its row brought it.
+            let after = late.removeValue(forKey: read) ?? "its bound"
             if let url = Self.file(item) {
                 discard(url)
-                Diagnostics.log(.note, "COMPOSE-ITEM came after its bound, thrown away")
+                Diagnostics.log(.note, "COMPOSE-ITEM came after \(after), thrown away")
             }
             return
         }
         now.timer?.cancel()
+        now.grace?.cancel()
         current = nil
         unnamed = now.staging.unnamed
         var attached = false
@@ -390,50 +492,70 @@ final class ComposeIntake {
     /// waits at the head of the queue, still turning, and is read again on
     /// his return, or is being read again already; it did not come after
     /// a bound, and is not counted. With what it read, ended before it
-    /// could be called off, that goes in as it would have, and its row is
-    /// taken from the queue, unless it is being read again already, which
-    /// brings it: then this copy is thrown away.
+    /// could be called off, that goes in as it would have, counted as this
+    /// read counted it, and its row is done with: taken from the queue, or,
+    /// being read again already, that read called off, since this brings
+    /// the row, a read of which may not come again. A row done with
+    /// meanwhile, counted out, ended by a later read or the letter closed,
+    /// takes nothing more: this copy is thrown away, and the log says why.
     private func cameSetAside(_ aside: SetAside, _ item: SharedItem?) {
         guard case let .file(url, filename, mimeType, size)? = item else {
             Diagnostics.log(.note, "COMPOSE-ITEM set aside, its read ended with nothing")
             return
         }
-        guard let index = queue.firstIndex(where: { $0.id == aside.id }) else {
+        if let index = queue.firstIndex(where: { $0.id == aside.id }) {
+            queue.remove(at: index)
+            Diagnostics.log(.note, "COMPOSE-ITEM set aside and come all the same")
+        } else if let now = current, now.id == aside.id {
+            now.callOff()
+            current = nil
+            late[now.read] = "an earlier read of it came"
+            Diagnostics.log(.note, "COMPOSE-ITEM set aside and come while it was read again, "
+                            + "taken, the read again called off")
+        } else {
             discard(url)
-            Diagnostics.log(.note, "COMPOSE-ITEM set aside and come after it was begun again, thrown away")
+            let why = isClosed ? "the letter closed"
+                : countedOut.contains(aside.id) ? "it was counted out"
+                : "its row was done with"
+            Diagnostics.log(.note, "COMPOSE-ITEM set aside and come after \(why), thrown away")
             return
         }
-        queue.remove(at: index)
         unnamed = aside.staging.unnamed
-        Diagnostics.log(.note, "COMPOSE-ITEM set aside and come all the same")
         landed(url, DraftAttachment(source: .localFile(url), filename: filename,
                                     mimeType: mimeType, size: size))
         count(aside.tally, attached: true, into: aside.pick)
         settle([(aside.id, aside.pick)])
     }
 
-    /// Not in at its bound: counted out, and the next begun.
+    /// Not in at its bound: counted out, its read called off, so Photos'
+    /// copy and its claim on the app end there (B-142), and the next
+    /// begun.
     private func countOut(_ read: Int) {
         guard let now = current, now.read == read else { return }
+        now.callOff()
         current = nil
+        countedOut.insert(now.id)
         Diagnostics.log(.note, "COMPOSE-ITEM counted out after \(limit.components.seconds) s")
         count(now.tally, attached: false, into: now.pick)
         settle([(now.id, now.pick)])
     }
 
     /// A Send's or a Save Draft's bound has passed (`hurry`): the one being
-    /// read and every one waiting its turn counted out at once, those not
-    /// begun as what they are (`Item.kind`), and said together, once.
+    /// read, its read called off as at its own bound, and every one waiting
+    /// its turn counted out at once, those not begun as what they are
+    /// (`Item.kind`), and said together, once.
     private func countOutAll() {
         hurryTimer = nil
         var out: [(Int, Pick)] = []
         if let now = current {
-            now.timer?.cancel()
+            now.callOff()
             current = nil
+            countedOut.insert(now.id)
             count(now.tally, attached: false, into: now.pick)
             out.append((now.id, now.pick))
         }
         for waiting in queue {
+            countedOut.insert(waiting.id)
             count(waiting.item.kind, into: waiting.pick)
             out.append((waiting.id, waiting.pick))
         }

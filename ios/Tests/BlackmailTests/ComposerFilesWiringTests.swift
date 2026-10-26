@@ -266,6 +266,28 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "}"], in: composer)
     }
 
+    /// The sheet closing with nothing waiting for what is coming calls the
+    /// read under way off (B-142): every way the composer closes without
+    /// Send or Save Draft goes through `ComposeActions`, Delete Draft, a
+    /// Cancel that asks nothing and the sheet put away, which tells the
+    /// intake (`whenClosed`, pinned on the host by `ComposerFilesTests`).
+    /// The sheet's one `dismiss` is `ComposeActions`'.
+    func testClosingTheSheetReachesTheIntake() throws {
+        let composer = try source(Self.composer)
+        inOrder(["dismiss: { [weak self] in self?.close() },",
+                 "private lazy var intake = ComposeIntake( actions: actions,"], in: composer)
+        inOrder(["override func viewDidDisappear(_ animated: Bool) {",
+                 "guard navigationController?.isBeingDismissed ?? isBeingDismissed else { return }",
+                 "actions.sheetGone { currentLetter() }"], in: composer)
+        inOrder(["@objc private func cancelTapped() {",
+                 "actions.closeWithoutAsking { letter }",
+                 "self.actions.saveAndClose({ self.draft }, then: nil)",
+                 "self.actions.deleteAndClose(self.draft.savedID, letter: self.draft.savedLetter,"],
+                in: composer)
+        let intake = try source("Sources/Blackmail/Mail/ComposeIntake.swift")
+        XCTAssertTrue(intake.contains("actions.whenClosed { [weak self] in self?.close() }"))
+    }
+
     /// At launch the staging and the Inbox go, in the app and the share
     /// extension both; a file is moved in as class C, as one copied is.
     func testThePurgeAtLaunchAndTheMove() throws {

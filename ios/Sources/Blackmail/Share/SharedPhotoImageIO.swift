@@ -115,8 +115,9 @@ extension ShareItems {
 
     /// A picture whose read was called off before its next way was begun
     /// (`Loading`, B-142): nothing staged, and its line saying so,
-    /// "left out, called off", though it is only set aside, to be read
-    /// again.
+    /// "left out, called off", whether it was set aside, to be read again,
+    /// or let go, counted out or the letter closed; the composer's own line
+    /// says which (`ComposeIntake`).
     static func calledOff(offered: [String], read: String, unopened: [String],
                           suggested: String?, done: (SharedItem?) -> Void) {
         var report = SharedPhoto.Report(offered: offered, read: read,

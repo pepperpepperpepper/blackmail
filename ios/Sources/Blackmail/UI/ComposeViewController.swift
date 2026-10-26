@@ -408,7 +408,8 @@ final class ComposeViewController: UIViewController,
         // before the letter is kept: Photos' copy of a large video, left
         // running, got the app ended within a minute, the letter with it
         // (`ComposeIntake.away`, B-142). So the keep waits for nothing set
-        // aside, and gives its background time back at once.
+        // aside, and gives its background time back at once. With a Send
+        // or a Save Draft waiting for it, the read has 20 seconds first.
         intake.away()
         actions.putAside { self.currentLetter() }
     }

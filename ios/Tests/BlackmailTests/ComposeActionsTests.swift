@@ -372,7 +372,8 @@ final class ComposeActionsTests: XCTestCase {
 
     /// Send while a photo is still on its way into the letter: no sound
     /// while the photo is awaited, nor while the letter then goes; once it
-    /// has gone, the sound.
+    /// has gone, the sound. The letter is asked for at the tap only to be
+    /// kept on the iPad (B-142).
     func testASendWaitingForAPhotoPlaysTheSoundOnlyOnceTheLetterHasGone() async throws {
         let actions = makeActions(sound: true)
         actions.itemComing()
@@ -389,7 +390,8 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertEqual(swooshes, 0, "nor while the letter goes")
         holdSend?.release()
         await sending.value
-        XCTAssertEqual(log, ["begin Send", "letter", "send", "250", "swoosh", "dismiss", "end 1"])
+        XCTAssertEqual(log, ["letter", "begin Send", "letter", "send", "250", "swoosh", "dismiss",
+                             "end 1"])
         XCTAssertEqual(swooshes, 1)
     }
 
@@ -575,7 +577,8 @@ final class ComposeActionsTests: XCTestCase {
     /// in: the spinner at once, and the letter taken, and sent, only once
     /// the last of them has landed, so it goes with them. It used to be
     /// taken at the tap, and the photos landed in the sheet after the
-    /// letter had gone without them.
+    /// letter had gone without them. At the tap it is asked for only to be
+    /// kept on the iPad, as it stands (B-142).
     func testASendWaitsForPhotosStillOnTheirWayIn() async throws {
         let actions = makeActions()
         var landed = 0
@@ -587,18 +590,20 @@ final class ComposeActionsTests: XCTestCase {
         }, then: nil))
         await settled()
         XCTAssertEqual(draws, [.sending("Sending…")], "the spinner is up at the tap")
-        XCTAssertEqual(log, ["begin Send"], "nothing taken or sent with photos still to come")
+        XCTAssertEqual(log, ["letter with 0", "begin Send"],
+                       "nothing taken to be sent with photos still to come")
         XCTAssertNil(actions.send(draft(), then: nil), "and a second tap sends nothing meanwhile")
 
         landed = 1
         actions.itemLanded()
         await settled()
-        XCTAssertEqual(log, ["begin Send"], "one still to come")
+        XCTAssertEqual(log, ["letter with 0", "begin Send"], "one still to come")
 
         landed = 2
         actions.itemLanded()
         await sending.value
-        XCTAssertEqual(log, ["begin Send", "letter with 2", "send", "dismiss", "end 1"])
+        XCTAssertEqual(log, ["letter with 0", "begin Send", "letter with 2", "send", "dismiss",
+                             "end 1"])
     }
 
     /// Save Draft the same, after the sheet has gone: the draft kept is the

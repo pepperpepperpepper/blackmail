@@ -281,9 +281,10 @@ enum ShareItems {
         case notCopied
         /// The sharing app handed over no file.
         case notGiven
-        /// No file, the read called off as the app went into the
-        /// background (`Loading`, B-142): not left out, but set aside, to be
-        /// read again on his return.
+        /// No file, the read called off (`Loading`, B-142): as the app went
+        /// into the background, set aside to be read again on his return,
+        /// or once nothing would take it, counted out or the letter closed.
+        /// The composer's own line says which (`ComposeIntake`).
         case calledOff
     }
 
@@ -312,7 +313,7 @@ enum ShareItems {
             words = "left out, more than the letter's room, \(left / 1_000_000) MB left"
         case .notCopied: words = "left out, not copied"
         case .notGiven: words = "left out, not given"
-        case .calledOff: words = "called off, set aside"
+        case .calledOff: words = "called off"
         }
         return "SHARE-FILE read=\(type) name=\(source) \"\(SharedPhoto.Report.logged(name))\""
             + " mime=\(mimeType) bytes=\(bytes) went=\(words)"
@@ -399,7 +400,9 @@ enum ShareItems {
     /// nothing.
     ///
     /// Called off as the app goes into the background with a video still
-    /// coming into the composer (`ComposeIntake.away`). While Photos makes
+    /// coming into the composer (`ComposeIntake.away`), and once nothing
+    /// will take what it brings, counted out or the letter closed
+    /// (`ComposeIntake.countOut`, `close`). While Photos makes
     /// its copy of a video, iOS holds a file coordination claim on the
     /// app; in the background it gives such a claim about 30 seconds, then
     /// ends the app, with no crash report and nothing said, and the letter
