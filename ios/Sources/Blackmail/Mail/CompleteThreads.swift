@@ -160,13 +160,15 @@ final class RelatedMemo: @unchecked Sendable {
     }
 
     /// What was found for `thread`, now, by a lookup that took `generation`
-    /// before it asked; nothing kept if the memo has been forgotten since.
-    /// Answers past their time go as another comes in, so the memo never
-    /// holds more than ten minutes'.
-    func keep(_ found: RelatedLetters, inThread thread: UInt64, asOf generation: Int) {
+    /// before it asked; nothing kept if the memo has been forgotten since,
+    /// and false returned, so the copy kept on the iPad does not take it
+    /// either (B-159). Answers past their time go as another comes in, so
+    /// the memo never holds more than ten minutes'.
+    @discardableResult
+    func keep(_ found: RelatedLetters, inThread thread: UInt64, asOf generation: Int) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard generation == forgotten else { return }
+        guard generation == forgotten else { return false }
         let at = now()
         var kept = threads.filter { _, entry in
             let age = at.timeIntervalSince(entry.at)
@@ -174,6 +176,7 @@ final class RelatedMemo: @unchecked Sendable {
         }
         kept[thread] = (found, at)
         threads = kept
+        return true
     }
 
     func forget() {

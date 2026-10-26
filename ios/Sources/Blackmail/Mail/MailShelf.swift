@@ -92,6 +92,8 @@ final class MailShelf: @unchecked Sendable {
     /// last lookup of each found them (B-159), once read from disk.
     private var related: RelatedRecord?
     private var relatedRead = false
+    /// Their read in the background has been asked for (`readLettersOfHisSoon`).
+    private var relatedAsked = false
 
     /// What has changed since the last write.
     private var changedPages: Set<String> = []
@@ -208,8 +210,14 @@ final class MailShelf: @unchecked Sendable {
     /// `mailboxID` in either of the spellings the app uses, the role word
     /// "inbox" at launch or the name LIST gave, and the rows come back
     /// under it, as a listing of that id gives them.
+    ///
+    /// The Inbox's, asked for first, has his letters of its conversations
+    /// read in the background (`readLettersOfHisSoon`, B-159).
     func page(of mailboxID: String) -> Page? {
-        guard isAlive, let record = record(of: folderName(for: mailboxID)) else { return nil }
+        guard isAlive else { return nil }
+        let folder = folderName(for: mailboxID)
+        readLettersOfHisSoon(asked: folder)
+        guard let record = record(of: folder) else { return nil }
         return Page(rows: record.rows.map { $0.summary(in: mailboxID) }, keptAt: record.keptAt)
     }
 
@@ -623,15 +631,29 @@ final class MailShelf: @unchecked Sendable {
     /// ids name other letters there, or none. The conversation looked up is
     /// the newest kept, and past `mostConversations` conversations, or
     /// `mostLettersOfHis` letters, the one looked up longest ago goes.
+    ///
+    /// A row found with no few words keeps those kept for the same letter,
+    /// under the same id and Gmail id, as a page listed over kept rows
+    /// does (`took(page:)`): the lookup skips them when another folder has
+    /// been opened between its search and their FETCH, and the line kept
+    /// had them.
     func took(lettersOfHis found: RelatedLetters, inThread thread: UInt64,
               folder: String, validity: UInt32) {
         guard isAlive else { return }
         readRelated()
-        let rows = found.letters.prefix(CompleteThreads.mostLetters)
-            .map { RowRecord($0, preview: $0.preview) }
+        let letters = found.letters.prefix(CompleteThreads.mostLetters)
         locked {
             var record = related.flatMap { $0.folder == folder && $0.validity == validity ? $0 : nil }
                 ?? RelatedRecord(format: Self.format, folder: folder, validity: validity, threads: [])
+            var said: [String: (message: UInt64?, preview: String)] = [:]
+            for row in record.threads.first(where: { $0.thread == thread })?.rows ?? [] {
+                said[row.id] = (row.message, row.preview)
+            }
+            let rows = letters.map { letter -> RowRecord in
+                let was = said[letter.id]
+                let carried = was?.message == letter.gmailMessageID ? was?.preview ?? "" : ""
+                return RowRecord(letter, preview: letter.preview.isEmpty ? carried : letter.preview)
+            }
             record.threads.removeAll { $0.thread == thread }
             if !rows.isEmpty {
                 record.threads.append(ThreadRecord(thread: thread, keptAt: now(),
@@ -839,6 +861,24 @@ final class MailShelf: @unchecked Sendable {
         }
     }
 
+    /// His letters of the Inbox's conversations read from disk now, off the
+    /// main thread, unless they have been or are being (B-159): as the
+    /// Inbox's kept page is first asked for, `folder` being the page's,
+    /// which a launch's first frame does, so the first conversation he opens has them in memory. Its
+    /// first frame, on the main thread, used to read them itself, up to a
+    /// megabyte, on the disk queue, where it waited behind any letter being
+    /// written. Opened before this has read them, it still does.
+    private func readLettersOfHisSoon(asked folder: String) {
+        guard !locked({ relatedRead || relatedAsked }), folder == folderName(for: "inbox") else { return }
+        let start: Bool = locked {
+            guard !relatedRead, !relatedAsked else { return false }
+            relatedAsked = true
+            return true
+        }
+        guard start else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in self?.readRelated() }
+    }
+
     /// His letters of the Inbox's conversations (B-159), read from disk the
     /// first time they are asked for.
     private func readRelated() {
@@ -864,6 +904,10 @@ final class MailShelf: @unchecked Sendable {
         return kept.sorted { $0.folder < $1.folder }
             .flatMap { page in page.rows.map { $0.summary(in: page.folder) } }
     }
+
+    /// His letters of the Inbox's conversations have been read from disk,
+    /// or the copy thrown away: for the suite.
+    var lettersOfHisRead: Bool { locked { relatedRead } }
 
     /// Every page on disk, for a change to a letter wherever it is kept.
     private func loadEverything() {

@@ -2610,10 +2610,10 @@ actor IMAPMailRepository: MailRepository {
     /// been, with nothing said to him.
     ///
     /// The answer is remembered for `CompleteThreads.remembered`
-    /// (`hisLetters`), so a conversation opened again sends nothing; but not
-    /// if the memo was forgotten while the lookup was out, as a letter he
-    /// sent landing forgets it: that answer may be from before his reply was
-    /// in Sent Mail.
+    /// (`hisLetters`), so a conversation opened again sends nothing, and
+    /// kept on the iPad; but neither if the memo was forgotten while the
+    /// lookup was out, as a letter he sent landing forgets it: that answer
+    /// may be from before his reply was in Sent Mail.
     ///
     /// The few words of his lines are fetched in a hold of their own after
     /// the search, and only while Sent Mail is still the folder open on the
@@ -2662,8 +2662,12 @@ actor IMAPMailRepository: MailRepository {
             }
             guard !Task.isCancelled else { return .none }
             let found = RelatedLetters(folderName: folder.displayName, letters: letters)
-            hisLetters.keep(found, inThread: thread, asOf: asOf)
-            shelf?.took(lettersOfHis: found, inThread: thread, folder: sent, validity: hits.validity)
+            // Kept on the iPad only as the memo keeps it: an answer that may
+            // be from before a reply he has just sent is shown and not kept,
+            // so it cannot replace a later lookup's.
+            if hisLetters.keep(found, inThread: thread, asOf: asOf) {
+                shelf?.took(lettersOfHis: found, inThread: thread, folder: sent, validity: hits.validity)
+            }
             return Self.shown(found, besides: besides)
         } catch {
             return .none

@@ -30142,10 +30142,23 @@ be downloaded; after an offline relaunch it was not there at all.
    the shelf's format 1, by Gmail's thread number, his rows as the lookup
    had them, their few words with them, with Sent Mail's name and the
    UIDVALIDITY their ids are under. A lookup that finds none keeps none for
-   the conversation. On the shelf's disk queue, read the first time it is
-   asked for, written behind and at `flush`, out of backup with the
-   directory, and gone with the shelf's discard and wipe (a password
-   saved).
+   the conversation. A line it found with no few words keeps those kept for
+   the same letter, under the same id and Gmail id, as a page listed over
+   kept rows keeps a row's (`took(page:)`): the lookup skips them when
+   another folder has been opened between its search and their FETCH, and
+   its rows used to be written over the kept ones without them. Kept only
+   as the memo keeps it: a lookup still out when the memo is forgotten, as
+   a letter he sends landing forgets it, has its answer shown and kept
+   neither in memory nor on the iPad, where it could have replaced a later
+   lookup's (`RelatedMemo.keep` says whether it kept). On the shelf's disk
+   queue, read in the background as the Inbox's kept page is first asked
+   for, which a launch's first frame does (`readLettersOfHisSoon`), so the
+   first conversation he opens has them in memory: its first frame, on the
+   main thread, read them itself at first, up to a megabyte, on the disk
+   queue the letters kept on the iPad are written on, and waited behind
+   any letter being written. Written behind and at `flush`, out of backup
+   with the directory, and gone with the shelf's discard and wipe (a
+   password saved).
 2. *Kept with the conversation and no longer.* The Inbox listed from the
    top takes the letters of every conversation it no longer holds. At most
    500 conversations (`mostConversations`), 2,000 letters
@@ -30198,7 +30211,7 @@ without, after a relaunch too; a reply he opened before opens at once
 offline. One he never opened says, offline, that it could not be
 downloaded, as before. No new words.
 
-**Tests.** `HisRepliesKeptTests`, 11, new. The store through the shelf: what
+**Tests.** `HisRepliesKeptTests`, 14, new. The store through the shelf: what
 a lookup found read back by the next launch's shelf, rows, few words, To,
 Gmail ids and Sent Mail's name, another conversation none, a lookup that
 finds none keeping none; Sent Mail under another UIDVALIDITY, by a lookup
@@ -30209,7 +30222,11 @@ bounds, 500 conversations and 2,000 letters, the one looked up longest ago
 going first and one looked up again the newest; a delete or move out of
 Sent Mail, a letter binned by its Gmail id, a refusal, the copy thrown away
 and a password saved each taking theirs, a refusal for another letter and
-a removal from another folder not. The pane's first frame
+a removal from another folder not; a line found with no few words keeping
+the kept ones, not another letter's under the id, not over few words
+found, not another conversation's; read in the background as the Inbox's
+kept page is first asked for, another folder's asking for none, and then
+there with `related.json` gone from the disk. The pane's first frame
 (`PaneRelated`): the kept lines less the stack's own with the lookup still
 due, its answer adding only what came since, the memo shown before them
 with nothing looked up, and nothing with Complete Threads off. Over the
@@ -30221,7 +30238,10 @@ has its line and no body offline; his reply opened is one `UID FETCH` of
 `BODY.PEEK[]`, no STORE, its `\Seen` unchanged, kept under Sent Mail's
 four keys, and opened again sends nothing; Sent Mail renumbered, the next
 lookup replaces the kept line with the reply under its new UID; and
-nothing of his letters, the folder, a name or a word of them, in the log.
+nothing of his letters, the folder, a name or a word of them, in the log;
+and the memo forgotten while a lookup is out, between its `UID SEARCH` and
+its answer, its answer shown, neither remembered nor kept on the iPad, the
+next lookup's kept.
 
 Rewritten, as what they pinned is reversed: `CompleteThreadsTests`'
 `testHisLettersAreNeverKept`, now
@@ -30250,14 +30270,27 @@ failed, and with them the rewritten `testHisLettersAreKeptByTheShelfAloneAndOpen
 `testThePaneOpensItsRowsAndHisSentMailWithOpenLetter`; then all of it put
 back.
 
+The three later changes, each rule undone, in one run with B-160's later
+ones (they touch nothing here): the kept few words not carried across,
+`testALineFoundWithoutItsFewWordsKeepsTheKeptOnes` failed; the read in the
+background not asked for,
+`testTheyAreReadInTheBackgroundAsTheInboxIsAskedFor` failed; the shelf
+taking the answer whatever the memo did,
+`testAnAnswerFromBeforeTheMemoWasForgottenIsNotKept` failed; then all of
+it put back.
+
 The full suite, serially, at this commit: 2,675 tests, 6 skipped, none
 failing; with B-160 after it, 2,702, 6 skipped, none failing, and the
-release build for the iPad links.
+release build for the iPad links. With the changes after: see B-160's
+last count.
 
 **Not seen.** Nothing of this on the iPad yet; the TODO check is under
 "Blocked on the iPad coming back". Mail's own conversation after an
 offline relaunch is inferred, not seen: Mail on 16.5.1 stands in once it
-is back on the test iPad (B-028).
+is back on the test iPad (B-028). A conversation opened before the read in
+the background has finished, a moment into a launch, still reads them on
+the main thread, waiting on the disk queue; how long that read takes on
+the iPad was not measured.
 
 ## B-160 — FIXED 2026-10-26, not yet seen on the iPad. With no connection he could not scroll past the Inbox's first fifty letters, open a letter he had never opened, or search; Mail keeps every letter's line, downloads mail ahead and searches what it has
 

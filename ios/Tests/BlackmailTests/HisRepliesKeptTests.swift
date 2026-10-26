@@ -286,6 +286,79 @@ final class HisRepliesKeptTests: XCTestCase {
         XCTAssertNil(makeShelf().lettersOfHis(inThread: 42), "a password saved")
     }
 
+    /// A line found with no few words keeps the few words kept for the
+    /// same letter, as a page listed over kept rows does: the lookup skips
+    /// them when another folder has been opened between its search and
+    /// their FETCH. Not for another letter under the id, and not over few
+    /// words found.
+    func testALineFoundWithoutItsFewWordsKeepsTheKeptOnes() throws {
+        let shelf = makeShelf()
+        shelf.took(lettersOfHis: found(his(2), his(4), his(6)), inThread: 42, folder: Server.sent, validity: 6)
+        var bare = his(2)
+        bare.preview = ""
+        var another = his(4, gmail: 1)
+        another.preview = ""
+        var said = his(6)
+        said.preview = "mine at last"
+        shelf.took(lettersOfHis: found(bare, another, said), inThread: 42, folder: Server.sent, validity: 6)
+        XCTAssertEqual(shelf.lettersOfHis(inThread: 42)?.letters.map(\.preview), ["mine 2", "", "mine at last"])
+        shelf.flush()
+        XCTAssertEqual(makeShelf().lettersOfHis(inThread: 42)?.letters.map(\.preview),
+                       ["mine 2", "", "mine at last"])
+        var elsewhere = his(2)
+        elsewhere.preview = ""
+        shelf.took(lettersOfHis: found(elsewhere), inThread: 43, folder: Server.sent, validity: 6)
+        XCTAssertEqual(shelf.lettersOfHis(inThread: 43)?.letters.map(\.preview), [""],
+                       "another conversation's are not carried")
+    }
+
+    /// Read in the background as the Inbox's kept page is first asked for,
+    /// at a launch's first frame, so the first conversation he opens has
+    /// them in memory and its frame reads nothing on the main thread.
+    func testTheyAreReadInTheBackgroundAsTheInboxIsAskedFor() async throws {
+        let first = makeShelf()
+        first.took(lettersOfHis: found(his(2)), inThread: 42, folder: Server.sent, validity: 6)
+        first.flush()
+
+        let next = makeShelf()
+        XCTAssertFalse(next.lettersOfHisRead, "nothing read as the shelf is made")
+        _ = next.page(of: Server.sent)
+        XCTAssertFalse(next.lettersOfHisRead, "another folder's page asks for none")
+        _ = next.page(of: "inbox")
+        try await until { next.lettersOfHisRead }
+        let file = next.directory.appendingPathComponent("related.json")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.path))
+        try FileManager.default.removeItem(at: file)
+        XCTAssertEqual(keptIDs(next, 42), ["6/2"], "read already")
+    }
+
+    /// An answer that may be from before a reply he has just sent, the memo
+    /// forgotten while the lookup was out, is shown and not kept: neither
+    /// remembered nor kept on the iPad, where it could replace a later
+    /// lookup's.
+    func testAnAnswerFromBeforeTheMemoWasForgottenIsNotKept() async throws {
+        roof()
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.listMailboxes()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let thread = try XCTUnwrap(MessageThread.group(rows).first)
+        let number = try XCTUnwrap(CompleteThreads.thread(toComplete: thread, listedIn: .inbox,
+                                                          searching: false, switchedOn: true))
+        let besides = Set(thread.messages.compactMap(\.gmailMessageID))
+        let memo = repository.hisLetters
+        server.change(after: { $0.verb == "UID SEARCH" }) { memo.forget() }
+        let found = await repository.lettersOfHis(inThread: number, besides: besides)
+        XCTAssertFalse(found.letters.isEmpty, "shown")
+        XCTAssertNil(repository.rememberedLettersOfHis(inThread: number, besides: besides))
+        XCTAssertNil(shelf.lettersOfHis(inThread: number), "not kept on the iPad")
+
+        let again = await repository.lettersOfHis(inThread: number, besides: besides)
+        XCTAssertEqual(again.letters, found.letters)
+        XCTAssertEqual(shelf.lettersOfHis(inThread: number)?.letters.map(\.id), found.letters.map(\.id),
+                       "the next lookup's kept")
+    }
+
     // MARK: - The pane's first frame
 
     /// With nothing remembered, his letters kept on the iPad are in the
