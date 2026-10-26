@@ -30167,7 +30167,14 @@ draft would never have reached Gmail, its row saying the same for good.
    the sheet, brings up the usual Save Draft / Delete Draft sheet for such
    a draft as it opened. Save Draft keeps it as saved, which clears the
    count, and takes it to Drafts, as ever; Delete Draft takes it off the
-   iPad; the sheet's own Cancel leaves the letter open.
+   iPad; the sheet's own Cancel leaves the letter open. So does such a
+   draft he has emptied by hand, which before closed unasked with its
+   words kept (`ComposeForm.asksBeforeClosing`, `closeWithoutAsking`):
+   `asksAnyway`, which reads no letter, comes ahead of that rule, as it
+   does for a photo still coming in or a refused Send. Save Draft there keeps
+   the empty letter, which `saveAndClose` does not check, and takes it to
+   Drafts in place of the words; it takes his tap, and Delete Draft is
+   beside it.
 3. Comments on `asksAnyway`, `cancelTapped` and
    `LocalDraft.notSavedByItself`.
 
@@ -30188,16 +30195,18 @@ held while it is open.
 **Tests.** `OutboxTests.testCancelOnAHeldDraftAsItOpenedAsks`, new, through
 the composer's own wiring (`ComposeActions(letter:…)`) over the shipping
 `LocalDrafts` and the scripted server: two drafts and a letter in the Outbox
-each with three unfinished tries, and a plain draft; the app launched again.
+each with three unfinished tries, and a plain draft with two; the app
+launched again.
 The held draft's row reads "Not saved to Gmail automatically. Open it, tap
 Cancel, then Save Draft."; opened, Cancel asks, though the form reads as it
 opened, and Save Draft from there, untouched, makes one `APPEND` and takes
 it off the iPad; the second held draft asks too, and Delete Draft takes it
 off with nothing saved. The held Outbox letter asks nothing, before and
 after the autosave has kept it as a draft while open, and closed it goes
-back to the Outbox with its three tries; the plain draft asks nothing. After
-a page and its pass the plain draft goes up, two `APPEND`s in all, nothing
-is sent, and the held letter is still in the Outbox.
+back to the Outbox with its three tries; the plain draft, a try short of
+held (two), asks nothing. After a page and its pass the plain draft goes up,
+two `APPEND`s in all, nothing is sent, and the held letter is still in the
+Outbox.
 `ComposeActionsTests.testAHeldDraftIsOneCancelAsksAbout`, new:
 `asksAnyway` follows `isHeldDraft` as it reads at the time, and kept
 nowhere, as a share is, nothing is held.
@@ -30207,7 +30216,9 @@ passing: `asksAnyway` not reading `isHeldDraft`, 3 failures in 2 tests
 (both held drafts and the stand-in not asking); the Outbox letter not
 left out (no `fromOutbox` check) together with every draft counted held
 (no `isHeld`), 2 failures in 1 test, one for each: the Outbox letter kept
-as a draft while open asking, and the plain draft asking.
+as a draft while open asking, and the plain draft asking; any try counted
+held (`autoAttempts > 0` for `isHeld`), 1 failure in 1 test, the plain
+draft with two tries asking.
 
 The full suite, serially: 2,666 tests, 2 of them new, 6 skipped, none
 failing. The release build for the iPad links.

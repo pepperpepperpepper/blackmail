@@ -7363,8 +7363,12 @@ checks below is left as not needed, not open, and none is worth a round.*
          carlo+b165@ (the round's carlo+TAG@ address), subject "B-165
          held", Cancel, Save Draft: Drafts lists it under "On this iPad
          only". End the app. In its `letter.json` write three tries the
-         app did not live through,
-         `sed -i '' 's/"format":1/"format":1,"autoAttempts":3/' letter.json`.
+         app did not live through, as in B-057's step 6:
+         `sed -i 's/"format":1/"format":1,"autoAttempts":3/' letter.json`
+         (BSD sed wants `-i ''`). Then `grep -o '"autoAttempts":3'
+         letter.json` prints it once; printing nothing, the edit did not
+         land, and online the pass would save the draft to Gmail by
+         itself: stop, and write it again.
       2. *Online.* Airplane Mode off, open the app: no `APPEND` and no
          `MAIL FROM` in the log, which has `DRAFT-HELD unfinished-tries=3`;
          the row in Drafts reads "On this iPad only", then "Not saved to

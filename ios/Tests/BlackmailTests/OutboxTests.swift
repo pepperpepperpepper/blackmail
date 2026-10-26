@@ -1500,7 +1500,7 @@ final class OutboxTests: XCTestCase {
     /// untouched, takes it to Drafts, once; Delete Draft takes another off
     /// the iPad with nothing saved. A letter held in the Outbox still
     /// closes unasked and stays there, held, even kept as a draft while it
-    /// was open, and so does a draft that is not held.
+    /// was open, and so does a draft a try short of held.
     func testCancelOnAHeldDraftAsItOpenedAsks() async throws {
         let kept = makeKept()
         let repository = makeRepository()
@@ -1509,6 +1509,7 @@ final class OutboxTests: XCTestCase {
         keptDraft("Plain", as: "plain", kept: kept)
         await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
         for key in ["draft", "other", "held"] { XCTAssertTrue(kept.store.noteTries(key, 3)) }
+        XCTAssertTrue(kept.store.noteTries("plain", LocalDrafts.unfinishedTries - 1))
 
         let relaunched = makeKept()
         try await page(repository)
@@ -1532,7 +1533,7 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(relaunched.outbox.map(\.key), ["held"], "back in the Outbox")
         XCTAssertEqual(tries("held"), 3, "still held")
 
-        // Not held: as it opened, Cancel asks nothing.
+        // A try short of held: as it opened, Cancel asks nothing.
         let plain = try XCTUnwrap(relaunched.letter("plain")).draft
         let unheld = makeActions("plain", kept: relaunched, repository: repository)
         XCTAssertFalse(unheld.asksAnyway)
