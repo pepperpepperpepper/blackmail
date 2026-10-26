@@ -4812,7 +4812,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       the iPad locked, or another app opened, for more than three minutes
       while a large video is still coming into the composer: back in the
       app, the video comes in, or has three minutes more, and is not
-      counted out at once.
+      counted out at once. *Reached on the test iPad 2026-10-25 (round
+      r6-s6-marks-net, a build of int16), with its own 1.39 GB video,
+      IMG_0712: locked 0.4 s after Add, iOS ended Blackmail 31 s after the
+      lock, in both runs, for a file coordination claim held while Photos
+      made its copy; the letter and the pick were gone and the wake showed
+      the Home Screen. In front and not locked, the same pick came 4 min
+      23 s after Add, after its bound. B-142, fixed 2026-10-26: 9's second
+      half is run as B-142's check, below, not here.*
       10. *Ended.* Pick a file and end the app in the app switcher at
       once: at the next launch `tmp/<bundle id>-Inbox` and
       `tmp/Attachments` are empty, where the container can be read.
@@ -6535,6 +6542,66 @@ checks below is left as not needed, not open, and none is worth a round.*
       Trash only the UIDs that move answered (`COPYUID`); "Notes" itself
       stays. Never anything found by subject or Message-ID: a UID not
       noted is left, and written down. Nothing else was written.
+- [ ] **B-142, a large video still coming into the composer as he locks
+      the iPad or leaves the app.** On the test iPad, the test account
+      only, from a build of the `bm-videopick` worktree (branch
+      `fix-videopick`) or of the int it is merged into. No letter is sent
+      or saved: no recipient is typed in any step, and every composer
+      ends with Cancel, Delete Draft. The videos are the test iPad's own
+      in Photos, 1.2 to 2.7 GB (IMG_0712, the round's, is 1.39 GB): nothing
+      is put on the iPad or taken off it. Before the first step, over IMAP,
+      the counts of Drafts and Sent Mail; the app's Local Drafts empty. A
+      read-only syslog capture runs throughout; the app's log is read after
+      each step.
+      1. *Locked, the round's case:* a new letter, Photo Library, Videos,
+      IMG_0712, Add: its row with a spinner. Lock the iPad within a second.
+      In the syslog, within a second or two of the lock, the "File
+      Coordination Claim" assertion on Blackmail invalidated; no
+      "Assertion warning event" for it near 26 s and no termination with
+      0x2182BAAD near 31 s. In the log, `COMPOSE-ITEM set aside as the app
+      went, called off`, then `SHARE-FILE read=com.apple.quicktime-movie`
+      with `went=called off, set aside` and `COMPOSE-ITEM set aside, its
+      read ended with nothing`. Wake after three and a half minutes,
+      nothing touched: Blackmail in front, the composer up, IMG_0712's row
+      turning again, and a new claim in the syslog. Then, not at once on
+      the return: either it comes and is left out for the letter's room,
+      "The video could not be attached." with `SHARE-FILE ... went=left
+      out, more than the letter's room`, or it is counted out three
+      minutes after the return (`COMPOSE-ITEM counted out after 180 s`),
+      the same words. A shot of the composer on the wake. Cancel, Delete
+      Draft. Before 2026-10-26 the app was ended 31 s after the lock, and
+      the wake showed the Home Screen. If the claim is not let go at the
+      lock, and the app is ended all the same, write down the syslog's
+      lines: `Progress.cancel()` then does not end Photos' copy, and the
+      way left is the picker's `.current` for videos (no copy made, B-108's
+      compatible copy given up), a change of its own.
+      2. *Another app:* as 1, with Safari opened from the Dock in place of
+      the lock, three and a half minutes there, then back to Blackmail by
+      the app switcher. The same.
+      3. *Words typed:* only if 1 and 2 passed. A new letter, "B-142" typed
+      in the body and nothing else, then IMG_0712 as in 1, and the lock. In
+      the syslog the "Keep Draft" background time let go within a second
+      of the lock, not held to its expiry. Wake after three and a half
+      minutes: the composer up with the words, the row turning again.
+      Cancel, Delete Draft; Local Drafts empty. Should the app have been
+      ended, the letter is in Drafts at the next launch: written down, and
+      deleted there in the app, Edit, Delete.
+      4. *Several:* a new letter, Photo Library, the 2.7 GB video, the 1.2
+      GB video and one photo, in that order, Add, and the lock at once.
+      Wake after three and a half minutes: three rows turning; the first
+      video read again first, then the second, then the photo, each after
+      the one before it has ended; the photo's row comes in, and when the
+      pick ends, one alert, "2 videos could not be attached.". Cancel,
+      Delete Draft.
+      5. *The share sheet,* written down, nothing in it changed by B-142:
+      Photos, IMG_0712, Share, Blackmail. The sheet's spinner while it
+      reads the video; lock within a second; wake after one minute: is the
+      sheet still up, and does the syslog have a claim on the extension
+      and a termination with 0x2182BAAD? Cancel if it is up. The sheet has
+      nothing of his in it until the video has been read.
+      6. *Put back:* Drafts and Sent Mail as counted first; Local Drafts
+      empty; Photos as found; Blackmail in front on the Inbox; Auto-Lock
+      as found. Nothing was written to the account.
 
 ## Blocked on the owner
 

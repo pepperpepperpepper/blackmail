@@ -487,10 +487,10 @@ final class SharePictureFallbackTests: XCTestCase {
         inOrder(["static func picture(_ provider: NSItemProvider, type: String, staging: Staging,",
                  "let types = SharedPhoto.typesToRead(first: type, offered: provider.registeredTypeIdentifiers,",
                  "isImage: { UTType($0)?.conforms(to: .image) == true })",
-                 "picture(provider, as: types[...], unopened: [], staging: staging, done: done)",
+                 "picture(provider, as: types[...], unopened: [], staging: staging, loading: loading, done: done)",
                  "private static func picture(_ provider: NSItemProvider, as types: ArraySlice<String>,",
                  "guard let type = types.first else {",
-                 "return object(provider, unopened: unopened, staging: staging, done: done)",
+                 "return object(provider, unopened: unopened, staging: staging, loading: loading, done: done)",
                  "provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
                  "var report = SharedPhoto.Report(offered: offered, read: type, named: named)",
                  "report.unopened = unopened",
@@ -503,7 +503,7 @@ final class SharePictureFallbackTests: XCTestCase {
                  "case .staged(let item): finish(item, fromItsBytes, done)",
                  "case .undecodable: finish(nil, fromItsBytes, done)",
                  "case .unopened:",
-                 "picture(provider, as: types.dropFirst(), unopened: unopened + [type], staging: staging, done: done)"],
+                 "picture(provider, as: types.dropFirst(), unopened: unopened + [type], staging: staging, loading: loading, done: done)"],
                 in: code)
         XCTAssertEqual(count("types.dropFirst()", in: code), 1, "on to the next only there")
         XCTAssertEqual(count("object(provider,", in: code), 1)
@@ -601,7 +601,7 @@ final class SharePictureFallbackTests: XCTestCase {
         inOrder(["static func object(_ provider: NSItemProvider, unopened: [String], staging: Staging,",
                  "let named = SharedPhoto.named(suggested: provider.suggestedName, file: nil)",
                  "guard provider.canLoadObject(ofClass: UIImage.self) else {",
-                 "return item(provider, unopened: unopened, staging: staging, done: done)",
+                 "return item(provider, unopened: unopened, staging: staging, loading: loading, done: done)",
                  "provider.loadObject(ofClass: UIImage.self) { object, _ in",
                  "guard let image = object as? UIImage else {",
                  "return item(provider, unopened: unopened + [\"object\"], staging: staging,",

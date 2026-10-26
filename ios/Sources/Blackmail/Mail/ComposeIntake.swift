@@ -33,6 +33,17 @@ import Foundation
 /// his return a video that had come meanwhile, the bound and the video
 /// each waiting for the app in no set order.
 ///
+/// Nor is anything read while the app is away (B-142). The read under way
+/// as he locks the iPad or leaves the app is called off and set aside, its
+/// row still turning and nothing counted out, and read again from the
+/// start on his return, with three minutes of its own again; nothing else
+/// is begun meanwhile. Left running, Photos' copy of a large video held a
+/// file coordination claim on the app, which iOS gives a background app
+/// about 30 seconds: then it ended the app, and the letter he was writing
+/// went with it (seen on the test iPad, 2026-10-25). A read that cannot be
+/// called off, a file Attach File handed over, which is read where it is
+/// at once, goes on.
+///
 /// Never short: everything chosen counts in `ComposeActions` from the pick
 /// until it is in, has failed or has been counted out (`itemComing`,
 /// `itemLanded`), so Send and Save Draft wait for it. A pick that ends with
@@ -60,14 +71,17 @@ final class ComposeIntake {
         let moves: Bool
         /// Reads it in through `staging`, counted in `tally` as the share
         /// sheet counts what it is offered, and calls back once, from any
-        /// thread, with what was staged, or nil.
-        let load: (ShareItems.Staging, ShareItems.Tally, @escaping (SharedItem?) -> Void) -> Void
+        /// thread, with what was staged, or nil. Returns the read, which
+        /// `away` calls off and sets aside (`ShareItems.Loading`, B-142);
+        /// nil for a read that cannot be called off, which goes on.
+        let load: (ShareItems.Staging, ShareItems.Tally,
+                   @escaping (SharedItem?) -> Void) -> ShareItems.Loading?
 
         /// `name` as the picker gives it; with none, "Photo" or "Video",
         /// so the row and VoiceOver have a word while it comes.
         init(name: String?, kind: Kind, moves: Bool = false,
              load: @escaping (ShareItems.Staging, ShareItems.Tally,
-                              @escaping (SharedItem?) -> Void) -> Void) {
+                              @escaping (SharedItem?) -> Void) -> ShareItems.Loading?) {
             self.name = ComposeIntake.shown(name, kind)
             self.kind = kind
             self.moves = moves
@@ -125,18 +139,37 @@ final class ComposeIntake {
 
     /// The one being read in: its own tally and staging, so one counted out
     /// and come after all touches nothing of the next, and its bound, none
-    /// while the app is away.
+    /// while the app is away. `read` numbers this read of it, which its
+    /// call back carries: one set aside (`away`) and begun again is
+    /// another read of the same row, and the first one's call back is told
+    /// from the second's. `loading` is the read, to call it off; nil where
+    /// it cannot be.
     private struct Current {
+        let id: Int
+        let read: Int
+        let pick: Pick
+        let item: Item
+        let tally: ShareItems.Tally
+        let staging: ShareItems.Staging
+        var loading: ShareItems.Loading?
+        var timer: Task<Void, Never>?
+    }
+
+    /// A read called off as the app went (`away`), its row back at the
+    /// head of the queue. Its call back is still to come: the nothing of a
+    /// read called off, or what it read should it have ended first.
+    private struct SetAside {
         let id: Int
         let pick: Pick
         let tally: ShareItems.Tally
         let staging: ShareItems.Staging
-        var timer: Task<Void, Never>?
     }
 
     private var queue: [Queued] = []
     private var current: Current?
+    private var setAside: [Int: SetAside] = [:]
     private var numbered = 0
+    private var reads = 0
     /// A Send or a Save Draft is waiting for what is still coming, which
     /// has one bound for all of it from the tap (`hurry`), and its timer,
     /// none while the app is away.
@@ -183,7 +216,13 @@ final class ComposeIntake {
         self.limit = bound
         self.sleep = sleep
         actions.whenWaiting { [weak self] in self?.hurry() }
+        actions.reading { [weak self] in self?.isReading ?? false }
     }
+
+    /// Whether something is being read in now: not waiting its turn, nor
+    /// set aside as the app went (`away`). What `ComposeActions.putAside`
+    /// waits for, as he leaves the app.
+    var isReading: Bool { current != nil }
 
     /// The app's staging: in `tmp/Attachments`, as the share sheet's, a
     /// document picker's file moved there and anything else copied.
@@ -208,37 +247,43 @@ final class ComposeIntake {
         startNext()
     }
 
+    /// The next in the queue begun, while nothing is and the app is in
+    /// front: nothing is begun while it is away (B-142).
     private func startNext() {
-        guard current == nil, !queue.isEmpty else { return }
+        guard current == nil, !isAway, !queue.isEmpty else { return }
         let next = queue.removeFirst()
-        let id = next.id
+        reads += 1
+        let read = reads
         let staging = self.staging(ShareItems.Staging.room(after: rows()), unnamed, next.item.moves)
         let tally = ShareItems.Tally()
-        current = Current(id: id, pick: next.pick, tally: tally, staging: staging,
-                          timer: isAway ? nil : timer(for: id))
+        current = Current(id: next.id, read: read, pick: next.pick, item: next.item, tally: tally,
+                          staging: staging, loading: nil, timer: timer(for: read))
         let discard = self.discard
-        next.item.load(staging, tally) { [weak self] item in
+        let loading = next.item.load(staging, tally) { [weak self] item in
             Task { @MainActor [weak self] in
                 guard let self else {
                     // The composer has gone: nothing is left to put it in.
                     if let url = Self.file(item) { discard(url) }
                     return
                 }
-                self.arrived(id, item)
+                self.arrived(read, item)
             }
         }
+        // Its call back comes on the main thread after this, whatever
+        // thread the load calls it on.
+        if current?.read == read { current?.loading = loading }
     }
 
-    /// The bound of the one numbered `id`, from now. Cancelled, it counts
-    /// nothing out, even when it has already run its time and waits only
-    /// for its turn on the main thread.
-    private func timer(for id: Int) -> Task<Void, Never> {
+    /// The bound of the read numbered `read`, from now. Cancelled, it
+    /// counts nothing out, even when it has already run its time and waits
+    /// only for its turn on the main thread.
+    private func timer(for read: Int) -> Task<Void, Never> {
         let limit = self.limit
         let sleep = self.sleep
         return Task { [weak self] in
             do { try await sleep(limit) } catch { return }
             guard !Task.isCancelled else { return }
-            self?.countOut(id)
+            self?.countOut(read)
         }
     }
 
@@ -268,21 +313,46 @@ final class ComposeIntake {
     /// back. iOS suspends the app soon after, with the clock still going,
     /// and on its return a bound that had run out and a load that had come
     /// would each wait for the main thread in no set order.
+    ///
+    /// And the read under way is called off and set aside (B-142): its row
+    /// back at the head of the queue, still turning, nothing counted out
+    /// and nothing said, to be begun again on his return (`back`). Its
+    /// call back changes nothing then, unless it brings what it read
+    /// (`cameSetAside`). Photos' copy of a video holds a file coordination
+    /// claim on the app while it is made, and iOS ends an app that holds
+    /// one in the background for more than about 30 seconds. A read that
+    /// cannot be called off goes on, and nothing after it is begun.
     func away() {
+        guard !isAway else { return }
         isAway = true
-        current?.timer?.cancel()
-        current?.timer = nil
         hurryTimer?.cancel()
         hurryTimer = nil
+        guard var now = current else { return }
+        now.timer?.cancel()
+        now.timer = nil
+        guard let loading = now.loading else {
+            current = now
+            return
+        }
+        loading.cancel()
+        current = nil
+        setAside[now.read] = SetAside(id: now.id, pick: now.pick, tally: now.tally,
+                                      staging: now.staging)
+        queue.insert(Queued(id: now.id, pick: now.pick, item: now.item), at: 0)
+        Diagnostics.log(.note, "COMPOSE-ITEM set aside as the app went, called off")
+        actions.itemSetAside()
     }
 
     /// The app is in front again: the one being read, and a wait already
-    /// bounded, each have their bound again from now.
+    /// bounded, each have their bound again from now; and one set aside as
+    /// the app went begun again, with a bound of its own from now
+    /// (B-142).
     func back() {
         guard isAway else { return }
         isAway = false
-        if let id = current?.id, current?.timer == nil { current?.timer = timer(for: id) }
+        if let read = current?.read, current?.timer == nil { current?.timer = timer(for: read) }
         if hurried, hurryTimer == nil { hurryTimer = hurryBound() }
+        startNext()
     }
 
     /// The staged file of `item`, where it is one.
@@ -291,8 +361,9 @@ final class ComposeIntake {
         return url
     }
 
-    private func arrived(_ id: Int, _ item: SharedItem?) {
-        guard let now = current, now.id == id else {
+    private func arrived(_ read: Int, _ item: SharedItem?) {
+        if let aside = setAside.removeValue(forKey: read) { return cameSetAside(aside, item) }
+        guard let now = current, now.read == read else {
             // Counted out at its bound, and come after all: not in the
             // letter, which he has been told, nor left on the disk.
             if let url = Self.file(item) {
@@ -311,16 +382,43 @@ final class ComposeIntake {
             attached = true
         }
         count(now.tally, attached: attached, into: now.pick)
-        settle([(id, now.pick)])
+        settle([(now.id, now.pick)])
+    }
+
+    /// The call back of a read set aside as the app went (`away`). With
+    /// nothing, as a read called off calls back, nothing changes: its row
+    /// waits at the head of the queue, still turning, and is read again on
+    /// his return, or is being read again already; it did not come after
+    /// a bound, and is not counted. With what it read, ended before it
+    /// could be called off, that goes in as it would have, and its row is
+    /// taken from the queue, unless it is being read again already, which
+    /// brings it: then this copy is thrown away.
+    private func cameSetAside(_ aside: SetAside, _ item: SharedItem?) {
+        guard case let .file(url, filename, mimeType, size)? = item else {
+            Diagnostics.log(.note, "COMPOSE-ITEM set aside, its read ended with nothing")
+            return
+        }
+        guard let index = queue.firstIndex(where: { $0.id == aside.id }) else {
+            discard(url)
+            Diagnostics.log(.note, "COMPOSE-ITEM set aside and come after it was begun again, thrown away")
+            return
+        }
+        queue.remove(at: index)
+        unnamed = aside.staging.unnamed
+        Diagnostics.log(.note, "COMPOSE-ITEM set aside and come all the same")
+        landed(url, DraftAttachment(source: .localFile(url), filename: filename,
+                                    mimeType: mimeType, size: size))
+        count(aside.tally, attached: true, into: aside.pick)
+        settle([(aside.id, aside.pick)])
     }
 
     /// Not in at its bound: counted out, and the next begun.
-    private func countOut(_ id: Int) {
-        guard let now = current, now.id == id else { return }
+    private func countOut(_ read: Int) {
+        guard let now = current, now.read == read else { return }
         current = nil
         Diagnostics.log(.note, "COMPOSE-ITEM counted out after \(limit.components.seconds) s")
         count(now.tally, attached: false, into: now.pick)
-        settle([(id, now.pick)])
+        settle([(now.id, now.pick)])
     }
 
     /// A Send's or a Save Draft's bound has passed (`hurry`): the one being
@@ -458,6 +556,9 @@ final class ComposeIntake {
                                  mimeType lookup: @escaping (String) -> String?) -> Item {
         let name = AttachmentStore.safeFilename(url.lastPathComponent)
         let moves = AttachmentStore.isInInbox(url, inbox: inbox)
+        // Read where it is, at once, and not called off: nil for its read
+        // (`away`, B-142). Moved out of the Inbox, it could not be read
+        // again.
         return Item(name: name, kind: .file, moves: moves) { staging, _, done in
             let mime = AttachmentStore.mimeType(of: name, lookup: lookup)
             let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
@@ -475,6 +576,7 @@ final class ComposeIntake {
                 went: values?.isRegularFile == true
                     ? ShareItems.fileWent(item, size: measured, room: room) : .notGiven))
             done(item)
+            return nil
         }
     }
 }

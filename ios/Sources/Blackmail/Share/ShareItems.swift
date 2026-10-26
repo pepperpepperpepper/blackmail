@@ -281,6 +281,10 @@ enum ShareItems {
         case notCopied
         /// The sharing app handed over no file.
         case notGiven
+        /// No file, the read called off as the app went into the
+        /// background (`Loading`, B-142): not left out, but set aside, to be
+        /// read again on his return.
+        case calledOff
     }
 
     /// What became of a file of `size` bytes, `item` what staging made of
@@ -308,6 +312,7 @@ enum ShareItems {
             words = "left out, more than the letter's room, \(left / 1_000_000) MB left"
         case .notCopied: words = "left out, not copied"
         case .notGiven: words = "left out, not given"
+        case .calledOff: words = "called off, set aside"
         }
         return "SHARE-FILE read=\(type) name=\(source) \"\(SharedPhoto.Report.logged(name))\""
             + " mime=\(mimeType) bytes=\(bytes) went=\(words)"
@@ -383,6 +388,60 @@ enum ShareItems {
                         session: String = String(Int(Date().timeIntervalSince1970))) {
         guard leftOut != nil else { return }
         CaptureProbe.dumpTranscript(leftOutTag, session: session)
+    }
+
+    /// A read begun from an item provider, which can be called off (B-142):
+    /// the `Progress` of each load it has begun, a video's one or a
+    /// picture's, each way after the one before it (`picture`). All of
+    /// them are kept, and all called off: a picture's next load can be
+    /// handed over from inside the last one's call back before that one's
+    /// own `Progress` is, and calling off a load that has ended does
+    /// nothing.
+    ///
+    /// Called off as the app goes into the background with a video still
+    /// coming into the composer (`ComposeIntake.away`). While Photos makes
+    /// its copy of a video, iOS holds a file coordination claim on the
+    /// app; in the background it gives such a claim about 30 seconds, then
+    /// ends the app, with no crash report and nothing said, and the letter
+    /// with it (seen on the test iPad, 2026-10-25). The load's `Progress`
+    /// is how a load is called off; it was thrown away.
+    ///
+    /// Called off, a load begun after it is called off at once, and a
+    /// picture's next way of being read is not begun (`isCancelled`).
+    /// Any thread: the loads call back on threads of their own.
+    final class Loading: @unchecked Sendable {
+        private let lock = NSLock()
+        private var progresses: [Progress] = []
+        private var cancelled = false
+
+        init() {}
+
+        /// Whether it has been called off.
+        var isCancelled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return cancelled
+        }
+
+        /// `progress` is a load it has begun. Called off already, it is
+        /// called off at once.
+        func track(_ progress: Progress) {
+            lock.lock()
+            let off = cancelled
+            if !off { progresses.append(progress) }
+            lock.unlock()
+            if off { progress.cancel() }
+        }
+
+        /// Calls off every load it has begun, and any begun after.
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            let begun = progresses
+            progresses = []
+            lock.unlock()
+            for progress in begun { progress.cancel() }
+        }
     }
 
     /// What a share offered and what came of its pictures and videos,

@@ -28,17 +28,19 @@ extension ShareItems {
     /// can decode at a half, a quarter or an eighth (`SharedPhoto`).
     ///
     /// `unopened`: the types tried before, for its line in the log.
+    /// `loading` calls off the load under way (B-142), and neither way is
+    /// begun once it has.
     static func object(_ provider: NSItemProvider, unopened: [String], staging: Staging,
-                       done: @escaping (SharedItem?) -> Void) {
+                       loading: Loading, done: @escaping (SharedItem?) -> Void) {
         let offered = provider.registeredTypeIdentifiers
         let named = SharedPhoto.named(suggested: provider.suggestedName, file: nil)
         guard provider.canLoadObject(ofClass: UIImage.self) else {
-            return item(provider, unopened: unopened, staging: staging, done: done)
+            return item(provider, unopened: unopened, staging: staging, loading: loading, done: done)
         }
-        provider.loadObject(ofClass: UIImage.self) { object, _ in
+        let progress = provider.loadObject(ofClass: UIImage.self) { object, _ in
             guard let image = object as? UIImage else {
                 return item(provider, unopened: unopened + ["object"], staging: staging,
-                            done: done)
+                            loading: loading, done: done)
             }
             var report = SharedPhoto.Report(offered: offered, read: "object", named: named)
             report.unopened = unopened
@@ -47,6 +49,7 @@ extension ShareItems {
             }
             finish(staged, report, done)
         }
+        loading.track(progress)
     }
 
     /// The provider's own item, asked for under the first type tried: the
@@ -56,11 +59,16 @@ extension ShareItems {
     /// are (`picture(item:)`), never as a `UIImage`. Anything else is left
     /// out, not opened.
     private static func item(_ provider: NSItemProvider, unopened: [String], staging: Staging,
-                             done: @escaping (SharedItem?) -> Void) {
+                             loading: Loading, done: @escaping (SharedItem?) -> Void) {
         let offered = provider.registeredTypeIdentifiers
         let suggested = provider.suggestedName
         let named = SharedPhoto.named(suggested: suggested, file: nil)
         let type = unopened.first ?? UTType.image.identifier
+        // `loadItem` gives no `Progress`: called off, it is not begun.
+        guard !loading.isCancelled else {
+            return calledOff(offered: offered, read: "item", unopened: unopened,
+                             suggested: suggested, done: done)
+        }
         provider.loadItem(forTypeIdentifier: type, options: nil) { object, _ in
             var report = SharedPhoto.Report(offered: offered, read: "item", named: named)
             report.unopened = unopened

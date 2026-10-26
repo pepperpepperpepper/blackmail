@@ -52,25 +52,32 @@ extension ShareItems {
     ///
     /// One line in the log for each, whichever way it went
     /// (`SharedPhoto.Report`): it is what an iPad check reads.
+    ///
+    /// Each load is the one `loading` calls off (B-142); called off, no
+    /// other way is begun, and the line says so (`calledOff`).
     static func picture(_ provider: NSItemProvider, type: String, staging: Staging,
-                        done: @escaping (SharedItem?) -> Void) {
+                        loading: Loading, done: @escaping (SharedItem?) -> Void) {
         let types = SharedPhoto.typesToRead(first: type, offered: provider.registeredTypeIdentifiers,
                                             isImage: { UTType($0)?.conforms(to: .image) == true })
-        picture(provider, as: types[...], unopened: [], staging: staging, done: done)
+        picture(provider, as: types[...], unopened: [], staging: staging, loading: loading, done: done)
     }
 
     /// The picture read as the first of `types`, its file and then its
     /// bytes; neither opened, the rest of `types`; none left, the object.
     /// `unopened`: the types tried before, for its line in the log.
     private static func picture(_ provider: NSItemProvider, as types: ArraySlice<String>,
-                                unopened: [String], staging: Staging,
+                                unopened: [String], staging: Staging, loading: Loading,
                                 done: @escaping (SharedItem?) -> Void) {
         let suggested = provider.suggestedName
         let offered = provider.registeredTypeIdentifiers
-        guard let type = types.first else {
-            return object(provider, unopened: unopened, staging: staging, done: done)
+        guard !loading.isCancelled else {
+            return calledOff(offered: offered, read: types.first ?? "object", unopened: unopened,
+                             suggested: suggested, done: done)
         }
-        provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
+        guard let type = types.first else {
+            return object(provider, unopened: unopened, staging: staging, loading: loading, done: done)
+        }
+        let progress = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
             // The file's own name, taken while there is a file: Photos'
             // library name, "IMG_0776.JPG", which it gives no other way.
             let named = SharedPhoto.named(suggested: suggested, file: url?.lastPathComponent)
@@ -83,7 +90,12 @@ extension ShareItems {
             case .undecodable: return finish(nil, report, done)
             case .unopened: break
             }
-            provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
+            // No file, it may be, because the read was called off.
+            guard !loading.isCancelled else {
+                report.went = .leftOut("called off")
+                return finish(nil, report, done)
+            }
+            let progress = provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
                 var fromItsBytes = report
                 let fromBytes = read(bytes: data, type: type, named: named, staging: staging,
                                      report: &fromItsBytes)
@@ -93,10 +105,25 @@ extension ShareItems {
                 case .unopened:
                     // Nothing ImageIO opens under this type: the next.
                     picture(provider, as: types.dropFirst(), unopened: unopened + [type],
-                            staging: staging, done: done)
+                            staging: staging, loading: loading, done: done)
                 }
             }
+            loading.track(progress)
         }
+        loading.track(progress)
+    }
+
+    /// A picture whose read was called off before its next way was begun
+    /// (`Loading`, B-142): nothing staged, and its line saying so,
+    /// "left out, called off", though it is only set aside, to be read
+    /// again.
+    static func calledOff(offered: [String], read: String, unopened: [String],
+                          suggested: String?, done: (SharedItem?) -> Void) {
+        var report = SharedPhoto.Report(offered: offered, read: read,
+                                        named: SharedPhoto.named(suggested: suggested, file: nil))
+        report.unopened = unopened
+        report.went = .leftOut("called off")
+        finish(nil, report, done)
     }
 
     /// `url`, a picture's file, opened by ImageIO and staged (`stage`), in

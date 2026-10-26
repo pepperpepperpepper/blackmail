@@ -913,7 +913,7 @@ final class SharedPhotoTests: XCTestCase {
         let sheet = try source("ShareViewController.swift")
         inOrder(["if let type = SharedPhoto.fileType(offered: provider.registeredTypeIdentifiers)",
                  "?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {",
-                 "picture(provider, type: type, staging: staging) { item in",
+                 "picture(provider, type: type, staging: staging, loading: loading) { item in",
                  "} else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),"],
                 in: sheet)
         for file in ["ShareViewController.swift", "SharedPhotoImageIO.swift", "ShareItems.swift",
@@ -960,7 +960,8 @@ final class SharedPhotoTests: XCTestCase {
         XCTAssertEqual(count("autoreleasepool", in: code), 2)
         XCTAssertEqual(count("CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading)", in: code), 1)
         XCTAssertEqual(count("CGImageSourceCreateWithData(", in: code), 1)
-        XCTAssertEqual(count("finish(", in: code), 5, "four answers and the one place they go")
+        XCTAssertEqual(count("finish(", in: code), 7,
+                       "four answers, two for a read called off (B-142), and the one place they go")
         XCTAssertEqual(count("done(", in: code), 1)
         XCTAssertTrue(code.contains("static let reading = [kCGImageSourceShouldCache: false] as CFDictionary"))
     }
@@ -979,7 +980,8 @@ final class SharedPhotoTests: XCTestCase {
         // And a file the provider's own item is, by the same rule, while
         // there is a file (B-090, `picture(item:)`).
         XCTAssertEqual(count("lastPathComponent", in: code), 2)
-        XCTAssertEqual(count("SharedPhoto.named(", in: code), 2)
+        XCTAssertEqual(count("SharedPhoto.named(", in: code), 3, "and a read called off's, no file (B-142)")
+        XCTAssertEqual(count("SharedPhoto.named(suggested: suggested, file: nil)", in: code), 1)
         XCTAssertEqual(count("SharedPhoto.named(suggested: suggested, file: url.lastPathComponent)",
                              in: code), 1)
         XCTAssertEqual(count("unnamed: named == .none", in: code), 4)
@@ -1012,7 +1014,8 @@ final class SharedPhotoTests: XCTestCase {
         XCTAssertEqual(count(".unreadable", in: code), 0)
         let between = try part(of: code, from: "switch fromFile {",
                                to: "provider.loadDataRepresentation(")
-        XCTAssertEqual(count("return finish(nil, report, done)", in: between), 1)
+        XCTAssertEqual(count("return finish(nil, report, done)", in: between), 2,
+                       "undecodable, and a read called off (B-142)")
         XCTAssertEqual(count("break", in: between), 1)
     }
 
@@ -1306,10 +1309,10 @@ final class SharedPhotoTests: XCTestCase {
                  "let leftOut = tally.leftOut",
                  "Task { @MainActor in completion(items, leftOut) }"],
                 in: sheet)
-        inOrder(["tally: Tally, done: @escaping (SharedItem?) -> Void) {",
+        inOrder(["tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {",
                  "?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {",
                  "tally.pictures += 1",
-                 "picture(provider, type: type, staging: staging) { item in",
+                 "picture(provider, type: type, staging: staging, loading: loading) { item in",
                  "if item != nil { tally.attached += 1 }",
                  "done(item)",
                  "} else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),"],

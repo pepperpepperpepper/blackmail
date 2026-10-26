@@ -70,6 +70,14 @@ final class ComposeActions {
     /// Told as Send or Save Draft begins to wait for what is still coming
     /// (`whenWaiting`).
     private var waiting: () -> Void = {}
+    /// Whether something chosen is being read in now, not waiting its turn
+    /// nor set aside as the app went (`reading`, B-142); with nothing to
+    /// ask, all that is coming is.
+    private var isReading: () -> Bool = { true }
+    /// The keeps as he leaves the app that wait for what is being read in
+    /// (`putAside`), each to look again when something lands or is set
+    /// aside.
+    private var lookingAgain: [CheckedContinuation<Void, Never>] = []
 
     private let sendLetter: (Draft, @escaping UploadProgress) async throws -> Void
     private let saveDraft: (Draft) async throws -> Void
@@ -159,6 +167,27 @@ final class ComposeActions {
         self.waiting = waiting
     }
 
+    /// `isReading` tells whether something chosen is being read in now
+    /// (`ComposeIntake.isReading`): not waiting its turn, nor set aside as
+    /// the app went, neither of which comes while the app is away
+    /// (B-142). What `putAside` waits for.
+    func reading(_ isReading: @escaping () -> Bool) {
+        self.isReading = isReading
+    }
+
+    /// What was being read in has been set aside as the app went, without
+    /// landing (`ComposeIntake.away`, B-142): a keep that waits for it
+    /// (`putAside`) waits no longer. Still coming, it counts as before.
+    func itemSetAside() {
+        lookAgain()
+    }
+
+    private func lookAgain() {
+        let looking = lookingAgain
+        lookingAgain = []
+        for continuation in looking { continuation.resume() }
+    }
+
     /// Something chosen is in the letter, could not be attached, or was
     /// counted out at its bound (`ComposeIntake.bound`). `cameShort` when
     /// it ends a pick of which something did not come, which he is told
@@ -168,6 +197,7 @@ final class ComposeActions {
     func itemLanded(cameShort short: Bool = false) {
         if short, case .sending = stage { cameShort = true }
         itemsComing = max(0, itemsComing - 1)
+        lookAgain()
         guard itemsComing == 0 else { return }
         let waiting = waitingForItems
         waitingForItems = []
@@ -188,6 +218,15 @@ final class ComposeActions {
     private func itemsLanded() async {
         guard itemsComing > 0 else { return }
         await withCheckedContinuation { waitingForItems.append($0) }
+    }
+
+    /// Returns once nothing he chose is being read in (`isReading`): all
+    /// of it in, or what is left waiting its turn or set aside as the app
+    /// went, which does not come while it is away (B-142).
+    private func readingEnded() async {
+        while itemsComing > 0, isReading() {
+            await withCheckedContinuation { lookingAgain.append($0) }
+        }
     }
 
     // MARK: - Send, Save Draft and Delete Draft
@@ -460,9 +499,12 @@ final class ComposeActions {
     /// a suspended app never reaches.
     ///
     /// Inside background time, as Send and Save Draft are, given back once
-    /// it is kept. With photos or files still being read in, the time is
-    /// held until they have landed and the letter is kept again with them,
-    /// or until iOS wants it back.
+    /// it is kept. With a photo or a file still being read in, the time is
+    /// held until nothing is, and the letter is kept again with what
+    /// landed, or until iOS wants it back. Not for what is set aside as the
+    /// app went, or waits its turn, neither of which is read while it is
+    /// away (`isReading`, B-142): the time is given back at once, and iOS
+    /// suspends the app.
     @discardableResult
     func putAside(_ letter: @escaping () -> Draft) -> Task<Void, Never>? {
         guard stage == .writing, changed else { return nil }
@@ -470,13 +512,13 @@ final class ComposeActions {
         let time = BackgroundStretch("Keep Draft", from: background)
         let draft = letter()
         if !draft.isEmptyLetter { keeping.keep(draft, false) }
-        guard itemsComing > 0 else {
+        guard itemsComing > 0, isReading() else {
             time.end()
             return nil
         }
         return Task {
             defer { time.end() }
-            await itemsLanded()
+            await readingEnded()
             guard stage == .writing else { return }
             keeping.keep(letter(), false)
         }

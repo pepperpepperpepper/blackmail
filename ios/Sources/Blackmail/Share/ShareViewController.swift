@@ -928,12 +928,19 @@ extension ShareItems {
     /// The composer's Photo Library reads what he picks here too, through a
     /// `Staging` of its own (`ComposeIntake`, B-108), so a photo or a video
     /// goes from the app as it goes from the share sheet.
+    ///
+    /// Returns the read, which the composer calls off as the app goes into
+    /// the background, a picture's or a video's load under way, to read it
+    /// again on his return (`Loading`, `ComposeIntake.away`, B-142). A
+    /// video called off says so in its line, and calls back with nothing.
+    @discardableResult
     static func read(_ provider: NSItemProvider, title: String?, staging: Staging,
-                             tally: Tally, done: @escaping (SharedItem?) -> Void) {
+                     tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {
+        let loading = Loading()
         if let type = SharedPhoto.fileType(offered: provider.registeredTypeIdentifiers)
             ?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {
             tally.pictures += 1
-            picture(provider, type: type, staging: staging) { item in
+            picture(provider, type: type, staging: staging, loading: loading) { item in
                 if item != nil { tally.attached += 1 }
                 done(item)
             }
@@ -959,12 +966,13 @@ extension ShareItems {
             // The copy iOS hands over lasts only as long as this callback,
             // so it is staged here; by its size first, which a video can
             // make larger than the letter's room.
-            provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
+            let progress = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
                 guard let url,
                       let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
                 else {
                     Diagnostics.log(.note, fileNote(read: type, suggested: false, name: "",
-                                                    mimeType: "-", bytes: 0, went: .notGiven))
+                                                    mimeType: "-", bytes: 0,
+                                                    went: loading.isCancelled ? .calledOff : .notGiven))
                     return done(nil)
                 }
                 let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
@@ -982,9 +990,14 @@ extension ShareItems {
                     went: fileWent(item, size: bytes, room: room)))
                 done(item)
             }
+            // Photos' copy of a video is made while this load is under
+            // way, minutes for a large one, and iOS holds a file
+            // coordination claim on the app all that time (B-142).
+            loading.track(progress)
         } else {
             done(nil)
         }
+        return loading
     }
 }
 
