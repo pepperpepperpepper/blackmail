@@ -441,6 +441,12 @@ extension Theme {
     static let tintBlue = UIColor(red: 10 / 255, green: 132 / 255, blue: 255 / 255, alpha: 1)
     static let destructive = UIColor(red: 255 / 255, green: 69 / 255, blue: 58 / 255, alpha: 1)
     static let flagTint = UIColor(red: 255 / 255, green: 159 / 255, blue: 10 / 255, alpha: 1)
+    /// A drag's More button on a row (B-156), grey as Mail's, UIKit's
+    /// system grey in the dark; and its Archive and Move, purple as Mail's
+    /// Archive, UIKit's system purple in the dark. Neither inverted, for
+    /// the reason the three above are not.
+    static let swipeMore = UIColor(red: 142 / 255, green: 142 / 255, blue: 147 / 255, alpha: 1)
+    static let swipeArchive = UIColor(red: 191 / 255, green: 90 / 255, blue: 242 / 255, alpha: 1)
 
     static let separator = UIColor(white: 55 / 255, alpha: 1)           // was 200
     static let paneDivider = UIColor(red: 113 / 255, green: 113 / 255, blue: 108 / 255, alpha: 1)

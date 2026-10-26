@@ -1071,14 +1071,16 @@ final class KeptLetterOpeningTests: XCTestCase {
 
     // MARK: - Read from the source
 
-    /// The reading pane opens a row with `openLetter` in exactly its three
-    /// places, the letter tapped, a conversation's newest and a letter of
-    /// it opened; his letters from Sent Mail (B-104) go by `loadMessage`.
-    /// `openLetter` is a requirement of the protocol itself, so the
-    /// repository's own is the one the pane calls.
+    /// The reading pane opens a row with `openLetter` in exactly its four
+    /// places, the letter tapped, a conversation's newest, a letter of it
+    /// opened, and a row's letter answered from More (B-156); his letters
+    /// from Sent Mail (B-104) go by `loadMessage`. `openLetter` is a
+    /// requirement of the protocol itself, so the repository's own is the
+    /// one the pane calls.
     func testThePaneOpensItsRowsWithOpenLetterAndHisSentMailWithLoadMessage() throws {
         let pane = try source("UI/MessageDetailViewController.swift")
-        XCTAssertEqual(pane.components(separatedBy: "repository.openLetter(").count - 1, 3)
+        XCTAssertEqual(pane.components(separatedBy: "repository.openLetter(").count - 1, 4)
+        XCTAssertTrue(pane.contains("m = try await repository.openLetter(letter)"))
         XCTAssertTrue(pane.contains("try await repository.openLetter(summary)"))
         XCTAssertTrue(pane.contains("try await repository.openLetter(newest)"))
         XCTAssertTrue(pane.contains("loads.start({ try await repository.openLetter(row) }"))

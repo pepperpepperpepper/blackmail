@@ -779,6 +779,50 @@ final class ListLetters: PaneActionList {
         if !landed { changed(.marked) }
     }
 
+    /// Whether a Flag set on the letter `id` is on its way to the server:
+    /// a swipe's Flag waits for it, as the pane's does (`PaneWrites`).
+    func flagOnItsWay(_ id: String) -> Bool {
+        flagging.values.contains { $0.contains(id) }
+    }
+
+    /// A letter taken off by a Delete or a Move that its Undo has moved
+    /// back to the folder it was taken from (B-157), `id` its id there now,
+    /// a new UID: its row back where it stood, under `id`, in front of the
+    /// one it was taken under, which stays hidden and still marks where
+    /// paging has got to (`RemovedLetters`). Among a search's hits too,
+    /// where it was one. Its read billing forgotten, so reading it again
+    /// takes one off again; an unread letter whose leaving every folder
+    /// took one off them (`removalLanded`) has it put back on, and the
+    /// counts are swept besides by the Undo (`UndoMoves`).
+    ///
+    /// Returns false, with nothing changed, when the list no longer holds
+    /// the row it was taken under: fetched afresh since, which the server
+    /// has had the say on. The letter is in the folder all the same, and
+    /// shows at the next listing, at the top, as Gmail gives it the next
+    /// UID there (B-084).
+    @discardableResult
+    func restore(_ row: MessageSummary, as id: String) -> Bool {
+        let back = row.renamed(id)
+        var placed = false
+        func put(_ letters: inout [MessageSummary]) {
+            guard !letters.contains(where: { $0.id == id && $0.mailboxID == row.mailboxID }),
+                  let at = letters.firstIndex(where: { $0.id == row.id
+                                                      && $0.mailboxID == row.mailboxID })
+            else { return }
+            letters.insert(back, at: at)
+            placed = true
+        }
+        put(&folder)
+        if var hits = results {
+            put(&hits)
+            results = hits
+        }
+        guard placed else { return false }
+        if !back.isRead, let folders = billing.returned(back) { onUnreadCountChanged(folders, 1) }
+        changed(.putBack(row.id))
+        return true
+    }
+
     func addCountedFolder(_ name: String, to id: String) {
         change(id) { letter in
             guard !letter.countedFolderIDs.contains(name) else { return }
@@ -813,7 +857,8 @@ enum ListChange: Equatable {
     /// (`ListLetters.take`), by the letter's id.
     case taken(String)
     /// The letter's row put back, its Delete or Move refused or never sent
-    /// (`ListLetters.putBack`).
+    /// (`ListLetters.putBack`), or moved back by its Undo (B-157,
+    /// `ListLetters.restore`): by the id it was taken under.
     case putBack(String)
     /// A flag set or put back, or a folder the letter is filed in: no row
     /// in or out.

@@ -54,14 +54,15 @@ final class QuietSaveTests: XCTestCase {
             .contains("counts: { quietly in self.onRefreshRequested?(quietly) },"))
     }
 
-    /// The list's other two ways to the counts are each called in one
-    /// place, as before: `requestSweep` by Edit mode's Delete and Move,
-    /// when a count may have changed that the list cannot work out
-    /// (B-062), and `onMessagesChanged` when a letter he opened is
-    /// another one on the server now (D-016). Both sweeps are his.
+    /// The list's other two ways to the counts are called where they were:
+    /// `requestSweep` by Edit mode's Delete and Move, when a count may
+    /// have changed that the list cannot work out (B-062), and by a drag's
+    /// Flag and read mark, which go as Edit mode's batch does (B-156); and
+    /// `onMessagesChanged` when a letter he opened is another one on the
+    /// server now (D-016). Both sweeps are his.
     func testTheOtherWaysToTheCountsAreCalledWhereTheyWere() throws {
         let list = try source("UI/MessageListViewController.swift")
-        XCTAssertEqual(count("requestSweep?()", in: list), 1)
+        XCTAssertEqual(count("requestSweep?()", in: list), 2)
         XCTAssertTrue(list.contains(
             "list: self.letters, repository: self.repository, "
             + "requestSweep: { [weak self] in self?.requestSweep?() })"))

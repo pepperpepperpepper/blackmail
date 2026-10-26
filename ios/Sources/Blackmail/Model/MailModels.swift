@@ -174,6 +174,18 @@ struct MessageSummary: Identifiable, Hashable {
     /// the server gave no INTERNALDATE for. A conversation with such a row
     /// in it keeps the folder's order, as every conversation did.
     var arrived: Date? = nil
+
+    /// The same letter under another id in the same folder: one its Undo
+    /// has moved back, which Gmail gives a new UID (B-157). Everything else
+    /// as it was.
+    func renamed(_ id: String) -> MessageSummary {
+        MessageSummary(id: id, mailboxID: mailboxID, sender: sender, subject: subject,
+                       preview: preview, date: date, isRead: isRead, isFlagged: isFlagged,
+                       isAnswered: isAnswered, isForwarded: isForwarded,
+                       hasAttachment: hasAttachment, threadID: threadID,
+                       gmailMessageID: gmailMessageID, countedFolderIDs: countedFolderIDs,
+                       attachments: attachments, to: to, cc: cc, bcc: bcc, arrived: arrived)
+    }
 }
 
 struct Message: Identifiable {

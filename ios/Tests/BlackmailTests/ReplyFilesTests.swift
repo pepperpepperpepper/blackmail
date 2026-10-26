@@ -554,9 +554,12 @@ final class ReplyFilesWiringTests: XCTestCase {
                 + "all: false, forward: true, included: $0) }",
             "guard ReplyFiles.asks(m) else { return self.openCompose(replyTo: m, all: false, forward: false) }",
             "guard ReplyFiles.asks(m) else { return self.openCompose(replyTo: m, all: true, forward: false) }",
+            // Over the row instead, from More's Reply on a row (B-156).
             "let sheet = UIAlertController(title: ReplyFiles.question, message: nil, "
-                + "preferredStyle: .actionSheet) sheet.popoverPresentationController?.barButtonItem = "
-                + "actionItems[.reply]",
+                + "preferredStyle: .actionSheet) if let row { "
+                + "sheet.popoverPresentationController?.sourceView = row.view "
+                + "sheet.popoverPresentationController?.sourceRect = row.rect } else { "
+                + "sheet.popoverPresentationController?.barButtonItem = actionItems[.reply] }",
             "sheet.addAction(UIAlertAction(title: ReplyFiles.include, style: .default) { _ in answer(true) })",
             "sheet.addAction(UIAlertAction(title: ReplyFiles.dontInclude, style: .default) { _ in "
                 + "answer(false) }) sheet.addAction(UIAlertAction(title: \"Cancel\", style: .cancel)) "
@@ -565,8 +568,9 @@ final class ReplyFilesWiringTests: XCTestCase {
         ] {
             XCTAssertTrue(code.contains(line), line)
         }
-        XCTAssertEqual(count("ReplyFiles.forwardAsks(", in: code), 1)
-        XCTAssertEqual(count("self.askAboutFiles", in: code), 3)
+        // The Reply button's sheet, and More's on a row (B-156).
+        XCTAssertEqual(count("ReplyFiles.forwardAsks(", in: code), 2)
+        XCTAssertEqual(count("self.askAboutFiles", in: code), 4)
         XCTAssertEqual(count("UIAlertController(title: ReplyFiles.question", in: code), 1)
         // Mail's words are said once, in `ReplyFiles`, and nowhere else.
         let all = try everySource()

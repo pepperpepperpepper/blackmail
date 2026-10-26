@@ -163,17 +163,28 @@ enum PaneActions {
     /// `run`, saying why the server did not take the write: nil once it
     /// has, and otherwise what the pane's alert says. A password refused
     /// used to be told as "Can't connect to mail server." like any failure.
+    ///
+    /// `landed` hears where a Delete or a Move the server has taken put the
+    /// letter, nil where the repository cannot say, once the list has been
+    /// billed for it: for its Undo (B-157).
     static func refusal(running action: PaneAction, on letter: MessageSummary,
                         inFolderWithRole role: Mailbox.Role?,
                         list shown: PaneActionList?, repository: MailRepository,
-                        requestSweep: @MainActor () -> Void) async -> MailError? {
+                        requestSweep: @MainActor () -> Void,
+                        landed: @MainActor (MoveLanding?) -> Void = { _ in }) async -> MailError? {
         let started = start(action, on: letter, inFolderWithRole: role, list: shown)
+        let landing: MoveLanding?
         do {
-            try await send(action, on: letter, repository: repository)
+            landing = try await send(action, on: letter, repository: repository)
         } catch {
             return finish(started, failure: error, requestSweep: requestSweep)
         }
-        return finish(started, failure: nil, requestSweep: requestSweep)
+        finish(started, failure: nil, requestSweep: requestSweep)
+        switch action {
+        case .delete, .move: landed(landing)
+        case .flag, .read: break
+        }
+        return nil
     }
 
     /// A Delete, Move or Flag as the list was edited for it at the tap,
@@ -216,15 +227,21 @@ enum PaneActions {
     }
 
     /// The write itself, onto the letter its Gmail message id names.
+    /// Returns where a Delete or a Move put the letter, for its Undo
+    /// (B-157), nil where the repository cannot say, a letter erased inside
+    /// Trash, and for a Flag or a read mark.
+    @discardableResult
     static func send(_ action: PaneAction, on letter: MessageSummary,
-                     repository: MailRepository) async throws {
+                     repository: MailRepository) async throws -> MoveLanding? {
         switch action {
         case .delete:
-            try await repository.delete(letter.id, gmailMessageID: letter.gmailMessageID,
-                                        from: letter.mailboxID)
+            return try await repository.deleteLanding(letter.id,
+                                                      gmailMessageID: letter.gmailMessageID,
+                                                      from: letter.mailboxID)
         case .move(let destination):
-            try await repository.move(letter.id, gmailMessageID: letter.gmailMessageID,
-                                      from: letter.mailboxID, to: destination.id)
+            return try await repository.moveLanding(letter.id,
+                                                    gmailMessageID: letter.gmailMessageID,
+                                                    from: letter.mailboxID, to: destination.id)
         case .flag(let flagged):
             try await repository.setFlagged(flagged, id: letter.id,
                                             gmailMessageID: letter.gmailMessageID,
@@ -234,6 +251,7 @@ enum PaneActions {
                                          gmailMessageID: letter.gmailMessageID,
                                          mailboxID: letter.mailboxID)
         }
+        return nil
     }
 
     /// The server has answered. Refused (`failure`), the list goes back as

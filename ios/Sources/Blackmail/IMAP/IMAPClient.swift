@@ -1675,8 +1675,14 @@ actor IMAPClient {
     /// leaves `mailbox`. A MOVE whose answer shows nothing is looked into
     /// where the move would show (B-092, `confirmMove`): a letter that
     /// leaves is gone from the source, and one that stays has the label.
+    ///
+    /// Returns where the letter went, when the answer's COPYUID names it
+    /// there (`IMAPMoveAnswer.landing`), for its Undo (B-157); nil when no
+    /// answer named it, a move found done by the look in the source.
+    @discardableResult
     func move(uid: UInt32, from mailbox: String, validity: UInt32,
-              to destination: String, stayingLabelled labels: Set<String>? = nil) async throws {
+              to destination: String,
+              stayingLabelled labels: Set<String>? = nil) async throws -> IMAPMoveLanding? {
         // The gate is held for the SELECT and the whole copy/mark/expunge
         // sequence, not per command. Every step acts on "the selected
         // mailbox", so a SELECT from another task landing in the middle would
@@ -1699,9 +1705,8 @@ actor IMAPClient {
                 let command = "UID MOVE \(uid) \(target)"
                 let result = try await self.performCommand(command)
                 if result.status == .ok {
-                    try await self.confirmMove(result, uid: uid, in: mailbox, resending: command,
-                                               stayingLabelled: labels)
-                    return
+                    return try await self.confirmMove(result, uid: uid, in: mailbox,
+                                                      resending: command, stayingLabelled: labels)
                 }
             }
 
@@ -1737,6 +1742,7 @@ actor IMAPClient {
             if expunged.status != .ok {
                 _ = try await self.performCommand("EXPUNGE")
             }
+            return IMAPMoveAnswer.landing(in: copied, uid: uid)
         }
     }
 
@@ -1797,9 +1803,13 @@ actor IMAPClient {
     /// not-moved`; for a letter staying in All Mail, `labelled`,
     /// `unlabelled sending-again`, `unlabelled not-moved`, or
     /// `stays-in-folder not-asked`.
+    ///
+    /// Returns where the answer that showed the move puts the letter
+    /// (`IMAPMoveAnswer.landing`), nil when none did, the move found done
+    /// by the look.
     private func confirmMove(_ first: IMAPCommandResult, uid: UInt32, in mailbox: String,
                              resending command: String,
-                             stayingLabelled labels: Set<String>?) async throws {
+                             stayingLabelled labels: Set<String>?) async throws -> IMAPMoveLanding? {
         let note = "folder=\(mailbox) uid=\(uid)"
         // A set that could not be read is not a server without UIDPLUS, and
         // nothing is concluded from it: the answer is looked into.
@@ -1811,13 +1821,13 @@ actor IMAPClient {
             let said = IMAPMoveAnswer(answer, uid: uid)
             if said.showsMove(uidPlus: uidPlus) {
                 if sent > 1 { Diagnostics.log(.note, "MOVE-CHECKED \(note) moved") }
-                return
+                return IMAPMoveAnswer.landing(in: answer, uid: uid)
             }
             Diagnostics.log(.note, "MOVE-HOLLOW \(note) \(said.described)")
             // As for UIDPLUS, a set that could not be read is asked.
             if labels != nil, !capabilities.isEmpty, !capabilities.contains("X-GM-EXT-1") {
                 Diagnostics.log(.note, "MOVE-CHECKED \(note) stays-in-folder not-asked")
-                return
+                return nil
             }
             let still: Bool?
             do {
@@ -1836,7 +1846,7 @@ actor IMAPClient {
             }
             guard still else {
                 Diagnostics.log(.note, "MOVE-CHECKED \(note) \(done)")
-                return
+                return nil
             }
             guard sent == 1 else {
                 Diagnostics.log(.note, "MOVE-CHECKED \(note) \(undone) not-moved")

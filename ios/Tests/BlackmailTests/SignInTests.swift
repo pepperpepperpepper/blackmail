@@ -380,8 +380,9 @@ final class SignInTests: XCTestCase {
                 "self?.signIn(as: account, password: password, saying: notice)",
                 "window.rootViewController = RootViewController(repository: fresh, saying: notice)",
                 "self.notice = notice",
+                // The first responder taken first, for Mail's Undo (B-157).
                 "override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated) "
-                    + "guard let notice else { return } self.notice = nil "
+                    + "takeUndo() guard let notice else { return } self.notice = nil "
                     + "ErrorPresenter.say(notice, on: self) }",
             ]),
             ("App/AppDelegate.swift", [

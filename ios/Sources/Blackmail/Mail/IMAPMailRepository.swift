@@ -2219,11 +2219,21 @@ actor IMAPMailRepository: MailRepository {
 
     func move(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
               to destinationMailboxID: String) async throws {
+        _ = try await moveLanding(id, gmailMessageID: gmailMessageID, from: sourceMailboxID,
+                                  to: destinationMailboxID)
+    }
+
+    /// The move, and where the letter went as the answer's COPYUID says,
+    /// for its Undo (B-157): the destination's name, the letter's id there,
+    /// nil when no answer named it, and its Gmail id. Nil for a move to
+    /// the folder it is in, which sends nothing.
+    func moveLanding(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
+                     to destinationMailboxID: String) async throws -> MoveLanding? {
         try await readyForWrite()
         let client = try await connected()
         let source = try await resolve(sourceMailboxID)
         let destination = try await resolve(destinationMailboxID)
-        guard source != destination else { return }
+        guard source != destination else { return nil }
         let message = try Self.parseID(id)
         try await vouch(for: id, named: gmailMessageID, uid: message.uid,
                         validity: message.validity, in: source)
@@ -2235,7 +2245,7 @@ actor IMAPMailRepository: MailRepository {
         let binned = destination == roleNames[.trash] || destination == roleNames[.junk]
         let staysInSource = !binned && source == folderForAttribute["\\all"]
         let labels = staysInSource ? labels(filingIn: destination) : nil
-        try await sendingOnce {
+        let landed = try await sendingOnce {
             try await client.move(uid: message.uid, from: source, validity: message.validity,
                                   to: destination, stayingLabelled: labels)
         }
@@ -2256,6 +2266,9 @@ actor IMAPMailRepository: MailRepository {
         } else if !staysInSource {
             shelf?.gone(id, from: source)
         }
+        return MoveLanding(folder: destination,
+                           id: landed.map { Self.makeID(validity: $0.validity, uid: $0.uid) },
+                           letter: gmailMessageID)
     }
 
     /// Delete means "move to Trash" — except in Trash, where it means gone.
@@ -2279,6 +2292,13 @@ actor IMAPMailRepository: MailRepository {
     /// EXPUNGE is the plain one, which takes every marked letter in Trash;
     /// why that is acceptable there is in `IMAPClient.expunge`.
     func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws {
+        _ = try await deleteLanding(id, gmailMessageID: gmailMessageID, from: mailboxID)
+    }
+
+    /// The Delete, and where the letter went, as `moveLanding` says it; nil
+    /// for a letter erased inside Trash, which nothing brings back.
+    func deleteLanding(_ id: String, gmailMessageID: UInt64?,
+                       from mailboxID: String) async throws -> MoveLanding? {
         try await readyForWrite()
         let client = try await connected()
         let source = try await resolve(mailboxID)
@@ -2297,9 +2317,72 @@ actor IMAPMailRepository: MailRepository {
             }
             forgetKeptShown(id, in: source)
             shelf?.gone(id, from: source)
-            return
+            return nil
         }
-        try await move(id, gmailMessageID: gmailMessageID, from: mailboxID, to: trash)
+        return try await moveLanding(id, gmailMessageID: gmailMessageID, from: mailboxID, to: trash)
+    }
+
+    /// Mail's Undo of a Trash or a Move (B-157): the letter moved back from
+    /// where it went to `mailboxID`, the folder it was taken from, as any
+    /// Move goes (`moveLanding`), the answer read as B-092 reads it. The one
+    /// write is that MOVE. Before it, one question, so that the MOVE names
+    /// the letter and nothing else: the UID the COPYUID gave it there,
+    /// asked for its Gmail id (`IMAPClient.gmailMessageID`); and, where
+    /// that UID holds another letter or none, the folder renumbered or no
+    /// COPYUID having come, the folder searched for it by its Gmail id
+    /// (`IMAPClient.findLetter`), which must find it once. Not there, or
+    /// there twice, and nothing is written (`MoveLanding.Gone`).
+    ///
+    /// Asked, not taken on trust from the COPYUID: the letter can have left
+    /// the Trash since, emptied by Gmail or moved by another mail program,
+    /// and a MOVE of a UID the folder no longer holds is answered OK by
+    /// Gmail with nothing moved (B-039), which the look in the source would
+    /// take for a move done, the letter being gone from it. A letter with no
+    /// Gmail id cannot be made sure of, and is not moved back.
+    ///
+    /// Returns the letter's id in `mailboxID` when the MOVE's answer names
+    /// it there, as Gmail's does, a UID after every other in the folder.
+    func moveBack(_ landing: MoveLanding, to mailboxID: String) async throws -> String? {
+        guard let letter = landing.letter else { throw MoveLanding.Gone() }
+        try await readyForWrite()
+        let here = landing.folder
+        let at = try await whereIs(letter, named: landing.id, in: here)
+        saw([at.uid: letter], validity: at.validity, in: here)
+        let back = try await moveLanding(Self.makeID(validity: at.validity, uid: at.uid),
+                                         gmailMessageID: letter, from: here, to: mailboxID)
+        Diagnostics.log(.note, "UNDO-MOVE folder=\(here) uid=\(at.uid) "
+                        + (back?.id == nil ? "moved-back unnamed" : "moved-back"))
+        return back?.id
+    }
+
+    /// Where the letter Gmail knows as `letter` is in `name` now: under
+    /// `id`, the UID the MOVE's answer gave it there, if the server names
+    /// it there still; otherwise wherever a search of the folder by its
+    /// Gmail id finds it, once. `MoveLanding.Gone` when it is not there, or
+    /// is there more than once.
+    ///
+    /// The first question failing for any reason, the folder renumbered
+    /// since among them, which refuses it with nothing sent, the search
+    /// is asked: on a connection that has gone, it fails too, and says so.
+    private func whereIs(_ letter: UInt64, named id: String?,
+                         in name: String) async throws -> (validity: UInt32, uid: UInt32) {
+        if let id, let at = try? Self.parseID(id) {
+            let named = (try? await retryingIfDisconnected {
+                try await self.connected().gmailMessageID(uid: at.uid, in: name,
+                                                          validity: at.validity)
+            }) ?? nil
+            if named == letter { return at }
+            if let named { saw([at.uid: named], validity: at.validity, in: name) }
+        }
+        let found = try await retryingIfDisconnected {
+            try await self.connected().findLetter(letter, in: name)
+        }
+        guard let found, found.uids.count == 1 else {
+            Diagnostics.log(.note, "UNDO-MOVE folder=\(name) found=\(found?.uids.count ?? 0) "
+                            + "nothing-sent")
+            throw MoveLanding.Gone()
+        }
+        return (found.validity, found.uids[0])
     }
 
     /// A letter shown from the copy kept on the iPad, moved or deleted, or

@@ -113,6 +113,29 @@ final class RootViewController: UIViewController {
     /// sending (`SignInCheck.Outcome`). Nil at every launch.
     private var notice: MailAlert?
 
+    /// Mail's Undo (B-157): each Trash or Move the server has taken, from a
+    /// drag, Edit mode or the reading pane, one step (`UndoableMove`). The
+    /// screens' undo manager, on the responder chain, where a shake of the
+    /// iPad (with Shake to Undo on, as it comes), iPadOS's three-finger
+    /// gestures and Command-Z look for it; the text fields' typing goes on
+    /// it as well, as on any app's. In memory alone: a relaunch, or a new
+    /// password, which builds the screens again, starts with nothing to
+    /// undo. Fifty steps, steps of typing among them: as many as is safe,
+    /// since each letter is made sure of where it went before it is moved
+    /// back (`MailRepository.moveBack`), and found by its Gmail id.
+    private let undos: UndoManager = {
+        let undos = UndoManager()
+        undos.levelsOfUndo = 50
+        return undos
+    }()
+
+    override var undoManager: UndoManager? { undos }
+
+    /// The responder a shake and the three-finger gestures are sent to, when
+    /// no text field has the keyboard: they look for the undo manager from
+    /// the first responder. See `takeUndo`.
+    override var canBecomeFirstResponder: Bool { true }
+
     init(repository: MailRepository, saying notice: MailAlert? = nil) {
         self.repository = repository
         self.notice = notice
@@ -325,6 +348,7 @@ final class RootViewController: UIViewController {
     /// for any sooner has no window to go in and is dropped.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        takeUndo()
         guard let notice else { return }
         self.notice = nil
         ErrorPresenter.say(notice, on: self)
@@ -364,6 +388,93 @@ final class RootViewController: UIViewController {
         })
     }
 
+    // MARK: - Mail's Undo (B-157)
+
+    /// The screens take the first responder, so that a shake or three
+    /// fingers find the undo manager (`undos`): when they appear, as a step
+    /// is added, as the search field lets the keyboard go, as a sheet over
+    /// them closes, and as the app comes back. Not while a sheet is over
+    /// them, whose own fields answer for themselves, nor while the search
+    /// field has the keyboard, which it would lose.
+    ///
+    /// UIKit asks the first responder's undo manager at a shake; with no
+    /// first responder, as after the search field has let the keyboard go,
+    /// there is none to ask. Apple's own sample code for shake to undo makes
+    /// its controller the first responder from `viewDidAppear` for this.
+    /// Not seen on the iPad: whether UIKit gives the first responder back
+    /// by itself as a sheet closes.
+    private func takeUndo() {
+        guard !isFirstResponder, view.window != nil, presentedViewController == nil,
+              !list.isTyping else { return }
+        becomeFirstResponder()
+    }
+
+    /// A Trash or a Move the server has taken, one step of Undo, under
+    /// Mail's name for it, "Trash" or "Move": "Undo Trash" in UIKit's alert
+    /// at a shake. `letters`, the list's letters it was taken from, weakly:
+    /// gone with that list when another folder replaces it.
+    ///
+    /// By a selector and the step in a box (`UndoStep`), where the step's
+    /// own closure would be called outside the main actor as far as the
+    /// compiler is told.
+    private func canUndo(_ step: UndoableMove, from letters: ListLetters?) {
+        undos.registerUndo(withTarget: self, selector: #selector(undoStep(_:)),
+                           object: UndoStep(step, from: letters))
+        undos.setActionName(step.actionName)
+        takeUndo()
+    }
+
+    /// Undo tapped in UIKit's alert, or three fingers swiped left.
+    @objc private func undoStep(_ box: Any?) {
+        guard let box = box as? UndoStep else { return }
+        undo(box.step, into: box.letters)
+    }
+
+    /// Undo: the letters moved back where they were, a letter at a time,
+    /// "Moving…" on the line under the list meanwhile, and their rows back
+    /// where they stood if the list they were taken from is still on the
+    /// screen (`UndoMoves`). Rows that list no longer holds, fetched afresh
+    /// since, come with the list fetched afresh where he is, if it is their
+    /// folder's. A failure is said as a Move's, and what was not moved back
+    /// is one step of Undo again; a letter no longer where it went is left
+    /// as it is, and nothing is said. No Redo: Mail's is not known, and
+    /// nothing is offered after an Undo.
+    private func undo(_ step: UndoableMove, into letters: ListLetters?) {
+        let done = list.working(StatusLine.moving)
+        Task { @MainActor [weak self] in
+            guard let self else { return done() }
+            let outcome = await UndoMoves.run(step, repository: self.repository, list: letters,
+                                              requestSweep: { [weak self] in
+                                                  self?.refreshMailboxes()
+                                              })
+            done()
+            let folders = Set(step.letters.filter { outcome.unplaced.contains($0.row.id) }
+                                  .map(\.row.mailboxID))
+            if folders.contains(self.list.mailboxID) {
+                await self.list.reload(keepingPlace: true, quietly: true)
+            }
+            if let left = outcome.left { self.canUndo(left, from: letters) }
+            if let refusal = outcome.refusal { ErrorPresenter.show(reaching: refusal, on: self) }
+        }
+    }
+
+    /// A sheet over the screens has closed: the first responder back, for
+    /// Undo. Every sheet and alert the screens put up is put up over them,
+    /// as the list and the pane do not define where theirs go.
+    override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
+        super.dismiss(animated: flag) { [weak self] in
+            completion?()
+            self?.takeUndo()
+        }
+    }
+
+    /// The search field, or a field of a sheet, has let the keyboard go:
+    /// the first responder back, once whatever takes it next has, so that
+    /// a field the keyboard moves on to keeps it.
+    @objc private func fieldLetGo(_ note: Notification) {
+        DispatchQueue.main.async { [weak self] in self?.takeUndo() }
+    }
+
     // MARK: - Coming back to it
 
     private var wentAwayAt: Date?
@@ -381,6 +492,10 @@ final class RootViewController: UIViewController {
                            name: UIApplication.didEnterBackgroundNotification, object: nil)
         centre.addObserver(self, selector: #selector(lookingAway),
                            name: UIApplication.willResignActiveNotification, object: nil)
+        for name in [UITextField.textDidEndEditingNotification,
+                     UITextView.textDidEndEditingNotification] {
+            centre.addObserver(self, selector: #selector(fieldLetGo(_:)), name: name, object: nil)
+        }
         centre.addObserver(forName: UIApplication.willEnterForegroundNotification,
                            object: nil, queue: .main) { [weak self] _ in
             // The queue is `.main`, but that is not the same promise as
@@ -403,6 +518,7 @@ final class RootViewController: UIViewController {
                     LocalDrafts.shared.uploadWaiting(to: repository)
                 }
                 self.returnedFromAway()
+                self.takeUndo()
                 // How long ago the list was brought up to date, as of now,
                 // and the checks again from half a minute on, the warm-up and
                 // a return to the Inbox having gone first. Not if he is back
@@ -860,10 +976,19 @@ final class RootViewController: UIViewController {
             var moving: (() -> Void)?
             if case .move = action { moving = self.list.working(StatusLine.moving) }
             defer { moving?() }
+            // What the server took is a step of Mail's Undo (B-157), with
+            // the list it was taken from.
+            let letters = self.list.letters
             return await PaneActions.refusal(
                 running: action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
-                list: self.list.letters, repository: self.repository,
-                requestSweep: { [weak self] in self?.refreshMailboxes() })
+                list: letters, repository: self.repository,
+                requestSweep: { [weak self] in self?.refreshMailboxes() },
+                landed: { [weak self, weak letters] landing in
+                    guard let landing, let step = UndoableMove.after(
+                        action, took: [letter], landings: [letter.id: landing],
+                        role: { folders.role(of: $0) }) else { return }
+                    self?.canUndo(step, from: letters)
+                })
         }
         // Delete inside Trash erases the letter, and asks first; anywhere
         // else it moves the letter to Trash and asks nothing (B-062). By
@@ -954,6 +1079,16 @@ final class RootViewController: UIViewController {
         // showed.
         list.onLettersLeaving = { [weak self] letters in
             self?.detail.clearIfShowing(any: letters)
+        }
+        // A Delete or Move the server took from Edit mode or a drag: a step
+        // of Mail's Undo (B-157).
+        list.onUndoable = { [weak self] step, letters in
+            self?.canUndo(step, from: letters)
+        }
+        // More's Reply, Reply All and Forward on a row: made by the pane, as
+        // its Reply button's are (B-156).
+        list.onAnswer = { [weak self] letter, all, forward, row in
+            self?.detail.answer(letter, all: all, forward: forward, over: row)
         }
         // The row of the letter in the reading pane highlighted again at
         // Edit mode's Done and on a day's list (B-133).
@@ -1082,6 +1217,18 @@ extension RootViewController: MailWatchTarget {
         guard lastCheckFailed else { return }
         lastCheckFailed = false
         LocalDrafts.shared.uploadWaiting(to: repository)
+    }
+}
+
+/// One step of Undo as the undo manager holds it (B-157): the step, and
+/// the list's letters it was taken from, weakly, gone with that list.
+private final class UndoStep: NSObject {
+    let step: UndoableMove
+    weak var letters: ListLetters?
+
+    init(_ step: UndoableMove, from letters: ListLetters?) {
+        self.step = step
+        self.letters = letters
     }
 }
 

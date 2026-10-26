@@ -93,7 +93,12 @@ Never show raw IMAP protocol errors to the user. Put diagnostics in an administr
 
 ## Senior-user safeguards
 - Minimum 44 pt tap targets.
-- No destructive swipe actions by default.
+- Swipes are Apple Mail's, as on his iPad (ruled 2026-10-26, in place of
+  "no destructive swipe actions by default"): a slow drag to the left on a
+  row shows More, Flag and Trash, and a full drag trashes at once with no
+  question, as Mail's does; a drag to the right marks it read or unread.
+  A Trash or a Move is undone by shaking the iPad, as in Mail (B-156,
+  B-157). Each can also be done by a tap.
 - Confirmation before permanently deleting from Trash.
 - No automatic mailbox/category changes.
 - Preserve scroll position where practical.

@@ -111,6 +111,21 @@ protocol MailRepository {
               to destinationMailboxID: String) async throws
     func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws
 
+    /// `move`, saying where the letter went, for its Undo (B-157); nil
+    /// where it cannot say.
+    func moveLanding(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
+                     to destinationMailboxID: String) async throws -> MoveLanding?
+    /// `delete`, saying where the letter went: nil for one erased inside
+    /// Trash, which nothing brings back.
+    func deleteLanding(_ id: String, gmailMessageID: UInt64?,
+                       from mailboxID: String) async throws -> MoveLanding?
+    /// Mail's Undo of a Trash or a Move (B-157): the letter `landing` names
+    /// moved back to `mailboxID`, the folder it was taken from, by the one
+    /// write a move is. Returns its id there when the answer names it, nil
+    /// when it does not. Throws `MoveLanding.Gone`, with nothing written,
+    /// when the letter is not where it went, or cannot be found there once.
+    func moveBack(_ landing: MoveLanding, to mailboxID: String) async throws -> String?
+
     /// Returns once the server has taken the letter, its 250 after DATA,
     /// and not after anything that follows it; see `SMTPClient.send`.
     /// `progress` hears how much of the built letter has been handed to the
@@ -576,4 +591,40 @@ extension MailRepository {
     func send(_ draft: Draft) async throws {
         try await send(draft, progress: nil)
     }
+
+    /// `move`, saying nothing of where, unless the repository can.
+    func moveLanding(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
+                     to destinationMailboxID: String) async throws -> MoveLanding? {
+        try await move(id, gmailMessageID: gmailMessageID, from: sourceMailboxID,
+                       to: destinationMailboxID)
+        return nil
+    }
+
+    /// `delete`, saying nothing of where, unless the repository can.
+    func deleteLanding(_ id: String, gmailMessageID: UInt64?,
+                       from mailboxID: String) async throws -> MoveLanding? {
+        try await delete(id, gmailMessageID: gmailMessageID, from: mailboxID)
+        return nil
+    }
+
+    /// Nothing to move back, unless the repository said where it went.
+    func moveBack(_ landing: MoveLanding, to mailboxID: String) async throws -> String? {
+        throw MoveLanding.Gone()
+    }
+}
+
+/// Where a Delete or Move put a letter, for its Undo (B-157), as the
+/// server's answer to the MOVE says it: the folder it went to, by its name
+/// on the server; its id there, `"<uidvalidity>/<uid>"`, when the answer's
+/// COPYUID named it with one; and Gmail's id for the letter (X-GM-MSGID),
+/// by which it is made sure of, or found, there before it is moved back.
+struct MoveLanding: Equatable, Sendable {
+    let folder: String
+    let id: String?
+    let letter: UInt64?
+
+    /// The letter is not where it went: taken out of it since, by another
+    /// mail program or by Gmail emptying its Trash, or found there more
+    /// than once, or never named. Nothing was written.
+    struct Gone: Error, Equatable {}
 }

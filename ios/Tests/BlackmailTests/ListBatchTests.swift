@@ -934,11 +934,17 @@ final class ListBatchTests: XCTestCase {
                 + "for m in chosen { guard let key = LocalDraft.key(ofRow: m.id) else { "
                 + "continue } Task { @MainActor in await kept.delete(key, from: repository) "
                 + "} } runBatch(.delete, on: onServer(chosen), saying: StatusLine.deleting) }",
+            // What the server took is a step of Undo (B-157).
             "guard !chosen.isEmpty else { return } let done = working(words) "
                 + "onLettersLeaving?(chosen) Task { @MainActor [weak window = view.window] in "
+                + "var landings: [String: MoveLanding] = [:] "
                 + "let outcome = await ListBatch.run( action, on: chosen, role: { "
                 + "self.role(of: $0) }, list: self.letters, repository: self.repository, "
-                + "requestSweep: { [weak self] in self?.requestSweep?() }) done() if let "
+                + "requestSweep: { [weak self] in self?.requestSweep?() }, landed: { letter, "
+                + "landing in landings[letter.id] = landing }) done() let took = "
+                + "chosen.filter { outcome.taken.contains($0.id) } if let step = "
+                + "UndoableMove.after(action, took: took, landings: landings, role: { "
+                + "self.role(of: $0) }) { self.onUndoable?(step, self.letters) } if let "
                 + "refusal = outcome.refusal { ErrorPresenter.show(reaching: refusal, on: "
                 + "self.alertHost(in: window)) } } }",
             "private func alertHost(in window: UIWindow?) -> UIViewController { guard "

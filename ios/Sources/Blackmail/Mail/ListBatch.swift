@@ -84,10 +84,17 @@ enum ListBatch {
     ///
     /// The counts are swept once at the end, if any letter called for it,
     /// rather than once for each.
+    ///
+    /// `landed` hears, for each letter a Delete or a Move took, where the
+    /// repository says it went, once the list has been billed for it: for
+    /// their Undo (B-157). Not for a letter erased inside Trash, nor where
+    /// the repository cannot say.
     static func run(_ action: PaneAction, on letters: [MessageSummary],
                     role: (String) -> Mailbox.Role?, list: PaneActionList?,
                     repository: MailRepository,
-                    requestSweep: @MainActor () -> Void) async -> Outcome {
+                    requestSweep: @MainActor () -> Void,
+                    landed: @MainActor (MessageSummary, MoveLanding) -> Void = { _, _ in })
+        async -> Outcome {
         let started = letters.map {
             PaneActions.start(action, on: $0, inFolderWithRole: role($0.mailboxID), list: list)
         }
@@ -100,8 +107,9 @@ enum ListBatch {
                 outcome.notTaken.append(letter.id)
                 continue
             }
+            let landing: MoveLanding?
             do {
-                try await PaneActions.send(action, on: letter, repository: repository)
+                landing = try await PaneActions.send(action, on: letter, repository: repository)
             } catch {
                 let said = PaneActions.finish(step, failure: error, requestSweep: {})
                 outcome.notTaken.append(letter.id)
@@ -115,6 +123,7 @@ enum ListBatch {
             }
             PaneActions.finish(step, failure: nil, requestSweep: { sweepOwed = true })
             outcome.taken.append(letter.id)
+            if let landing { landed(letter, landing) }
         }
         if sweepOwed { requestSweep() }
         return outcome

@@ -1501,11 +1501,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Mail's question about the original's files (B-107), as an action
     /// sheet at the Reply button, where the choice was made: Include, Don't
     /// Include, and Cancel, which on the iPad is a tap outside it, and
-    /// begins no letter. `answer` hears true for Include.
-    private func askAboutFiles(_ answer: @escaping (Bool) -> Void) {
+    /// begins no letter. `answer` hears true for Include. Over `row`, where
+    /// the choice was made on a row of the list, from More (B-156).
+    private func askAboutFiles(over row: (view: UIView, rect: CGRect)? = nil,
+                               _ answer: @escaping (Bool) -> Void) {
         let sheet = UIAlertController(title: ReplyFiles.question, message: nil,
                                       preferredStyle: .actionSheet)
-        sheet.popoverPresentationController?.barButtonItem = actionItems[.reply]
+        if let row {
+            sheet.popoverPresentationController?.sourceView = row.view
+            sheet.popoverPresentationController?.sourceRect = row.rect
+        } else {
+            sheet.popoverPresentationController?.barButtonItem = actionItems[.reply]
+        }
         sheet.addAction(UIAlertAction(title: ReplyFiles.include, style: .default) { _ in
             answer(true)
         })
@@ -1517,6 +1524,48 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     @objc private func composeTapped() { openCompose(replyTo: nil, all: false, forward: false) }
+
+    /// The letter whose More's Reply, Reply All or Forward is being made
+    /// ready, by its id, from the tap until the composer or the failure:
+    /// one at a time, so a second tap meanwhile makes no second letter.
+    private var answering: String?
+
+    /// More's Reply, Reply All or Forward on a row of the list (B-156), as
+    /// Mail's sheet answers a letter without opening it: the letter fetched
+    /// as the pane opens one (`openLetter`), from the copy kept on the iPad
+    /// when it is there, and shown nowhere; then the composer, as the Reply
+    /// button's sheet opens it, Mail's question about the files asked first
+    /// where that sheet would ask it, over the row (`row`). Nothing in the
+    /// pane changes, and the letter is not marked read.
+    ///
+    /// A failure is said as a letter that could not be opened is. A row
+    /// kept on the iPad that the server says is another letter now is
+    /// taken off the list, as when it is opened (D-016).
+    func answer(_ letter: MessageSummary, all: Bool, forward: Bool,
+                over row: (view: UIView, rect: CGRect)) {
+        guard answering == nil else { return }
+        answering = letter.id
+        let repository = self.repository
+        Task { @MainActor in
+            defer { self.answering = nil }
+            let m: Message
+            do {
+                m = try await repository.openLetter(letter)
+            } catch is MailShelf.NotTheKeptLetter {
+                self.onNotTheKeptLetter?(letter)
+                return
+            } catch {
+                ErrorPresenter.show(reaching: error, on: self)
+                return
+            }
+            guard forward ? ReplyFiles.forwardAsks(m) : ReplyFiles.asks(m) else {
+                return self.openCompose(replyTo: m, all: all, forward: forward)
+            }
+            self.askAboutFiles(over: row) { [weak self] in
+                self?.openCompose(replyTo: m, all: all, forward: forward, included: $0)
+            }
+        }
+    }
 
     /// Presents the composer. The DRAFT itself is built by `Draft.replying`
     /// and `Draft.forwarding`, which are pure and live in the model layer —
