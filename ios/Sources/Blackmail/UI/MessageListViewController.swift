@@ -1300,6 +1300,24 @@ final class MessageListViewController: UITableViewController {
         return await reload()
     }
 
+    /// The row of the letter a banner named, opened as a tap on it opens
+    /// it, and brought into sight (B-161): the letter, or its conversation,
+    /// in the reading pane, marked read, its row highlighted. Only the same
+    /// letter, by Gmail's id where both have one. Returns whether the list
+    /// had it; not in Edit mode, where a tap ticks.
+    @MainActor
+    func openRow(of id: String, letter: UInt64?) -> Bool {
+        guard !inEditMode, let row = rowIndex(showing: id) else { return false }
+        if let letter, let listed = letters.letter(id)?.gmailMessageID, listed != letter {
+            return false
+        }
+        let at = IndexPath(row: row, section: 0)
+        tableView.selectRow(at: at, animated: false, scrollPosition: .none)
+        tableView.scrollToRow(at: at, at: .none, animated: false)
+        tableView(tableView, didSelectRowAt: at)
+        return true
+    }
+
     // MARK: - New mail, without a tap (B-049)
 
     /// Every letter this list holds from its folder, for the watch to check

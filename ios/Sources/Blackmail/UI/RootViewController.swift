@@ -143,6 +143,10 @@ final class RootViewController: UIViewController {
     /// the first responder. See `takeUndo`.
     override var canBecomeFirstResponder: Bool { true }
 
+    /// A banner tapped before the launch's first page had been tried: its
+    /// letter is opened once it has (B-161).
+    private var bannerTapped: NewMailBanners.Tapped?
+
     init(repository: MailRepository, saying notice: MailAlert? = nil) {
         self.repository = repository
         self.notice = notice
@@ -338,12 +342,18 @@ final class RootViewController: UIViewController {
             // way the warning waits for it, until a check of the watch
             // finds nothing over the mail and no finger on the list (B-137).
             self?.warnOfExpiryIfDue()
+            self?.firstPageTried = true
+            // iOS's question for the banners and the number on the icon,
+            // once, when this is the Inbox's list and nothing is over it,
+            // and else at a check of the watch; and the letter of a banner
+            // tapped as the app opened, now its list has come (B-161).
+            self?.askForBannersIfDue()
+            self?.openTappedBanner()
             // Once the first page has been tried, so a check never goes
             // beside it: the first is half a minute on, after the counts.
             // Started whether or not the page came, so that with no
             // connection at launch the counts come of themselves once there
             // is one. It sends no password that has been refused.
-            self?.firstPageTried = true
             // The address book filled from his Sent Mail, once for this
             // account, in the background line behind the counts and ahead
             // of the watch's first check (B-155). Nothing waits for it, and
@@ -579,6 +589,13 @@ final class RootViewController: UIViewController {
                 }
                 self.returnedFromAway()
                 self.takeUndo()
+                // A check for new mail reached the server while he was
+                // away and set the number on the icon from its count: the
+                // counts swept now, so the folder pane and the number say
+                // what the server says (B-161).
+                if BannerStore.app.load().checkedSinceLeaving {
+                    self.mailboxList.refreshCounts(quietly: true)
+                }
                 // How long ago the list was brought up to date, as of now,
                 // and the checks again from half a minute on, the warm-up and
                 // a return to the Inbox having gone first. Not if he is back
@@ -615,6 +632,63 @@ final class RootViewController: UIViewController {
     @objc private func leavingTheApp() {
         LocalDrafts.shared.wentToBackground()
         LocalDrafts.shared.uploadWaiting(to: repository, for: .leaving)
+    }
+
+    // MARK: - The banners for new mail (B-161)
+
+    /// iOS's own question for the banners and the number on the icon, once,
+    /// the first time the Inbox's list has come from the server, and only
+    /// with nothing over the mail and no finger on the list
+    /// (`BannerQuestion`): asked at the launch's first page, and at each
+    /// check of the watch until then.
+    private func askForBannersIfDue() {
+        NewMailTask.askIfDue(inboxListed: view.window != nil && watchedInbox != nil,
+                             sheetUp: presentedViewController != nil, inHand: list.isInHand)
+    }
+
+    /// A banner tapped: its letter opened in the Inbox, as a tap on its row
+    /// opens it, in the reading pane with its row highlighted, as Mail
+    /// opens the letter of its banner. Not over a sheet he has open, a
+    /// letter he is writing or Settings, which stays as it was. Before the
+    /// launch's first page has been tried, once it has.
+    func openFromBanner(_ letter: NewMailBanners.Tapped) {
+        guard !ErrorPresenter.over(self).sheetOpen else { return }
+        guard firstPageTried else {
+            bannerTapped = letter
+            return
+        }
+        open(letter)
+    }
+
+    private func openTappedBanner() {
+        guard let letter = bannerTapped else { return }
+        bannerTapped = nil
+        guard !ErrorPresenter.over(self).sheetOpen else { return }
+        open(letter)
+    }
+
+    /// The Inbox in front, and the letter's row opened: at once if the
+    /// list has it, else once the list has been fetched again from its
+    /// newest letter, for one that came since it was. Another folder in
+    /// front: the Inbox opened, and the row once its first page has come.
+    /// A letter no longer in the Inbox opens nothing, and the Inbox stays.
+    private func open(_ letter: NewMailBanners.Tapped) {
+        guard list.shownMailbox.role == .inbox else {
+            let inbox = mailboxList.mailbox(for: .inbox) ?? .inboxBeforeListing
+            shell.open(inbox)
+            mailboxList.select(mailboxID: inbox.id)
+            list.onFirstLoadFinished = { [weak self] _ in
+                _ = self?.list.openRow(of: letter.id, letter: letter.gmailMessageID)
+            }
+            return
+        }
+        shell.showList()
+        if list.openRow(of: letter.id, letter: letter.gmailMessageID) { return }
+        let list = self.list
+        Task { @MainActor in
+            guard await list.returnToNewest() else { return }
+            _ = list.openRow(of: letter.id, letter: letter.gmailMessageID)
+        }
     }
 
     /// Control Centre pulled down, the Home gesture, a call: a change still
@@ -1327,6 +1401,7 @@ extension RootViewController: MailWatchTarget {
             lastCheckFailed = true
             return
         }
+        askForBannersIfDue()
         // The first check to reach the server after one that could not:
         // the connection has come back, and what waits on the iPad, the
         // Outbox first, goes over it now, as Mail's Outbox does, rather than

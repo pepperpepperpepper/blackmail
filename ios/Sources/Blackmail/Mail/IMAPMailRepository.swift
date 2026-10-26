@@ -1496,7 +1496,7 @@ actor IMAPMailRepository: MailRepository {
     /// *before* decoding: base64 inflates by a third, and real mail opens with
     /// blank lines, a "View this in your browser" line and a row of dashes
     /// before it says anything. 2 KB clears all of that with room to spare.
-    private static let plainPreviewBytes = 2048
+    static let plainPreviewBytes = 2048
 
     /// And how much of an HTML one — four times as much, which is the honest
     /// price of this feature.
@@ -1508,7 +1508,7 @@ actor IMAPMailRepository: MailRepository {
     /// 400 KB, which is why previews are a second pass behind the list rather
     /// than part of it, and why the plain alternative is always preferred when
     /// the sender sent one.
-    private static let htmlPreviewBytes = 8192
+    static let htmlPreviewBytes = 8192
 
     /// Bound on the remembered structures. Not a cache policy: the list asks
     /// for previews immediately after it lists, so anything dropped here is
@@ -1675,12 +1675,13 @@ actor IMAPMailRepository: MailRepository {
     }
 
     /// Transfer-decode, charset-decode, then flatten to one line of words.
+    /// The banner for a new letter takes its line the same way (B-161).
     ///
     /// The split-character trim has to happen between the first two steps: the
     /// fetch cut the body at a byte, so the *decoded* bytes are what ends
     /// mid-character, and handing that straight to the charset decoder makes
     /// the whole fragment fail UTF-8 and come back as mojibake.
-    private static func preview(from raw: Data, part: MIMEPart) -> String {
+    static func preview(from raw: Data, part: MIMEPart) -> String {
         let bytes = PreviewText.trimmingSplitCharacter(
             MIMEDecoder.decodeTransfer(raw, encoding: part.encoding))
         // "8bit" because the transfer encoding has already been undone above.

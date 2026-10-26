@@ -1346,7 +1346,7 @@ final class CompleteThreadsTests: XCTestCase {
         let lookup = try section(of: repository, from: "func lettersOfHis(inThread thread: UInt64",
                                  to: "private func letterFiles(")
         let previews = try section(of: repository, from: "private func previewTexts(",
-                                   to: "private static func preview(from")
+                                   to: "static func preview(from")
         let pane = try source("UI/MessageDetailViewController.swift")
         let handling = try section(of: pane, from: "private func lookForHis(",
                                    to: "private var pageStyle")

@@ -1119,8 +1119,15 @@ final class SafeStartTests: XCTestCase {
     /// of the return before the pass coming back does.
     func testTheLaunchIsCountedFirstAndFinishedWhereItSays() async throws {
         let delegate = try source("Blackmail/App/AppDelegate.swift")
+        // A launch he sees starts at once; a launch into the background for
+        // the check for new mail starts nothing, and is counted as he opens
+        // the app (B-161).
         XCTAssertTrue(delegate.contains("didFinishLaunchingWithOptions launchOptions: "
                                         + "[UIApplication.LaunchOptionsKey: Any]?) -> Bool { "
+                                        + "if application.applicationState != .background "
+                                        + "{ start() }"))
+        XCTAssertTrue(delegate.contains("private func start() { guard window == nil "
+                                        + "else { return } "
                                         + "SafeStart.app.launch() AttachmentStore.purge()"))
         let launch = try XCTUnwrap(delegate.range(of: "SafeStart.app.launch()"))
         for later in ["AttachmentStore.purge()", "Self.makeRoot()", "LayoutAudit.beginSweeping()",

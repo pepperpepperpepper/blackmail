@@ -2,6 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- New mail while the app is not in front (B-161): the one check iOS
+	     wakes it for now and then, an app refresh. Named here or iOS ends
+	     the app at every launch as it registers it; "fetch" below is the
+	     background mode the refresh needs. No push: nothing outside the
+	     iPad sends the app anything. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>wtf.uhoh.blackmail.new-mail</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -102,6 +111,10 @@
 	<string>Blackmail saves the pictures you choose to Photos.</string>
 	<key>MinimumOSVersion</key>
 	<string>16.0</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>2</integer>

@@ -340,7 +340,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       pane, with UIKit's "Undo Trash" or "Undo Move", the letters moved
       back and their rows where they stood, and a Flag, "Undo Flag", as
       Mail is reported to; and its check under "Blocked on the iPad coming
-      back". Contacts and the badge still open.*
+      back". Contacts still open.*
+      *App badge and notifications ruled 2026-10-26: copy Apple Mail. Built
+      as B-161, not yet seen on the iPad: the Inbox's unread count on the
+      icon, and a banner for each new unread Inbox letter from a check iOS
+      wakes the app for while the iPad is on charge and on Wi-Fi, as Mail
+      fetches from the factory, after iOS's own question; its check under
+      "Blocked on the iPad coming back".*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
       status bar to go to the top, Print. *The sent sound done 2026-10-22,
       seen on the iPad the same day, whether it is heard left for a
@@ -8480,6 +8486,71 @@ checks below is left as not needed, not open, and none is worth a round.*
       and deletes in the Trash only the UIDs that move answered
       (`COPYUID`). Never anything found by subject or Message-ID: a UID not
       noted is left, and written down. Nothing else was written.
+- [ ] **B-161, the red number and the banners for new mail.** On the test
+      iPad, the test account only, from a build of the `bm-cm-badge`
+      worktree (branch `copy-badge`) or of the int it is merged into: the
+      first build that asks for notifications, so written down first
+      whether Settings > Notifications already lists Blackmail. Nothing is
+      composed, sent, moved or deleted in the app. One of the test accounts
+      is signed in on the owner's phone and new mail rings it: the steps
+      that put a new unread letter in the Inbox are marked, and wait for
+      his go; the rest use a letter already in the test Inbox that the
+      host marks unread, its UID noted, and marks read again at the end.
+      The app's connection log read after each step (its `NEW-MAIL` lines
+      say when a check ran, the unread count and how many banners, and
+      nothing of a letter), and the count beside Inbox in the folder pane
+      written down at each step.
+      1. *iOS's question.* The app opened; once the Inbox's list has come,
+      iOS's own question about notifications comes over it, with nothing
+      of the app's up (if the warning before the app stops opening is up,
+      the question comes within half a minute of its OK). Its words
+      photographed for the owner (B-161, New words). Allow. The app closed
+      and opened again: not asked again.
+      2. *The number.* The host marks one Inbox letter unread (`UID STORE
+      -FLAGS (\Seen)`); Refresh: the Inbox's count one more. Home: the
+      icon's number is the Inbox's count. Back, that letter opened (one
+      STORE in the log); Home: the number one less.
+      3. *No banner while in front* (puts a new unread letter in the
+      test Inbox, which rings the owner's phone: needs the owner's go).
+      The app in front on the Inbox; the host APPENDs one letter, unread,
+      to INBOX, "B-161 in front": on the list within half a minute, and no
+      banner at any time.
+      4. *Banners while away* (as 3: needs the owner's go). Home, the iPad
+      locked, on charge and Wi-Fi. The host APPENDs two letters, unread,
+      to INBOX, a minute apart, UIDs noted: "B-161 away one" with two
+      lines of words, and one with no subject. Then wait: iOS chooses when
+      the check runs, after fifteen minutes at the soonest and perhaps
+      hours later (if the round's tools can attach a debugger to the app,
+      `-[BGTaskScheduler _simulateLaunchForTaskWithIdentifier:]` with
+      `wtf.uhoh.blackmail.new-mail` starts one at once, as under Xcode; not
+      tried). Two banners, each the sender's name, the subject or "(no
+      subject)", and the first words; the icon's number the Inbox's unread
+      count. Over IMAP the two letters still unread. The log, read later:
+      one `NEW-MAIL unread=N banners=2`. Written down how long iOS took.
+      5. *The tap.* The newest banner tapped: the app opens on the Inbox,
+      that letter in the reading pane, its row highlighted, marked read
+      (one STORE); with another folder in front before, the Inbox opened.
+      6. *Back after a check.* After 4 the folder pane's Inbox count and
+      the icon's number agree within a few seconds of the return (a sweep
+      of the counts in the log).
+      7. *The safe start.* Over SSH, as the rounds read the app's files:
+      `Application Support/Launches/unfinished` reads 0 after a check and
+      after the app is opened; `Application Support/New Mail/state.json`
+      holds a mark, when he left and when a check ran, and nothing of a
+      letter.
+      8. *Notifications off.* Settings > Notifications > Blackmail, Allow
+      Notifications off; Home: the number gone, and no `NEW-MAIL` line
+      after it in the log. Put back on.
+      9. *Only on charge and Wi-Fi* (the second commit). The app at Home,
+      the iPad unplugged; the host marks the letter of 2 unread again.
+      An hour or more on battery: the icon's number as it was, and the
+      log with no `NEW-MAIL unread=` line in that time, only `NEW-MAIL
+      held not-charging-on-wifi` if iOS ran a check. Plugged in, on
+      Wi-Fi: at the next check (`NEW-MAIL unread=N`), the number one
+      more. Written down how long iOS took either way.
+      10. *Put back:* the letter of 2 marked read again; the UIDs the host
+      noted in 3 and 4, and only them, moved to the Trash, answered by
+      COPYUID. Nothing else was written.
 
 ## Blocked on the owner
 
