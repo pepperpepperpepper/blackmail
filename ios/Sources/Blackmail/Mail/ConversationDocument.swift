@@ -526,10 +526,14 @@ enum ConversationDocument {
     /// WebKit's own tap by its `preventDefault`, and a click on the picture
     /// before the next touch opens nothing, so a hold never opens Quick
     /// Look as well. A second finger, a finger that moves, a lift before
-    /// the half second, or a touch WebKit cancels is no hold. The touches
-    /// are heard on the window, as the lines' are, on every page. A
-    /// picture from the web, in a link, an image map or a button is not
-    /// wired, and keeps WebKit's menu.
+    /// the half second, or a touch WebKit cancels is no hold; nor a finger
+    /// that lands on a page still scrolling, as on a line, which only
+    /// stops it, as UIKit gives such a touch to the scroll view: the
+    /// page's scrolls are heard on every page for it (`bmScroll`), and a
+    /// scroll the stack's script made itself is none. The touches are
+    /// heard on the window, as the lines' are, on every page. A picture
+    /// from the web, in a link, an image map or a button is not wired, and
+    /// keeps WebKit's menu.
     ///
     /// **A file's row coming** (B-148). While the pane downloads a file,
     /// `bmFileBusy`, called through `callAsyncJavaScript` (`BodyFiles.Busy`),
@@ -834,7 +838,7 @@ enum ConversationDocument {
     function bmPictureDown(event) {
       bmPictureLetGo();
       bmPictureHeld = null;
-      if (event.touches.length !== 1) return;
+      if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return;
       var img = event.target;
       if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) return;
       var touch = event.touches[0];
@@ -869,6 +873,7 @@ enum ConversationDocument {
     }
     (function () {
       if (document.body) bmWirePictures(document.body);
+      window.addEventListener('scroll', bmScroll, { passive: true });
       window.addEventListener('touchstart', bmPictureDown, { capture: true, passive: true });
       window.addEventListener('touchmove', bmPictureMove, { capture: true, passive: true });
       window.addEventListener('touchend', bmPictureUp, { capture: true, passive: false });
@@ -895,7 +900,6 @@ enum ConversationDocument {
       ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (name) {
         window.addEventListener(name, bmFinger, { capture: true, passive: true });
       });
-      window.addEventListener('scroll', bmScroll, { passive: true });
       window.addEventListener('load', bmKeep);
       bmKeep();
     })();

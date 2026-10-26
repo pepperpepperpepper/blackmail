@@ -30256,7 +30256,7 @@ kept row's record without `among`, 4 in 1. And the row never shown
 coming, 2 in 1; never put back as it was, 3 in 1; the pane not showing
 it at the tap and putting it back on any page, 5 in 3.
 
-The full suite, serially, with B-149 and B-150 beside it: 2,686 tests, 6
+The full suite, serially, with B-149 and B-150 beside it: 2,689 tests, 8
 of them this entry's, 6 skipped, none failing. The release build for the
 iPad links.
 
@@ -30397,7 +30397,7 @@ WebKit tells of its paint, 3 in 1; a tap keeping the document of the tap
 before, 3 in 1; the cover not put up at a tap on a row, read from the
 source, 2 in 1.
 
-The full suite, serially, with B-148 and B-150 beside it: 2,686 tests, 7
+The full suite, serially, with B-148 and B-150 beside it: 2,689 tests, 7
 of them this entry's, 6 skipped, none failing. The release build for the
 iPad links.
 
@@ -30454,9 +30454,15 @@ Show Text, with no Save to Files.
    and where the finger is in the web view, its place in the page's
    viewport scaled by a pinch (`visualViewport`). A lift before then, a
    move of more than 10 px, a second finger or a touch WebKit cancels is no
-   hold. The lift after a hold stops WebKit's own tap (`preventDefault`),
-   and a click on the picture before the next touch opens nothing, so a
-   hold never opens Quick Look as well.
+   hold; nor a finger that lands on the letter while it still scrolls,
+   within a fifth of a second of its last scroll, as he stops a letter
+   coasting, which UIKit gives to the scroll view and the lines' script
+   takes as no tap (B-095). For that the page's scrolls are heard on every
+   page (`bmScroll`, the lines' own), where they were heard in a stack
+   alone; a scroll the stack's script made itself is none. The lift after
+   a hold stops WebKit's own tap (`preventDefault`), and a click on the
+   picture before the next touch opens nothing, so a hold never opens
+   Quick Look as well.
 3. *The menu* (`holdPicture`): a sheet at the finger, in a popover from the
    web view, as the Flag and Reply buttons have theirs: Quick Look, Save
    Image, Save to Files, Share and Copy (`PanePictures.menu`), and a tap
@@ -30502,7 +30508,7 @@ Files to choose where; Share the share sheet; Copy puts it on the
 clipboard. A tap on the photo opens it, as before. The menu's words are
 Mail's.
 
-**Tests.** `PictureHoldTests`, nine, new. A hold read as the script posts
+**Tests.** `PictureHoldTests`, ten, new. A hold read as the script posts
 it, its place as WebKit or Swift hands numbers over, `hold` false a tap,
 and a hold with no place, a place not a number or not finite, or a `hold`
 of another kind, nothing. The menu, Mail's words in Mail's order, and which
@@ -30519,13 +30525,17 @@ posts; a picture in a link and one from the web held post nothing; the
 photo and the logo have WebKit's menu and selection kept off, important,
 and the other two not; a lift before the half second is a tap, a move of
 20 px no hold, a move of 8 px a hold; in a stack, a hold names its
-letter's section and opens or closes no letter. And read from the source:
-the pane sending a hold to `holdPicture` and a tap to `openPicture`, the
-menu at the finger, each item through `openAttachment` for that item while
-the pane still shows what it did, the last tap's item done as it lands,
-Save Image asking to add only, Files' export sheet, Share at the finger,
-and the key in Info.plist; the script's style, its half second, the
-picture under the finger, the lift stopped and the click let pass.
+letter's section and opens or closes no letter; a finger put on the photo
+as the letter coasts after a flick, held there, no hold, on a letter's own
+page and in a stack, and a hold once it is still posts. And read from the
+source: the pane sending a hold to `holdPicture` and a tap to
+`openPicture`, the menu at the finger, each item through `openAttachment`
+for that item while the pane still shows what it did, the last tap's
+item done as it lands, Save Image asking to add only, Files' export sheet,
+Share at the finger, and the key in Info.plist; the script's style, its
+half second, the picture under the finger and the page not still
+scrolling, the scrolls heard on every page, the lift stopped and the
+click let pass.
 Changed, as the code they read changed: `PictureTapTests` (three),
 `LastFileTappedTests`, `ExpiryWarningTests`, `AttachmentStoreTests`,
 `PaneNavigationTests` and `LinePressTests`, the last now counting eight
@@ -30542,9 +30552,11 @@ tap's bound of size, 3 in 2; a picture still coming done for the first
 tap's item, not the last's, 1 in 1; a hold sent to `openPicture`, 2 in 2;
 the hold taking five seconds, 12 in 4; a finger that moves still taken as
 a hold, 2 in 1; what lands done as Quick Look whatever was chosen, 4 in 4;
-the menu out of Mail's order, 2 in 1.
+the menu out of Mail's order, 2 in 1. And a hold taken on a letter still
+coasting, 5 in 2; the page's scrolls heard in a stack alone, as before,
+3 in 2.
 
-The full suite, serially, with B-148 and B-149 beside it: 2,686 tests, 9
+The full suite, serially, with B-148 and B-149 beside it: 2,689 tests, 10
 of them this entry's, 6 skipped, none failing. The release build for the
 iPad links.
 
@@ -30555,6 +30567,17 @@ iPad links.
   long press, at about 0.35 s, starts a selection of the words near the
   picture or its loupe before the half second; whether a click still comes
   after a hold that the script's `preventDefault` does not stop.
+- WebKit's drag of a picture: on an iPad a long press can lift a picture
+  to be dragged, and a drag that begins cancels the page's touches
+  (`touchcancel`, which lets the hold go) before the half second: then no
+  menu, or the photo lifting under the finger. The pictures are not kept
+  from dragging (`-webkit-user-drag`), as Mail lets a file be dragged out
+  of a letter; whether the lift comes first was not seen (the check, step
+  2).
+- A finger landing on a letter still scrolling is told by the page's last
+  scroll within a fifth of a second, the lines' rule (B-095); WebKit's
+  scroll events while the letter coasts were not timed on the iPad for a
+  letter on its own (the check, step 10).
 - The menu is a sheet of words at the finger, not Mail's menu with the
   picture shown large above it: UIKit has no public way to open such a
   menu at the page's word.

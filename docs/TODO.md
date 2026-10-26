@@ -7470,15 +7470,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       1. *The letters,* "B-150 photo": an HTML letter with words, a JPEG
       photo of about 1 MB shown among them by `cid:` as an iPhone sends
       one, a picture from the web, the same photo inside a link to a web
-      page, and the account's signature logo by `cid:`; and "B-150 thread
-      1" and "B-150 thread 2", one conversation, the second with a photo by
-      `cid:`.
+      page, and the account's signature logo by `cid:`, with words enough
+      for the letter to scroll twice the pane's height (10); and "B-150
+      thread 1" and "B-150 thread 2", one conversation, the second with a
+      photo by `cid:`.
       2. *The hold:* "B-150 photo" opened, a finger held on the photo for
       about 0.6 s: a menu beside the finger, Quick Look, Save Image, Save
       to Files, Share, Copy, and none of WebKit's (no Save to Photos, no
       Show Text); no Quick Look under it or after the finger lifts. Written
       down: whether words near the photo were selected, or the loupe came,
-      before the menu. A tap outside: the menu goes, nothing done.
+      before the menu, and whether the photo lifted under the finger to be
+      dragged, with no menu after it (B-150, Not covered). A tap outside:
+      the menu goes, nothing done.
       3. *Quick Look:* held again, Quick Look: the photo full screen; Done,
       the letter as it was.
       4. *Save Image:* held again, Save Image. The first time, iOS asks to
@@ -7497,10 +7500,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       own); the logo tapped: nothing, as before. The picture from the web
       held: WebKit's menu as before (Save to Photos among it), tapped:
       nothing. The photo in the link held: WebKit's menu for the link,
-      tapped: "Open this link?", Cancel.
+      closed with a tap outside. Tapped: on a build that asks before a link
+      opens, "Open this link?", Cancel; on one that does not, Safari opens
+      at the page: back to the app with the iPad's own back link, the
+      letter as it was.
       10. *Moving:* a finger landing on the photo and dragging the letter:
-      it scrolls, no menu. A pinch on it: the letter zooms, no menu; then a
-      hold on the zoomed photo: the menu by the finger, written down where.
+      it scrolls, no menu. A flick of the letter, then a finger put on the
+      photo as it coasts, to stop it, and held there a second: the letter
+      stops, no menu; lifted, and held again on the still photo: the menu.
+      Written down if the first hold gave the menu. A pinch on it: the
+      letter zooms, no menu; then a hold on the zoomed photo: the menu by
+      the finger, written down where.
       11. *A conversation:* "B-150 thread 2" opened, its photo held: the
       menu; Quick Look: that letter's photo. Done.
       12. *Two panes,* 2 and 3 again, then three panes.

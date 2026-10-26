@@ -253,6 +253,43 @@ final class PictureHoldTests: XCTestCase {
         XCTAssertEqual(run.styles["second"]?["-webkit-touch-callout"], "none !important")
     }
 
+    /// A finger put on the letter to stop it coasting lands on a page still
+    /// scrolling, and only stops it, as UIKit gives such a touch to the
+    /// scroll view: held there on a photo, it is no hold, as on a line it
+    /// is no tap. On a letter's own page, where the stack's script wires
+    /// nothing, as in a stack. Once the page is still, a hold on the photo
+    /// has the menu, as before.
+    func testAFingerThatStopsTheLetterCoastingIsNoHold() throws {
+        // A letter's own page taller than the pane: the model's page draws
+        // each of the body's children 38 px, so blank ones after the
+        // letter, `#bm`, make room to scroll.
+        let own = "<html><head></head><body><div id=\"bm\"><p>Our new garden.</p>"
+            + img("photo", address(photo.contentID!)) + "</div>"
+            + String(repeating: "<div></div>", count: 30) + "</body></html>"
+        let entries = [
+            ConversationDocument.Entry(id: "1/5", sender: "Sam <sam@example.com>",
+                                       date: Date(timeIntervalSince1970: 1_700_000_600), body: nil,
+                                       isExpanded: true, preview: "second"),
+        ]
+        let stack = ConversationDocument.html(entries: entries, inset: 20, bodyPointSize: 17, lineHeight: 1.4)
+        let fill = ConversationDocument.Fill(sectionID: "m1_5", body: .init(
+            html: "<p data-h=\"1500\">Again</p>" + img("photo", address(photo.contentID!)), isHTML: true))
+        let flick: [ModelPage.Step] = [.down(100, y: 600), .move(120, y: 500), .move(140, y: 400),
+                                       .up(160, coast: 1.0)]
+        for (name, page, first) in [("a letter's own page", own, [ModelPage.Step]()),
+                                    ("a stack", stack, [.fill(50, fill)])] {
+            let run = try run(page, first + flick + [
+                .down(300, on: "photo", y: 300), .up(1_000),
+                .down(1_500, on: "photo", y: 300), .up(2_100),
+            ])
+            XCTAssertEqual(run.errors, [], name)
+            XCTAssertTrue(run.frames.contains { $0.t > 160 && $0.t < 300 && $0.coasting }, name)
+            XCTAssertEqual(run.pictures.map(\.hold), [true], "\(name): the still page's hold alone")
+            XCTAssertEqual(run.stopped, 1, name)
+            XCTAssertEqual(run.posts, [], name)
+        }
+    }
+
     // MARK: - The pane
 
     /// The pane, read: a hold goes to `holdPicture`, a tap to
@@ -305,13 +342,15 @@ final class PictureHoldTests: XCTestCase {
                 + "pictures[i].style.setProperty('-webkit-touch-callout', 'none', 'important'); "
                 + "pictures[i].style.setProperty('-webkit-user-select', 'none', 'important');",
             "var bmPictureHold = 500;",
-            "if (event.touches.length !== 1) return; var img = event.target; "
+            "if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return; "
+                + "var img = event.target; "
                 + "if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) return;",
             "if (bmPictureHeld && event.touches.length === 0) event.preventDefault();",
             "if (bmPictureHeld === img) { bmPictureHeld = null; return; }",
             "drawnWidth: drawn.width, drawnHeight: drawn.height, hold: true,",
             "window.addEventListener('touchend', bmPictureUp, { capture: true, passive: false });",
             "(function () { if (document.body) bmWirePictures(document.body); "
+                + "window.addEventListener('scroll', bmScroll, { passive: true }); "
                 + "window.addEventListener('touchstart', bmPictureDown, { capture: true, passive: true });",
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
