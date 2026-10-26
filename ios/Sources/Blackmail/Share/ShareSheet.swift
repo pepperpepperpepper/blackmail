@@ -182,21 +182,23 @@ final class ShareSheet {
     }
 
     /// What the address field he is in offers after `event`, from the
-    /// app's own book as it was mirrored, as the app's composer offers it
-    /// (`ComposeForm.suggestions`): matches only while he types, nothing
-    /// as he goes into a field or with nothing typed (B-073), nothing once
-    /// what he has typed holds an "@", nothing already in the field, and
-    /// nothing after a pick until he types again.
+    /// app's own book and his Contacts as they were mirrored (B-162), as
+    /// the app's composer offers them (`ComposeForm.suggestions`): matches
+    /// only while he types, nothing as he goes into a field or with
+    /// nothing typed (B-073), nothing once what he has typed holds an "@",
+    /// nothing already in the field, and nothing after a pick until he
+    /// types again. The sheet never asks for Contacts itself: the app asks
+    /// (`ShareMirror.publish(contacts:)`).
     func suggestions(for field: String,
                      after event: ComposeForm.FieldEvent = .typed) -> [KnownRecipient] {
-        ComposeForm.suggestions(shared.recipients, field: field, after: event)
+        ComposeForm.suggestions(shared.recipients, contacts: shared.contacts, field: field, after: event)
     }
 
     /// The same, for the sheet's fields of bubbles (B-076), as the app's
-    /// composer asks it (`ComposeForm.suggestions(_:in:after:)`).
+    /// composer asks it (`ComposeForm.suggestions(_:contacts:in:after:)`).
     func suggestions(in field: RecipientBubbles,
                      after event: ComposeForm.FieldEvent = .typed) -> [KnownRecipient] {
-        ComposeForm.suggestions(shared.recipients, in: field, after: event)
+        ComposeForm.suggestions(shared.recipients, contacts: shared.contacts, in: field, after: event)
     }
 
     /// A file staged on this device by `AttachmentStore`, to be read from

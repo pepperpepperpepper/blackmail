@@ -168,14 +168,20 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     private static let mirrorQueue = DispatchQueue(label: "wtf.uhoh.blackmail.share-mirror",
                                                    qos: .utility)
 
+    /// His Contacts are read again here too, if he has said yes, for the
+    /// composer and for the extension (B-162): a card changed in Contacts
+    /// is offered from his next return to the app. Never asked for here;
+    /// only his typing in an address field asks (`AddressContacts`).
     private static func syncShareMirror() {
         mirrorQueue.async {
+            let contacts = AddressContacts.shared.readIfAllowed()
             guard let mirror = ShareMirror.app else { return }
             let account = CredentialStore.loadAccount()
             mirror.sync(account: account,
                         password: account.flatMap(CredentialStore.loadPassword(for:)),
                         signatureImages: SignatureImages.load(),
-                        book: .shared)
+                        book: .shared,
+                        contacts: contacts)
         }
     }
 

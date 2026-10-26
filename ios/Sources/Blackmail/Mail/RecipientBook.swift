@@ -31,13 +31,14 @@ struct KnownRecipient: Codable, Equatable {
 /// week. Mail has autocompleted addresses since before the iPad this is
 /// modelled on.
 ///
-/// **Not backed by Contacts, on purpose.** The Contacts framework would put
-/// a permission prompt in front of a man who will not know what it is
-/// asking, and a "Don't Allow" tapped once is invisible and permanent. The
-/// addresses here come from his own mailbox, which he already has: every
-/// envelope the message list fetches is harvested on the way past, at no
-/// extra network cost, because the list already asks for ENVELOPE to draw a
-/// row.
+/// **Not backed by Contacts.** The addresses here come from his own
+/// mailbox, which he already has: every envelope the message list fetches
+/// is harvested on the way past, at no extra network cost, because the
+/// list already asks for ENVELOPE to draw a row. His Contacts are offered
+/// beside them since B-162, as Mail offers them, by the address fields'
+/// list (`AddressSuggestions`), never kept here. Until then they were left
+/// out on purpose, for the question iOS asks first; the owner chose Mail's
+/// way on 2026-10-26.
 ///
 /// Stored in `UserDefaults` alongside the account for the same reason the
 /// account is: none of it is secret. It is a list of people he corresponds
@@ -286,8 +287,10 @@ final class RecipientBook {
     ///
     /// Tiered rather than a single substring test because the tiers are
     /// what put the obvious answer on the first row: typing "car" should
-    /// offer Carlo before it offers anyone at `oscarexample.com`.
-    private static func match(_ entry: KnownRecipient, _ q: String) -> Int? {
+    /// offer Carlo before it offers anyone at `oscarexample.com`. Asked by
+    /// the address fields' list beside his Contacts too
+    /// (`AddressSuggestions`, B-162): 0 to 2 are starts, 3 and 4 within.
+    static func match(_ entry: KnownRecipient, _ q: String) -> Int? {
         let address = entry.address
         let local = address.split(separator: "@").first.map(String.init) ?? address
         let nameWords = (entry.name ?? "").lowercased()
@@ -385,7 +388,7 @@ final class RecipientBook {
 
     /// Whether `typed` is at the start of `text` or just after a character
     /// that is not a letter or a digit: a space, a dot, a hyphen, "<".
-    private static func startsAWord(_ text: String, _ typed: String) -> Bool {
+    static func startsAWord(_ text: String, _ typed: String) -> Bool {
         var atAStart = true
         var index = text.startIndex
         while index < text.endIndex {

@@ -52,6 +52,10 @@ struct ShareMirror {
         var password: String
         var signatureImages: [SignatureImages.InlineImage]
         var recipients: [KnownRecipient]
+        /// His Contacts as the app last read them (B-162), offered beside
+        /// the book as the app's composer offers them. Empty until the app
+        /// has been allowed to read them.
+        var contacts: [ContactCard] = []
     }
 
     /// The item names, which are also what the Keychain files them under.
@@ -59,6 +63,7 @@ struct ShareMirror {
         case credentials
         case signatureImages = "signature-images"
         case recipients
+        case contacts
     }
 
     /// What each letter the extension sent is filed under, followed by
@@ -96,6 +101,22 @@ struct ShareMirror {
         write(recipients.sorted { $0.address < $1.address }, as: .recipients)
     }
 
+    /// His Contacts, as the app read them (`AddressContacts`, B-162), in
+    /// Contacts' own order, which is the list's.
+    ///
+    /// Copied here rather than read by the extension itself. A share
+    /// extension may ask for Contacts with the words in its own
+    /// Info.plist, but whether iOS puts that question to him a second
+    /// time, over Safari, or counts the app's answer for it, was not
+    /// seen on an iPad, and he is to be asked once. The copy is also a
+    /// short list of names and addresses, where reading Contacts would
+    /// load the whole store in an extension allowed far less memory than
+    /// the app, at every share. The cost: a contact added in Contacts
+    /// reaches the share sheet once Blackmail has next been opened.
+    func publish(contacts: [ContactCard]) {
+        write(contacts, as: .contacts)
+    }
+
     /// Everything gone: the account was removed from the app, and a share
     /// must not go on sending as it.
     func clear() {
@@ -114,8 +135,14 @@ struct ShareMirror {
     /// mirrored credentials as they are: before the first unlock after a
     /// restart the app's own Keychain read fails, and that is not a reason
     /// to stop the extension working once he has unlocked.
+    ///
+    /// `contacts` as the app has just read them (`AddressContacts.
+    /// readIfAllowed`): empty when it may not read them, so a no given
+    /// later in Settings takes the copy away too; nil when they could not
+    /// be read, which leaves the copy as it is (B-162).
     func sync(account: MailAccount?, password: String?,
-              signatureImages: [SignatureImages.InlineImage], book: RecipientBook) {
+              signatureImages: [SignatureImages.InlineImage], book: RecipientBook,
+              contacts: [ContactCard]? = nil) {
         guard let account else {
             clear()
             return
@@ -125,6 +152,7 @@ struct ShareMirror {
         // `used` writes the book out before it returns.
         takeSent { for address in $0 { book.used(address: address) } }
         publish(recipients: book.snapshot())
+        if let contacts { publish(contacts: contacts) }
     }
 
     /// Hands `take` what the extension has sent to, oldest first, and only
@@ -154,7 +182,8 @@ struct ShareMirror {
                       signatureImages: read([SignatureImages.InlineImage].self,
                                             from: .signatureImages) ?? [],
                       recipients: RecipientBook.filed(read([KnownRecipient].self,
-                                                           from: .recipients) ?? []))
+                                                           from: .recipients) ?? []),
+                      contacts: read([ContactCard].self, from: .contacts) ?? [])
     }
 
     /// A letter sent from the extension, by the addresses it went to, for
