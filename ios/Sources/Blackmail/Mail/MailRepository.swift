@@ -287,9 +287,10 @@ enum BookFill: Equatable {
     /// nothing is sent.
     case filledBefore
     /// Not now: no connection up, the folders not yet listed, no folder
-    /// named `\Sent`, one already under way, or the server refused or the
-    /// connection was lost. Nothing is marked, so the next launch tries
-    /// again.
+    /// named `\Sent`, one already under way, the server refused any part
+    /// of it, the connection was lost, or letters were found and none of
+    /// their envelopes read. Nothing is filled and nothing marked, so the
+    /// next launch tries again.
     case notNow
 }
 

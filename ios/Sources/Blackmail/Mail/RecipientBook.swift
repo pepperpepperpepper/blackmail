@@ -484,6 +484,14 @@ final class RecipientBook {
     /// (`used`) is not counted twice. What no longer fits goes as ever:
     /// what was only seen first, then the oldest. Written out by the
     /// caller (`flush`). Returns how many were taken in.
+    ///
+    /// And each of his own in the book counted one more than anyone taken
+    /// in, if it was not already. His letters to himself are not counted,
+    /// so on the first day his own address, chosen from the app once or
+    /// never, came below everyone whose name or address starts as his and
+    /// whom he wrote to, until he had sent to himself as often. He writes
+    /// to himself more than to anyone; Mail's Recents would count those
+    /// letters, and this stands in for them.
     @discardableResult
     func fill(with people: [KnownRecipient], besides mine: OwnAddresses) -> Int {
         lock.lock()
@@ -491,6 +499,7 @@ final class RecipientBook {
         own = mine
         let room = Self.capacity - entries.keys.filter { mine.contains($0) }.count
         var taken = 0
+        var most = 0
         for person in people where !mine.contains(person.address) {
             guard taken < room else { break }
             var entry = entries[person.address]
@@ -501,7 +510,14 @@ final class RecipientBook {
             entry.uses = max(entry.uses, person.uses)
             entry.lastSeen = max(entry.lastSeen, person.lastSeen)
             entries[person.address] = entry
+            most = max(most, entry.uses)
             taken += 1
+        }
+        if taken > 0 {
+            for var entry in entries.values where mine.contains(entry.address) {
+                entry.uses = max(entry.uses, most + 1)
+                entries[entry.address] = entry
+            }
         }
         evictIfNeeded()
         if taken > 0 { dirty = true }

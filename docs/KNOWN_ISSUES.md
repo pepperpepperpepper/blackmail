@@ -30201,7 +30201,7 @@ Library first, 3 in 1; Attach File opening Photo Library's picker, 1 in
 paperclip not held while a letter goes, 2 in 2; Photo Library's button
 opening Attach File's picker, 2 in 2.
 
-The full suite, serially, with B-155 beside it: 2,687 tests, 23 of them
+The full suite, serially, with B-155 beside it: 2,691 tests, 27 of them
 new, five of them this entry's, 6 skipped, none failing. The release
 build for the iPad links.
 
@@ -30280,30 +30280,46 @@ listed.
    counted as it went (`used`) is not counted twice. What no longer fits
    goes by the book's rule: those only seen first, then the oldest.
 5. *His own never pushed out* (`RecipientBook.keepOwn`): each repository
-   tells the book his addresses as it is made, and the fill again, and
-   the book never evicts one. A book filled with people written to holds
-   few that were only seen, and his own, noted at launch and seldom
-   chosen, were the first that the next sender noted would have pushed
-   out.
-6. *Never in the way.* Work he did not ask for, as B-104's look in Sent
+   tells the book his addresses as it is made, Settings' Save as it
+   saves them, and the fill again, and the book never evicts one. A book
+   filled with people written to holds few that were only seen, and his
+   own, noted at launch and seldom chosen, were the first that the next
+   sender noted would have pushed out.
+6. *His own first among those that start alike* (`fill`): each of his
+   addresses in the book is counted one more than anyone the fill took
+   in, if it was not already. His letters to himself are not counted, so
+   on install day his own address, chosen from the app once or never,
+   came below everyone whose name or address starts as his and whom he
+   wrote to, until he had sent to himself as often: weeks, and with four
+   rows offered he might not be among them. Not Mail's way, which would
+   count his letters to himself as letters (its Recents); he writes to
+   himself more than to anyone, and this stands in for that count.
+   Before B-155 one send to himself put him above everyone only seen,
+   most of the book; after the fill most of it has been written to, and
+   this keeps him above them.
+7. *Never in the way.* Work he did not ask for, as B-104's look in Sent
    Mail is: nothing is sent without a connection up, which it never
    makes, nor before the folders are listed, nor with no `\Sent`; one
-   under way, a second is not begun. A refusal or a lost connection
-   fills nothing, marks nothing and is not tried again until the next
-   launch. One line in the connection log, `BOOK-FILL letters=N
-   people=M`, or `BOOK-FILL not-now`; no address in it.
+   under way, a second is not begun (its flag is set before the first
+   await). All or nothing: any hold refused (`fetchEnvelopes` throws at
+   the first), a lost connection, or letters found and none of their
+   envelopes read, fills nothing, marks nothing and is not tried again
+   until the next launch. One line in the connection log, `BOOK-FILL
+   letters=N people=M`, or `BOOK-FILL not-now`; no address in it.
 
 **What it reverses.** Nothing ruled and nothing built: B-017's book
 learns as before, and its "Not backed by Contacts" stands (Contacts in
 the suggestions is another of the owner's items). The book is filled as
-well.
+well, and his own addresses in it are counted up once, at the fill (6),
+which is not Mail's way.
 
 **What he sees.** From the first day, the start of the name or address of
 anyone he wrote to in the last six months offers them as he types, the
-people he writes to most first; and a half-typed name in search finds
-their letters (B-123). Nothing says the book was filled. No new words.
+people he writes to most first, his own address above any of them that
+start as it does; and a half-typed name in search finds their letters
+(B-123). Nothing says the book was filled. No new words.
 
-**Tests.** `SentFillTests`, eighteen, new. The people of a letter: ranked
+**Tests.** `SentFillTests`, twenty-two, new. The people of a letter: ranked
 by letters, then by the newest, then by address; To, Cc and Bcc each
 counted, an address once a letter in any case; his own, the account's
 and the others listed, never taken, a letter only to them giving nothing
@@ -30315,9 +30331,13 @@ people into a book of his two addresses and 280 only seen, 298 taken,
 the best, his two kept and the 280 gone; an entry keeping its name and
 taking the larger count and the later date, one with no name taking the
 fill's; his own kept through fifty senders noted after a fill, and through
-320 people written to in a book told his addresses; the fill marked once
-per account, in any case, kept across launches; the newest 2,000 of the
-hits read. Over the scripted server, after the Inbox's first page: one
+320 people written to in a book told his addresses; his own above Owen,
+written to forty times, whose name starts as his, and his second
+address, only seen, above a correspondent whose address starts as it
+does, each counted 41, one counted 60 already keeping 60, a fill taking
+nobody changing nothing, and search still never asking for his own; the
+fill marked once per account, in any case, kept across launches; the
+newest 2,000 of the hits read. Over the scripted server, after the Inbox's first page: one
 SELECT of Sent Mail, `UID SEARCH SINCE "21-Mar-2026"` six months before,
 one `UID FETCH … (UID INTERNALDATE ENVELOPE)`, nothing else, every answer
 OK, no BODY or FLAGS asked, an unread letter left unread, the log's line,
@@ -30328,10 +30348,15 @@ sending nothing; nothing sent and nothing marked with no connection, and
 with no `\Sent`, never All Mail; a connection lost under the SEARCH
 filling and marking nothing, with no reconnect, nothing sent when asked
 again with none, and the next repository's filling; 250 letters in three
-FETCHes. Read from the source: the fill asked for after the first page,
-not waited for, once; each repository telling the book his addresses;
-the fill's order, the mark last; the envelopes in the background line,
-called off between holds.
+FETCHes; the second of three holds refused, nothing filled, nothing
+marked and the third not asked, then all 250 taken when asked again; the
+eight letters' FETCH answered with no envelopes, nothing marked, then
+filled when asked again; two asked for at once, one SEARCH and one FETCH.
+Read from the source: the fill asked for after the first page, not
+waited for, once; each repository and Settings' Save telling the book
+his addresses; the fill's order, its flag set before its first await,
+the mark last; the envelopes in the background line, called off between
+holds, any hold refused throwing.
 
 Each rule undone by hand, `SentFillTests`, `RecipientBookTests`,
 `NameAtOnceTests`, `HalfNameSearchTests`, `CompleteThreadsTests` and
@@ -30348,11 +30373,17 @@ the fill's name over the book's, 1 in 1; the account not marked, 4 in 2;
 a connection made for it, 4 in 2; no repository telling the book his
 addresses, 1 in 1; his own evicted, 7 in 3; the rows' summaries fetched
 in place of the envelopes, 3 in 2; the account marked when the fill
-failed, 3 in 1; six months taken as twelve, 5 in 2.
+failed, 3 in 1; six months taken as twelve, 5 in 2. Then one rule at a
+time, `SentFillTests` and `RecipientBookTests` run: his own not counted
+up, 4 in 1; a refused hold passed over, 8 in 2; letters found and no
+envelope read taken as done, 4 in 2; the fill's flag set after its
+await, 3 in 2, the two at once read twice in each of five runs of that
+test alone; Settings' Save not telling the book his addresses, 1 in 1,
+read from the source only.
 
-The full suite, serially, with B-154 beside it: 2,687 tests, 23 of them
-new, eighteen of them this entry's, 6 skipped, none failing. The release
-build for the iPad links.
+The full suite, serially, with B-154 beside it: 2,691 tests, 27 of them
+new, twenty-two of them this entry's, 6 skipped, none failing. The
+release build for the iPad links.
 
 **Not covered.**
 
@@ -30364,12 +30395,16 @@ build for the iPad links.
   day may be a day off his; at six months, nothing.
 - Mail's Recents go back years and are ranked as Mail ranks them, which
   is not known; the fill reads six months, ranked as the book ranks.
-- His own addresses keep what the book had for them: a letter to himself
-  is not counted, as the ruling has it. So until he has written to
-  himself from the app as often, someone whose name starts as his and
-  whom he wrote to more often comes above his own address in the
-  composer's list. Mail's Recents would count his letters to himself.
-  Noticed, not built.
+- His letters to himself are not counted, as the ruling has it; his own
+  addresses in the book are counted one more than anyone taken in
+  instead (6), which is not Mail's way, and is done once, at the fill.
+  An address of his that the book has not met, one Settings lists that
+  no row has shown and that he has not sent to from the app, is not put
+  in by the fill, though his Sent Mail names it. Noticed, not built.
+- A FETCH answered OK that leaves out some letters, or some envelopes,
+  is taken as it came, and the account marked: told apart from letters
+  gone from Sent Mail since the SEARCH, it is not. Only a FETCH with none
+  of the envelopes read is tried again.
 - A second account on the iPad shares the one book, as before; its own
   fill comes at its own first page.
 - A fill stopped by the app going into the background, the connection
@@ -30378,3 +30413,12 @@ build for the iPad links.
 - Mail's Recents, and what Mail suggests on a new iPad, not seen: the
   test iPad has no Mail, and no iPad on iOS 18 with a test account was at
   hand.
+- The decision's own check, a fresh sign-in and someone written to
+  months ago suggested, is not on the device check: that covers the
+  first launch of this build with the account set up already. The mark
+  is never taken off (`RecipientBook.removeAll` leaves it, and the app
+  has no sign-out), so the check can be done once per account; the
+  sign-in path needs a second test account, or a later round.
+- A first launch with no connection, or one whose fill is refused, fills
+  at the next launch from cold, which on an iPad left running may be
+  days away. Nothing asks again in between.

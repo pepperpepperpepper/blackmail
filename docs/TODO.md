@@ -7397,7 +7397,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       with it launched before leaves 2 to nothing, and is written down.
       Nothing is sent, composed letters end with Cancel and Delete Draft if
       asked, and nothing is opened in Sent Mail but in 5's search.
-      1. *The letters, before the launch.* The host APPENDs four letters
+      1. *The letters, before the launch.* The host APPENDs five letters
       to the test account's "[Gmail]/Sent Mail" (an APPEND sends nothing),
       each From the test account, with a new Message-ID of its own, and
       notes each UID from its APPENDUID, stopping if one has none: (a) To
@@ -7405,22 +7405,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       internal date four months back; (b) the same To, unread, no flags,
       two months back; (c) To "Olive Old <olive.b155@example.com>", read,
       seven months back; (d) To the test account itself alone, read, three
-      months back. The book is not to know Quentin or Olive already: the
-      host checks that neither address is in any other letter of the
+      months back; (e) To "Prefix Fill <P.b155@example.com>", P the test
+      account's address before its @, read, one month back. The book is
+      not to know Quentin, Olive or Prefix Fill already: the host checks
+      that none of the three addresses is in any other letter of the
       account.
       2. *The launch.* The build installed and launched. The Inbox's first
       page comes as before, and the list can be scrolled and a letter
-      opened meanwhile. In the connection log, after the first page and
-      the counts: `SELECT "[Gmail]/Sent Mail"`, `UID SEARCH SINCE
-      "dd-Mmm-yyyy"`, six months before the day, `UID FETCH … (UID
-      INTERNALDATE ENVELOPE)` for at most a hundred letters each, and
-      `BOOK-FILL letters=N people=M`, both numbers written down, with the
-      time from the SEARCH to that line. No STORE and no BODY among them.
-      An Inbox letter tapped while they run: the time it took written
-      down.
+      already read (not bold) opened meanwhile. In the connection log,
+      after the first page and the counts: `SELECT "[Gmail]/Sent Mail"`,
+      `UID SEARCH SINCE "dd-Mmm-yyyy"`, six months before the day, `UID
+      FETCH … (UID INTERNALDATE ENVELOPE)` for at most a hundred letters
+      each, and `BOOK-FILL letters=N people=M`, both numbers written down,
+      with the time from the SEARCH to that line. No STORE and no BODY
+      among them. An Inbox letter already read (not bold) tapped while
+      they run, its UID and the time it took written down.
       3. *Offered.* A new letter. In To type "quen": "Quentin Fill" offered.
-      Delete it; type "oliv": nothing offered. Delete it; type the first
-      four letters of the test account's own address: offered as before.
+      Delete it; type "oliv": "Olive Old" not among what is offered.
+      Delete it; type the first four letters of the test account's own
+      address: the test account's own address on the first row and
+      "Prefix Fill" below it, every row offered written down in order.
       Cancel, Delete Draft if asked.
       4. *Nothing marked.* The host reads (b)'s flags: still no `\Seen`.
       5. *Search* (B-123). In Sent Mail, Current Mailbox, type "Quen" with
@@ -7428,7 +7432,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       opened.
       6. *Once.* The app ended in the switcher and launched again: no
       `BOOK-FILL` line and no SEARCH in Sent Mail in the log.
-      7. *Put back:* the host moves the four UIDs it noted, and only them,
+      7. *Put back:* the host moves the five UIDs it noted, and only them,
       from Sent Mail to the Trash (`UID MOVE`), and deletes in the Trash
       only the UIDs that move answered (`COPYUID`). Never anything found
       by subject or Message-ID: a UID not noted is left, and written down.
@@ -7723,7 +7727,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       letter's files, always in sight. As built (the default), or the
       paperclip too.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-154.*
-- [ ] **The address book filled from his Sent Mail** (B-017, B-123): the
+- [x] **The address book filled from his Sent Mail** (B-017, B-123): the
       book learns from the rows the list shows and from his sends, so
       about half the people he writes to in a month are not suggested,
       and a half name in search does not find them, until one of their

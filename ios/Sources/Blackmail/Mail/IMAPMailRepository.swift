@@ -2560,23 +2560,32 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// Work he did not ask for, as `lettersOfHis` is: nothing is sent
     /// without a connection up, which this never makes, nor before the
-    /// folders have been listed. A refusal or a lost connection fills
-    /// nothing and is not tried again until the next launch. Nobody waits
-    /// for it, and it says nothing to him.
+    /// folders have been listed. All or nothing: a refusal of any hold, a
+    /// lost connection, or letters found and none of their envelopes read
+    /// fills nothing and is not tried again until the next launch. Nobody
+    /// waits for it, and it says nothing to him.
     func fillBookFromSent() async -> BookFill {
         let key = account.address
         guard !recipients.filledFromSent(account: key) else { return .filledBefore }
-        guard !retired, !fillingBook, let sent = roleNames[.sent],
-              await imap.isConnected else { return .notNow }
+        guard !retired, !fillingBook, let sent = roleNames[.sent] else { return .notNow }
+        // Before the first await, so a second asked for while this one
+        // waits to hear of the connection is not begun beside it.
         fillingBook = true
         defer { fillingBook = false }
+        guard await imap.isConnected else { return .notNow }
         let client = imap
         let since = calendar.date(byAdding: .month, value: -Self.bookFillMonths, to: now()) ?? now()
         do {
             let found = try await client.search(
                 "SINCE \(IMAPDate.criteriaValue(for: since, timeZone: calendar.timeZone))", in: sent)
-            let letters = try await client.fetchEnvelopes(uids: Self.lettersForTheBook(found.uids),
-                                                          in: sent, validity: found.validity)
+            let asked = Self.lettersForTheBook(found.uids)
+            let letters = try await client.fetchEnvelopes(uids: asked, in: sent, validity: found.validity)
+            // A FETCH answered OK with nothing the app can read is not six
+            // months of nobody: not marked, so the next launch reads again.
+            guard asked.isEmpty || letters.contains(where: { $0.envelope != nil }) else {
+                Diagnostics.log(.note, "BOOK-FILL not-now")
+                return .notNow
+            }
             let mine = OwnAddresses(account: sender)
             let taken = recipients.fill(with: RecipientBook.writtenTo(letters, besides: mine),
                                         besides: mine)

@@ -214,6 +214,44 @@ final class SentFillTests: XCTestCase {
         XCTAssertFalse(kept.contains { $0.hasPrefix("news") })
     }
 
+    /// His own address first among those that start alike after the fill:
+    /// his letters to himself are not counted, so each of his own in the
+    /// book is counted one more than anyone taken in, and Owen, written to
+    /// forty times, whose name starts as his does, comes below it, as does
+    /// a correspondent whose address starts as his second one's.
+    func testHisOwnComeFirstAmongThoseThatStartAlikeAfterTheFill() {
+        book.keepOwn(mine)
+        book.noteOwn(address: "owner@example.com", name: "Sam Owner")
+        book.used(address: "owner@example.com")
+        book.note(address: "second@example.com")
+        book.used(address: "carlo@example.org")
+        book.fill(with: [entry("owen@example.org", name: "Owen Example", uses: 40, at: days(1)),
+                         entry("secretary@example.org", uses: 3, at: days(2)),
+                         entry("carlo@example.org", uses: 1, at: days(3))],
+                  besides: mine)
+        XCTAssertEqual(book.suggestions(for: "ow").map(\.address), ["owner@example.com", "owen@example.org"])
+        XCTAssertEqual(book.suggestions(for: "sam").map(\.address), ["owner@example.com"])
+        XCTAssertEqual(book.suggestions(for: "sec").map(\.address),
+                       ["second@example.com", "secretary@example.org"])
+        XCTAssertEqual(book.snapshot().first { $0.address == "owner@example.com" }?.uses, 41)
+        XCTAssertEqual(book.snapshot().first { $0.address == "owen@example.org" }?.uses, 40)
+        XCTAssertEqual(book.addresses(startingWith: "ow", besides: mine), ["owen@example.org"],
+                       "search still never asks for his own")
+
+        // Counted more already, his own keep their count; a fill that
+        // takes nobody changes nothing.
+        let other = RecipientBook(defaults: defaults)
+        other.removeAll()
+        other.keepOwn(mine)
+        for _ in 0..<60 { other.used(address: "owner@example.com") }
+        other.note(address: "second@example.com")
+        other.fill(with: [], besides: mine)
+        XCTAssertEqual(other.snapshot().first { $0.address == "second@example.com" }?.uses, 0)
+        other.fill(with: [entry("owen@example.org", uses: 40, at: days(1))], besides: mine)
+        XCTAssertEqual(other.snapshot().first { $0.address == "owner@example.com" }?.uses, 60)
+        XCTAssertEqual(other.snapshot().first { $0.address == "second@example.com" }?.uses, 41)
+    }
+
     /// The same for a book told his addresses as a repository is made,
     /// before any fill: a book full of people chosen keeps them.
     func testABookToldHisAddressesNeverEvictsThem() {
@@ -393,6 +431,67 @@ final class SentFillTests: XCTestCase {
         XCTAssertEqual(filled, .filled(letters: 8, people: 1))
     }
 
+    /// All or nothing: of three holds, the second refused, nothing is
+    /// filled and nothing marked, and the third is not asked for; asked
+    /// again with the server answering, all of it is taken.
+    func testAHoldRefusedFillsNothingAndMarksNothing() async throws {
+        for n in 0..<242 {
+            sent(to: [Server.Address(name: nil, address: "p\(n)@example.org")],
+                 daysAgo: 1 + Double(n) / 10, n: 100 + n)
+        }
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        server.holdReplies(to: "UID FETCH")
+        let fill = Task { await repository.fillBookFromSent() }
+        try await until { await self.server.heldReplies(to: "UID FETCH") == 1 }
+        server.refusedVerbs = ["UID FETCH"]
+        await server.releaseReplies(to: "UID FETCH")
+        let refused = await fill.value
+
+        XCTAssertEqual(refused, .notNow)
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
+        XCTAssertEqual(server.log.map(\.status), ["OK", "OK", "OK", "NO"])
+        XCTAssertFalse(book.filledFromSent(account: server.account.address))
+        XCTAssertEqual(book.suggestions(for: "p0@").map(\.address), [])
+        XCTAssertEqual(book.suggestions(for: "carl").first?.uses ?? 0, 0)
+
+        server.refusedVerbs = []
+        let filled = await repository.fillBookFromSent()
+        XCTAssertEqual(filled, .filled(letters: 250, people: 243))
+        XCTAssertTrue(book.filledFromSent(account: server.account.address))
+    }
+
+    /// Letters found and none of their envelopes read, a FETCH answered OK
+    /// with nothing the app can use: not marked, so the next try reads them.
+    func testNoEnvelopeReadMarksNothing() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        server.envelopeless = Set(1...1_000)
+        let none = await repository.fillBookFromSent()
+        XCTAssertEqual(none, .notNow)
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH"])
+        XCTAssertFalse(book.filledFromSent(account: server.account.address))
+
+        server.envelopeless = []
+        let filled = await repository.fillBookFromSent()
+        XCTAssertEqual(filled, .filled(letters: 8, people: 1))
+    }
+
+    /// Two asked for at once: one SEARCH and one FETCH, the other not
+    /// begun beside it.
+    func testTwoAtOnceReadOnce() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        async let first = repository.fillBookFromSent()
+        async let second = repository.fillBookFromSent()
+        let both = await [first, second]
+        XCTAssertEqual(both.filter { $0 == .filled(letters: 8, people: 1) }.count, 1, "\(both)")
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH"])
+    }
+
     /// The envelopes a hundred letters a hold: 250 letters, three FETCHes,
     /// each its own hold, so a letter he taps waits for one at most.
     func testTheEnvelopesGoAHundredAHold() async throws {
@@ -412,8 +511,10 @@ final class SentFillTests: XCTestCase {
     /// What the app wires: the fill asked for once the Inbox's first page
     /// has been tried, after the counts are let go and before the watch
     /// starts, and not waited for;
-    /// each repository telling the book his addresses as it is made; the
-    /// envelopes in the background line, with no flags and no body.
+    /// each repository telling the book his addresses as it is made, and
+    /// Settings' Save; the fill's flag set before its first await; the
+    /// envelopes in the background line, with no flags and no body, any
+    /// hold refused throwing.
     func testTheFillIsAskedForAfterTheFirstPageAndWaitedForByNothing() throws {
         let ios = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -451,10 +552,12 @@ final class SentFillTests: XCTestCase {
                 in: repository)
         inOrder(["func fillBookFromSent() async -> BookFill {",
                  "guard !recipients.filledFromSent(account: key) else { return .filledBefore }",
-                 "guard !retired, !fillingBook, let sent = roleNames[.sent], await imap.isConnected else "
-                    + "{ return .notNow }",
+                 "guard !retired, !fillingBook, let sent = roleNames[.sent] else { return .notNow }",
+                 "fillingBook = true",
+                 "guard await imap.isConnected else { return .notNow }",
                  "let found = try await client.search(",
                  "let letters = try await client.fetchEnvelopes(",
+                 "guard asked.isEmpty || letters.contains(where: { $0.envelope != nil }) else {",
                  "recipients.flush()",
                  "recipients.markFilledFromSent(account: key)"], in: repository)
 
@@ -462,7 +565,15 @@ final class SentFillTests: XCTestCase {
         inOrder(["func fetchEnvelopes(uids: [UInt32], in mailbox: String, validity: UInt32) async throws",
                  "try Task.checkCancellation()",
                  "try await inMailbox(mailbox, validity: validity, .background) {",
-                 "\"UID FETCH \\(chunk) \\(Self.envelopeItems)\""], in: client)
+                 "\"UID FETCH \\(chunk) \\(Self.envelopeItems)\"",
+                 "guard let answer else { throw MailError.cannotConnect }"], in: client)
+
+        // Settings' Save tells the book his addresses too, so one he has
+        // just added is never pushed out before the next launch.
+        let store = try source("Sources/Blackmail/Mail/CredentialStore.swift")
+        inOrder(["static func saveAccountOnly(_ account: MailAccount) throws {",
+                 "RecipientBook.shared.noteOwn(address: clean.address, name: clean.displayName)",
+                 "RecipientBook.shared.keepOwn(OwnAddresses(account: clean))"], in: store)
         XCTAssertEqual(IMAPClient.envelopeItems, "(UID INTERNALDATE ENVELOPE)")
     }
 

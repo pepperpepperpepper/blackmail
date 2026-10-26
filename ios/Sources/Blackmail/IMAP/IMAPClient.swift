@@ -1134,12 +1134,13 @@ actor IMAPClient {
     /// for one hold at most, and each selects the mailbox again if another
     /// screen had the socket in between. Under `validity` or not at all.
     ///
-    /// Stops between holds once its task is cancelled. A chunk refused is
-    /// passed over, as in `fetchSummaries`; every one refused throws.
+    /// Stops between holds once its task is cancelled. Any chunk refused
+    /// throws, unlike `fetchSummaries`: the fill takes all of his Sent
+    /// Mail's six months or nothing, and is tried again at the next launch,
+    /// where a part taken would be kept as the whole for good.
     func fetchEnvelopes(uids: [UInt32], in mailbox: String,
                         validity: UInt32) async throws -> [IMAPFetchResult] {
         var fetched: [IMAPFetchResult] = []
-        var sawFailure = false
         for start in stride(from: 0, to: uids.count, by: Self.envelopesPerHold) {
             try Task.checkCancellation()
             let some = Array(uids[start..<min(start + Self.envelopesPerHold, uids.count)])
@@ -1153,13 +1154,9 @@ actor IMAPClient {
                 }
                 return got
             }
-            guard let answer else {
-                sawFailure = true
-                continue
-            }
+            guard let answer else { throw MailError.cannotConnect }
             fetched += answer
         }
-        if fetched.isEmpty, sawFailure { throw MailError.cannotConnect }
         return fetched
     }
 
