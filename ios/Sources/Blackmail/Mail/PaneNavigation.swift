@@ -17,14 +17,15 @@ import Foundation
 /// of its own choosing, with no address bar, such as a false Google sign-in,
 /// or send a form he had filled in.
 ///
-/// A tapped link does what it always did (`follow`): cancelled in the pane,
-/// and then a `mailto:` opens this app's composer and anything else asks
-/// "Open this link?" before Safari. That includes a link whose target is a
-/// new window or a frame: none opens here.
+/// A tapped link (`follow`) is cancelled in the pane, and then a `mailto:`
+/// opens this app's composer and anything else opens at once, in Safari or
+/// the app that claims it, as Mail opens it (B-145): it used to ask "Open
+/// this link?" first. That includes a link whose target is a new window or
+/// a frame: none opens here.
 ///
 /// A file's row among a letter's words (`BodyFiles`, B-113) is a link of the
 /// pane's own, `bmfile:`, and a tap on it opens the file, as a tap on its row
-/// in the header does: no "Open this link?", nothing in Safari.
+/// in the header does: nothing in Safari.
 ///
 /// Pictures are not navigations, and this does not touch them: a letter's
 /// remote pictures still load, as they always have. Whether they should is

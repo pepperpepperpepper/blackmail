@@ -7347,6 +7347,50 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-145, a tapped link opens at once.** On the test iPad, the test
+      account only, from a build of the `bm-cm-pages` worktree (branch
+      `copy-pages`) or of the int it is merged into. Nothing is sent: the
+      composer of step 3 is cancelled and its draft deleted. The host makes
+      four letters, each from another address, with a new Message-ID of its
+      own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox; it notes each UID
+      from its APPENDUID, and stops if one has none. (a) "B-145 plain",
+      text/plain, three lines: `https://example.com/b145-plain`,
+      `www.example.com`, and `mailto:` to the test account's own address
+      with `+b145` before the @ and `?subject=B-145`; (b) "B-145 HTML", an
+      HTML letter with a link of its own, `<a
+      href="https://example.com/b145-html">Example</a>`, and a YouTube
+      address written in its text; (c) "B-145 stack" and (d) "Re: B-145
+      stack", a day later, plain, its In-Reply-To and References naming
+      (c)'s new Message-ID, so the two are one conversation, (d) with
+      `https://example.com/b145-stack` in it. Three panes; Organize by
+      Thread on.
+      1. *Plain:* "Notes", then "B-145 plain"; its https link tapped:
+      Safari comes to the front at once with the page, no "Open this
+      link?" or any other question first. Back to Blackmail by the
+      top-left "◀ Blackmail": the same letter in the pane, where it was.
+      2. *Plain, `www.`:* the same, Safari at `http://www.example.com`.
+      3. *Plain, `mailto:`:* the composer opens, To the address with
+      `+b145`, Subject "B-145", as before (B-036). Cancel, then Delete
+      Draft. Nothing sent.
+      4. *HTML:* "B-145 HTML", "Example" tapped: Safari at once; back. The
+      YouTube address tapped: YouTube, or Safari if it is not installed,
+      at once; back.
+      5. *A conversation:* "Re: B-145 stack", (d)'s line opened if it is
+      closed, its link tapped: Safari at once; back: the stack where it
+      was, (d) open.
+      6. *Held:* a finger held on (a)'s first link: WebKit's menu and
+      preview, as before (decided 2026-10-01); a tap outside: the menu
+      goes, nothing opens.
+      7. *Put back:* the Safari tabs opened closed. "Notes" left, the
+      Inbox at its top. The host moves the UIDs it noted, and only them,
+      from "Notes" to the Trash (`UID MOVE`), and deletes in the Trash
+      only the UIDs that move answered (`COPYUID`); "Notes" itself stays.
+      Never anything found by subject or Message-ID: a UID not noted is
+      left, and written down. Nothing else was written.
+      If Mail is back on the test iPad (B-028), or an iPad with iPadOS 18
+      and Mail is at hand: the same letters there, each link tapped, to
+      see that Mail asks nothing either.
 
 ## Blocked on the owner
 
@@ -7557,8 +7601,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Swipe to Trash on a row** (decided against by the spec): about 5
       letters a day go to the bin unopened, each Edit, tick, Delete here.
       As decided (the default), or Mail's swipe.
-- [ ] **"Open this link?"** (set by the spec, never asked of him): Mail opens
+- [x] **"Open this link?"** (set by the spec, never asked of him): Mail opens
       a tapped link at once. As built (the default), or Mail's way.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-145.*
 - [ ] **His iPad's own settings**, read before the install-day build so
       its defaults follow them: Settings > Sounds > Sent Mail (B-100: None
       takes the sound out), Mail > Threading > Complete Threads (B-104: off

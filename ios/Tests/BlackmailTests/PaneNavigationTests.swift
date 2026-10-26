@@ -63,7 +63,7 @@ final class PaneNavigationTests: XCTestCase {
     }
 
     /// A tapped link goes where it always went, whatever it targets: out of
-    /// the pane, to "Open this link?" or the composer (`follow`).
+    /// the pane, opened at once or in the composer (`follow`, B-145).
     func testATappedLinkIsFollowedAsBefore() {
         let mail = URL(string: "mailto:sam@example.com?subject=Roses")!
         for url in [web, mail, blank] {

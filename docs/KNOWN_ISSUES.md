@@ -30110,3 +30110,87 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-145 — FIXED 2026-10-26, not yet seen on the iPad. A link tapped in a letter asked "Open this link?" before it opened; it opens at once, in Safari or the app that claims it, as Mail opens one, and a `mailto:` still opens the composer with its address
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", "Open this
+link?"). The question was set by the spec and never asked of him.
+
+**What Mail does.** A tapped link opens at once: in Safari, or in the app
+that claims it, YouTube's in YouTube; a `mailto:` opens Mail's composer
+with its address. No question first, in any version. High: Apple
+Community threads and the strings of iOS 18.6's Mail, where no such
+question is found. Not seen on an iPad: the test iPad has no Mail (B-028),
+and none with iPadOS 18 was at hand.
+
+**What Blackmail did.** Since B-055 (2026-09-30) a tapped link, in a
+plain letter, an HTML letter or a conversation's stack, was cancelled in
+the pane and then asked "Open this link?", the site's name under it, with
+Cancel and Open; Open handed it to iOS. The spec asked for it: "no
+arbitrary navigation out of the app without confirmation"
+(`spec/docs/ARCHITECTURE.md`, under HTML rendering). A `mailto:` already
+skipped it, for the app's composer (B-036).
+
+**Changed.** `MessageDetailViewController.follow`: a `mailto:` opens the
+composer as before; anything else is handed to iOS at once,
+`UIApplication.shared.open(url)`, the one place the pane opens a link. The
+alert, and its words, are gone from the app. Comments in `follow` and
+`PaneNavigation`. Plain letters, HTML letters and conversations alike:
+all three are pages of the one web view, and every link tapped in it
+comes to `follow` (`PaneNavigation.decide`, unchanged).
+
+**Reverses** B-055's "Open this link?" and, with it, the spec's line
+above (the spec is not edited). B-055's lockdown stays as it was: the
+pane goes nowhere on its own, no frame, form, refresh, back or forward,
+and a tapped link never opens inside it.
+
+**Not changed.** Where a tap goes (`PaneNavigation`), the composer for a
+`mailto:` (`MailtoLink`), a file's row among the words (`bmfile:`,
+B-113), a picture of the letter's own (B-122), and WebKit's menu and
+preview on a link held (decided 2026-10-01, as Mail has them). No new
+words.
+
+**What he sees.** A link tapped opens at once: Safari, or the app that
+claims it, comes to the front, as from Mail. Back in the app, the letter
+is where it was. A `mailto:` opens the composer with its address, as
+before. One question less on the way out of a letter, and also one pause
+less before a link a stranger sent: the owner's ruling.
+
+**Tests.** `LinkAtOnceTests`, three, new: every link tapped, as a plain
+letter's page makes it (`https://`, `www.`, `mailto:`) and others (a
+query, `tel:`), in the pane's frame, a frame or a new window, goes to
+`follow`; `follow`, read from the source, whole: the composer for a
+`mailto:`, then `UIApplication.shared.open(url)`, no alert, and that call
+nowhere else in the pane; and no code under `Sources` says "Open this
+link". `PaneNavigationTests`, a comment.
+
+Each undone by hand in the worktree, then put back and passing, the
+touched classes run (`LinkAtOnceTests`, `PaneNavigationTests`, and the
+pages' and decoder's classes), one run with B-146's and B-147's undone
+too, each failure read by its line; counted as failures in tests:
+`follow` as before, its alert put back, 3 in 2, `follow`'s source and
+the question found in `MessageDetailViewController`;
+`PaneNavigation.decide` cancelling a `tel:` link, 3 in 1. That first
+test pins where a tap goes, which B-145 leaves as it was, so the code
+B-145 changed does not fail it.
+
+The full suite, serially, on the branch with B-146 and B-147: 2,680
+tests, 20 of them new for the three, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- `follow` is UIKit: read from the source, not run. That a tap reaches it
+  in each kind of page is B-055's wiring, seen on the test iPad then.
+- A `tel:`, `sms:` or `facetime:` link goes to iOS as any other, as from
+  Mail; iOS asks before a call itself. Not seen. A link of a scheme no app
+  claims does nothing, as Open did; a `javascript:` link the parser drops
+  with the letter's script off (B-055).
+- A link that a universal link claims, YouTube's, opens its app, as
+  `open` does by default and Mail does: seen with Open on 2026-10-21
+  (B-055's check), not since.
+- Not seen against Mail, as above. Also not looked at: whether Mail on an
+  iPad opens a link beside it in Split View; here iOS decides, as before.
+- B-124's check, done, had a step "Open this link?" dark; it cannot be
+  made again as written.
