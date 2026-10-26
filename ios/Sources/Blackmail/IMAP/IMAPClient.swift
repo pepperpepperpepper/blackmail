@@ -1522,6 +1522,67 @@ actor IMAPClient {
         }
     }
 
+    /// What `fetchBodyAhead` brought (B-160).
+    enum AheadLetter: Equatable {
+        /// The whole of it, byte for byte the server's.
+        case letter(Data)
+        /// Nothing, with nothing sent: the mailbox is not the one open on
+        /// the connection, under that UIDVALIDITY.
+        case notOpen
+        /// Nothing more asked: the server names another letter at the UID,
+        /// or none, or cannot name one, or the letter went between two
+        /// pieces.
+        case notThere
+        /// Nothing more asked once it was past `most`: its size, as the
+        /// server gave it beside the first piece, or as far as it came.
+        case over(Int)
+    }
+
+    /// A letter fetched ahead for reading with no connection (B-160): the
+    /// whole of it, `BODY.PEEK[]`, `piece` bytes at a time, each piece its
+    /// own exchange in the background line, so a letter he opens waits for
+    /// one piece at most and never for the whole of a letter he did not
+    /// ask for; Gmail's id for it, and its size, asked beside the first.
+    /// PEEK, so nothing is marked read.
+    ///
+    /// Each piece only while `mailbox` is the folder open on the
+    /// connection, under `validity`, checked in the same hold as its FETCH,
+    /// as `fetchPartialBodiesWhileOpen` is: never a SELECT. A piece that
+    /// opened the Inbox again while he was in another folder made his next
+    /// tap there wait for a SELECT back, and one that came between a
+    /// lookup in Sent Mail and the few words of his lines there had them
+    /// skipped (B-104). So a folder he opens, or a lookup in Sent Mail,
+    /// stops the letter where it is (`notOpen`), and it is fetched again
+    /// from its first byte by a later pass.
+    func fetchBodyAhead(uid: UInt32, in mailbox: String, validity: UInt32, letter: UInt64,
+                        piece: Int, most: Int) async throws -> AheadLetter {
+        var raw = Data()
+        while true {
+            try Task.checkCancellation()
+            let from = raw.count
+            try await beginExchange(.background)
+            let got: (there: Bool, letter: UInt64?, size: Int?, bytes: Data)?
+            do {
+                defer { endExchange() }
+                guard selectedMailbox == mailbox, mailboxState?.uidValidity == validity else {
+                    return .notOpen
+                }
+                guard try namesLetters() else { return .notThere }
+                let first = from == 0 ? "X-GM-MSGID RFC822.SIZE " : ""
+                let result = try await performCommand(
+                    "UID FETCH \(uid) (UID \(first)BODY.PEEK[]<\(from).\(piece)>)")
+                guard result.status == .ok else { throw MailError.cannotConnect }
+                let row = IMAPParser.parseFetch(result.untagged).first { $0.uid == uid }
+                got = row.map { (true, $0.gmailMessageID, $0.size, $0.body ?? Data()) }
+            }
+            guard let got, got.there, from > 0 || got.letter == letter else { return .notThere }
+            if from == 0, let size = got.size, size > most { return .over(size) }
+            raw.append(got.bytes)
+            guard raw.count <= most else { return .over(raw.count) }
+            if got.bytes.count < piece { return .letter(raw) }
+        }
+    }
+
     /// What a letter too large to fetch whole is fetched as
     /// (`fetchLetterInPart`): Gmail's id for it when that was asked, its
     /// structure, its header block, and the sections asked for from that

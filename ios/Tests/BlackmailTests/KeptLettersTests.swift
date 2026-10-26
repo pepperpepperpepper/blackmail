@@ -864,8 +864,11 @@ final class KeptLettersTests: XCTestCase {
         let write = try section(of: letters, from: "private func writeIndex() {",
                                 to: "private func loadIfNeeded() {")
         XCTAssertTrue(write.contains("try makeDirectories() try JSONEncoder().encode(snapshot)"))
-        XCTAssertEqual(letters.components(separatedBy: ".write(to:").count - 1, 3,
-                       "the letter, its index, and the index behind")
+        XCTAssertEqual(letters.components(separatedBy: ".write(to:").count - 1, 4,
+                       "the letter, its words (B-160), its index, and the index behind")
+        XCTAssertTrue(store.contains("try makeDirectories() try raw.write(to: file, options: .atomic) "
+                                     + "if !said.isEmpty { try said.write("),
+                      "its words beside it, once the directories are made and marked")
 
         let shelfSource = try source("Mail/MailShelf.swift")
         let helper = try section(of: shelfSource, from: "static func excludeFromBackup(_ url: URL) {",

@@ -14,6 +14,18 @@ enum SearchAnswer: Equatable {
     /// A search that has been replaced, or a list that has moved on.
     case ignore
 
+    /// What the status line says while the hits are the copy kept on the
+    /// iPad's, searched with no connection (B-160): Mail's words for a
+    /// search whose results are not all there.
+    static let someResults = "Some Results May Not Appear"
+
+    /// Whether a search that failed with `error` is answered from the copy
+    /// kept on the iPad instead (B-160): any failure but a search called
+    /// off, which no answer is drawn for.
+    static func searchesTheIPad(after error: Error) -> Bool {
+        !(error is CancellationError)
+    }
+
     /// `cancelled` is whether the search's task had been cancelled by the
     /// time its answer reached the main actor, and `current` whether the
     /// list is still the one the search was run for.

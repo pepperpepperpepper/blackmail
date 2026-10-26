@@ -371,11 +371,12 @@ final class KeptCopyTests: XCTestCase {
 
     // MARK: - Phase 1: which listings replace a kept page
 
-    /// A listing from the top keeps the folder's page, and the next one
-    /// replaces it whole: a letter that came is on it and a letter taken out
-    /// elsewhere is not. A page further down, a day jumped to and a search
-    /// keep nothing.
-    func testOnlyAListingFromTheTopReplacesTheKeptPageAndItReplacesItWhole() async throws {
+    /// A listing from the top replaces the kept rows it covers, and a page
+    /// listed below them goes on after them (B-160): a letter that came is
+    /// on the kept page and a letter taken out elsewhere is not, and the
+    /// kept rows below the fresh page stay as far as they go on from it. A
+    /// day jumped to and a search keep nothing.
+    func testListingsFromTheTopAndPagesBelowThemAreKeptAndNothingElse() async throws {
         let shelf = makeShelf()
         let repository = makeRepository(shelf: shelf)
         _ = try await repository.folders()
@@ -385,15 +386,16 @@ final class KeptCopyTests: XCTestCase {
 
         let below = try await repository.listMessages(in: "inbox", beforeUID: top.last?.id, limit: 50)
         XCTAssertEqual(below.count, 50)
+        XCTAssertEqual(keptIDs(shelf), (top + below).map(\.id), "the page below goes on after")
         let day = try XCTUnwrap(below.last?.date)
         let window = try await repository.messages(around: day, in: "inbox", limit: 50)
         XCTAssertNotNil(window)
         let hits = try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
                                                beforeUID: nil, limit: 50)
         XCTAssertFalse(hits.isEmpty)
-        XCTAssertEqual(keptIDs(shelf), top.map(\.id), "nothing but the top")
+        XCTAssertEqual(keptIDs(shelf), (top + below).map(\.id), "nothing but the pages from the top")
         shelf.flush()
-        XCTAssertEqual(keptIDs(makeShelf()), top.map(\.id), "and that is what is on disk")
+        XCTAssertEqual(keptIDs(makeShelf()), (top + below).map(\.id), "and that is what is on disk")
 
         let arrived = try XCTUnwrap(server.arrive(
             Server.Letter(from: Server.jane, to: [Server.owner], subject: "Arrived since",
@@ -401,13 +403,16 @@ final class KeptCopyTests: XCTestCase {
                           messageID: "<since@example.com>"),
             in: [Server.inbox, Server.allMail])[Server.inbox])
         server.removeElsewhere(uid: uid(top[2].id), from: Server.inbox)
+        server.removeElsewhere(uid: uid(below[5].id), from: Server.inbox)
         clock.advance(by: 3)
         let fresh = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         XCTAssertEqual(fresh.first.map { uid($0.id) }, arrived)
         XCTAssertFalse(fresh.contains { $0.id == top[2].id })
-        XCTAssertEqual(keptIDs(shelf), fresh.map(\.id))
+        let goesOn = (top + below).map(\.id).drop { $0 != fresh.last?.id }.dropFirst()
+            .filter { $0 != below[5].id }
+        XCTAssertEqual(keptIDs(shelf), fresh.map(\.id) + goesOn)
         shelf.flush()
-        XCTAssertEqual(keptIDs(makeShelf()), fresh.map(\.id))
+        XCTAssertEqual(keptIDs(makeShelf()), fresh.map(\.id) + goesOn)
     }
 
     // MARK: - Phase 1: his writes

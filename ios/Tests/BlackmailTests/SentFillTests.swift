@@ -540,10 +540,17 @@ final class SentFillTests: XCTestCase {
                  "self?.mailboxList.releaseSweeps(firstPageCame: came)",
                  "self?.warnOfExpiryIfDue()",
                  "self?.firstPageTried = true",
-                 "if let repository = self?.repository {",
-                 "Task { _ = await repository.fillBookFromSent() }",
+                 // After the Inbox's letters fetched ahead, where its first
+                 // page came, whose pass the fill's search would end (B-160).
+                 "if came, self?.list.shownMailbox.role == .inbox { self?.fillBookAfterAhead = true } "
+                    + "else { self?.fillBookOnce() }",
                  "self?.watch.start()",
                  "SafeStart.app.firstPageTried("], in: root)
+        inOrder(["list.afterFetchAhead = { [weak self] in guard let self, self.fillBookAfterAhead "
+                    + "else { return } self.fillBookOnce() }"], in: root)
+        inOrder(["private func fillBookOnce() { guard !bookFillAsked else { return } "
+                    + "bookFillAsked = true fillBookAfterAhead = false let repository = self.repository "
+                    + "Task { _ = await repository.fillBookFromSent() } }"], in: root)
         XCTAssertEqual(root.components(separatedBy: "fillBookFromSent()").count - 1, 1)
 
         let repository = try source("Sources/Blackmail/Mail/IMAPMailRepository.swift")

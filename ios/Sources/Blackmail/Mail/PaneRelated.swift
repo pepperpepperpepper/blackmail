@@ -22,11 +22,15 @@ struct PaneRelated {
     /// What opening one of his letters fetches: the letter itself, from
     /// its own folder, by its id there and Gmail's id for it, which the
     /// fetch checks (D-016); and the stack's entry its body goes into.
+    /// `row` is his letter's line, which the reading pane opens as it opens
+    /// a row (`MailRepository.openLetter`), from the copy kept on the iPad
+    /// when it is there, and kept there once its body has come (B-159).
     struct Load: Equatable {
         let entryID: String
         let id: String
         let gmailMessageID: UInt64?
         let mailboxID: String
+        let row: MessageSummary
     }
 
     /// His letters of the conversation shown, by their entries' ids, "r"
@@ -56,15 +60,21 @@ struct PaneRelated {
     /// returned less the stack's own, for the stack's first frame. With
     /// nothing remembered, the lookup is due, to start once the newest
     /// letter has come (`lookUp(afterTheNewestCame:)`).
+    ///
+    /// `kept` is what the copy kept on the iPad holds for it (B-159), the
+    /// last lookup's answer from any launch: with nothing remembered it is
+    /// returned instead, for the stack's first frame, as Mail draws his
+    /// replies from what it has downloaded, and the lookup is still due,
+    /// so with a connection the server's answer adds what has come since
+    /// (`take`). With none, a lookup gives none and they stay.
     mutating func show(_ stack: [MessageSummary], completing: UInt64?,
-                       remembered: RelatedLetters?) -> RelatedLetters? {
+                       remembered: RelatedLetters?,
+                       kept: RelatedLetters? = nil) -> RelatedLetters? {
         clear()
         guard let completing else { return nil }
-        guard let remembered else {
-            due = completing
-            return nil
-        }
-        let his = Self.apart(remembered, from: stack)
+        if remembered == nil { due = completing }
+        guard let first = remembered ?? kept else { return nil }
+        let his = Self.apart(first, from: stack)
         for letter in his.letters { letters[ConversationDocument.relatedID(of: letter)] = letter }
         return his
     }
@@ -82,13 +92,15 @@ struct PaneRelated {
     }
 
     /// What the lookup found, for the conversation as `stack` has it now,
-    /// the oldest first: his letters less the stack's own, in runs, each as
-    /// the stack's entries to put in before its letter `before`, nil for
-    /// after the last (`PaneDocument.insert`).
+    /// the oldest first: his letters less the stack's own, and less those
+    /// in it already, from the copy kept on the iPad (`show`), in runs,
+    /// each as the stack's entries to put in before its letter `before`,
+    /// nil for after the last (`PaneDocument.insert`).
     mutating func take(_ found: RelatedLetters,
                        stack: [MessageSummary]) -> [(entries: [ConversationDocument.Entry], before: String?)] {
         guard !stack.isEmpty else { return [] }
-        let his = Self.apart(found, from: stack)
+        var his = Self.apart(found, from: stack)
+        his.letters.removeAll { letters[ConversationDocument.relatedID(of: $0)] != nil }
         return ConversationDocument.places(of: his.letters, among: stack).map { place in
             for letter in place.letters { letters[ConversationDocument.relatedID(of: letter)] = letter }
             return (place.letters.map { ConversationDocument.entry(forHis: $0, foundIn: his.folderName) },
@@ -107,7 +119,7 @@ struct PaneRelated {
     func load(for entryID: String) -> Load? {
         guard let letter = letters[entryID], !came.contains(entryID) else { return nil }
         return Load(entryID: entryID, id: letter.id, gmailMessageID: letter.gmailMessageID,
-                    mailboxID: letter.mailboxID)
+                    mailboxID: letter.mailboxID, row: letter)
     }
 
     /// The body `load` fetched has come: the entry it goes into, his own,

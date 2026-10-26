@@ -103,6 +103,12 @@ final class RootViewController: UIViewController {
     /// Whether the launch's first page has been tried, after which the
     /// watch starts, and starts again at every return to the app.
     private var firstPageTried = false
+
+    /// The address book's fill from his Sent Mail is to wait for the end of
+    /// the Inbox's pass of letters fetched ahead (B-155, B-160), and
+    /// whether it has been asked for in this launch, once.
+    private var fillBookAfterAhead = false
+    private var bookFillAsked = false
     /// Whether the watch's last check could not reach the server. See
     /// `checked`.
     private var lastCheckFailed = false
@@ -342,9 +348,14 @@ final class RootViewController: UIViewController {
             // account, in the background line behind the counts and ahead
             // of the watch's first check (B-155). Nothing waits for it, and
             // with no connection up it sends nothing, to be tried again at
-            // the next launch.
-            if let repository = self?.repository {
-                Task { _ = await repository.fillBookFromSent() }
+            // the next launch. After the Inbox's letters fetched ahead,
+            // where its first page came (B-160): the fill's search in Sent
+            // Mail puts the Inbox out of the connection's open folder,
+            // which ends that pass, and the pass never selects it again.
+            if came, self?.list.shownMailbox.role == .inbox {
+                self?.fillBookAfterAhead = true
+            } else {
+                self?.fillBookOnce()
             }
             self?.watch.start()
             // The first page is drawn, as fetched, as kept, or as nothing
@@ -353,6 +364,16 @@ final class RootViewController: UIViewController {
             // pass, the launch has finished (B-057).
             SafeStart.app.firstPageTried(passEnded: { await LocalDrafts.shared.passEnded() })
         }
+    }
+
+    /// The address book filled from his Sent Mail (B-155), once a launch:
+    /// at the first page, or after the Inbox's letters fetched ahead.
+    private func fillBookOnce() {
+        guard !bookFillAsked else { return }
+        bookFillAsked = true
+        fillBookAfterAhead = false
+        let repository = self.repository
+        Task { _ = await repository.fillBookFromSent() }
     }
 
     /// The sign-in check's word on the password these screens were built
@@ -1159,6 +1180,12 @@ final class RootViewController: UIViewController {
         // showed.
         list.onLettersLeaving = { [weak self] letters in
             self?.detail.clearIfShowing(any: letters)
+        }
+        // The Inbox's pass of letters fetched ahead has ended (B-160): the
+        // book's fill from Sent Mail, if it waited for it (B-155).
+        list.afterFetchAhead = { [weak self] in
+            guard let self, self.fillBookAfterAhead else { return }
+            self.fillBookOnce()
         }
         // A Delete or Move the server took from Edit mode or a drag, or a
         // Flag from a drag or More: a step of Mail's Undo (B-157).

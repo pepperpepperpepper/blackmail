@@ -144,7 +144,8 @@ actor IMAPMailRepository: MailRepository {
 
     /// What Sent Mail answered for each conversation whose stack looked
     /// for his letters there, for ten minutes (`lettersOfHis`, B-104). In
-    /// memory alone: nothing of it is kept on the iPad.
+    /// memory; what is kept on the iPad with the conversation is the
+    /// shelf's (`MailShelf.lettersOfHis`, B-159).
     nonisolated let hisLetters: RelatedMemo
 
     /// Set when Sent Mail would not open or would not be searched for a
@@ -191,8 +192,12 @@ actor IMAPMailRepository: MailRepository {
             = { SignatureImages.load() },
          shelf: MailShelf? = nil,
          largeLetterBytes: Int = IMAPMailRepository.largeLetterBytes,
-         largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes) {
+         largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes,
+         aheadLetters: Int = IMAPMailRepository.mostAhead,
+         aheadBytes: Int = IMAPMailRepository.mostAheadBytes) {
         self.account = account
+        self.aheadMost = aheadLetters
+        self.aheadMostBytes = aheadBytes
         self.saved = saved
         self.password = password
         self.largeAbove = largeLetterBytes
@@ -996,6 +1001,15 @@ actor IMAPMailRepository: MailRepository {
 
             summaries = try await page(olderThan: cursor.uid, in: listing, limit: limit,
                                        mailboxID: mailboxID, name: name, client: client)
+            // On the kept page below the rows it begins with, when they reach
+            // the cursor (B-160), so a folder he has scrolled is there with
+            // no connection as far as he scrolled it.
+            if let lowest = summaries.last.flatMap({ try? Self.parseID($0.id) }) {
+                shelf?.took(more: summaries, of: name, validity: listing.validity, below: cursor.uid,
+                            sizes: largeSizes(of: summaries, in: name),
+                            continuing: PageWindow.older(than: lowest.uid, in: listing.uids,
+                                                         limit: MailShelf.mostInboxRows))
+            }
         } else {
             // From the top: a folder he has just opened, or refreshed, with
             // nothing on screen until this lands. The SEARCH and the page's
@@ -1022,15 +1036,19 @@ actor IMAPMailRepository: MailRepository {
             uidListing[name] = listing
             summaries = rows(from: opened.summaries, in: mailboxID, name: name,
                              validity: listing.validity)
-            // The folder's page kept on the iPad, replaced whole by this one
+            // The folder's page kept on the iPad, replaced by this one
             // (D-016), unless this listing says the kept one was not this
-            // mailbox's, when the whole copy goes first. Numbers and a
-            // reason only: nothing kept is ever written to this log.
-            let sizes = summaries.reduce(into: [String: Int]()) { sizes, row in
-                sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
-            }
+            // mailbox's, when the whole copy goes first. The kept rows
+            // below it stay as far as they go on from it in the folder's
+            // UIDs now (B-160). Numbers and a reason only: nothing kept is
+            // ever written to this log.
+            let asked = PageWindow.older(than: nil, in: listing.uids, limit: limit)
+            let below = asked.last.map {
+                PageWindow.older(than: $0, in: listing.uids, limit: MailShelf.mostInboxRows)
+            } ?? []
             if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity,
-                                         sizes: sizes) {
+                                         sizes: largeSizes(of: summaries, in: name),
+                                         continuing: below) {
                 Diagnostics.log(.note, "KEPT-DISCARDED folder=\(name) "
                                 + "reason=\(discard == .renumbered ? "uidvalidity" : "msgid")")
             }
@@ -1058,6 +1076,14 @@ actor IMAPMailRepository: MailRepository {
                         + "first-row=\(newestID) "
                         + "msgid=\(newestLetter)")
         return summaries
+    }
+
+    /// The sizes of the rows the repository opens without their files, for
+    /// the kept page (`MailShelf.size(of:in:)`).
+    private func largeSizes(of rows: [MessageSummary], in name: String) -> [String: Int] {
+        rows.reduce(into: [String: Int]()) { sizes, row in
+            sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
+        }
     }
 
     /// The snapshot a listing of `name` is paging through, unless the
@@ -1805,7 +1831,8 @@ actor IMAPMailRepository: MailRepository {
         let shown = Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(raw),
                                 decoded: decoded, named: named, shortened: decoded.isShortened)
         if let row {
-            keep(raw, of: row, named: named, in: name, uid: message.uid, validity: message.validity)
+            keep(raw, of: row, named: named, in: name, uid: message.uid, validity: message.validity,
+                 words: KeptSearch.words(of: shown))
         }
         return shown
     }
@@ -1818,8 +1845,11 @@ actor IMAPMailRepository: MailRepository {
     /// empty and not over `largeAbove`; the Drafts folder's name is known
     /// and the row is neither in it nor counted there. Otherwise the log
     /// says which, in a word.
+    ///
+    /// `words` are its words, kept beside it for a search with no
+    /// connection (B-160).
     private func keep(_ raw: Data, of row: MessageSummary, named: UInt64?, in name: String,
-                      uid: UInt32, validity: UInt32) {
+                      uid: UInt32, validity: UInt32, words: String) {
         guard shelf != nil else { return }
         let reason: String
         if Task.isCancelled {
@@ -1833,7 +1863,7 @@ actor IMAPMailRepository: MailRepository {
                 Diagnostics.log(.note, "KEPT-LETTER not-kept reason=draft")
                 return
             }
-            shelf?.letters.keep(raw, in: name, validity: validity, uid: uid, message: named)
+            shelf?.letters.keep(raw, in: name, validity: validity, uid: uid, message: named, words: words)
             return
         } else {
             reason = "unnamed"
@@ -2358,7 +2388,10 @@ actor IMAPMailRepository: MailRepository {
     /// `LOST-ANSWER-LOOK folder=Notes uid=27 gone`, or `there`,
     /// `unanswered`, `not-asked`.
     func lookAfterLostAnswers() async -> [MovedAfterAll] {
-        guard !retired, !lostAnswers.isEmpty else { return [] }
+        // Not while the Inbox's letters are fetched ahead (B-160), which a
+        // SELECT of another folder would end, nor beside the book's fill
+        // from Sent Mail (B-155): the notes wait, whole, for the next check.
+        guard !retired, !lostAnswers.isEmpty, !fetchingAhead, !fillingBook else { return [] }
         var looking = lostAnswers
         lostAnswers = []
         var found: [MovedAfterAll] = []
@@ -2726,6 +2759,132 @@ actor IMAPMailRepository: MailRepository {
         throw Outbox.NoSentMail()
     }
 
+    // MARK: - Letters fetched ahead (B-160)
+
+    /// The most letters, and bytes, one pass fetches ahead: the newest 50
+    /// unread letters of the Inbox, or 20 MB of them, whichever comes first.
+    static let mostAhead = 50
+    static let mostAheadBytes = 20 << 20
+    /// The bytes of a letter fetched ahead in each exchange: what a letter
+    /// he opens may wait for, about a tenth of a second at ten megabits.
+    static let aheadPiece = 128 << 10
+
+    /// A pass is under way: another asked meanwhile is not started.
+    private var fetchingAhead = false
+    /// The app's are `mostAhead` and `mostAheadBytes`; a test hands in its own.
+    private let aheadMost: Int
+    private let aheadMostBytes: Int
+    /// The bytes each letter the room of the letters fetched ahead had too
+    /// little for took, its words with them, or the size the server gave
+    /// it, by its row's id in the Inbox: in this launch it is fetched again
+    /// only once the room has that much (`KeptLetters.roomAhead`).
+    private var aheadNeeds: [String: Int] = [:]
+
+    /// The newest unread letters on the Inbox's kept page, which since its
+    /// first page this launch are the server's newest, fetched whole and
+    /// kept on the iPad as letters fetched ahead (`KeptLetters`, `ahead`),
+    /// so he can read them with no connection, as Mail downloads mail ahead
+    /// of his opening it. Only on a connection already up, never making one,
+    /// since he did not ask for it; with the Drafts folder's name known; one
+    /// pass at a time.
+    ///
+    /// Each in pieces in the background line (`IMAPClient.fetchBodyAhead`),
+    /// so what he taps meanwhile goes first, after the piece on the wire,
+    /// and only while the Inbox is the folder open, so nothing he does in
+    /// another folder waits for a SELECT; BODY.PEEK, never a STORE, so
+    /// nothing is marked read; and with Gmail's id asked beside the first
+    /// piece, the letter kept only if it is the row's (D-016). Passed over:
+    /// a letter kept already, one with no Gmail id, a draft, one the server
+    /// has named another letter under, and one above `largeAbove`, which is
+    /// opened in parts and never kept (B-054). Stops at the first that
+    /// fails, the connection gone, the Inbox no longer open, the bounds, and
+    /// the first letter the room of the letters fetched ahead has no room
+    /// for without one newer than it going (`KeptLetters.roomAhead`): every
+    /// letter after it is older, so a pass over letters kept already sends
+    /// nothing.
+    func fetchAhead() async {
+        // Taken before the first wait, so two asked at once, a reload's and
+        // a page landing's, are one pass.
+        // Not beside the book's fill from Sent Mail (B-155), whose search
+        // there would end the pass at its first piece: the next listing of
+        // the Inbox from the top starts one.
+        guard !retired, !fetchingAhead, !fillingBook, let shelf, let listed else { return }
+        fetchingAhead = true
+        defer { fetchingAhead = false }
+        guard await imap.isConnected else { return }
+        let inbox = Self.serverName(for: "inbox", listed: listed, roles: roleNames)
+        guard let drafts = draftsName(), inbox != drafts, let page = shelf.page(of: inbox) else { return }
+        var bytes = 0
+        var fetched = 0
+        passing: for row in FetchAhead.letters(on: page.rows, most: aheadMost) {
+            guard !Task.isCancelled, !retired, bytes < aheadMostBytes,
+                  await imap.isConnected else { break }
+            guard let letter = row.gmailMessageID, let at = try? Self.parseID(row.id),
+                  !row.countedFolderIDs.contains(drafts),
+                  (largeLetterSize(row.id, in: inbox) ?? 0) <= largeAbove,
+                  !shelf.letters.has(in: inbox, validity: at.validity, uid: at.uid, message: letter)
+            else { continue }
+            if let known = seen[inbox] {
+                guard known.validity == at.validity else { break }
+                if let there = known.letters[at.uid], there != letter { continue }
+            }
+            guard let room = shelf.letters.roomAhead(validity: at.validity, uid: at.uid),
+                  (aheadNeeds[row.id] ?? 0) <= room else { break }
+            let got: IMAPClient.AheadLetter
+            do {
+                got = try await imap.fetchBodyAhead(uid: at.uid, in: inbox, validity: at.validity,
+                                                    letter: letter, piece: Self.aheadPiece,
+                                                    most: min(largeAbove, room))
+            } catch {
+                break
+            }
+            switch got {
+            case .notOpen:
+                break passing
+            case .notThere:
+                continue
+            case .over(let size):
+                saw([at.uid: letter], validity: at.validity, in: inbox)
+                // Above the size opened in parts, it is never kept, and is
+                // opened so; otherwise the room has too little for it.
+                if size > largeAbove {
+                    rememberLarge(row.id, in: inbox, size: size)
+                    continue
+                }
+                needs(size, for: row.id)
+                break passing
+            case .letter(let raw):
+                saw([at.uid: letter], validity: at.validity, in: inbox)
+                guard !raw.isEmpty else { continue }
+                let shown = Self.letter(row.id, in: inbox, headers: MIMEDecoder.parseHeaders(raw),
+                                        decoded: MIMEDecoder.decodeMessage(raw), named: letter,
+                                        shortened: false)
+                let words = KeptSearch.words(of: shown)
+                // Its words with it, as the room counts them: the room asked
+                // again, after every keep before it.
+                let need = raw.count + words.utf8.count
+                guard need <= shelf.letters.roomAhead(validity: at.validity, uid: at.uid) ?? 0 else {
+                    needs(need, for: row.id)
+                    break passing
+                }
+                shelf.letters.keep(raw, in: inbox, validity: at.validity, uid: at.uid, message: letter,
+                                   words: words, ahead: true)
+                bytes += raw.count
+                fetched += 1
+            }
+        }
+        if fetched > 0 { Diagnostics.log(.note, "KEPT-AHEAD letters=\(fetched) bytes=\(bytes)") }
+    }
+
+    /// The bytes the letter `id` needs in the room of the letters fetched
+    /// ahead, for the rest of the launch; all forgotten past a few hundred,
+    /// which costs each of them no more than its first piece again.
+    private func needs(_ bytes: Int, for id: String) {
+        if aheadNeeds.count >= Self.maximumRememberedNeeds { aheadNeeds = [:] }
+        aheadNeeds[id] = bytes
+    }
+    private static let maximumRememberedNeeds = 500
+
     // MARK: - His letters in a conversation
 
     /// His own letters of an Inbox conversation, from Sent Mail, for its
@@ -2733,7 +2892,13 @@ actor IMAPMailRepository: MailRepository {
     /// SEARCH X-GM-THRID, a UID FETCH of the newest hits' summaries, in one
     /// hold of the connection in the background line
     /// (`IMAPClient.search(_:across:)`), then a FETCH of their previews.
-    /// No STORE, MOVE, COPY or APPEND, and nothing kept on the iPad.
+    /// No STORE, MOVE, COPY or APPEND.
+    ///
+    /// What it finds is kept on the iPad with the conversation, in place of
+    /// what was kept for it (`MailShelf.took(lettersOfHis:)`, B-159), so an
+    /// Inbox conversation opened after a relaunch with no connection shows
+    /// his replies as Mail shows them, from what it downloaded. Sent Mail's
+    /// UIDVALIDITY is kept with them, and another throws them all away.
     ///
     /// Sent Mail by the role LIST gives it, `\Sent`, and never All Mail in
     /// its place, which `sentMailFolder` falls back to: All Mail holds the
@@ -2749,10 +2914,10 @@ actor IMAPMailRepository: MailRepository {
     /// been, with nothing said to him.
     ///
     /// The answer is remembered for `CompleteThreads.remembered`
-    /// (`hisLetters`), so a conversation opened again sends nothing; but not
-    /// if the memo was forgotten while the lookup was out, as a letter he
-    /// sent landing forgets it: that answer may be from before his reply was
-    /// in Sent Mail.
+    /// (`hisLetters`), so a conversation opened again sends nothing, and
+    /// kept on the iPad; but neither if the memo was forgotten while the
+    /// lookup was out, as a letter he sent landing forgets it: that answer
+    /// may be from before his reply was in Sent Mail.
     ///
     /// The few words of his lines are fetched in a hold of their own after
     /// the search, and only while Sent Mail is still the folder open on the
@@ -2801,7 +2966,12 @@ actor IMAPMailRepository: MailRepository {
             }
             guard !Task.isCancelled else { return .none }
             let found = RelatedLetters(folderName: folder.displayName, letters: letters)
-            hisLetters.keep(found, inThread: thread, asOf: asOf)
+            // Kept on the iPad only as the memo keeps it: an answer that may
+            // be from before a reply he has just sent is shown and not kept,
+            // so it cannot replace a later lookup's.
+            if hisLetters.keep(found, inThread: thread, asOf: asOf) {
+                shelf?.took(lettersOfHis: found, inThread: thread, folder: sent, validity: hits.validity)
+            }
             return Self.shown(found, besides: besides)
         } catch {
             return .none
@@ -3726,6 +3896,39 @@ actor IMAPMailRepository: MailRepository {
         try Task.checkCancellation()
         searchSession = session
         return page
+    }
+
+    // MARK: - Searching with no connection (B-160)
+
+    /// What `search` finds, as far as the copy kept on the iPad holds it,
+    /// with nothing sent: for a search that could not reach the server.
+    /// The kept rows of the folder, and with All Mailboxes those of every
+    /// folder kept, each letter once, the folder's own first; matched by
+    /// the words and the rule the server is asked by (`KeptSearch`), in
+    /// From, To, Cc, the subject, the few words and the words kept with a
+    /// letter he opened or that was fetched ahead. Newest first, all at
+    /// once. Nil when nothing is kept to search.
+    ///
+    /// A word half typed is the start of other people's names and
+    /// addresses alone, as online: never one of his, as Settings last saved
+    /// them, nor a name the book has for one of them, or his account's.
+    func searchKept(in mailboxID: String, query: String,
+                    scope: MailSearchScope) async -> [MessageSummary]? {
+        guard let shelf else { return nil }
+        let folder = keptFolderName(mailboxID) ?? mailboxID
+        var rows = shelf.page(of: mailboxID)?.rows ?? []
+        if scope == .allMailboxes { rows += shelf.rowsOfEveryFolder(besides: folder) }
+        var letters: Set<UInt64> = []
+        rows = rows.filter { row in row.gmailMessageID.map { letters.insert($0).inserted } ?? true }
+        let me = sender
+        let mine = OwnAddresses(account: me)
+        let names: Set<String> = SearchCriteria.halfWord(of: query) == nil ? [] : Set(
+            recipients.snapshot().filter { mine.contains($0.address) }.compactMap(\.name) + [me.displayName])
+        return KeptSearch.hits(for: query, in: rows, besides: mine, names: names) { row in
+            guard let letter = row.gmailMessageID, let at = try? Self.parseID(row.id),
+                  let name = keptFolderName(row.mailboxID) else { return nil }
+            return shelf.letters.words(in: name, validity: at.validity, uid: at.uid, message: letter)
+        }
     }
 
     // MARK: - Attachments

@@ -57,6 +57,21 @@ enum ListOpening {
         return shelf?.page(of: mailbox.id)
     }
 
+    /// The kept rows below a fresh first page, `first`, as the folder's kept
+    /// page has them once the page has been taken (`MailShelf.took(page:)`,
+    /// B-160): the rows after it, which go on from it in the folder's order
+    /// now. Empty when the kept rows do not begin with the page's.
+    ///
+    /// For the fresh page put in place of the kept rows he has scrolled
+    /// down (`KeptSwap.holdingPlace`), or that a search is over: the rows he
+    /// was reading below the page stay, and the list pages on from the last
+    /// of them. At the top the page goes in alone, as it always did.
+    static func keptTail(below first: [MessageSummary], in kept: [MessageSummary]) -> [MessageSummary] {
+        guard !first.isEmpty, kept.count > first.count,
+              zip(first, kept).allSatisfy({ $0.id == $1.id }) else { return [] }
+        return Array(kept[first.count...])
+    }
+
     /// The first rows of a list opened at `day`, or at its newest mail when
     /// there is no day.
     ///
