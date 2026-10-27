@@ -6,8 +6,10 @@ import Foundation
 /// where it sits in the letter, and the files after the words at its end; a
 /// picture at its size, and any other file as Mail's tile, about 160 by 120
 /// with its icon, its name, its size, and "Tap to Download" for one not
-/// downloaded (iOS 18.6's MobileMailUI: `attachments.css`, and the strings
-/// its attachment element is made with). Here a file had a row in the
+/// downloaded (iOS 18.6: MessageUI writes each file as WebKit's attachment
+/// element, and MobileMailUI's script gives it its words; the tile's
+/// values from a style sheet left in MobileMailUI, `attachments.css`, which
+/// stands in for WebKit's drawing of it). Here a file had a row in the
 /// header's list from B-101, and a file put among the words a row there as
 /// well from B-113, until B-148 left that one out of the header.
 ///
@@ -213,16 +215,27 @@ enum BodyFiles {
     /// rounded at 15, 5 apart, with its icon, 37 by 48, its name, its size,
     /// and "Tap to Download" for a file of a letter opened without them
     /// (`Message.filesLeftOnServer`), each on a line of its own, centred,
-    /// and cut short with an ellipsis where it is too long, as Mail's style
-    /// sheet for them has it (MobileMailUI's `attachments.css`, iOS 18.6).
-    /// The size and the words in Mail's grey and blue, as its sheet's
-    /// labels, its fonts the iPad's footnote and caption, as Mail's.
+    /// and cut short with an ellipsis where it is too long. The values of
+    /// a style sheet left in MobileMailUI (iOS 18.6, `attachments.css`),
+    /// which nothing in it names any more: Mail's tile is WebKit's own
+    /// drawing of its attachment element now, and the sheet stands in for
+    /// it. The name and the size in the grey caption, as the sheet's two
+    /// labels for them and WebKit's own element have them, and the last
+    /// line in the bold footnote, Mail's blue.
+    ///
+    /// Their sizes written out, 12 and 13, the caption's and the
+    /// footnote's at the iPad's default text size, and not the keywords
+    /// Mail's sheet has, which WebKit sizes by the text size in Settings:
+    /// no text of the pane moves with it (D-007, B-071), and the box,
+    /// whose size is written out as Mail's, would cut the lines at the
+    /// larger sizes.
     ///
     /// A link of the pane's own (`link`): a tap opens the file in Quick
     /// Look (`PaneNavigation`'s `openFile`), and its last line says
     /// "Loading…" while the file comes (`Busy`). No callout and no
-    /// selection, as Mail's sheet has, so a finger held on it gives the
-    /// pane's menu for the file (`ConversationDocument.script`'s hold).
+    /// selection, as Mail's sheet has, and no drag, so a finger held on it
+    /// gives the pane's menu for the file (`ConversationDocument.script`'s
+    /// hold) and not WebKit's for a link.
     ///
     /// Every rule inline, so the tile is the same on a letter's own page,
     /// in a stack and on paper; those that make it a tile important, which
@@ -231,7 +244,6 @@ enum BodyFiles {
     static func tile(_ file: Attachment, of m: Message, on page: Page) -> String {
         let light = page != .dark
         let border = light ? "rgba(0, 0, 0, 0.3)" : "rgba(255, 255, 255, 0.3)"
-        let words = light ? "#000" : "#fff"
         let grey = light ? "rgba(4, 4, 15, 0.45)" : "#8e8e93"
         let blue = light ? "#007AFF" : "#0A84FF"
         let paper = page == .paper ? " -webkit-print-color-adjust: exact; break-inside: avoid;" : ""
@@ -245,18 +257,26 @@ enum BodyFiles {
             + " border-radius: 15px !important; overflow: hidden !important; vertical-align: top;"
             + " text-align: center; text-decoration: none; white-space: nowrap; line-height: normal;"
             + " -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"
-            + " -webkit-touch-callout: none !important; -webkit-user-select: none !important;" + paper
+            + " -webkit-touch-callout: none !important; -webkit-user-select: none !important;"
+            + " -webkit-user-drag: none !important;" + paper
             + "\"><span style=\"display: block; position: relative; top: 50%;"
             + " transform: translateY(-50%);\">"
             + icon(file)
-            + "<span style=\"" + label + " font: -apple-system-footnote; color: " + words + ";\">"
+            + "<span style=\"" + label + " " + caption + " color: " + grey + ";\">"
             + QuotedMarkup.escaped(file.filename) + "</span>"
-            + "<span style=\"" + label + " font: -apple-system-caption1; color: " + grey + ";\">"
+            + "<span style=\"" + label + " " + caption + " color: " + grey + ";\">"
             + QuotedMarkup.escaped(size) + "</span>"
-            + "<span class=\"bm-file-status\" style=\"" + label
-            + " font: -apple-system-footnote; font-weight: bold; color: " + blue + ";\">"
+            + "<span class=\"bm-file-status\" style=\"" + label + " " + footnote + " color: " + blue + ";\">"
             + status + "</span></span></a>"
     }
+
+    /// The type of a tile's name and size: the caption's, at its size at
+    /// the iPad's default text size.
+    static let caption = "font: 12px -apple-system, sans-serif;"
+
+    /// The type of a tile's last line: the footnote's, bold, at its size
+    /// at the iPad's default text size.
+    static let footnote = "font: bold 13px -apple-system, sans-serif;"
 
     /// Mail's words under a file not yet downloaded.
     static let tapToDownload = "Tap to Download"

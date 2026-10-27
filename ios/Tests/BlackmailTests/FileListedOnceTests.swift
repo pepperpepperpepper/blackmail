@@ -213,14 +213,17 @@ final class FileListedOnceTests: XCTestCase {
 
     // MARK: - Mail's tile
 
-    /// The tile, as Mail's style sheet for its tiles has it: a box of 160
-    /// by 120, 5 apart, 3 inside a hairline border rounded at 15, its
-    /// lines centred; an icon of 37 by 48 with 8 under it, the file's kind
-    /// on it; the name in the footnote's size, the size in the caption's,
-    /// grey, and the last line bold and blue, cut with an ellipsis; no
-    /// callout or selection. Light on an HTML letter's page, which the
-    /// page's invert turns, dark on a plain letter's, light on paper. Its
-    /// words escaped, and its link the pane's own.
+    /// The tile, as the style sheet left in Mail for its tiles has it: a
+    /// box of 160 by 120, 5 apart, 3 inside a hairline border rounded at
+    /// 15, its lines centred; an icon of 37 by 48 with 8 under it, the
+    /// file's kind on it; the name and the size in the caption's type,
+    /// grey, and the last line in the footnote's, bold and blue, cut with
+    /// an ellipsis, each at 12 and 13 px, their sizes at the iPad's default
+    /// text size, and none of WebKit's keywords for the system's type,
+    /// which follow the text size in Settings (D-007); no callout,
+    /// selection or drag. Light on an HTML letter's page, which the page's
+    /// invert turns, dark on a plain letter's, light on paper. Its words
+    /// escaped, and its link the pane's own.
     func testATileIsMailsTile() throws {
         let file = Attachment(id: "2", filename: "Rates & <Fees> \"2027\".pdf", mimeType: "application/pdf",
                               size: 90_000)
@@ -234,18 +237,25 @@ final class FileListedOnceTests: XCTestCase {
                      "padding: 3px !important;", "border: 1px solid rgba(0, 0, 0, 0.3) !important;",
                      "border-radius: 15px !important;", "text-align: center;", "text-decoration: none;",
                      "-webkit-touch-callout: none !important;", "-webkit-user-select: none !important;",
+                     "-webkit-user-drag: none !important;",
                      "<span style=\"display: block; position: relative; top: 50%; transform: translateY(-50%);\">",
                      "<svg width=\"37\" height=\"48\" viewBox=\"0 0 37 48\" style=\"display: block; "
                         + "margin: 0 auto 8px auto;\">",
                      ">PDF</text>",
-                     "font: -apple-system-footnote; color: #000;\">Rates &amp; &lt;Fees&gt; \"2027\".pdf</span>",
-                     "font: -apple-system-caption1; color: rgba(4, 4, 15, 0.45);\">"
+                     "font: 12px -apple-system, sans-serif; color: rgba(4, 4, 15, 0.45);\">"
+                        + "Rates &amp; &lt;Fees&gt; \"2027\".pdf</span>",
+                     "font: 12px -apple-system, sans-serif; color: rgba(4, 4, 15, 0.45);\">"
                         + ByteCountFormatter.string(fromByteCount: 90_000, countStyle: .file) + "</span>",
                      "<span class=\"bm-file-status\" style=\"display: block; overflow: hidden; "
-                        + "text-overflow: ellipsis; white-space: nowrap; font: -apple-system-footnote; "
-                        + "font-weight: bold; color: #007AFF;\"></span>"] {
+                        + "text-overflow: ellipsis; white-space: nowrap; font: bold 13px -apple-system, sans-serif; "
+                        + "color: #007AFF;\"></span>"] {
             XCTAssertTrue(light.contains(rule), rule)
         }
+        // Every line in a size written out: none moves with the text size
+        // in Settings, and the box holds them at any.
+        XCTAssertFalse(light.contains("-apple-system-"), light)
+        XCTAssertEqual(count("font: ", in: light), 3)
+        XCTAssertEqual(count("px -apple-system, sans-serif;", in: light), 3)
         XCTAssertTrue(light.hasPrefix("<a href=\"bmfile:2?letter=7/3\" style=\""), light)
         XCTAssertTrue(light.hasSuffix("</span></span></a>"), light)
         XCTAssertFalse(light.contains(">\n") || light.contains("> <"), "no white space between tags")
@@ -255,10 +265,12 @@ final class FileListedOnceTests: XCTestCase {
                        .openFile(letter: "7/3", section: "2"))
 
         let dark = BodyFiles.tile(file, of: m, on: .dark)
-        for rule in ["border: 1px solid rgba(255, 255, 255, 0.3) !important;", "color: #fff;",
-                     "color: #8e8e93;", "color: #0A84FF;"] {
+        for rule in ["border: 1px solid rgba(255, 255, 255, 0.3) !important;",
+                     "font: 12px -apple-system, sans-serif; color: #8e8e93;\">Rates &amp;",
+                     "color: #0A84FF;"] {
             XCTAssertTrue(dark.contains(rule), rule)
         }
+        XCTAssertFalse(dark.contains("-apple-system-"), dark)
         // A letter opened without its files: "Tap to Download", but not
         // on paper.
         m.filesLeftOnServer = true
@@ -281,7 +293,7 @@ final class FileListedOnceTests: XCTestCase {
         // A size not known: the line is there, empty.
         XCTAssertTrue(BodyFiles.tile(Attachment(id: "3", filename: "a.pdf", mimeType: "application/pdf", size: nil),
                                      of: m, on: .light)
-                        .contains("font: -apple-system-caption1; color: rgba(4, 4, 15, 0.45);\"></span>"))
+                        .contains("font: 12px -apple-system, sans-serif; color: rgba(4, 4, 15, 0.45);\"></span>"))
     }
 
     /// A picture file is drawn at its size, no wider than the letter, from
