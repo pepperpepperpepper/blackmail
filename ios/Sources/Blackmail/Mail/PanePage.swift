@@ -189,9 +189,12 @@ enum PanePage {
         // always was. One with a picture from the web, or a light scheme
         // only, is drawn light as its sender made it, black words on its
         // own white, the pane's black around it, Mail's bars in its light
-        // colours, as on paper. One that declares the dark is drawn in its
-        // own colours, words white on the pane's black, its style for the
-        // dark with it (`inOwnColours`), Mail's bars in its dark colours.
+        // colours, as on paper, its white a sheet in the letter's column, as
+        // Mail's is (B-173): it stops where the words do, the pane's margin
+        // black round it (`background-clip: content-box`), and nothing
+        // moves. One that declares the dark is drawn in its own colours,
+        // words white on the pane's black, its style for the dark with it
+        // (`inOwnColours`), Mail's bars in its dark colours.
         let smartInvert: String
         switch drawn {
         case .inverted?:
@@ -201,7 +204,8 @@ enum PanePage {
                   filter: \(SignatureSheet.invert); }
               """ + "\n" + QuoteBars.css(in: "#bm")
         case .light?:
-            smartInvert = "#bm { background: #fff; color-scheme: light only; }\n" + QuoteBars.css(in: "#bm")
+            smartInvert = "#bm { background: #fff; background-clip: content-box; color-scheme: light only; }\n"
+                + QuoteBars.css(in: "#bm")
         case .own?:
             smartInvert = "#bm { color-scheme: light dark; }\n"
                 + QuoteBars.css(in: "#bm", palette: QuoteBars.dark)

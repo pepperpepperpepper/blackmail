@@ -366,8 +366,10 @@ enum ConversationDocument {
              colours. One that declares the dark, in its own colours, words
              white on the pane's black, its style for the dark in its body,
              Mail's bars in its dark colours. Their links' colour weighs no
-             more than the letter's own rule for links (:where). */
-          .bm-light { background: #fff; color: #000; color-scheme: light only; }
+             more than the letter's own rule for links (:where). A light
+             letter's white is a sheet in its column, as Mail's is (B-173):
+             the body's margin is the pane's black, and nothing moves. */
+          .bm-light { background: #fff; background-clip: content-box; color: #000; color-scheme: light only; }
           :where(.bm-light) a { color: #007AFF; }
           .bm-own { color: #fff; color-scheme: light dark; }
           :where(.bm-own) a { color: #0A84FF; }

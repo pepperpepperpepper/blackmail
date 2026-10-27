@@ -299,7 +299,8 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertEqual(filters(sheet), [])
         XCTAssertTrue(sheet.contains("  html, body { margin: 0; padding: 0; background: #000; }"), sheet)
         XCTAssertTrue(sheet.contains("        color: #000; word-wrap: break-word; }"), sheet)
-        XCTAssertTrue(sheet.hasSuffix("  a { color: #007AFF; }\n  #bm { background: #fff; color-scheme: light only; }\n"
+        XCTAssertTrue(sheet.hasSuffix("  a { color: #007AFF; }\n"
+                                      + "  #bm { background: #fff; background-clip: content-box; color-scheme: light only; }\n"
                                       + QuoteBars.css(in: "#bm") + "\n"), sheet)
         let body = PanePage.content(text: nil, html: Self.withAWebPicture, known: [], flowed: false)
         XCTAssertTrue(page.hasSuffix("<div id=\"bm\">" + body + "</div></body></html>"), page)
@@ -309,7 +310,7 @@ final class DarkLikeMailTests: XCTestCase {
         // A light scheme declared, the same.
         let declared = letter("<meta name=\"color-scheme\" content=\"light\"><p>Hi</p>")
         XCTAssertTrue(try rules(of: XCTUnwrap(PanePage.letter(declared, style: style)))
-                        .contains("#bm { background: #fff; color-scheme: light only; }"))
+                        .contains("#bm { background: #fff; background-clip: content-box; color-scheme: light only; }"))
     }
 
     /// A letter that declares the dark is drawn in its own colours: no
@@ -454,7 +455,7 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertEqual(filters(sheet), [SignatureSheet.invert, SignatureSheet.invert])
         XCTAssertTrue(sheet.contains(".bm-html { filter: \(SignatureSheet.invert); background: #fff;"), sheet)
         for rule in [
-            ".bm-light { background: #fff; color: #000; color-scheme: light only; }",
+            ".bm-light { background: #fff; background-clip: content-box; color: #000; color-scheme: light only; }",
             ":where(.bm-light) a { color: #007AFF; }",
             ".bm-own { color: #fff; color-scheme: light dark; }",
             ":where(.bm-own) a { color: #0A84FF; }",
@@ -727,7 +728,7 @@ final class DarkLikeMailTests: XCTestCase {
     func testAHeldBackLetterKeepsItsSchemeAndItsStyleLoadsNothing() throws {
         let web = letter(Self.withAWebPicture)
         let light = try XCTUnwrap(PanePage.letter(web, style: style, heldBack: true))
-        XCTAssertTrue(light.contains("#bm { background: #fff; color-scheme: light only; }"), light)
+        XCTAssertTrue(light.contains("#bm { background: #fff; background-clip: content-box; color-scheme: light only; }"), light)
         XCTAssertTrue(light.contains("src=\"bmoffhttps://example.com/roses.jpg\""))
         XCTAssertTrue(light.contains(RemoteContent.unloaded))
         XCTAssertEqual(PanePage.stackBody(web, heldBack: "7/3").kind, "bm-light")
