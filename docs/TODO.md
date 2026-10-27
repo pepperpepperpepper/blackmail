@@ -9059,7 +9059,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       with B-167's Settings rows, which set the two options; a build of
       this branch alone has no row for them, and the check waits for the
       int. Nothing is composed, sent or saved as a draft, and every Trash
-      goes onto the host's letters alone. The host makes eleven letters, each
+      goes onto the host's letters alone. The host makes twelve letters, each
       from another address, with a new Message-ID of its own and naming
       none on the account, and APPENDs them read (`\Seen`) to the label
       "Notes", never the Inbox, each with its Date as its internal date;
@@ -9122,7 +9122,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       once in a quarter of a second and, on "B-168 bin 7", once in a
       second and a half: each goes at once, no sheet (the round of
       2026-10-27 had a sheet for both, and nothing went). On "B-168 bin
-      5", a slow drag, More, "Trash Message": a sheet over the row,
+      6", a slow drag that leaves the buttons open, and Trash tapped as
+      soon as the row has stopped: a sheet over the row, "Trash Message",
+      as for any tap (a Trash within a third of a second of a drag's lift
+      counts as the drag's, `DiscardQuestion.liftWindow`); a tap outside:
+      nothing goes; if it went with no sheet, written down. On "B-168
+      bin 5", a slow drag, More, "Trash Message": a sheet over the row,
       "Trash Message"; tapped, it goes. On "B-168 pair", a slow drag,
       Trash: "Trash Messages"; tapped, both letters go. If a full drag
       in this step put up a sheet, written down (B-168's "Not seen").

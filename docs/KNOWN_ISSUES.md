@@ -35890,6 +35890,14 @@ and of `willBeginEditingRowAt` follow. The width test put back in the
 handler and the new rule made a tap always, 12 failures in 4 tests of
 the two; then restored.
 
+In TODO, this check's preamble counts its twelve letters, where it said
+eleven after a seventh "bin" was added, and step 8 has a slow drag
+whose Trash is tapped as soon as the row has stopped, which asks as any
+tap does: the third of a second after a drag's lift in which a Trash
+counts as the drag's (`liftWindow`) is kept, as UIKit's timing of a full
+drag's button against its pan was not seen, and the step looks for a
+tap that would fall inside it (the review of the fix, 2026-10-27).
+
 ## B-169 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 
 **Asked for** by the owner on 2026-10-27: "build the three Mail
