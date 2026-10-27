@@ -52,7 +52,11 @@ enum PanePage {
     /// printed letter's (`LetterPrint`, B-110). A `Content-ID` only means
     /// anything inside the letter that declared it, and two letters can
     /// both have `cid:image001.png`; where they do, the later letter's is
-    /// served.
+    /// served. And each letter's picture files, which the body draws at
+    /// their size (`BodyFiles.picture`, B-170), by the address the page
+    /// asks for them by (`BodyFiles.pictureID`), which names the letter;
+    /// every picture of the letter's, as one sent to be shown by `cid:` is
+    /// drawn so where the body shown does not show it (`BodyFiles.drawn`).
     static func pictures(of letters: [Message]) -> [String: Picture] {
         var parts: [String: Picture] = [:]
         for m in letters {
@@ -61,8 +65,27 @@ enum PanePage {
                 parts[cid] = Picture(messageID: m.id, mailboxID: m.mailboxID,
                                      section: attachment.id, mimeType: attachment.mimeType)
             }
+            for file in m.attachments where BodyFiles.isPicture(file) {
+                parts[BodyFiles.pictureID(file.id, of: m.id)] = Picture(
+                    messageID: m.id, mailboxID: m.mailboxID, section: file.id, mimeType: file.mimeType)
+            }
         }
         return parts
+    }
+
+    /// The loader's map once the bodies of `letters` go into a stack whose
+    /// loader has `kept`, the map of the bodies gone in before them
+    /// (`MessageDetailViewController.prepareInlineImages`, B-170): `kept`
+    /// with theirs added. Every body that comes before the stack's page has
+    /// loaded waits for it, and they go in together (`PaneDocument`), so
+    /// WebKit asks for the pictures of all of them at once: the map of the
+    /// last body alone, as it was, missed every picture of the bodies before
+    /// it, and WebKit drew them as nothing. A picture file's address names
+    /// its letter, so none takes another letter's place; where two letters
+    /// use the same `Content-ID`, the later letter's is served, as in
+    /// `pictures(of:)`.
+    static func pictures(of letters: [Message], adding kept: [String: Picture]) -> [String: Picture] {
+        kept.merging(pictures(of: letters)) { _, later in later }
     }
 
     /// The page for one letter, or nil when there is nothing in it to draw,
@@ -111,13 +134,20 @@ enum PanePage {
         // not reliably whitespace and the document may open with a layout
         // table.
         //
-        // A file sent among the words has its row where it sat, a link that
-        // opens it (`BodyFiles`, B-113); a letter with none is as it was.
+        // Every file of the letter is drawn in it, where it sat or after
+        // the words, as Mail draws it (`BodyFiles`, B-170); a letter with
+        // none is as it was. Its tiles in Mail's colours for the page the
+        // letter is drawn on (B-169): the light ones on a letter drawn
+        // light or inverted, which the invert turns with the letter's own,
+        // and the dark ones on a letter in its own colours or plain, on
+        // the pane's black (int19).
         let held = heldBack ? Self.held(m, as: m.id, drawn: drawn) : ""
-        let html = isHTML
-            ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
-                                              flowed: false, heldBack: !held.isEmpty), of: m)
-            : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed)
+        let html = BodyFiles.drawn(
+            in: isHTML
+                ? Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m), flowed: false,
+                               heldBack: !held.isEmpty)
+                : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed),
+            of: m, on: darkWords ? .dark : .light, cut: m.isShortened)
         let content = drawn == .own ? inOwnColours(html, of: m, heldBack: !held.isEmpty) : html
 
         // Every property lives on #bm, a container the inner document cannot
@@ -173,6 +203,10 @@ enum PanePage {
         // letter's own rules say (B-166, B-168), and in Mail's dark colours
         // over a letter in its own (B-169); nothing otherwise, so the page
         // is as it was.
+        // Its tiles at the pane's text size (`BodyFiles.sizeRule`, B-166,
+        // B-170); nothing at Large or below, nor for a letter with none.
+        let tileRule = BodyFiles.sizeRule(bodyPointSize: style.bodyPointSize)
+        let tiles = tileRule.isEmpty || !content.contains(BodyFiles.tileClass) ? "" : "\n  " + tileRule
         let heldSize = held.isEmpty
             ? "" : "\n  " + RemoteContent.sizeRule(in: "#bm", pointSize: style.bodyPointSize)
                 + (drawn == .own ? "\n  " + RemoteContent.darkRule(in: "#bm") : "")
@@ -189,7 +223,7 @@ enum PanePage {
         \(isHTML ? "" : " white-space: pre-wrap;") }
           img, table { max-width: 100% !important; height: auto; }
           a { color: \(darkWords ? "#0A84FF" : "#007AFF"); }
-          \(smartInvert)\(heldSize)
+          \(smartInvert)\(heldSize)\(tiles)
         </style></head><body><div id="bm">\(held)\(shortened(m))\(content)</div></body></html>
         """
     }
@@ -253,8 +287,9 @@ enum PanePage {
     /// sender's markup without its wrapper, text escaped with its leading
     /// blank lines dropped as a letter on its own drops them, or the words
     /// for a letter with nothing in it. Its links are made links, a plain
-    /// letter's quotes Mail's blockquotes (B-147), and a file sent among its
-    /// words has its row there, as a letter on its own has them.
+    /// letter's quotes Mail's blockquotes (B-147), and its files are drawn
+    /// in it, as a letter on its own has them (`BodyFiles`, B-170): each
+    /// letter's in its own body.
     ///
     /// `heldBack`, the id of the letter's entry in the stack, under Block
     /// All Remote Content until "Load All Images" (`RemotePictures`,
@@ -267,7 +302,8 @@ enum PanePage {
     /// (`LetterScheme`, B-169): its body's class in the stack says how
     /// (`Rendered.kind`), and one in its own colours has its style for the
     /// dark with it, in a box of its own, as on its own page; held back,
-    /// that style's references to the web too (int19).
+    /// that style's references to the web too, and its tiles in Mail's
+    /// dark colours, as a plain letter's (int19).
     static func stackBody(_ m: Message, heldBack: String? = nil) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = isEmpty(m)
@@ -275,11 +311,13 @@ enum PanePage {
         let held = empty ? "" : heldBack.map { Self.held(m, as: $0, drawn: drawn) } ?? ""
         var content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
-            : (isHTML
-               ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
-                                                 flowed: false, heldBack: !held.isEmpty), of: m)
-               : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
-                                  flowed: m.textIsFlowed, escaping: .ampersandAndBrackets))
+            : BodyFiles.drawn(
+                in: isHTML
+                    ? Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m), flowed: false,
+                                   heldBack: !held.isEmpty)
+                    : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
+                                       flowed: m.textIsFlowed, escaping: .ampersandAndBrackets),
+                of: m, on: !isHTML || drawn == .own ? .dark : .light, cut: m.isShortened)
         if drawn == .own { content = inOwnColours(content, of: m, heldBack: !held.isEmpty) }
         return .init(html: empty ? content : held + shortened(m) + content, isHTML: isHTML && !empty,
                      scheme: drawn)
@@ -350,10 +388,14 @@ enum PanePage {
         }))
     }
 
-    /// Whether the pane says the letter has no text: nothing in it to draw,
-    /// and all of it there. A letter shown only in part is never said to
-    /// have none, but to be only the beginning (B-114).
+    /// Whether the pane says the letter has no text: nothing in it to draw, no
+    /// file or picture of its own either, and all of it there. A letter shown
+    /// only in part is never said to have none, but to be only the beginning
+    /// (B-114). A letter of files and no words is its files, as Mail draws it
+    /// (B-170), where the pane said it had no text and its files were in the
+    /// header.
     static func isEmpty(_ m: Message) -> Bool {
-        !m.isShortened && MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
+        !m.isShortened && m.attachments.isEmpty
+            && MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
     }
 }

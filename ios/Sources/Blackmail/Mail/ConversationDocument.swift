@@ -384,7 +384,10 @@ enum ConversationDocument {
              (B-166, B-168), and in Mail's dark colours over a letter in
              its own (B-169). */
           \(RemoteContent.sizeRule(in: "body", pointSize: bodyPointSize))
-          \(RemoteContent.darkRule(in: ".bm-own"))\(stacked ? stackedLines : "")
+          \(RemoteContent.darkRule(in: ".bm-own"))
+          /* A file's tile at the pane's text size, as Mail's grows with it
+             (B-166, B-170); nothing at Large or below. */
+          \(BodyFiles.sizeRule(bodyPointSize: bodyPointSize))\(stacked ? stackedLines : "")
         </style></head><body>
         \(sections)
         </body></html>
@@ -586,16 +589,27 @@ enum ConversationDocument {
     /// from the web, in a link, an image map or a button is not wired, and
     /// keeps WebKit's menu.
     ///
-    /// **A file's row coming** (B-148). While the pane downloads a file,
-    /// `bmFileBusy`, called through `callAsyncJavaScript` (`BodyFiles.Busy`),
-    /// dims each link on the page to it, the row the pane made of the
-    /// file's mark among the words, important, and puts the pane's word
-    /// for something on its way after its name; once the file has opened
-    /// or been let go, it takes both off again. Each mark it put in is
-    /// kept, so it takes off its own and nothing of the letter's, and a
-    /// file shown coming twice has one mark. On any page, in a letter's own
-    /// or a body `bmFill` put in; a link with no row on the page changes
-    /// nothing, and it never throws.
+    /// **A file's tile held** (B-170). A finger held so on a file's tile,
+    /// a link of the pane's own (`BodyFiles.tile`), anywhere on it, is a
+    /// hold too: the script tells the pane through `bmPicture` with `file`,
+    /// the tile's link, and where the finger is, and the pane puts up its
+    /// menu for a file (`PanePictures.menu(for:)`). The tile has WebKit's
+    /// menu and selection kept off by its own style, as Mail's sheet keeps
+    /// them off its tiles. The lift after it is stopped as a picture's is,
+    /// and the click on the tile before the next touch is stopped too
+    /// (`preventDefault`), so a hold never opens the file as well. A tap
+    /// on it is the link's.
+    ///
+    /// **A file's tile coming** (B-148, B-170). While the pane downloads a
+    /// file, `bmFileBusy`, called through `callAsyncJavaScript`
+    /// (`BodyFiles.Busy`), dims each tile on the page to it, important, and
+    /// writes the pane's word for something on its way in its last line,
+    /// where Mail's says "Tap to Download"; once the file has opened or been
+    /// let go, it puts back what the line said, and the tile's look. What
+    /// it changed is kept, so it puts back its own and nothing of the
+    /// letter's, and a file shown coming twice is put back once. On any
+    /// page, in a letter's own or a body `bmFill` put in; a link with no
+    /// tile on the page changes nothing, and it never throws.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -824,18 +838,18 @@ enum ConversationDocument {
         for (var i = bmComing.length - 1; i >= 0; i--) {
           if (bmComing[i].link !== link) continue;
           var was = bmComing.splice(i, 1)[0];
-          if (was.mark.parentNode) was.mark.parentNode.removeChild(was.mark);
+          was.status.textContent = was.said;
           was.row.style.removeProperty('opacity');
         }
         if (!busy) return;
         var links = document.querySelectorAll('a');
         for (var j = 0; j < links.length; j++) {
           if (links[j].getAttribute('href') !== link) continue;
-          var mark = document.createElement('span');
-          mark.textContent = ' ' + words;
-          links[j].appendChild(mark);
+          var status = links[j].querySelector('.bm-file-status');
+          if (!status) continue;
+          bmComing.push({ link: link, row: links[j], status: status, said: status.textContent });
+          status.textContent = words;
           links[j].style.setProperty('opacity', '0.5', 'important');
-          bmComing.push({ link: link, row: links[j], mark: mark });
         }
       } catch (e) {}
     }
@@ -859,6 +873,18 @@ enum ConversationDocument {
       }
       return true;
     }
+    function bmFileTile(node) {
+      for (; node && node !== document.body; node = node.parentNode) {
+        if (String(node.tagName || '').toLowerCase() !== 'a') continue;
+        return String(node.getAttribute('href') || '').slice(0, 7).toLowerCase() === 'bmfile:' ? node : null;
+      }
+      return null;
+    }
+    function bmFileClicked(event) {
+      if (bmPictureHeld !== event.currentTarget) return;
+      bmPictureHeld = null;
+      event.preventDefault();
+    }
     function bmPictureTapped(event) {
       var img = event.currentTarget;
       if (!bmOwnPicture(img)) return;
@@ -879,6 +905,10 @@ enum ConversationDocument {
           pictures[i].style.setProperty('-webkit-touch-callout', 'none', 'important');
           pictures[i].style.setProperty('-webkit-user-select', 'none', 'important');
         }
+        var links = root.querySelectorAll('a');
+        for (var j = 0; j < links.length; j++) {
+          if (bmFileTile(links[j]) === links[j]) links[j].addEventListener('click', bmFileClicked);
+        }
       } catch (e) {}
     }
     var bmPictureHolding = null;
@@ -894,9 +924,14 @@ enum ConversationDocument {
       bmPictureHeld = null;
       if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return;
       var img = event.target;
-      if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) return;
+      var tile = null;
+      if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) {
+        tile = bmFileTile(event.target);
+        if (!tile) return;
+        img = null;
+      }
       var touch = event.touches[0];
-      var holding = { img: img, x: touch.clientX, y: touch.clientY };
+      var holding = { img: img, tile: tile, x: touch.clientX, y: touch.clientY };
       holding.timer = setTimeout(function () { bmPictureHeldDown(holding); }, bmPictureHold);
       bmPictureHolding = holding;
     }
@@ -904,11 +939,18 @@ enum ConversationDocument {
       if (bmPictureHolding !== holding) return;
       bmPictureHolding = null;
       var img = holding.img;
-      bmPictureHeld = img;
+      bmPictureHeld = img || holding.tile;
       if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
-      var drawn = img.getBoundingClientRect();
       var view = window.visualViewport;
       var scale = view && view.scale > 0 ? view.scale : 1;
+      if (!img) {
+        window.webkit.messageHandlers.bmPicture.postMessage({
+          file: holding.tile.getAttribute('href'), section: bmPictureIn(holding.tile), hold: true,
+          x: (holding.x - (view ? view.offsetLeft : 0)) * scale,
+          y: (holding.y - (view ? view.offsetTop : 0)) * scale });
+        return;
+      }
+      var drawn = img.getBoundingClientRect();
       window.webkit.messageHandlers.bmPicture.postMessage({
         src: bmPictureSrc(img), section: bmPictureIn(img),
         width: img.naturalWidth, height: img.naturalHeight,
@@ -1136,10 +1178,10 @@ enum ConversationDocument {
         static func arguments(_ moving: Bool) -> [String: Any] { ["moving": moving] }
     }
 
-    /// What the pane tells the stack's script when the header over the
-    /// stack has changed height (B-128, `keepPlace`). The stack hangs from
-    /// the header, so the whole of it moves on the glass then, by a Cc line
-    /// about 20 pt, a file's row 44 pt, or both and more, at the tap on a
+    /// What the pane tells the stack's script when the header over the stack
+    /// has changed height (B-128, `keepPlace`). The stack hangs from the
+    /// header, so the whole of it moves on the glass then, by a Cc line about
+    /// 20 pt, or more, and by a file's row 44 pt until B-170, at the tap on a
     /// line since B-129. A second tap made at once where the first was, a
     /// double tap or a tap to close a letter opened by mistake, lands that
     /// far off the line it was meant for, on the line above or below, and

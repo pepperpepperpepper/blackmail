@@ -240,7 +240,8 @@ final class BodyInOrderTests: XCTestCase {
     }
 
     /// Plain words split around a file: both, each on a line of its own,
-    /// and no HTML, so no row among them.
+    /// and no HTML, so no mark among them: the file's tile is after them
+    /// (B-170).
     func testPlainWordsAroundAFileAreBothInTheBody() {
         let decoded = MIMEDecoder.decodeMessage(Self.plain)
         XCTAssertEqual(decoded.text, "Words before the PDF.\nWords after the PDF.")
@@ -248,7 +249,7 @@ final class BodyInOrderTests: XCTestCase {
         XCTAssertEqual(listed(Self.plain), ["Programme.pdf"])
         XCTAssertTrue(clip(Self.plain))
         let page = PanePage.letter(letter(Self.plain), style: style) ?? ""
-        XCTAssertFalse(page.contains(BodyFiles.scheme), page)
+        order(["Words before the PDF.", "Words after the PDF.", "bmfile:2?letter=7/3"], in: page)
     }
 
     /// A reply quotes every word he saw, the words after the PDF too, and
@@ -274,18 +275,16 @@ final class BodyInOrderTests: XCTestCase {
     }
 
     /// On the letter's own page and in a conversation's stack, the PDF's
-    /// row is where it sat, its name and size as the header has them, and
-    /// its link opens it.
+    /// tile is where it sat (B-170, its row until then), and its link opens
+    /// it.
     func testAFileAmongTheWordsHasItsRowWhereItSat() throws {
         let m = letter(Self.among)
-        let row = "<div style=\"margin: 0;\"><a href=\"bmfile:2.2?letter=7/3\" "
-            + "style=\"display: inline-block; padding: 10px 0; text-decoration: none;\">"
-            + "Programme.pdf (" + ByteCountFormatter.string(fromByteCount: 9, countStyle: .file)
-            + ")</a></div>"
+        let tile = BodyFiles.tile(m.listedAttachments[0], of: m, on: .light)
+        XCTAssertTrue(tile.hasPrefix("<a class=\"bm-tile\" href=\"bmfile:2.2?letter=7/3\" "), tile)
         let page = try XCTUnwrap(PanePage.letter(m, style: style))
         let stack = PanePage.stackBody(m).html
         for drawn in [page, stack] {
-            order(["Words before the PDF", row, "Words after the PDF", "Sent from my iPad"], in: drawn)
+            order(["Words before the PDF", tile, "Words after the PDF", "Sent from my iPad"], in: drawn)
             XCTAssertFalse(drawn.contains("<!--bm-file:"), drawn)
         }
         XCTAssertEqual(PaneNavigation.decide(.linkActivated, mainFrame: true,
@@ -293,9 +292,10 @@ final class BodyInOrderTests: XCTestCase {
                        .openFile(letter: "7/3", section: "2.2"))
     }
 
-    /// Only a file the header lists gets a row: not a picture the body
-    /// shows by `cid:`, not a part the letter does not have, and each file
-    /// once. A file before or after all the words has no mark at all.
+    /// Only a file the letter lists is drawn at a mark: not a picture the
+    /// body shows by `cid:`, not a part the letter does not have, and each
+    /// file once. A file before all the words has its mark above them
+    /// (B-170), and one after all of them none, its tile after the words.
     func testOnlyAFileTheHeaderListsHasARowAmongTheWords() throws {
         let logo = """
             Content-Type: image/png; name="logo.png"
@@ -325,18 +325,21 @@ final class BodyInOrderTests: XCTestCase {
             --MIX--
             """)
         let decoded = MIMEDecoder.decodeMessage(raw)
-        XCTAssertEqual(decoded.html, "<p>One.</p><img src=\"cid:logo@example.com\"><!--bm-file:9-->"
-                       + "<!--bm-file:2--><!--bm-file:3--><p>Two.</p>")
+        XCTAssertEqual(decoded.html, "<!--bm-file:1--><p>One.</p><img src=\"cid:logo@example.com\">"
+                       + "<!--bm-file:9--><!--bm-file:2--><!--bm-file:3--><p>Two.</p>")
         let m = letter(raw)
         XCTAssertEqual(m.listedAttachments.map(\.id), ["1", "5"])
         let page = try XCTUnwrap(PanePage.letter(m, style: style))
-        XCTAssertFalse(page.contains("bmfile:"), page)
+        order(["bmfile:1?letter=7/3", "<p>One.</p>", "<p>Two.</p>", "bmfile:5?letter=7/3"], in: page)
+        XCTAssertEqual(page.components(separatedBy: "bmfile:").count - 1, 2, page)
         XCTAssertTrue(page.contains("<!--bm-file:3-->"), "the logo's mark stays a comment")
-        // A sender's own mark of a file the header lists is drawn, as the
-        // row it is, but once: each file has one row among the words.
-        let twice = BodyFiles.rows(in: "<p>a</p><!--bm-file:5--><p>b</p><!--bm-file:5-->", of: m)
+        XCTAssertTrue(page.contains("<!--bm-file:9-->"), "a mark of no part stays a comment")
+        // A sender's own mark of a file the letter lists is drawn, as the
+        // tile it is, but once: each file is drawn once.
+        let twice = BodyFiles.drawn(in: "<p>a</p><!--bm-file:5--><p>b</p><!--bm-file:5-->", of: m,
+                                    on: .light, cut: false)
         XCTAssertEqual(twice.components(separatedBy: "bmfile:5?letter=7/3").count - 1, 1, twice)
-        XCTAssertTrue(twice.hasSuffix("<p>b</p><!--bm-file:5-->"), twice)
+        XCTAssertTrue(twice.contains("<p>b</p><!--bm-file:5-->"), twice)
     }
 
     /// A text file sent inline after the words is a file, as B-101 lists

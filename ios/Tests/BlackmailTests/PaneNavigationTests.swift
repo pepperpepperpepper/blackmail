@@ -137,27 +137,29 @@ final class PaneNavigationTests: XCTestCase {
         XCTAssertFalse(code.contains("evaluateJavaScript"))
     }
 
-    /// A file's row among a letter's words (`BodyFiles`, B-113) opens the
-    /// file as the header's row opens it: the letter alone in the pane,
-    /// one of its conversation's or his from Sent Mail (`related`), the
-    /// file one that letter lists, by
-    /// `openAttachment`, the header's row shown busy only when the header
-    /// shows that letter. Read from the source, which does not build here.
+    /// A file's tile in a letter's body (`BodyFiles`, B-113, B-170) opens
+    /// the file: the letter alone in the pane, one of its conversation's or
+    /// his from Sent Mail (`related`), the file one that letter lists, by
+    /// `openAttachment`, its tile shown coming whichever letter it is of,
+    /// with no row in the header to show busy. Read from the source, which
+    /// does not build here.
     func testAFilesRowAmongTheWordsOpensItAsTheHeadersRowDoes() throws {
         let code = try source("MessageDetailViewController.swift")
         XCTAssertNotNil(place(of: "private func openFile(_ section: String, of letter: String) { "
+                                  + "guard let (m, file) = self.file(section, of: letter) else { return } "
+                                  + "openAttachment(file, of: m) }", in: code))
+        XCTAssertNotNil(place(of: "private func file(_ section: String, of letter: String) -> (Message, Attachment)? { "
                                   + "let shown = message?.id == letter ? message "
                                   + ": (loaded[letter] ?? related.letter(withID: letter)) "
-                                  + "guard let m = shown, let file = m.listedAttachments.first(where: "
-                                  + "{ $0.id == section }) else { return } openAttachment(file, of: m) }",
+                                  + "guard let m = shown, let file = m.attachments.first(where: "
+                                  + "{ $0.id == section }) else { return nil } return (m, file) }",
                               in: code))
         XCTAssertNotNil(place(of: "private func openAttachment(_ attachment: Attachment, of letter: "
                                   + "Message? = nil, for item: PanePictures.Item = .quickLook) { "
                                   + "guard let m = letter ?? message else { return } "
-                                  + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }",
+                                  + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))",
                               in: code))
-        XCTAssertNotNil(place(of: "if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }",
-                              in: code))
+        XCTAssertFalse(code.contains("setAttachment"))
         XCTAssertNotNil(place(of: "try await repository.fetchAttachmentData( attachment.id, of: m.id, "
                                   + "mailboxID: m.mailboxID)", in: code))
     }

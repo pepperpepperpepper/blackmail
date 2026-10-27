@@ -183,18 +183,18 @@ final class MailShelfTests: XCTestCase {
         XCTAssertEqual(row.attachments.map(\.filename), ["Programme.pdf", "logo.png"])
     }
 
-    /// A row kept with a PDF drawn among its words (B-148): the record
-    /// says so, `among`, for that file alone, the format unchanged, and the
-    /// row read back after a launch has it, so the header drawn from the
-    /// kept row leaves the PDF out from the tap, as the listing's row does.
-    /// A record without the field, as every page kept before has, reads as
-    /// not among the words.
-    func testARowKeptWithAFileAmongItsWordsLeavesItOutOfTheHeader() throws {
+    /// A page kept by a build of B-148, with `among` on the record of a
+    /// PDF drawn among the words, which the header left out, reads back
+    /// with its files as they were, the field let be: nothing reads it
+    /// since B-170, when the header listed files no more. A row kept now
+    /// writes a file's fields as before B-148, with no `among`, in the same
+    /// format.
+    func testARowKeptByABuildThatMarkedAFileAmongTheWordsStillReads() throws {
         var kept = rows(3)
         kept[0].hasAttachment = true
         kept[0].attachments = [
             Attachment(id: "2.2", filename: "Programme.pdf", mimeType: "application/pdf",
-                       size: 90_000, contentID: nil, isInline: true, isAmongWords: true),
+                       size: 90_000, contentID: nil, isInline: true),
             Attachment(id: "3", filename: "Rates.pdf", mimeType: "application/pdf", size: 40_000),
         ]
         let writing = shelf()
@@ -208,22 +208,17 @@ final class MailShelfTests: XCTestCase {
         var records = try XCTUnwrap(page["rows"] as? [[String: Any]])
         var files = try XCTUnwrap(records[0]["files"] as? [[String: Any]])
         XCTAssertEqual(files.map { Set($0.keys) },
-                       [["id", "filename", "mimeType", "size", "inline", "among"],
+                       [["id", "filename", "mimeType", "size", "inline"],
                         ["id", "filename", "mimeType", "size", "inline"]])
-        XCTAssertEqual(files[0]["among"] as? Bool, true)
 
-        let row = try XCTUnwrap(shelf().page(of: "inbox")?.rows.first)
-        XCTAssertEqual(row.attachments.map(\.isAmongWords), [true, false])
-        XCTAssertEqual(BodyFiles.inHeader(.heading(for: row)).map(\.filename), ["Rates.pdf"])
-
-        // Kept before rows carried it: no field, not among the words.
-        files[0].removeValue(forKey: "among")
+        // As a build of B-148 kept it.
+        files[0]["among"] = true
         records[0]["files"] = files
         page["rows"] = records
         try JSONSerialization.data(withJSONObject: page).write(to: file)
         let older = try XCTUnwrap(shelf().page(of: "inbox")?.rows.first)
-        XCTAssertEqual(older.attachments.map(\.isAmongWords), [false, false])
-        XCTAssertEqual(BodyFiles.inHeader(.heading(for: older)).map(\.filename), ["Programme.pdf", "Rates.pdf"])
+        XCTAssertEqual(older.attachments, kept[0].attachments)
+        XCTAssertEqual(Message.heading(for: older).listedAttachments.map(\.filename), ["Programme.pdf", "Rates.pdf"])
     }
 
     // MARK: - When the server took a letter

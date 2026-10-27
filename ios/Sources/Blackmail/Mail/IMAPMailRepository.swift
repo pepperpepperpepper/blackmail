@@ -1398,10 +1398,10 @@ actor IMAPMailRepository: MailRepository {
     /// Walks a BODYSTRUCTURE looking for anything the reader would call an
     /// attachment, so the paperclip can be shown without downloading a byte.
     ///
-    /// A file the header lists, inline or not (`MIMEPart.isListedFile`,
-    /// B-101), but for the parts the pane shows as the letter's words
-    /// (`MIMEDecoder.bodyPlan(of:)`, every one of them since B-113), which
-    /// the header does not list either: a text part sent inline with a name
+    /// A file of the letter's, inline or not (`MIMEPart.isListedFile`, B-101),
+    /// but for the parts the pane shows as the letter's words
+    /// (`MIMEDecoder.bodyPlan(of:)`, every one of them since B-113), which the
+    /// pane does not draw as files either: a text part sent inline with a name
     /// can be the letter's own words, and a paperclip with no file under it
     /// would send him looking for one.
     static func hasAttachment(_ structure: MIMEPart) -> Bool {
@@ -1971,8 +1971,11 @@ actor IMAPMailRepository: MailRepository {
             }
             lastStructure = (id, structure)
         }
-        return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(fetched.header),
-                           decoded: decoded, named: named, shortened: shortened)
+        var letter = Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(fetched.header),
+                                 decoded: decoded, named: named, shortened: shortened)
+        // Its files stay on the server until he taps one (B-170).
+        letter.filesLeftOnServer = true
+        return letter
     }
 
     /// One body of a letter fetched in part, its parts joined as `flatten`

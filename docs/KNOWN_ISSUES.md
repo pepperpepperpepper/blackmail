@@ -36049,3 +36049,418 @@ The full suite, serially, on the branch: 2,961 tests, 16 of them new,
   around a letter on the iPad was not seen.
 - In a conversation Mail gives each letter a page of its own; here they
   share one, each with its own class and box.
+
+## B-170 — FIXED 2026-10-27, not yet seen on the iPad. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
+
+**Found** in the copy-Mail research of 2026-10-26, "New gaps found on the
+way", the second: "Mail puts every file in the letter's body, not in a
+list at the top. 7508 fixes only the duplicated one." Built on the
+owner's word of 2026-10-27, to build the three Mail differences.
+
+**What Mail does.** Read in iOS 18.6's simulator runtime on the Mac, read
+only. MessageUI writes each file of a letter into its body as WebKit's
+attachment element, `<ATTACHMENT SRC="%@" ID="%@" TITLE="%@" TYPE="%@"
+SUBTITLE="%@">`, its name the title and its size the subtitle, and
+MobileMailUI turns the element on (`_setAttachmentElementEnabled:`). Its
+script gives the element of a file not downloaded "Tap to Download"
+(`DOWNLOADABLE_STATUS`) and "Downloading" while it comes, and puts a
+picture in the element's place once it has come
+(`replaceNodeWithSrcWithAttachment`,
+`imageAttachmentNodeFinishedDownloading`), and draws so a picture of the
+letter's own its page does not name: "Called when an image that isn't
+referenced in the DOM finishes downloading." A style sheet left in
+MobileMailUI, `attachments.css`, has a tile of its own: a box of 160 by
+120, `margin: 5px; padding: 3px`, a border of `1px rgba(0, 0, 0, 0.3)`
+rounded at 15 px, its lines centred, an icon of 37 by 48 with 8 under it,
+the name and the size (`.fileinfoLabel`, `.filesizeLabel`) in
+`-apple-system-caption1` and `rgba(4, 4, 15, 0.45)`, the status in
+`-apple-system-footnote`, bold, in `-apple-system-blue`, each line cut
+with an ellipsis, and `-webkit-touch-callout: none` and
+`-webkit-user-select: none`. Nothing in 18.6 uses it: its class,
+`__MF_attachmentIcon`, is in neither MessageUI's binary nor
+MobileMailUI's, and MessageUI's element carries no class. Mail's tile is
+WebKit's own drawing of the element, which WebKit's source has
+(`AttachmentLayout.mm` and `RenderThemeIOS.mm`, its main branch read on
+2026-10-27, not the build in 18.6): a box of 160 by 119, a 1 px border of
+`rgb(204, 204, 204)` rounded at 16, an icon of 48 at most, 8 between the
+lines, the name and the size in the short caption style
+(`kCTUIFontTextStyleShortCaption1`) in the system's grey, the status in
+the footnote's, emphasized, in the element's colour, blue by WebKit's
+sheet for it; the box and the lines all scaled by the text size in
+Settings, never below the default (`attachmentDynamicTypeScaleFactor`).
+The legacy sheet's values stand in here for WebKit's drawing, which they
+are close to. Mail decides by a limit, not by a file's kind, whether it
+fetches a file at once: Message.framework has
+`_shouldAutoDownloadAttachment:` and `currentDownloadLimit`, the limit's
+value not found, and its script keeps a picture not fetched as the
+element saying "Tap to Download" until it has come. Mail's header view
+has nothing of a file. A file held has Mail's menu, by the strings
+MobileMailUI makes it with: Quick Look, Markup and Reply, Save Image or
+Save Video, Save to Files, Share (`QUICK_LOOK`, `MARKUP_DOCUMENT`,
+`SAVE_IMAGE`, `SAVE_VIDEO`, `SAVE_TO_FILES`, `SHARE`), and Copy as an
+iPhone on iOS 16 has it (B-150). A letter is printed through its body's
+web view (`viewPrintFormatter`, a `UIPrintPageRenderer`), so its files
+print as they are drawn there. High confidence for the tile and where it
+is; read, not seen on a screen.
+
+**What it was.** The header listed a letter's files under the date, a row
+each, its name and size in blue with a paperclip, 44 pt or taller
+(B-101); from the tap, by the list row's structure (B-042); all but a
+file put among the words, which had its row there (B-113, B-148). A photo
+attached to a letter and not shown by its HTML was one of those rows,
+never a picture. A letter of files and no words said "This message has
+no text." under its header's rows. A printed letter listed its files
+under its header.
+
+**Changed.**
+
+1. *The header lists no file* (`MessageHeaderView`): its rows, their
+   paperclips and their spinners are gone. Its lower rule is 3 and 14 pt
+   under the date, where it was for a letter with no file, so the header
+   is the height every such letter's was, from the tap to the letter
+   drawn, on its own and over a conversation.
+2. *Every file in the body, once* (`BodyFiles.drawn`): each file the
+   letter lists (`Message.listedAttachments`) drawn at its mark, the
+   first of them, and every other after the words, together, on lines of
+   their own. A picture the letter's HTML shows by `cid:` is drawn there
+   by the letter and not again, also one sent with no word that it is
+   inline, which B-101 lists as a file (one pass over the markup, each
+   address read whole, so `cid:a` is not taken for `cid:ab`). On a
+   letter's own page, in each letter's own body in a conversation
+   (`PanePage.stackBody`), and on paper.
+3. *Where a file sits* (`MIMEDecoder.drawnPieces`): a file with words
+   after it leaves its mark, where only one with words before it and
+   after it did (B-113), so a file before all the words is drawn above
+   them. A file after all the words has no mark, and is drawn after them.
+   A plain letter's words carry no marks: its files are after them.
+4. *A photo at its size* (`BodyFiles.picture`): a JPEG, PNG, GIF, WebP or
+   BMP, which WebKit draws on iPadOS 16 and 18 alike, is a picture no
+   wider than the letter (the page's rule for every picture), from the
+   loader as the letter's own pictures come, by an address that names its
+   letter (`BodyFiles.pictureID`, `PanePage.pictures`), so the photos of
+   two letters of a conversation, both part 2, are each their own; the
+   print's loader has them too. Its name is its `alt`. A tap on it opens
+   it in Quick Look whatever its size,
+   as a tile does, where a picture shown by `cid:` opens only when large
+   (B-122); a finger held on it gives B-150's menu (`PanePictures.file`,
+   `PanePictures.opening`). Any other picture, a HEIC say, is a tile.
+5. *Any other file as Mail's tile* (`BodyFiles.tile`): Mail's sheet's
+   box, border, rounding and spacing, inline and the box's own rules
+   important, so it is the same on every page; an icon drawn as a sheet
+   of paper with its corner turned and the file's kind on it from the end
+   of its name, "PDF", 37 by 48 with 8 under it; the name and the size in
+   the caption's type, Mail's grey, as the sheet's two labels for them and
+   WebKit's element have them; and a last line in the footnote's, bold,
+   Mail's blue, "Tap to Download" for a file of a letter opened without
+   its files (`Message.filesLeftOnServer`, set as a letter over 5 MB is
+   opened in part, B-054) and empty for any other. Their sizes written
+   out, 12 and 13 px, the caption's and the footnote's at the iPad's
+   default text size (`BodyFiles.caption`, `BodyFiles.footnote`), and not
+   the keywords the sheet has, which WebKit sizes by the text size in
+   Settings: no other text of the pane moves with it (D-007, B-071), and
+   the lines would grow out of a box whose size is written out, cut at its
+   top and bottom. No callout, no selection, and no drag
+   (`-webkit-user-drag: none`), so a finger held on it is the pane's
+   hold, not WebKit's for a link. In Mail's
+   light colours on an HTML letter's page, which the page's invert turns
+   with the letter's own (`SignatureSheet.invert`), its icon kept as drawn
+   with the letter's pictures; in the dark ones on a plain letter's, which
+   is not inverted; light on paper, printed in its own colours, and with
+   no "Tap to Download".
+6. *A tap* on a tile, a link of the pane's own (`bmfile:`), opens the file
+   in Quick Look, as B-113's row did (`PaneNavigation`'s `openFile`,
+   `openAttachment`).
+7. *Coming* (`BodyFiles.Busy`, the script's `bmFileBusy`): from the tap
+   until the file opens or is let go, the tile is dimmed to half and its
+   last line says "Loading…", the pane's word, as B-148's row said it
+   after its name; then the line says what it said again.
+8. *Held* (the script's `bmPictureDown` and `bmFileClicked`,
+   `BodyFiles.Hold`, `holdFile`): a finger held half a second on a tile,
+   anywhere on it, still, gives a menu at the finger, by the sheet a held
+   photo has (`hold`, now one function for both): Quick Look, Save to
+   Files, Share and Copy (`PanePictures.fileMenu`), with Save Image too
+   for a picture drawn as a tile (`PanePictures.menu(for:)`). Copy puts a
+   file that is no picture on the pasteboard as its kind, by its type or
+   else by the end of its name, a PDF as a PDF. The lift after it is
+   stopped, and the click after it too, so a hold never opens the file as
+   well.
+9. *A letter shown or printed only in part:* its files with no mark in
+   what came are drawn above the words, under the pane's line "Only the
+   beginning of this message is shown.", for the reason the line is
+   there: the sender's markup ends wherever the cut fell, and what comes
+   after it can be drawn inside a table, a link or a comment, or not at
+   all (`PanePage.shortened`).
+10. *A letter of files and no words* draws its files, where it said "This
+    message has no text." (`PanePage.isEmpty`).
+11. *Printed* (`PrintPage`): no file under the header; the files in the
+    body as on the pane; the letter in words, for a page that could not
+    be drawn, lists them after its text.
+12. *Gone with the header's rows:* B-148's rule of which files the HTML
+    draws among its words, worked out from the structure for the header
+    at the tap (`MIMEDecoder.filesAmongWords`, `Attachment.isAmongWords`,
+    `BodyFiles.inHeader`), and its record on the iPad (`MailShelf`'s
+    `among`), which a page kept by a build of B-148 still has and which
+    is let be. The list row's files from its structure (B-042) are still
+    carried and kept; nothing draws them at the tap now.
+13. *A picture sent to be shown that the body shown does not show*
+    (`BodyFiles.drawn`): a part sent inline, a picture, with a
+    `Content-ID` (`Attachment.isShownInBody`), which no file list ever
+    had, is drawn as a file where the body shown does not name it, as
+    Mail's script draws one: after a plain letter's words, after the words
+    of HTML that never names it, or at its mark, and alone in a letter of
+    nothing else, which is not said to have no text (`PanePage.isEmpty`).
+    At its size from the loader by its own address, opened at a tap
+    whatever its size and held for the photo's menu, as a picture file
+    (`PanePage.pictures`, `PanePictures.file`, the pane's `file`). Not for
+    a letter shown or printed in part, whose HTML names such a picture, as
+    often as not, in what did not come, with the rest of its words. HTML
+    that names one draws it itself, as before.
+14. *A conversation's pictures* (`PanePage.pictures(of:adding:)`, the
+    pane's `prepareInlineImages(for:inStack:)` and `pictureMap`): each body
+    put into the stack, his letters' from Sent Mail too, adds its letter's
+    pictures to the loader's map, where each replaced the map with its own.
+    Every body that comes before the stack's page has loaded waits for it
+    and goes in with the others (`PaneDocument`), and WebKit asks for all
+    their pictures then: with only the last body's in the map, the photos
+    of every letter before it, all of them now, not only those shown by
+    `cid:`, were empty until the stack was drawn again, by reasoning from
+    the code, not seen. The map starts empty as a conversation is shown,
+    a letter on its own has its own, and the stack drawn again after
+    WebKit lost it adds the letters it holds, the header's last, so its
+    pictures win a clash of `Content-ID`s as before.
+
+**What it reverses.** B-101's rows of files in the header, and B-042's
+"The reading pane's header lists a letter's files from the tap"; B-113's
+"A file before or after all of the words has no mark, and its row in the
+header alone" and its row among the words; B-148's header rule, its
+`among`, and its "Nothing like Mail's tile is drawn: a row of words";
+B-122's least size for a tap, for a picture file the pane draws (a
+picture shown by `cid:` keeps it); B-026's "This message has no text."
+for a letter of files and no words; B-110's lines of files under the
+printed header; and B-101's "the pane does not draw it as a file"
+(`Attachment.isShownInBody`) for a picture sent to be shown by `cid:`
+that the body shown does not show. B-148's check, still open, has a line
+for a build with this change (TODO). D-007 and B-071 stand: the tile's
+type is written out at the default text size, and moves with nothing.
+
+**Not changed.** What a file is (`MIMEPart.isListedFile`,
+`Attachment.isShownInBody`); the paperclip on the list row; what is
+fetched and when: a letter of 5 MB or less whole, a larger one in part,
+each of its files alone at a tap (B-054); a photo's bytes asked for by
+the page as a picture shown by `cid:` is, from the copy of the letter in
+hand or, for a letter opened in part, by its section alone. That is a
+departure from Mail, kept on purpose: Mail decides by a file's size
+whether to fetch it with the letter, and here a letter opened in part
+fetches every photo the page draws, of any size, and no other file, of
+any size, until it is tapped. B-054 already fetched each picture the body
+shows as the page asks for it, and such a letter is most often one of two
+or more photographs (B-054), which a tile would leave unseen until each
+was tapped; Mail's limit is not known to copy. Reply and
+Forward, and their question about files (`ReplyFiles`); the composer; the
+share sheet.
+
+**What he sees.** A letter with a PDF attached: under its words, a
+rounded box with a page marked "PDF", the PDF's name and its size in
+grey. Tapped, it dims and says "Loading…" until the PDF is in Quick Look.
+A letter with a photo attached: the photo under its words, as wide as the
+letter at most, where there was a line of blue words in the header; and a
+photo sent to be shown that the letter's words never show, which was
+nowhere. Either held: a small menu beside his finger. A letter over 5 MB:
+its photos come in, and a PDF's box says "Tap to Download". The header
+ends at the date for every letter. *New words:* "Tap to Download", Mail's
+own (MobileMailUI's `DOWNLOADABLE_STATUS`).
+
+**Siblings.** Built beside B-166 (text size, `bm-cm-textsize`), B-167
+(Mail's settings), B-168 (remote content, `bm-cm-remoteask`), B-171
+(Markup and Reply, `bm-cm-markup`) and the light colours in dark mode
+(`bm-cm-darkpics`), each touching code this changes: B-166's
+`MessageHeaderView.restyle` sets the type of the file rows this takes
+away, and its `SteadyChromeTests` change the paperclip's pin this takes
+out; B-168 changes `PanePage.letter`'s line that draws the files and
+`PrintPage`'s body, `PrintWiringTests` and `PaneNavigationTests`; B-171
+changes `holdPicture`, which this makes call `hold`, `PanePictures`'
+menu, and `PictureHoldTests` and `ExpiryWarningTests`' readings of the
+pane; the dark-mode batch changes `PanePage`, `ConversationDocument`'s
+styles and `PrintPage`, and the tile's light colours are written for a
+letter's page drawn light or inverted. B-167 changes
+`MessageDetailViewController` and `SteadyChromeTests` elsewhere.
+`PaneNavigation`'s line "which opens it as a file's row does" is left for
+the merge with B-168, which changes the line above it; its other words of
+a file's row now speak of the tile. B-168's "Load All Images" puts a
+letter's body back into a stack with `prepareInlineImages(for: [m])`
+(`loadImages(of:)`): merged with this, that call should say `inStack:
+true`, or the map of a stack is that one letter's again and the other
+letters' photos go blank as before. B-168 changes `PaneNavigationTests`
+too, beside the line this changes, and B-167, B-168 and the dark-mode
+batch `CompleteThreadsTests`, at other lines than its one here. B-166's
+text size: see Not covered. Checked with `git merge-tree` against each
+branch: the second round adds no conflict to those the first had, the
+stack's map declared clear of B-168's new lines. Read from their
+branches, not merged or built together here.
+
+**Tests.** `FileListedOnceTests`, rewritten for this: fourteen, where
+B-148 had seven. Ten shapes of letter, each file drawn once, on the
+letter's own page and in its body in a stack, in its place among the
+words: Apple Mail's two shapes for a PDF among the words, plain words
+split by a file, a file after all the words, one before them, two among
+them and one at the end, a photo attached after the words and a PDF, a
+plain letter with a photo, a note with a file and a letter forwarded
+inline, and a file with no words, which is not said to have no text; and
+pictures shown by `cid:`, one sent inline and one that is a file, each
+drawn once, by the letter, and a `cid:` that only begins as one not taken
+for it. A picture sent to be shown by `cid:` that the body shown does not
+show: drawn once, after a plain letter's words, after HTML that never
+names it, and alone in a letter of nothing else, on the page, in the
+stack and printed decoded, with its address in the loader's map and
+opened as a picture file; not drawn for a letter shown in part, whose
+file still is, above the words; and drawn by HTML that names it, not by
+the pane. The header listing no file, read from the source, and the
+decoder's rule and the model's flag gone. Mail's tile: its rules, light,
+dark and on paper, its name and size in the grey caption, every line in a
+size written out and none in WebKit's keywords, no drag, its words
+escaped, "Tap to Download" only for a letter opened without its files and
+never on paper, the kind on its icon, a size not known. A photo at its
+size from the loader, by an address naming its letter, two letters' each
+their own, the kinds drawn as photos and not, and the map the pane and
+the print's loader read. In a stack, two letters' bodies put in one after
+the other both in the map, each its own, a shared `Content-ID` the later
+letter's, and, read from the pane, each body put in, his letter's and the
+stack drawn again adding to the map, which a conversation shown starts
+empty and a letter on its own replaces. A cut: the files above the words
+under the line, on the page, in the stack and printed, and after the
+words for the letter whole. On paper: no file under the header, the photo
+and the tile in the body, and a plain letter's photo decoded as it is
+drawn (`decoding=sync`), which prints blank without it (seen on the test
+iPad, 2026-10-23). In node on the model of the pane's page (`ModelPage`):
+the tile coming, dimmed with "Loading…" in its last line and back to what
+it said, "" or "Tap to Download", once when said twice, another letter's
+changing nothing, on a letter's page and in a stack; a finger held half a
+second on a tile tells the pane once, with its link and the finger's
+place, its lift and the click after it stopped, and a tap after that not
+stopped; a short touch or a finger that moves no hold; in a stack, the
+hold names its letter's section and opens or closes no letter. A hold
+read as the script posts it, and what is not one; the menus, a picture
+drawn as a tile with Save Image. A photo file opening at a tap whatever
+its size, held, and in a stack, a picture shown by `cid:` keeping B-122's
+least size, the letter's own picture by a picture file's address its own,
+and another letter's, or a file that is no picture, opening nothing. And
+read from the source: the tile shown coming from the tap to the end with
+no header row, the hold's menu, the sheet, Copy, and the click wired.
+`LargeLetterTests`, one new and one grown: a letter opened in part has
+`filesLeftOnServer` and its PDF's tile says "Tap to Download", on its
+page and in a stack, and the same letter fetched whole neither; and words
+cut short with two files drawn above them under the line, each saying it.
+`MailShelfTests`, one changed: a page kept by a build of B-148 with
+`among` reads back as it was, and a row kept now writes no `among`.
+
+Changed as the code they read changed, and said so: `BodyInOrderTests`,
+three (the tile where B-113's row was; a file before the words marked,
+and each file drawn once; a plain letter's file after its words);
+`PrintPageTests`, three (no file under the header; the words with the
+files after the text; a file's name escaped in the body);
+`PrintWiringTests`, two (the printed header and the pane's list no file,
+the print's body draws them; the pane's map built in a stack by adding);
+`PanePageTests` (the loader's map has each letter's photos too, a picture
+sent to be shown among them); `PaneNavigationTests` (the pane's file for
+a tile looked for among all the letter's parts); `LargeLetterTests`, two
+(a page with a cut has the file above the words); `PictureHoldTests`,
+`PictureTapTests`, `LastFileTappedTests`, `PaneNavigationTests`,
+`ExpiryWarningTests` and `StackHeaderAtTheTapTests`, as the pane reads
+now; `SteadyChromeTests` (no paperclip in the header);
+`CompleteThreadsTests` (his letter's body adding to the stack's map);
+`BoundedLetterTests`, its ordinary letters' pages taken again: each
+carries the corpus's five pictures sent to be shown and names few or
+none, and the pane draws those after the words now, six letters of
+nothing else among them that said they had no text; with that undone, the
+fingerprints before held, every one; `DatesRedrawnTests` (the header's
+one `accessibilityLabel`); `LinePressTests` (four `preventDefault`s in
+the script, the click on a held tile's the fourth). `ModelPage`: an
+element keeps the words written in it, a click hands its listeners
+`preventDefault` and the run keeps whether one called it, a tile held is
+posted as its own, and a file's link reports its last line.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run, then put back and passing, counted as failures in tests: no mark for
+a file before all the words, 5 in 3; a letter of files alone said to have
+no text, 2 in 1; files after a cut drawn after the words, 7 in 4; no "Tap
+to Download", 6 in 3; "Tap to Download" on paper, 2 in 2; the plain
+letter's tile in the light colours, 4 in 1; a letter opened in part not
+marked so, 4 in 2; no photo drawn as a photo, 19 in 5; the loader without
+the photo files, 22 in 3; a small photo file not opened by a tap, 2 in 1;
+a picture shown by `cid:` drawn again by the pane, 15 in 5; an address
+read only to its first `%`, 12 in 5; a tile's last line not put back, 4
+in 1; no hold on a tile, 5 in 1; the click after a hold not stopped, 3 in
+2; a hold read with `hold` false, 1 in 1; a picture drawn as a tile held
+without Save Image, 2 in 1; a held tile given the photo's menu, 1 in 1;
+the tile not shown coming at the tap, 6 in 4; the header reading the
+files again, 2 in 2; the printed body without its files, 4 in 3; the
+words without their files, 1 in 1; `among` written again, 2 in 2; every
+mark of a file drawn, 2 in 1. And for the second round of changes,
+three runs, counted in `FileListedOnceTests`, `PrintPageTests`, `PrintWiringTests`,
+`PaneNavigationTests` and `PanePageTests` alone: the tile's type in
+WebKit's keywords again, 7 in 1; its name black again, 2 in 1; no
+`-webkit-user-drag: none`, 1 in 1; the stack's map replaced by the last
+body's, in the model, 3 in 1, and in the pane, 3 in 2; a picture sent to
+be shown never drawn by the pane, 21 in 1; drawn for a letter shown in
+part, 2 in 1; left out of the loader's map, 2 in 1; not found by its
+address, 7 in 2; not found by the pane's file for a tile, 2 in 1; a
+letter of one such picture said to have no text, 2 in 1; a plain letter's
+printed body not decoded at once, 1 in 1.
+
+The full suite, serially: 2,953 tests, 16 of them this entry's, 6
+skipped, none failing (2,945 before it). The release build for the iPad
+links.
+
+**Not covered.**
+
+- Not seen on the test iPad: the check's every step (TODO).
+- Mail's tile was not seen on a screen, in light or Dark Mode. Its icon
+  here is not iOS's own for the kind of file, nor Quick Look's picture of
+  a PDF's first page, which Mail shows: the page cannot ask iOS for
+  either. Its name and size in the grey caption are the sheet's labels'
+  and WebKit's title's and subtitle's, read, not seen. Its look pressed
+  (`:active`) is not copied. Mail's tile in Dark Mode is WebKit's
+  own, its colour filter off (`-apple-color-filter: none` among
+  MobileMailUI's strings); here it is the light tile inverted with the
+  letter, or written dark on a plain one: the colours were not compared.
+- Mail says "Downloading" with a bar while a file comes; here "Loading…"
+  as B-148 has it, and no bar.
+- A long name is cut at its end, as Mail's sheet cuts it, where the
+  header's row cut it in the middle and kept the end of the name, the
+  kind; the icon has the kind.
+- A plain letter's files are after its words, where Mail draws a file
+  put among plain words where it sat.
+- The tile does not follow the iPad's text size, where WebKit's own
+  element in Mail grows with it, box and lines, from the default up:
+  D-007 and B-071 hold the pane's type at the default. B-166, built
+  beside this on D-024's ruling, makes the letter's words follow the text
+  size; merged with it, the tile stays at the default's while the words
+  grow, until it is scaled with them as WebKit scales its element.
+- WebKit's own long press on a link, a preview of the link before the
+  half second, as B-150's Not covered has it for a picture (the check,
+  step 3). A drag of the tile is turned off.
+- A letter fetched whole whose markup leaves a comment, a `<style>` or a
+  `<textarea>` open has its files after the words drawn inside it, or not
+  at all; only a letter shown or printed in part has them above.
+- A photo is fetched as the page draws it, as a picture shown by `cid:`
+  is, whatever its size, and any other file of a letter opened in part
+  only at a tap, whatever its size: Mail's rule is by size (Not changed).
+  A letter over 5 MB of many photos asks for each by its section, one
+  after another; not timed on the iPad.
+- A letter shown or printed in part draws no picture sent to be shown by
+  `cid:` that the part shown does not show: its HTML names it, as often as
+  not, after the cut. A plain letter cut so loses such a picture.
+- Mail's own tile, WebKit's, was read in WebKit's source of today, not in
+  the build iOS 18.6 has; its values here are the legacy sheet's, close to
+  WebKit's (160 by 120 and 15 for 160 by 119 and 16, a border of black at
+  30 per cent for `rgb(204, 204, 204)`). A photo that cannot be fetched is
+  drawn as WebKit draws a picture that did not come, its name its `alt`,
+  not seen; a tap on it asks for it again.
+- Markup and Reply on a held file (B-171 builds it for a held photo),
+  Save Video, Open in New Window and Print from the menu are not built.
+- A HEIC is a tile, which iPadOS 18 could draw as a photo, as could
+  iPadOS 17; the test iPad's 16.5.1 cannot.
+- The list row's files, from its structure, are carried and kept on the
+  iPad and drawn nowhere at the tap (B-042): the header has no rows to
+  draw from them.

@@ -127,16 +127,15 @@ struct MessageSummary: Identifiable, Hashable {
     /// caller falls back to the folder the message was listed from — which
     /// is exactly right for a one-message-one-folder server.
     var countedFolderIDs: [String] = []
-    /// The files the letter carries, as the reading pane's header lists
-    /// them, worked out from the BODYSTRUCTURE the row is fetched with, so
+    /// The files the letter carries, as the reading pane draws them in its
+    /// body, worked out from the BODYSTRUCTURE the row is fetched with, so
     /// before a byte of the letter is downloaded
     /// (`MIMEDecoder.listedAttachments(in:)`). Empty when it has none, or
     /// the server described no structure.
     ///
-    /// Carried so the header can list them from the tap. It used to list
-    /// them only once the letter had come, and grew by a row per file
-    /// then, pushing a conversation's stack down under him as he began to
-    /// read it.
+    /// Carried so the header could list them from the tap (B-042). It has
+    /// listed none since B-170: every file is drawn in the letter's body,
+    /// as Mail draws it, and the body comes with the letter.
     var attachments: [Attachment] = []
     /// Whom the letter was sent to, as the ENVELOPE the row is fetched with
     /// names them, `Name <address>` or the address alone, as `cc` is.
@@ -275,12 +274,22 @@ struct Message: Identifiable {
     /// how deep a line's quote is by it, as Mail does (`PlainQuotes`,
     /// B-147).
     var textIsFlowed = false
+    /// True for a letter opened without its files, one too large to fetch
+    /// whole (`IMAPMailRepository`'s `loadLetterInPartOnce`, B-054): each
+    /// comes from the server alone when he taps it, and its tile in the
+    /// body says "Tap to Download", as Mail's tile says of a file it has
+    /// not downloaded (`BodyFiles`, B-170). A letter fetched whole has its
+    /// files in hand, and its tiles say nothing of it.
+    var filesLeftOnServer = false
 }
 
 extension Message {
-    /// The files the header lists: every attachment but the pictures the
-    /// body shows by `cid:`, which are not files to him. See
-    /// `Attachment.isShownInBody`.
+    /// The letter's files: every attachment but the pictures the body
+    /// shows by `cid:`, which are not files to him. See
+    /// `Attachment.isShownInBody`. The pane draws each in the letter's body
+    /// (`BodyFiles`, B-170), where the header listed them until then, and
+    /// a picture sent to be shown by `cid:` that the body shown does not
+    /// show as well.
     var listedAttachments: [Attachment] { attachments.filter { !$0.isShownInBody } }
 
     /// The body to quote underneath a reply or forward.
@@ -381,22 +390,17 @@ struct Attachment: Identifiable, Hashable {
     /// argument order every existing call site uses.
     var isInline: Bool = false
 
-    /// True for a file the letter's HTML draws among its words, a row of
-    /// its own where it sat (`BodyFiles`), as Apple Mail sends a PDF put in
-    /// the middle of a letter: worked out from the letter's structure
-    /// (`MIMEDecoder.filesAmongWords`), for a list row before the letter has
-    /// come as for the letter, so the header leaves it out from the tap
-    /// (`BodyFiles.inHeader`, B-148). Kept on the iPad with the row
-    /// (`MailShelf`). Declared last for the reason `isInline` is.
-    var isAmongWords: Bool = false
-
     /// True for a picture the body shows by `cid:`: a part sent inline, a
     /// picture, with a `Content-ID`. It stays among the letter's parts (the
-    /// reading pane needs it to resolve the reference) but the header does
-    /// not offer it as a row, which would list the signature's logo on
-    /// every letter, as Mail does not.
+    /// reading pane needs it to resolve the reference) but the pane does
+    /// not draw it as a file, which would put the signature's logo on
+    /// every letter twice, as Mail does not; unless the body shown does not
+    /// show it, a plain letter's say, when the pane draws it after the
+    /// words, as Mail draws a picture its page does not name (`BodyFiles`,
+    /// B-170).
     ///
-    /// Every other part is a file, inline or not, and has its row (B-101).
+    /// Every other part is a file, inline or not, and is drawn in the body
+    /// (B-101, `BodyFiles` since B-170).
     /// It was `isInline` alone until 2026-10-22, which left out the PDFs
     /// Apple Mail sends inline: no row, and nothing that could open them,
     /// as the body does not show them. Mail lists them.

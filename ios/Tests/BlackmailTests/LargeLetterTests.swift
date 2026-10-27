@@ -335,9 +335,12 @@ final class LargeLetterTests: XCTestCase {
 
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
         let page = try XCTUnwrap(PanePage.letter(letter, style: style))
+        // Its file under the line, above the words cut short (B-170).
+        let tile = BodyFiles.tile(try XCTUnwrap(letter.listedAttachments.first), of: letter, on: .light)
         XCTAssertTrue(page.contains("<div id=\"bm\"><p style=\"color: #8e8e93; margin: 0 0 1em 0; "
                                     + "white-space: normal;\">"
-                                    + MailText.shortenedNotice + "</p><p>xxx"), page)
+                                    + MailText.shortenedNotice + "</p><div style=\"margin: 0; white-space: normal;\">"
+                                    + tile + "</div><p>xxx"), page)
         let stack = PanePage.stackBody(letter)
         XCTAssertTrue(stack.html.hasPrefix("<p style=\"color: #8e8e93;"), stack.html)
         XCTAssertTrue(stack.html.hasSuffix("xxx"))
@@ -978,8 +981,11 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertTrue(letter.isShortened)
         let page = try XCTUnwrap(PanePage.letter(letter, style: .init(inset: 26, bodyPointSize: 17,
                                                                       lineHeight: 1.41)))
-        XCTAssertTrue(page.contains(MailText.shortenedNotice + "</p>Plain words here.</div>"), page)
         XCTAssertEqual(letter.listedAttachments.map(\.filename), ["Programme.pdf"])
+        // Its file under the line, above the words (B-170).
+        let tile = BodyFiles.tile(letter.listedAttachments[0], of: letter, on: .dark)
+        XCTAssertTrue(page.contains(MailText.shortenedNotice + "</p><div style=\"margin: 0; white-space: normal;\">"
+                                    + tile + "</div>Plain words here.</div>"), page)
     }
 
     /// A file that is the whole of a letter forwarded in a large one, a
@@ -1107,6 +1113,40 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertEqual(letter.htmlBody, String(first.prefix(Self.section)))
         XCTAssertTrue(letter.isShortened)
         XCTAssertEqual(letter.listedAttachments.map(\.filename), ["x.pdf", "Programme.pdf"])
+        // Its files drawn above the words cut short, under the pane's line,
+        // each saying "Tap to Download" (B-170).
+        let page = try XCTUnwrap(PanePage.letter(letter, style: .init(inset: 26, bodyPointSize: 17,
+                                                                      lineHeight: 1.41)))
+        let tiles = letter.listedAttachments.map { BodyFiles.tile($0, of: letter, on: .light) }
+        var from = page.startIndex
+        for needle in [PanePage.shortenedLine] + tiles + ["<p>xxx"] {
+            let found = try XCTUnwrap(page.range(of: needle, range: from..<page.endIndex), needle)
+            from = found.upperBound
+        }
+        XCTAssertEqual(page.components(separatedBy: BodyFiles.tapToDownload).count - 1, 2)
+    }
+
+    /// A letter opened without its files says so of each: its tile says
+    /// "Tap to Download", as Mail's says of a file it has not downloaded,
+    /// and a tap fetches it alone (B-054). The same letter fetched whole
+    /// has its files in hand, and its tile says nothing of it (B-170).
+    func testALetterOpenedWithoutItsFilesHasTilesThatSayTapToDownload() async throws {
+        let row = try await listed(photographs(), by: makeRepository())
+        let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
+
+        let large = try await makeRepository().open(row)
+        XCTAssertTrue(large.filesLeftOnServer)
+        let page = try XCTUnwrap(PanePage.letter(large, style: style))
+        XCTAssertEqual(large.listedAttachments.map(\.filename), ["Programme.pdf"])
+        XCTAssertTrue(page.contains(BodyFiles.tile(large.listedAttachments[0], of: large, on: .light)))
+        XCTAssertEqual(page.components(separatedBy: ">Tap to Download</span>").count - 1, 1)
+        XCTAssertTrue(PanePage.stackBody(large).html.contains(">Tap to Download</span>"))
+
+        let whole = try await makeRepository(appLimits: true).open(row)
+        XCTAssertFalse(whole.filesLeftOnServer)
+        let wholePage = try XCTUnwrap(PanePage.letter(whole, style: style))
+        XCTAssertTrue(wholePage.contains(BodyFiles.tile(whole.listedAttachments[0], of: whole, on: .light)))
+        XCTAssertFalse(wholePage.contains("Tap to Download"))
     }
 
     // MARK: - A SEARCH in the connection log

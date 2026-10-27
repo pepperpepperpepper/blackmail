@@ -101,10 +101,11 @@ final class SteadyChromeTests: XCTestCase {
     }
 
     /// The reading pane's five buttons and the calendar at
-    /// `Theme.barSymbolSize`, the folders' icons and a file's paperclip in
-    /// a letter's header at `Theme.symbolSize`. The paperclip and the icons
-    /// say so to their button and their row as well, which otherwise put a
-    /// size of their own on the image.
+    /// `Theme.barSymbolSize`, and the folders' icons at `Theme.symbolSize`.
+    /// The icons say so to their row as well, which otherwise puts a size
+    /// of its own on the image. A file's paperclip in a letter's header
+    /// said so to its button until B-170, when the header's file rows went:
+    /// a file is drawn in the body.
     func testTheSymbolsUIKitSizedAreFixed() throws {
         let toolbar = try source("UI/MessageDetailViewController.swift")
         XCTAssertNotNil(place(of: "let item = UIBarButtonItem(image: Theme.barSymbol(name), style: .plain, "
@@ -113,8 +114,7 @@ final class SteadyChromeTests: XCTestCase {
         XCTAssertNotNil(place(of: "let jump = UIBarButtonItem(image: Theme.barSymbol(\"calendar\"), style: .plain,",
                               in: list))
         let header = try source("UI/MessageHeaderView.swift")
-        XCTAssertNotNil(place(of: "config.image = Theme.symbol(\"paperclip\") "
-                                  + "config.preferredSymbolConfigurationForImage = Theme.symbolSize", in: header))
+        XCTAssertFalse(header.contains("Theme.symbol("), "no symbol in the header")
         let folders = try source("UI/MailboxListViewController.swift")
         XCTAssertNotNil(place(of: "content.image = Theme.symbol(icon(for: mailbox.role)) "
                                   + "content.imageProperties.preferredSymbolConfiguration = Theme.symbolSize",

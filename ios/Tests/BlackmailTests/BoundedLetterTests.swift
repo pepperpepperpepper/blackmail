@@ -515,22 +515,32 @@ final class BoundedLetterTests: XCTestCase {
 
     /// The pane's page as B-055 left it (links in the text, the pane's own
     /// script out of the page), which the code before B-054 made of the
-    /// same letters byte for byte once B-055 was in.
+    /// same letters byte for byte once B-055 was in; and since B-170 with
+    /// the pictures each letter carries and its HTML does not name drawn
+    /// after its words, as Mail draws a picture its page does not name.
+    /// Each letter here carries the five pictures of `OrdinaryMail.pictures`,
+    /// sent to be shown, and most name few or none of them: every page
+    /// changed, and the six letters that showed nothing, 5, 6, 7, 11, 21
+    /// and 38, which said "This message has no text.", show their pictures.
+    /// With that change undone, the pane drawing none of them and such a
+    /// letter said to have no text, the fingerprints before it held, every
+    /// one: they began 8ed1fd729c463093, and each of the six was
+    /// 355790a2dd2326b6.
     private static let pages = [
-        "8ed1fd729c463093", "001452042feeb48b", "bffd162866db60c7", "70ae21e172cb2f59",
-        "6929055f3ae96a9b", "355790a2dd2326b6", "355790a2dd2326b6", "355790a2dd2326b6",
-        "1e54000f6f73684b", "903cc1a690b06407", "087fffa6deefd08d", "355790a2dd2326b6",
-        "1ffb99359a4d0d37", "9b254dbd3de0d9a3", "d2b792ec1c12b87f", "7fd79aa689386437",
-        "007b6384be4357ab", "474956b595d529b1", "59a44d067094aee9", "1d7e377417a38fcf",
-        "112e9b050bda7bd1", "355790a2dd2326b6", "442972f1ed521dd3", "28d77903f8d41641",
-        "0a7d557b77bc594f", "c613b75cb6fc43e3", "24ad962b246fbfe3", "aa0ddde42f754451",
-        "e2b2797593f4f17f", "525b10cee522f2bb", "1b66fc6f9b877c71", "5d1b0cbd92fe6503",
-        "bd4eea0fa8b52b49", "8167e3b55e46bafd", "324f6a19622021cb", "5fa515a696a39bbd",
-        "1de2954065047979", "38e4d32e0aa27a2b", "355790a2dd2326b6", "035ce5164e15c94b",
-        "8b77dde964ca3f71", "bb42129aa27ad7db", "e9f0f8c0f233f33b", "d8178ab60cad20ab",
-        "0b9fe1ffbe110d0b", "6c4bdae5d0e6c8cf", "7c2159ea9bec613d", "89f34672c6b6ebcb",
-        "615bd78df00c4995", "1354a845a1f28309", "65aff0f215b42851", "181308f186571713",
-        "b1a74e2b45e329b3", "bc91ca5ffa349b33",
+        "042fa1fba3b185eb", "ae371aff3808de9b", "f8a91ad417a307b3", "401046654ee323dd",
+        "0b8add0a65c15e13", "841ef67cad831465", "e58f0a723fb0916b", "841ef67cad831465",
+        "39b39f1151d22493", "252bbba376df1673", "51c897aefdc31c13", "d3adb511df4bfb77",
+        "4ad1acbe03ec2ddf", "776c193f56cbe725", "f8ac680ff10a61c7", "9101361c31be9825",
+        "bc8d04113cb7b163", "41bba79acc6be995", "86a0c79e7df1bd1d", "d76777b7578e52a9",
+        "4a84965b55302199", "64b9974d62906d8f", "e0f3a0a09d1c20af", "717da7976e96efcd",
+        "efd4b45365027c8f", "1eb97def8991a813", "7bcfbee5d7567967", "d85ad812bcf1efb5",
+        "e5436cef6c144eab", "f162dd9786fbb47b", "6fb050b1e397548f", "afdf912c86864e77",
+        "994ee34f0e121715", "24658b232cc917e1", "f6f84d381aa2421d", "302073a1c68034a1",
+        "54af712b4e631e25", "2dff5da509a27623", "29eb0f5046845c05", "55cf2ee044c86ba3",
+        "693674839c8c88ff", "8b51c9db185b820b", "2f2388b5e0ba091b", "a373e15015f7583b",
+        "e7389efb5fcc3e27", "fbc2d41db3f24e17", "c3a4959b9b504d89", "3c33306c9fdde7fb",
+        "8f83365830460031", "e80a9a3479b3b849", "36f9c38c2ad3337b", "5e7ab8944c678a4b",
+        "bc90ebb401c6b19b", "cbe4ecee1abdd54b",
     ]
 
     /// Six of the thirty are a note and a letter forwarded inline after it,

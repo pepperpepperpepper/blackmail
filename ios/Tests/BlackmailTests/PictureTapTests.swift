@@ -422,8 +422,9 @@ final class PictureTapTests: XCTestCase {
         let handled = try XCTUnwrap(code.range(of: "didReceive scriptMessage: WKScriptMessage) { "
                                                    + "if scriptMessage.name == PanePictures.handler { "
                                                    + "if let tap = PanePictures.Tap(scriptMessage.body) { "
-                                                   + "if tap.isHold { holdPicture(tap) } else { openPicture(tap) } } "
-                                                   + "return } "
+                                                   + "if tap.isHold { holdPicture(tap) } else { openPicture(tap) } "
+                                                   + "} else if let hold = BodyFiles.Hold(scriptMessage.body) { "
+                                                   + "holdFile(hold) } return } "
                                                    + "guard scriptMessage.name == \"bmLetter\","))
         XCTAssertLessThan(handled.lowerBound, try XCTUnwrap(code.range(of: "related.entryID(forSection:")).lowerBound)
         XCTAssertTrue(code.contains(
@@ -473,7 +474,6 @@ final class PictureTapTests: XCTestCase {
             "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil, "
                 + "for item: PanePictures.Item = .quickLook) { "
                 + "guard let m = letter ?? message else { return } "
-                + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
                 + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) "
                 + "let shown = loads.shown "
                 + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "

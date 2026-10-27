@@ -150,9 +150,10 @@ final class PrintPageTests: XCTestCase {
     // MARK: - The header
 
     /// The pane's lines in the pane's order: the sender, To, Cc, a rule,
-    /// the subject, the date, the files, a rule. Names, as the pane writes
-    /// them; a file's size, or its name alone; no line for a picture the
-    /// body shows.
+    /// the subject, the date, a rule. Names, as the pane writes them. No
+    /// file, as the pane's header has none (B-170): each is in the body. A
+    /// line each for the letter in words, a file's size or its name alone,
+    /// and none for a picture the body shows.
     func testTheHeaderIsThePanesInItsOrder() throws {
         let m = letter(cc: ["\"Carlo Rossi\" <carlo@example.com>"], attachments: files)
         let date = "September 21, 2026 at 2:13\u{202F}PM"
@@ -163,9 +164,6 @@ final class PrintPageTests: XCTestCase {
                        + "<div class=\"bm-rule\"></div>"
                        + "<div class=\"bm-subject\">The garden</div>"
                        + "<div class=\"bm-meta\">\(date)</div>"
-                       + "<div class=\"bm-meta\">plan.pdf (2048 bytes)</div>"
-                       + "<div class=\"bm-meta\">notes.txt</div>"
-                       + "<div class=\"bm-meta\">scan.pdf (10 bytes)</div>"
                        + "<div class=\"bm-rule\"></div>")
         XCTAssertEqual(PrintPage.head(m, size: size, locale: posix, timeZone: utc),
                        .init(sender: "Sam Example", to: "To: Jane Example, sam@example.com",
@@ -218,9 +216,10 @@ final class PrintPageTests: XCTestCase {
     }
 
     /// Every value of the header escaped, as text: a sender with an
-    /// ampersand and an address, a subject with a script in it, a file
-    /// whose name has `&` and `<`. The only attributes in the header are
-    /// its own classes, and the page has no script of its own.
+    /// ampersand and an address, a subject with a script in it; and a
+    /// file whose name has `&` and `<`, in the body since B-170. The only
+    /// attributes in the header are its own classes, and the page has no
+    /// script of its own.
     func testTheHeaderIsEscaped() throws {
         let m = letter(sender: "Smith & Sons <x@y>", to: ["\"A <b>\" <a@b.example>"],
                        subject: "<script>alert(1)</script> & more",
@@ -230,7 +229,8 @@ final class PrintPageTests: XCTestCase {
         let head = try self.head(page)
         XCTAssertTrue(head.contains("<div class=\"bm-sender\">Smith &amp; Sons</div>"), head)
         XCTAssertTrue(head.contains(">&lt;script&gt;alert(1)&lt;/script&gt; &amp; more<"), head)
-        XCTAssertTrue(head.contains(">a &amp; b &lt;c&gt;.pdf (5 bytes)<"), head)
+        XCTAssertFalse(head.contains(".pdf"), head)
+        XCTAssertTrue(try body(page).contains(">a &amp; b &lt;c&gt;.pdf</span>"), page)
         XCTAssertFalse(page.contains("<script"), page)
         let divs = head.components(separatedBy: "<div").count - 1
         let classes = head.components(separatedBy: "<div class=\"bm-").count - 1
@@ -499,13 +499,14 @@ final class PrintPageTests: XCTestCase {
     // MARK: - In words
 
     /// The words: the header's lines with the date in full, a blank line,
-    /// the text, its leading blank lines gone.
+    /// the text, its leading blank lines gone, and the files after it, as
+    /// the page draws them after the words (B-170).
     func testTheWordsAreTheHeaderAndTheText() {
         let m = letter(cc: ["Carlo <carlo@example.com>"], text: "\n\nHello.\nSam", attachments: files)
         XCTAssertEqual(PrintPage.words(m, size: size, locale: posix, timeZone: utc),
                        "Sam Example\nTo: Jane Example, sam@example.com\nCc: Carlo\nThe garden\n"
-                       + "September 21, 2026 at 2:13\u{202F}PM\nplan.pdf (2048 bytes)\nnotes.txt\n"
-                       + "scan.pdf (10 bytes)\n\nHello.\nSam")
+                       + "September 21, 2026 at 2:13\u{202F}PM\n\nHello.\nSam\n\n"
+                       + "plan.pdf (2048 bytes)\nnotes.txt\nscan.pdf (10 bytes)")
         let none = letter(to: [], subject: "", text: nil)
         XCTAssertEqual(PrintPage.words(none, size: size, locale: posix, timeZone: utc),
                        "Sam Example\nTo: me\n(no subject)\nSeptember 21, 2026 at 2:13\u{202F}PM\n\n"

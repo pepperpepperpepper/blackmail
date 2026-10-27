@@ -419,7 +419,7 @@ final class RemoteContentTests: XCTestCase {
                 + "else { return } remote.load(id) remoteList.on = remote.listOn() "
                 + "loads.start({ m }, prepare: { m in PanePage.stackBody(m) }, "
                 + "settle: { [weak self] result in guard let self, case .success(let body) = result "
-                + "else { return } self.prepareInlineImages(for: [m]) self.fill(id, body) }) }",
+                + "else { return } self.prepareInlineImages(for: [m], inStack: true) self.fill(id, body) }) }",
             "letter: m, heldBack: remote.holdsBack(m.id), repository: repository,",
         ] {
             XCTAssertTrue(pane.contains(line), line)

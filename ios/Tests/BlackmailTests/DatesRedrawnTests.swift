@@ -538,7 +538,8 @@ final class DatesRedrawnTests: XCTestCase {
                                       + "let when = MailFormat.detailTimestamp(date) dateLabel.text = when "
                                       + "accessibilityLabel = \"\\(spoken), \\(when)\" }"))
         XCTAssertEqual(count("dateLabel.text =", in: header), 1)
-        XCTAssertEqual(count("accessibilityLabel =", in: header), 2, "the header's and a file's row")
+        XCTAssertEqual(count("accessibilityLabel =", in: header), 1,
+                       "the header's, a file's row gone with the rows (B-170)")
     }
 }
 

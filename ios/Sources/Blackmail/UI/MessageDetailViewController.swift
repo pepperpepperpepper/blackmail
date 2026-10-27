@@ -146,6 +146,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The body fetches for what the pane shows, called off when it shows
     /// something else. See `PaneLoads`.
     private let loads = PaneLoads()
+    /// What the loader answers from (`prepareInlineImages`): in a stack,
+    /// the pictures of every body gone into it since the conversation was
+    /// shown (B-170).
+    private var pictureMap: [String: PanePage.Picture] = [:]
     /// The Delete, the Flags and the read marks on their way to the server,
     /// which decide what the next tap on any of them does. See `PaneWrites`.
     private var writes = PaneWrites()
@@ -377,8 +381,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                     in: nil, in: .defaultClient)
     }
 
-    /// A file's row among the words shown coming, or as it was, by script,
-    /// in the app's content world (`BodyFiles.Busy`, B-148).
+    /// A file's tile in the body shown coming, or as it was, by script, in
+    /// the app's content world (`BodyFiles.Busy`, B-148, B-170).
     private func run(_ busy: BodyFiles.Busy) {
         webView.callAsyncJavaScript(BodyFiles.Busy.script, arguments: busy.arguments,
                                     in: nil, in: .defaultClient)
@@ -543,13 +547,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // beside a selection that had already moved on: a plausible
                 // letter that was not the one he tapped. The header is sized
                 // before the document goes in, as the conversation's is; see
-                // `show(thread:)`, and carries the letter's To, Cc and files,
-                // from its row, so it is whole from the tap (B-127) and does
-                // not grow when the letter lands. Loading any document also
-                // starts WebKit's content process while the body is on its
-                // way.
+                // `show(thread:)`, and carries the letter's To and Cc, from
+                // its row, so it is whole from the tap (B-127) and does not
+                // grow when the letter lands; its files are in its body
+                // (B-170). Loading any document also starts WebKit's content
+                // process while the body is on its way.
                 header.configure(with: .heading(for: summary))
-                header.onSelectAttachment = nil
                 view.layoutIfNeeded()
                 renderNotice(PaneNotice.loading)
             },
@@ -566,7 +569,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 case .success(let (m, page)):
                     self.message = m
                     self.header.configure(with: m)
-                    self.header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
                     self.draw(m, page: page)
                 case .failure(let error) where error is MailShelf.NotTheKeptLetter:
                     self.notTheKeptLetter(summary)
@@ -617,6 +619,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         summary = thread.newest
         message = nil
         loaded = [:]
+        pictureMap = [:]
         markedUnreadHere = nil
         stackFocus = StackFocus(opening: thread.newest.id)
         threadSummaries = Dictionary(uniqueKeysWithValues:
@@ -661,12 +664,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // document into a pane whose header has not been sized yet
                 // gives the web view nothing to occupy.
                 //
-                // Sized for the newest letter's files too, from its row. The
-                // header used to gain a row per file only when the letter
-                // came, 44 pt or more each, and push the whole stack down
-                // under him as he began to read it.
+                // The header used to gain a row per file only when the
+                // letter came, 44 pt or more each, and push the whole stack
+                // down under him as he began to read it; then it had them
+                // from the row; and since B-170 it has none, each letter's
+                // files being in its own body.
                 header.configure(with: .heading(for: newest, subject: thread.subject))
-                header.onSelectAttachment = nil
                 view.layoutIfNeeded()
                 renderConversation(entries)
             },
@@ -744,7 +747,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                for load: PaneRelated.Load) {
         switch result {
         case .success(let (m, body)):
-            prepareInlineImages(for: [m])
+            prepareInlineImages(for: [m], inStack: true)
             related.keep(m, for: load)
             fill(related.bodyCame(for: load), body)
         case .failure:
@@ -886,7 +889,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Puts a letter's body, built by `PanePage.stackBody`, in its section,
     /// with the loader pointed at the letter's pictures.
     private func drawBody(_ m: Message, _ body: ConversationDocument.Entry.Rendered, focus: Bool) {
-        prepareInlineImages(for: [m])
+        prepareInlineImages(for: [m], inStack: true)
         fill(m.id, body)
         if focus { focusLetter(m) }
     }
@@ -894,7 +897,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Points the header and the toolbar at a letter of the stack he has
     /// just opened by its line, before its body has come (B-129): the
     /// header drawn from its row, as the single letter's is at the tap
-    /// (`Message.heading(for:)`), its files grey; Flag, Move and Delete on
+    /// (`Message.heading(for:)`); Flag, Move and Delete on
     /// it (`summary`); Reply held, `message` nil, until its body lands.
     /// The stack hangs from the header if it changes height (`keepPlace`,
     /// B-128).
@@ -903,22 +906,20 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         summary = row
         let before = header.frame.height
         header.configure(with: .heading(for: row))
-        header.onSelectAttachment = nil
         keepPlace(headerWas: before)
     }
 
     /// The header and the toolbar made whole for a letter of the stack
     /// whose body has come, if he has not opened another since
-    /// (`StackFocus.takes`, B-129): its own To and Cc, its files live, and
-    /// Reply its own. The stack hangs from the header if it changes height
-    /// with it (`StackPlace`, B-128).
+    /// (`StackFocus.takes`, B-129): its own To and Cc, and Reply its own.
+    /// The stack hangs from the header if it changes height with it
+    /// (`StackPlace`, B-128).
     private func focusLetter(_ m: Message) {
         guard stackFocus.takes(m.id) else { return }
         message = m
         summary = threadSummaries[m.id] ?? summary
         let before = header.frame.height
         header.configure(with: m)
-        header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
         keepPlace(headerWas: before)
     }
 
@@ -933,11 +934,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// the pane went under the header: half the line at the top, the line
     /// he had just tapped as often as not, until he scrolled.
     ///
-    /// The whole stack moves on the glass then, by the header's change, a
-    /// Cc line about 20 pt, a file's row 44 pt, and a second tap made at
-    /// once where the first was lands that far off the line it was meant
-    /// for, on the line above or below. So the stack's script is told,
-    /// and a line pressed in the second after does nothing
+    /// The whole stack moves on the glass then, by the header's change, a Cc
+    /// line about 20 pt (a file's row 44 pt until B-170), and a second tap made
+    /// at once where the first was lands that far off the line it was meant
+    /// for, on the line above or below. So the stack's script is told, and a
+    /// line pressed in the second after does nothing
     /// (`ConversationDocument.Shift`). The page cannot see the move itself:
     /// the web view moves on the glass, and nothing in the page does.
     private func keepPlace(headerWas before: CGFloat) {
@@ -1022,12 +1023,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// A letter in the stack was opened or closed; or a picture of a
-    /// letter's own was tapped (B-122).
+    /// letter's own was tapped (B-122), or a finger held on it (B-150) or
+    /// on a file's tile (B-170).
     func userContentController(_ controller: WKUserContentController,
                                didReceive scriptMessage: WKScriptMessage) {
         if scriptMessage.name == PanePictures.handler {
             if let tap = PanePictures.Tap(scriptMessage.body) {
                 if tap.isHold { holdPicture(tap) } else { openPicture(tap) }
+            } else if let hold = BodyFiles.Hold(scriptMessage.body) {
+                holdFile(hold)
             }
             return
         }
@@ -1158,12 +1162,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// growing a file manager of its own.
     ///
     /// `letter` is the letter the file is of, when it is not `message`: a
-    /// row among the words of another letter of the conversation, or a
-    /// picture tapped in one, or in his from Sent Mail (B-122). The
-    /// header's row shows it busy only when the header shows its letter;
-    /// a picture the body shows by `cid:` has no row there. Its row among
-    /// the words, if it has one, shows it coming whatever the header shows
-    /// (`BodyFiles.Busy`, B-148).
+    /// tile in the body of another letter of the conversation, or a
+    /// picture tapped in one, or in his from Sent Mail (B-122). Its tile,
+    /// if it has one, shows it coming, whichever letter it is of
+    /// (`BodyFiles.Busy`, B-148, B-170): the header has had no file rows
+    /// since B-170, nor their spinners.
     ///
     /// Shown only if the pane still shows what it was opened from when the
     /// file has come (`PaneLoads.stillShows`): a file, or a picture, whose
@@ -1187,9 +1190,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil,
                                 for item: PanePictures.Item = .quickLook) {
         guard let m = letter ?? message else { return }
-        if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
-        // And its row among the words: the only row of a file drawn there
-        // since B-148, and of any file of a letter the header is not on.
+        // Its tile in the body, every file's only one since B-170.
         run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))
         let shown = loads.shown
         let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown)
@@ -1205,17 +1206,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         filesOpening += 1
 
         Task { @MainActor in
-            // Only while the header still shows the letter the file came
-            // from. Another letter's header can list a file under the same
-            // part, "2" as often as not, and would be told it is no longer
-            // busy while its own download runs, or before its letter has
-            // come and its rows can be opened.
             defer {
                 filesOpening -= 1
                 fileTaps.ended(file)
-                if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }
                 // Only on the page it was shown coming on: on a page given
-                // since, the same row can be coming for a tap of its own.
+                // since, the same tile can be coming for a tap of its own.
                 if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) }
             }
             do {
@@ -1285,12 +1280,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// only means anything inside the message that declared it — two letters
     /// can both contain `cid:image001.png` and mean different pictures.
     ///
-    /// Several letters at once only for a conversation drawn again after
-    /// WebKit lost it, when every picture in it is asked for anew. Where two
-    /// use the same id, the later letter's is served.
-    private func prepareInlineImages(for letters: [Message]) {
+    /// `inStack` for a body put into a conversation's stack, or the stack
+    /// drawn again: the letters' parts are added to those of the bodies gone
+    /// in before them, which the page can still ask for, and asks for all
+    /// together when they went in before it had loaded (B-170). Several
+    /// letters at once only for a conversation drawn again after WebKit lost
+    /// it, when every picture in it is asked for anew. Where two use the
+    /// same id, the later letter's is served.
+    private func prepareInlineImages(for letters: [Message], inStack: Bool = false) {
         // The map a printed letter's loader reads too (`LetterPrint`).
-        let parts = PanePage.pictures(of: letters)
+        let parts = inStack ? PanePage.pictures(of: letters, adding: pictureMap) : PanePage.pictures(of: letters)
+        pictureMap = parts
 
         inlineImages.fetch = { [weak self] contentID in
             // Never surfaced to him: the loader turns a throw into an empty
@@ -1368,10 +1368,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             draw(m, page: page)
         case .conversation(let entries):
             // The letter in the header last, so its pictures win a clash of
-            // ids; see `prepareInlineImages`.
+            // ids; see `prepareInlineImages`. Added to the stack's map, which
+            // has his letters' from Sent Mail as well (B-170).
             let drawn = entries.compactMap { loaded[$0.id] }
             prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter }
-                                    + drawn.filter { $0.id == stackFocus.letter })
+                                    + drawn.filter { $0.id == stackFocus.letter }, inStack: true)
             // The stack as it was first drawn, and the bodies put back into
             // it by script once it has loaded, as they first went in; see
             // `PaneDocument`.
@@ -1468,29 +1469,39 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                         guard let self, case .success(let body) = result else { return }
                         // The loader pointed at this letter's own pictures,
                         // for the body put back asks for them again, as
-                        // `drawBody` points it; it may have been another's
-                        // since, the one that came last.
-                        self.prepareInlineImages(for: [m])
+                        // `drawBody` points it, added to the stack's map
+                        // so the other letters' pictures still come
+                        // (B-170; int19).
+                        self.prepareInlineImages(for: [m], inStack: true)
                         self.fill(id, body)
                     })
     }
 
-    /// A file's row among a letter's words, tapped (`BodyFiles`, B-113):
-    /// the file opened as its row in the header opens it. The letter is the
-    /// one on its own in the pane, or one of the conversation's, opened or
-    /// not the last, or his from Sent Mail once it has come (`related`,
-    /// B-104), whose row is its file's only one; a file it does not list
-    /// opens nothing.
+    /// A file's tile in a letter's body, tapped (`BodyFiles`, B-113,
+    /// B-170): the file opened in Quick Look. The letter is the one on its
+    /// own in the pane, or one of the conversation's, opened or not the
+    /// last, or his from Sent Mail once it has come (`related`, B-104); a
+    /// file it does not list opens nothing.
     private func openFile(_ section: String, of letter: String) {
-        let shown = message?.id == letter ? message : (loaded[letter] ?? related.letter(withID: letter))
-        guard let m = shown, let file = m.listedAttachments.first(where: { $0.id == section }) else {
-            return
-        }
+        guard let (m, file) = self.file(section, of: letter) else { return }
         openAttachment(file, of: m)
     }
 
+    /// The letter `letter` the pane holds and its file at `section`, as a
+    /// tile names them; nil for a letter it does not hold or a part the
+    /// letter does not have. A file it lists, or a picture sent to be shown
+    /// by `cid:` that its body does not show, which is drawn as a file
+    /// (`BodyFiles.drawn`).
+    private func file(_ section: String, of letter: String) -> (Message, Attachment)? {
+        let shown = message?.id == letter ? message : (loaded[letter] ?? related.letter(withID: letter))
+        guard let m = shown, let file = m.attachments.first(where: { $0.id == section }) else {
+            return nil
+        }
+        return (m, file)
+    }
+
     /// A picture of a letter's own, tapped (B-122): opened full screen as a
-    /// file's row in the header opens a file, by `openAttachment`, from the
+    /// file's tile in the body opens a file, by `openAttachment`, from the
     /// letter whose section it is in, the one on its own in the pane, one
     /// of the conversation's that has come, or his from Sent Mail; nothing
     /// for a picture too small, or one no letter the pane holds has
@@ -1518,18 +1529,37 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
               let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,
                                                  stack: loaded, his: { related.letter(inSection: $0) })
         else { return }
+        hold(PanePictures.menu, opening.part, of: opening.letter, x: tap.x, y: tap.y)
+    }
+
+    /// A finger held on a file's tile in a letter's body (B-170): the menu
+    /// a held photo gives, less Save Image for a file that is no picture
+    /// (`PanePictures.menu(for:)`), at the finger, for the file a tap on
+    /// the tile opens.
+    private func holdFile(_ held: BodyFiles.Hold) {
+        guard presentedViewController == nil, let (m, file) = self.file(held.section, of: held.letter) else {
+            return
+        }
+        hold(PanePictures.menu(for: file), file, of: m, x: held.x, y: held.y)
+    }
+
+    /// `items` as a sheet at `x`, `y` in the web view, each downloading
+    /// `part` of `letter` as a tap does (`openAttachment`), for what it
+    /// says, unless the pane has been given something else meanwhile.
+    private func hold(_ items: [PanePictures.Item], _ part: Attachment, of letter: Message,
+                      x: Double, y: Double) {
         let bounds = webView.bounds
-        let spot = CGRect(x: min(max(CGFloat(tap.x), 0), bounds.width) - 1,
-                          y: min(max(CGFloat(tap.y), 0), bounds.height) - 1, width: 2, height: 2)
+        let spot = CGRect(x: min(max(CGFloat(x), 0), bounds.width) - 1,
+                          y: min(max(CGFloat(y), 0), bounds.height) - 1, width: 2, height: 2)
         let shown = loads.shown
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.sourceView = webView
         sheet.popoverPresentationController?.sourceRect = spot
-        for item in PanePictures.menu {
+        for item in items {
             sheet.addAction(UIAlertAction(title: item.title, style: .default) { [weak self] _ in
                 guard let self, self.loads.stillShows(shown) else { return }
                 self.pictureSpot = spot
-                self.openAttachment(opening.part, of: opening.letter, for: item)
+                self.openAttachment(part, of: letter, for: item)
             })
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -1543,14 +1573,20 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Photos will not take them as they are. Onto the pasteboard as the
     /// kind of picture they are, or as a picture made from them where the
     /// kind is not known. Nothing is said: the save is iOS's own, and a
-    /// save he has not allowed is noted in the log alone.
+    /// save he has not allowed is noted in the log alone. A file held on
+    /// its tile (B-170) is copied as the kind of file it is, by its type or
+    /// else by the end of its name, a PDF as a PDF.
     private func keep(_ data: Data, of picture: Attachment, by use: PanePictures.Item) {
         switch use {
         case .copy:
+            let named = UTType(filenameExtension: (picture.filename as NSString).pathExtension)
             if let kind = UTType(mimeType: picture.mimeType), kind.conforms(to: .image) {
                 UIPasteboard.general.setData(data, forPasteboardType: kind.identifier)
             } else if let image = UIImage(data: data) {
                 UIPasteboard.general.image = image
+            } else if let kind = [UTType(mimeType: picture.mimeType), named].compactMap({ $0 })
+                        .first(where: { !$0.isDynamic && $0 != .data }) {
+                UIPasteboard.general.setData(data, forPasteboardType: kind.identifier)
             }
         case .saveImage:
             PHPhotoLibrary.requestAuthorization(for: .addOnly) { allowed in
@@ -1845,9 +1881,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Reply / Reply All / Forward / Print as a sheet, which is what old
     /// Mail did. Labelled choices beat one button that guesses.
     ///
-    /// Forward of a letter with files the header lists asks Mail's question
-    /// first (B-107). So do Reply and Reply All, only if his iPad's Mail is
-    /// set to Ask (`ReplyFiles.mode`), which it is not taken to be.
+    /// Forward of a letter with files (`Message.listedAttachments`) asks Mail's
+    /// question first (B-107). So do Reply and Reply All, only if his iPad's
+    /// Mail is set to Ask (`ReplyFiles.mode`), which it is not taken to be.
     ///
     /// Print is the fourth, as Mail's Reply button had it from iOS 4.2 to
     /// 12 (B-110): the letter the header shows, the one Reply answers,

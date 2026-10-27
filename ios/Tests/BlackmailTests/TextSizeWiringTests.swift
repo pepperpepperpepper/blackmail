@@ -248,11 +248,10 @@ final class TextSizeWiringTests: XCTestCase {
                                   + "toLabel.font = Theme.fontDetailMeta ccLabel.font = Theme.fontDetailMeta "
                                   + "subjectLabel.font = Theme.fontDetailSubject "
                                   + "dateLabel.font = Theme.fontDetailMeta "
-                                  + "for button in attachmentButtons.values { "
-                                  + "button.configuration?.image = Theme.symbol(\"paperclip\") "
-                                  + "button.configuration?.preferredSymbolConfigurationForImage = Theme.symbolSize "
-                                  + "button.configuration?.attributedTitle?.font = Theme.fontDetailMeta } "
                                   + "setNeedsLayout() }", in: header))
+        // A file's row went with B-170: its tile in the body is at the
+        // pane's scale by the page's head (`BodyFiles.sizeRule`; int19).
+        XCTAssertFalse(header.contains("attachmentButtons"))
     }
 
     /// The composer and the share sheet: each caption, field, line and the
