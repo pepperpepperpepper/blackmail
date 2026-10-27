@@ -408,7 +408,7 @@ final class SignInTests: XCTestCase {
         let code = try source("UI/SettingsViewController.swift")
         let field = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(passwordField)"))
         let line = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(statusLabel)"))
-        let grouping = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(organizeRow)"))
+        let grouping = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(mailOptions)"))
         XCTAssertLessThan(field.lowerBound, line.lowerBound, "under the password field")
         XCTAssertLessThan(line.lowerBound, grouping.lowerBound, "before the switches below it")
         XCTAssertTrue(code.contains("private func say(_ text: String) { statusLabel.text = text "

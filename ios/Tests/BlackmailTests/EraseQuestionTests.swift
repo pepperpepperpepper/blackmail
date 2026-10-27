@@ -119,7 +119,8 @@ final class EraseQuestionTests: XCTestCase {
                     + "guard let self, self.summary?.id == s.id else { return } self.delete(s) } }",
                 "private func delete(_ s: MessageSummary) { guard writes.startDelete(at: "
                     + "ProcessInfo.processInfo.systemUptime, untilAnswered: NextLetter.action == "
-                    + ".dontSelectAMessage) else { return } showEmpty()",
+                    + ".dontSelectAMessage) else { return } let action = archiveTarget?(s).map { "
+                    + "PaneAction.move(to: $0) } ?? .delete showEmpty()",
             ]),
             ("UI/MessageListViewController.swift", [
                 "guard let question = EraseQuestion.before(deleting: chosen, role: { "
@@ -141,8 +142,11 @@ final class EraseQuestionTests: XCTestCase {
             let code = try source(file)
             for line in lines { XCTAssertTrue(code.contains(line), "\(file): \(line)") }
         }
-        // Nothing else in the pane sends a Delete.
+        // Nothing else in the pane sends a Delete: the one there is, or its
+        // Archive (B-167), goes as `action`.
         let pane = try source("UI/MessageDetailViewController.swift")
-        XCTAssertEqual(pane.components(separatedBy: "performed(.delete").count - 1, 1)
+        XCTAssertEqual(pane.components(separatedBy: "performed(.delete").count - 1, 0)
+        XCTAssertEqual(pane.components(separatedBy: "PaneAction.move(to: $0) } ?? .delete").count - 1, 1)
+        XCTAssertEqual(pane.components(separatedBy: "self.performed(action, on: s)").count - 1, 1)
     }
 }

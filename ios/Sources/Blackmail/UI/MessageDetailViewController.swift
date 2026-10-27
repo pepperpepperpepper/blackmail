@@ -53,9 +53,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Nil where the list has no row that is the letter
     /// (`ListLetters.flag(on:)`).
     var flagOnList: ((MessageSummary) -> FlagMenu.Flag?)?
+    /// Gmail's All Mail where Delete archives the letter, Mail's Archive in
+    /// the Trash's place on an account whose Move Discarded Messages Into
+    /// says Archive Mailbox (B-167); nil where it trashes or erases it. For
+    /// an empty pane, by the list's folder. From the container, which lists
+    /// the folders (`SwipeOptions.archive(fromFolderWithRole:into:)`).
+    var archiveTarget: ((MessageSummary?) -> Mailbox?)?
 
     private let repository: MailRepository
-    private var summary: MessageSummary?
+    /// The letter the toolbar acts on. Delete's button is drawn again for
+    /// each, an archive box where it archives (B-167).
+    private var summary: MessageSummary? {
+        didSet { drawDiscardButton() }
+    }
     private var message: Message?
     /// The loaded letters of that conversation, by id, so the toolbar can
     /// act on whichever one he last opened.
@@ -260,6 +270,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             NotificationCenter.default.addObserver(self, selector: #selector(datesChanged),
                                                    name: name, object: nil)
         }
+        // Delete's button drawn again when Settings changes where the
+        // account discards (B-167), with Settings still over the pane.
+        NotificationCenter.default.addObserver(self, selector: #selector(drawDiscardButton),
+                                               name: MailOptions.changed, object: nil)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -327,6 +341,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
         // Rendered right-to-left by UIKit, so reverse to get the visual order.
         navigationItem.rightBarButtonItems = items.reversed()
+    }
+
+    /// Delete's button as Mail's: an archive box called Archive where the
+    /// letter, or with none the list's folder, discards into All Mail
+    /// (`archiveTarget`, B-167), the bin called Delete otherwise. Its place
+    /// in the bar and its tap are the same.
+    @objc private func drawDiscardButton() {
+        guard let item = actionItems[.delete] else { return }
+        let archives = archiveTarget?(summary) != nil
+        item.image = Theme.symbol(archives ? "archivebox" : "trash")
+        item.accessibilityLabel = archives ? RowSwipes.Action.archive.title : "Delete"
     }
 
     private func setActionsEnabled(_ enabled: Bool) {
@@ -1632,14 +1657,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
+    /// Where the account discards into the Archive, Mail's Archive in the
+    /// Trash's place: a Move into All Mail (`archiveTarget`, B-167), with
+    /// Delete's guards and the next letter after it, as a Move from the
+    /// pane has.
     private func delete(_ s: MessageSummary) {
         guard writes.startDelete(at: ProcessInfo.processInfo.systemUptime,
                                  untilAnswered: NextLetter.action == .dontSelectAMessage) else {
             return
         }
+        let action = archiveTarget?(s).map { PaneAction.move(to: $0) } ?? .delete
         showEmpty()
         Task { @MainActor in
-            let refused = await self.performed(.delete, on: s)
+            let refused = await self.performed(action, on: s)
             self.writes.deleteAnswered()
             self.setActionsEnabled(self.summary != nil)
             if let refused { ErrorPresenter.show(reaching: refused, on: self) }

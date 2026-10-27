@@ -130,7 +130,7 @@ final class SteadyChromeTests: XCTestCase {
                      "MessageHeaderView", "MessageCell", "SearchHeaderView", "RootViewController",
                      "MoveMessageViewController", "JumpToDateViewController", "SettingsViewController",
                      "DiagnosticsViewController", "AccountSetupViewController", "EraseConfirmation",
-                     "ErrorPresenter"] {
+                     "ErrorPresenter", "MailOptionsView"] {
             let code = try source("UI/\(file).swift")
             var rest = code[...]
             while let at = rest.range(of: "UIImage(systemName:") {
@@ -191,11 +191,18 @@ final class SteadyChromeTests: XCTestCase {
             "let passwordCaption = \"New app password — leave blank to keep the one you have\" "
                 + "stack.addArrangedSubview(caption(passwordCaption))",
             "passwordField.accessibilityLabel = passwordCaption",
-            "private static let organizeTitle = \"Organize by Thread\"",
-            "label.text = Self.organizeTitle label.isAccessibilityElement = false",
-            "organizeSwitch.accessibilityLabel = Self.organizeTitle",
         ] {
             XCTAssertNotNil(place(of: wiring, in: code))
+        }
+        // Mail's switches, Organize by Thread among them (B-167), each
+        // called by its title, which is drawn and not read.
+        let mail = try source("UI/MailOptionsView.swift")
+        for wiring in [
+            "toggle.accessibilityLabel = option.title",
+            "let title = line(option.title, size: 17, live: live) "
+                + "title.isAccessibilityElement = false",
+        ] {
+            XCTAssertNotNil(place(of: wiring, in: mail))
         }
     }
 

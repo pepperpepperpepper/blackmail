@@ -2136,7 +2136,8 @@ final class MessageListViewController: UITableViewController {
                                    target: self, action: #selector(moveSelected))
         // "Trash", or "Delete" inside the Trash, in the bar's own blue, as
         // Mail's (`EditBar`, B-144). It was "Delete" in red everywhere.
-        deleteItem = UIBarButtonItem(title: EditBar.deleteTitle(inFolderWithRole: mailbox.role),
+        // "Archive" where the account discards into the Archive (B-167).
+        deleteItem = UIBarButtonItem(title: discardWord,
                                      style: .plain, target: self, action: #selector(deleteSelected))
         // Mark All as Read, as Mail actually offers it.
         //
@@ -2476,6 +2477,10 @@ final class MessageListViewController: UITableViewController {
         placePull()
         // Mail's word for leaving it (B-144).
         navigationItem.rightBarButtonItem?.title = editing ? EditBar.cancel : EditBar.edit
+        // The third button's word as the account discards now, with the
+        // folders LIST has named by now: Settings may have changed it since
+        // the bar was made (B-167).
+        if editing { deleteItem.title = discardWord }
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
         // His ticks have gone with Edit mode: what the watch held can go on,
@@ -2573,6 +2578,12 @@ final class MessageListViewController: UITableViewController {
     /// from it at once, each on its own: putting one away can wait for an
     /// upload of it still on its way (`LocalDrafts.tidy`), and the letters
     /// on the server do not wait for that.
+    ///
+    /// Where the account discards into the Archive, the letters it archives
+    /// are moved into All Mail, "Moving…" on the line, as a drag's Archive
+    /// moves them, and the rest go by Delete (`EditBar.discarding`, B-167):
+    /// two batches, and two steps of Undo, where an All Mailboxes search
+    /// ticked both.
     @MainActor
     private func delete(_ chosen: [MessageSummary]) {
         if inEditMode { editTapped() }
@@ -2582,7 +2593,26 @@ final class MessageListViewController: UITableViewController {
             guard let key = LocalDraft.key(ofRow: m.id) else { continue }
             Task { @MainActor in await kept.delete(key, from: repository) }
         }
-        runBatch(.delete, on: onServer(chosen), saying: StatusLine.deleting)
+        let all = allMail
+        let discard = EditBar.discarding(onServer(chosen), role: { self.role(of: $0) },
+                                         allMail: all)
+        if let all { runBatch(.move(to: all), on: discard.archived, saying: StatusLine.moving) }
+        runBatch(.delete, on: discard.deleted, saying: StatusLine.deleting)
+    }
+
+    /// Gmail's All Mail, as LIST named it, for an Archive; nil where it
+    /// named none.
+    private var allMail: Mailbox? {
+        ([mailbox] + folders()).first { $0.role == .archive }
+    }
+
+    /// The Edit bar's third button's word in this list (`EditBar`): "Trash",
+    /// "Delete" inside the Trash (B-144), "Archive" where the account
+    /// discards into the Archive and there is an All Mail that this list is
+    /// not (B-167).
+    private var discardWord: String {
+        EditBar.deleteTitle(inFolderWithRole: mailbox.role,
+                            canArchive: allMail != nil && mailbox.role != .archive)
     }
 
     /// Edit mode's Delete or Move of `chosen`, whose rows go as this is
@@ -2826,7 +2856,7 @@ final class MessageListViewController: UITableViewController {
     /// Gmail's All Mail, for an Archive, unless the row is listed from it.
     private func archive(for thread: MessageThread) -> Mailbox? {
         guard role(of: thread.newest.mailboxID) != .archive else { return nil }
-        return ([mailbox] + folders()).first { $0.role == .archive }
+        return allMail
     }
 
     /// A row, by its conversation's id and the folder its letters are

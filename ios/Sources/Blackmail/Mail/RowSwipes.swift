@@ -3,7 +3,8 @@ import Foundation
 /// Mail's Swipe Options (B-156): what a drag on a row of the list offers,
 /// in Settings > Apps > Mail > Swipe Options on his iPad, and where his
 /// account puts what he discards, its Advanced page's Move Discarded
-/// Messages Into. Set here, in one place, as `his`.
+/// Messages Into. Read in one place, `his`, from Blackmail's Settings
+/// (`MailOptions`, B-167).
 ///
 /// Mail's own values for Swipe Left and Swipe Right are None, Mark as Read,
 /// Flag, Move Message and Archive; Swipe Left comes as Flag and Swipe
@@ -13,16 +14,16 @@ import Foundation
 /// beside it (Apple's iPadOS 18 guide, "Manage an email with a swipe";
 /// Apple's article 102428, "you might see Archive instead of Trash").
 ///
-/// Built to Mail's factory values. His own are to be read off his iPad
-/// before the last build (docs/TODO.md, "His iPad's own settings"), and
-/// set in `his`: nothing else changes for the two swipes. `discardInto`
-/// set to `.archive` changes a drag and More alone: the Edit bar
-/// (`EditBar.deleteTitle`) and the pane's Delete stay Trash until
-/// Mail's Archive is built there (B-144, "not built").
+/// Built to Mail's factory values. His own are set in Blackmail's Settings,
+/// as Mail's page has them (B-167), and kept in `MailOptions`, which `his`
+/// reads: nothing else changes for the two swipes. `discardInto` set to
+/// `.archive` changes a drag, More, the Edit bar (`EditBar.deleteTitle`)
+/// and the pane's Delete, each by `discard(fromFolderWithRole:canArchive:)`.
 struct SwipeOptions: Equatable {
 
-    /// What Swipe Left or Swipe Right can be set to.
-    enum Choice: Equatable, CaseIterable {
+    /// What Swipe Left or Swipe Right can be set to, in the order of Mail's
+    /// page of them. Kept by name (`MailOptions`).
+    enum Choice: String, Equatable, CaseIterable {
         case none
         /// Mark as Read, or Mark as Unread on a row with no dot.
         case mark
@@ -34,10 +35,10 @@ struct SwipeOptions: Equatable {
         case archive
     }
 
-    /// Where the account puts what he discards. Read by a drag and More
-    /// alone (`RowSwipes`); the Edit bar and the pane's Delete trash
-    /// whatever it says, until B-144's Archive is built.
-    enum Discard: Equatable {
+    /// Where the account puts what he discards: a drag, More, the Edit
+    /// bar and the pane's Delete go by it (B-167). In the order of the
+    /// account's Advanced page, and kept by name (`MailOptions`).
+    enum Discard: String, Equatable, CaseIterable {
         /// Gmail's Trash, as Blackmail's Delete does.
         case trash
         /// The Archive mailbox, Gmail's All Mail.
@@ -51,11 +52,44 @@ struct SwipeOptions: Equatable {
     /// Mail as it comes, but for the discard target: the Trash, which is
     /// what Blackmail's Delete has always done. Mail's own for a Gmail
     /// account is said to be the Archive, and the numbers in his Trash
-    /// suggest his is the Trash; it is to be read off his iPad.
+    /// suggest his is the Trash; it is to be read off his iPad
+    /// (`MailOptions.moveDiscardedMessagesInto`).
     static let factory = SwipeOptions(swipeLeft: .flag, swipeRight: .mark, discardInto: .trash)
 
-    /// His. Mail's factory values until his own have been read.
-    static let his = factory
+    /// His, as set in Blackmail's Settings (`MailOptions`, B-167): Mail's
+    /// factory values until they are. Read afresh at each drag and tap, so
+    /// a change in Settings counts from the next.
+    static var his: SwipeOptions {
+        SwipeOptions(swipeLeft: MailOptions.swipeLeft, swipeRight: MailOptions.swipeRight,
+                     discardInto: MailOptions.moveDiscardedMessagesInto)
+    }
+
+    /// What discards a letter listed from a folder with `role`, wherever it
+    /// is discarded from, a drag, More, the Edit bar or the reading pane:
+    /// Delete inside Trash, where it erases; the Archive where the account
+    /// discards into it and the letter can be archived, `canArchive`, there
+    /// being an All Mail to file it in and the letter not listed from it;
+    /// the Trash otherwise. Never the Archive in Drafts or the Outbox
+    /// (B-167): a draft is not filed, and the Outbox's letters, and the
+    /// drafts kept on the iPad at the top of Drafts, are taken off the
+    /// iPad by the Edit bar's tap, with no copy anywhere.
+    func discard(fromFolderWithRole role: Mailbox.Role?, canArchive: Bool) -> RowSwipes.Action {
+        if EraseQuestion.erases(fromFolderWithRole: role) { return .delete }
+        if discardInto == .archive, canArchive, role != .drafts, role != .outbox {
+            return .archive
+        }
+        return .trash
+    }
+
+    /// All Mail, `allMail`, where a discard of a letter listed from a folder
+    /// with `role` archives it; nil where it trashes or erases it, and
+    /// where LIST named no All Mail.
+    func archive(fromFolderWithRole role: Mailbox.Role?, into allMail: Mailbox?) -> Mailbox? {
+        guard let allMail,
+              discard(fromFolderWithRole: role, canArchive: role != .archive) == .archive
+        else { return nil }
+        return allMail
+    }
 }
 
 /// What a drag on a row of the message list offers (B-156), as iPadOS 18
@@ -165,11 +199,10 @@ enum RowSwipes {
     /// What discards the row, at the edge of a drag to the left and in
     /// More's sheet: Delete inside Trash, where it erases; the Archive where
     /// the account discards into it and there is an All Mail to archive
-    /// into; the Trash otherwise.
+    /// into, but in Drafts; the Trash otherwise
+    /// (`SwipeOptions.discard(fromFolderWithRole:canArchive:)`).
     static func discard(for row: Row, options: SwipeOptions = .his) -> Action {
-        if EraseQuestion.erases(fromFolderWithRole: row.role) { return .delete }
-        if options.discardInto == .archive, row.canArchive { return .archive }
-        return .trash
+        options.discard(fromFolderWithRole: row.role, canArchive: row.canArchive)
     }
 
     /// A Swipe Left or Swipe Right choice, as the row is; nil for None, and

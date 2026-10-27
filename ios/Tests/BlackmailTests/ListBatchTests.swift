@@ -933,7 +933,10 @@ final class ListBatchTests: XCTestCase {
                 + "editTapped() } let kept = self.kept let repository = self.repository "
                 + "for m in chosen { guard let key = LocalDraft.key(ofRow: m.id) else { "
                 + "continue } Task { @MainActor in await kept.delete(key, from: repository) "
-                + "} } runBatch(.delete, on: onServer(chosen), saying: StatusLine.deleting) }",
+                + "} } let all = allMail let discard = EditBar.discarding(onServer(chosen), "
+                + "role: { self.role(of: $0) }, allMail: all) if let all { runBatch(.move(to: all), "
+                + "on: discard.archived, saying: StatusLine.moving) } runBatch(.delete, on: "
+                + "discard.deleted, saying: StatusLine.deleting) }",
             // What the server took is a step of Undo (B-157).
             // A drag's or More's opens the letter after the row (B-158).
             "guard !chosen.isEmpty else { return } let done = working(words) ",

@@ -121,6 +121,20 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Contacts, and he would meet the question alone in the middle of a
       letter, where a Don't Allow is for good and nothing in the app says
       so (B-162).
+- [ ] On the day, his iPad's Settings > Apps > Mail open beside
+      Blackmail's Settings, its part called Mail (B-167): each live row
+      set as his Mail's page shows it, two minutes. Mail Accounts > Gmail
+      > Account > Advanced > Move Discarded Messages Into (Deleted Mailbox
+      or Archive Mailbox); Message List > Swipe Options > Swipe Left and
+      Swipe Right, and Delete or Move Message Action (if his iPad has no
+      such row, View Next Message, as Mail before 18.4); Threading >
+      Organize by Thread and Complete Threads. A greyed row whose value
+      on his iPad differs from Blackmail's (Preview, Show To/Cc Labels,
+      Collapse Read Messages, Most Recent Message on Top, and until B-168
+      is merged Ask Before Deleting and Privacy Protection's Block All
+      Remote Content) written down for the owner: Blackmail does not have
+      his value. Then Blackmail's Settings closed with Cancel, which leaves
+      them set.
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -8823,6 +8837,73 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
+- [ ] **B-167, Mail's options in Settings.** On the test iPad, the test
+      account only, from a build of the `bm-cm-mailsettings` worktree
+      (branch `copy-mailsettings`) or of the int it is merged into.
+      Nothing is sent: no letter is written in any step. Screenshots name
+      no one but the made-up letters below. The connection log as in
+      B-057's check.
+      0. *Before.* The host APPENDs five letters, read (`\Seen`), to the
+      label "Notes", never the Inbox, each with a new Message-ID, From
+      "Pat Example <pat@example.net>", naming nobody on the account, their
+      Dates a minute apart, subjects "B-167 one" (the oldest) to "B-167
+      five", and notes their UIDs from APPENDUID. In the app, "Notes"
+      opened: five rows, "five" at the top. Settings' Mail part as the
+      factory has it (step 1); if not, written down and set so first.
+      1. *The page* (no write). Settings, scrolled to its foot: under the
+      password's lines, "Mail" and its line; MOVE DISCARDED MESSAGES INTO,
+      Deleted Mailbox ticked, Archive Mailbox, and "In Mail: Mail Accounts
+      > Gmail > Account > Advanced."; MESSAGE LIST: Preview "2 Lines" in
+      grey with "Blackmail always shows 2 lines." under it, Show To/Cc
+      Labels grey and off, Swipe Options with a chevron, Delete or Move
+      Message Action "View Next Message" with a chevron; MESSAGES: Ask
+      Before Deleting grey and off (live on a build with B-168), Privacy
+      Protection with a chevron; THREADING: Organize by Thread and
+      Complete Threads on, Collapse Read Messages grey and on, Most Recent
+      Message on Top grey and off, and Apple's line under them.
+      Screenshots of the part, in two panes and three; nothing cut. A tap
+      on each grey row and its switch: nothing moves. Privacy Protection
+      tapped: a page with Block All Remote Content, grey and off, and its
+      lines. Back.
+      2. *Swipe Options* (no write). Tapped: a page "Swipe Options", Swipe
+      Left "Flag", Swipe Right "Mark as Read". Swipe Left: a page of None,
+      Mark as Read, Flag, Move Message and Archive, Flag ticked; None
+      tapped, the tick moves; Back: "None" after Swipe Left. Settings'
+      Cancel. In Notes a slow drag to the left on "B-167 four": More and
+      Trash, no Flag; a tap elsewhere, nothing done. Settings again, Swipe
+      Right to Move Message, Cancel: a drag to the right on "B-167 four"
+      shows Move; tapped, the folder sheet; its Cancel, nothing moved.
+      Both set back, Flag and Mark as Read: the drags as before.
+      3. *Delete or Move Message Action.* Tapped: View Next Message ticked
+      and "Don’t Select a Message", its apostrophe written down. The
+      second tapped; Back: it is the row's value. Cancel. "B-167 one"
+      opened from its row, the pane's Delete: the pane empties, "No
+      message selected", Delete grey until the server has answered, and
+      no letter opens; the log has one MOVE to the Trash. Settings, View
+      Next Message again, Cancel. "B-167 four" opened, Delete: "B-167
+      three", the row below, opens in the pane, highlighted (B-158).
+      4. *Archive Mailbox.* Settings, Archive Mailbox tapped: the tick
+      moves, and with Settings still up the pane's bin, on "B-167 three",
+      is an archive box; Cancel. Edit in Notes: the third button reads
+      "Archive". "B-167 five" ticked, Archive: the row goes, "Moving…"
+      under the list, the log one MOVE to "[Gmail]/All Mail", and over
+      IMAP the letter is in All Mail and not in Notes. The pane's archive
+      box on "B-167 three": its row goes, "B-167 two" opens, and a MOVE to
+      All Mail. A slow drag to the left on "B-167 two": Archive in purple
+      at the edge, Flag, More; a tap elsewhere. Drafts: Edit reads
+      "Trash"; Cancel. Trash: Edit reads "Delete", the pane's button a
+      bin on a letter there; Cancel. Shake: "Undo Move", Cancel.
+      5. *Organize by Thread.* Settings, Organize by Thread off: the list
+      behind the sheet drawn again at once, a conversation of the Inbox's
+      in rows of its own; on again, grouped again.
+      6. *Put back.* Settings as the factory has it: Deleted Mailbox, View
+      Next Message, Flag and Mark as Read, Organize by Thread and Complete
+      Threads on. The host finds each of the five Message-IDs in Notes,
+      All Mail and the Trash (`UID SEARCH HEADER Message-ID`), moves those
+      outside the Trash to the Trash (`UID MOVE`), and deletes in the
+      Trash only the UIDs that move answered (`COPYUID`) and those it
+      found there; any other UID is left, and written down. Nothing was
+      sent.
 
 ## Blocked on the owner
 
@@ -9046,7 +9127,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [x] **"Open this link?"** (set by the spec, never asked of him): Mail opens
       a tapped link at once. As built (the default), or Mail's way.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-145.*
-- [ ] **His iPad's own settings**, read before the install-day build so
+- [x] **His iPad's own settings**, read before the install-day build so
       its defaults follow them: Settings > Sounds > Sent Mail (B-100: None
       takes the sound out), Mail > Threading > Complete Threads (B-104: off
       takes it out), Mail > Composing > Include Attachments with Replies
@@ -9067,6 +9148,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Messages Into (`SwipeOptions.his.discardInto`; Archive there also
       needs the Edit bar's and the pane's Archive, B-144's "not built");
       Accessibility > Touch > Shake to Undo (B-157).*
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-167.* Mail's options
+      among these are a part of Blackmail's Settings laid out as Mail's
+      page, at Mail's factory values, to be set from his Mail settings page
+      at the install (the install-day list above); Archive Mailbox archives
+      from the Edit bar and the pane too. The rest of this list, outside
+      Mail's page, is still to be read off his iPad before the last build.
 - [x] **His signature's white sheet** (B-130): Mail draws his signature
       with the rest of the letter, black with white words and the logo
       dark on it in Dark Mode or under Smart Invert (read in its code, not
