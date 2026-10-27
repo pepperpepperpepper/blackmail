@@ -114,6 +114,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       own. Then add his second address in Blackmail's Settings with "Add
       Another Email…", and Save (B-076; until then a half name in search
       can ask for it, B-123).
+- [ ] On the day: his iPad's Settings > Apps > Mail, Privacy Protection
+      (Block All Remote Content, shown only with Protect Mail Activity off)
+      and Ask Before Deleting, below Messages, matched in Blackmail's
+      Settings, the rows B-167 shows (B-168). Off in both, Mail's factory
+      value, until set; nothing to build.
 - [ ] On the day, with him or his helper: Blackmail's New Message, one
       letter typed in To, and iOS's question about Contacts answered with
       Allow (on iPadOS 18, Continue, then share all of them); then Cancel
@@ -8823,6 +8828,84 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
+- [ ] **B-168, Mail's Block All Remote Content and Ask Before Deleting.**
+      On the test iPad, the test account only, from a build of the int the
+      `bm-cm-remoteask` worktree (branch `copy-remoteask`) is merged into
+      with B-167's Settings rows, which set the two options; a build of
+      this branch alone has no row for them, and the check waits for the
+      int. Nothing is composed, sent or saved as a draft, and every Trash
+      goes onto the host's letters alone. The host makes eleven letters, each
+      from another address, with a new Message-ID of its own and naming
+      none on the account, and APPENDs them read (`\Seen`) to the label
+      "Notes", never the Inbox, each with its Date as its internal date;
+      it notes each UID from its APPENDUID, and stops if one has none. Two
+      HTML letters whose pictures from the web are on a web server whose
+      access log the host reads, each at a path of its own made for this
+      round and written nowhere else, a picture by `<img src>` and one by
+      a `style` `url()`: "B-168 news", which also carries a picture of its
+      own by `cid:` and a link, and a conversation of two, "B-168 talk"
+      (a) and (b), (b)'s References naming (a), each with its own two
+      paths. Then six plain letters, "B-168 bin 1" to "B-168 bin 6", and
+      a conversation of two plain ones, "B-168 pair" (a) and (b). The
+      list goes by UID, the last APPENDed on top. Organize by Thread on,
+      three panes. In Blackmail's Settings both options written down as
+      found, then set as each step says. A screen recording through each
+      step, the app's connection log read after each, and the server's
+      log, from the step's first second, for the round's paths.
+      1. *Off, as it comes.* Both off. "Notes", "B-168 news" tapped: its
+      pictures from the web there, no line over it; the server's log has
+      both of its paths. Nothing else changed from before B-168.
+      2. *Held back.* Block All Remote Content on; "B-168 bin 1" tapped,
+      then "B-168 news" again: at its top "Message contains unloaded
+      images." with "Load All Images" on its right, a rule under them;
+      its picture by `cid:` drawn, the two from the web blank; the
+      server's log has neither path from this step. The line's look,
+      its colours and where the words wrap written down.
+      3. *On paper.* Reply, Print: AirPrint's preview has the picture of
+      its own and not the two from the web, and no line. Cancel the
+      panel; still nothing in the server's log.
+      4. *Load All Images.* Tapped: the letter drawn again from its top
+      with no line and both pictures; the server's log has both paths
+      now, once each. The link in it still opens Safari.
+      5. *A conversation.* "B-168 talk" tapped: (b) open with its line,
+      (a) closed above; (a)'s line tapped: it opens with its own line;
+      nothing for either in the server's log. "Load All Images" on (b):
+      (b)'s pictures come, (b)'s line goes, (a) as it was, its line and
+      its blanks; the server's log has (b)'s two paths and not (a)'s.
+      Close (a) and open it again: still held back. Then "B-168 bin 1"
+      tapped, and "B-168 talk" again: (a) and (b) both held back, their
+      lines back.
+      Block All Remote Content off.
+      6. *Ask Before Deleting, the pane.* On. "B-168 bin 1" tapped,
+      Delete: a sheet from the Delete button, "Trash Message" in red;
+      a tap outside it: the sheet goes, the letter stays in the pane and
+      on the list, no `UID MOVE` in the log. Delete again, "Trash
+      Message": the letter goes to the Trash, the next opens as B-158
+      has it, one `UID MOVE`.
+      7. *The Edit bar.* Edit, "B-168 bin 2" and "B-168 bin 3" ticked,
+      Trash: a sheet from it, "Trash 2 Messages"; a tap outside: the
+      ticks stay. Trash again, "Trash 2 Messages": both go, Edit mode
+      ends.
+      8. *A drag.* A slow drag to the left on "B-168 bin 4": More, Flag
+      and Trash. Trash tapped: the row slides back, and a sheet over
+      the row, "Trash Message"; a tap outside: nothing goes. Then a full
+      drag to the left on it: it goes at once, no sheet. On "B-168 bin
+      5", a slow drag, More, "Trash Message": a sheet over the row,
+      "Trash Message"; tapped, it goes. On "B-168 pair", a slow drag,
+      Trash: "Trash Messages"; tapped, both letters go. If a full drag
+      in this step put up a sheet, written down (B-168's "Not seen").
+      9. *Inside Trash.* The Trash, "B-168 bin 1" there, Delete: the
+      erase question as before, "Delete Message?", and no other sheet;
+      Cancel. Ask Before Deleting off, then "B-168 bin 6" in "Notes",
+      Delete: nothing asked, it goes.
+      10. *Put back:* both options as written down at the start; "Notes"
+      left, the Inbox at its top. The host takes out of the Trash and out
+      of "Notes" only the letters with the Message-IDs it made, which
+      nothing else on the account has, and deletes them there, and
+      empties the round's paths on the web server. Nothing was sent.
+      Not on the iPad: an Archive from a drag, with no account set to
+      discard into the Archive (`SwipeOptions.his`), and his letters from
+      Sent Mail held back in an Inbox conversation (host tests alone).
 
 ## Blocked on the owner
 
@@ -8859,9 +8942,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       open with the newest and marked read at the tap, the pane opening at
       the oldest letter he has not read, or at the newest when he has read
       the rest, and a letter that comes put in at the bottom (B-074).*
-- [ ] **Pictures from the web in letters** — they load, as they always
+- [x] **Pictures from the web in letters** — they load, as they always
       have, and a tracking pixel tells its sender the letter was opened; the
       spec asks for them blocked by default if feasible (B-055)
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-168.*
 - [x] **A long press on a link** — WebKit's own menu, whose preview loads
       the page without "Open this link?"; every address in a plain letter
       is a link now. Leave it, or `allowsLinkPreview` off (B-055)
@@ -9066,7 +9150,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       (`SwipeOptions.his`); the Gmail account's Advanced > Move Discarded
       Messages Into (`SwipeOptions.his.discardInto`; Archive there also
       needs the Edit bar's and the pane's Archive, B-144's "not built");
-      Accessibility > Touch > Shake to Undo (B-157).*
+      Accessibility > Touch > Shake to Undo (B-157).* *2026-10-27: Mail >
+      Ask Before Deleting and Privacy Protection's Block All Remote Content
+      are built (B-168), off as from the factory, and matched in Blackmail's
+      Settings on the day with no build (B-167's rows; "On the day", at the
+      top).*
 - [x] **His signature's white sheet** (B-130): Mail draws his signature
       with the rest of the letter, black with white words and the logo
       dark on it in Dark Mode or under Smart Invert (read in its code, not

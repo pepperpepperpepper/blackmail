@@ -112,10 +112,14 @@ final class EraseQuestionTests: XCTestCase {
                     + "{ _ in delete() })",
             ]),
             ("UI/MessageDetailViewController.swift", [
+                // Anywhere but Trash, Ask Before Deleting's sheet, or none
+                // (`DiscardQuestionTests`, B-168).
                 "@objc private func deleteTapped() { guard let s = summary, "
                     + "writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else { "
                     + "return } guard let question = questionBeforeDeleting?(s) else { "
-                    + "delete(s) return } EraseConfirmation.ask(question, on: self) { [weak self] in "
+                    + "guard let asked = DiscardQuestion.before(.trash, letters: 1, from: .pane) else { "
+                    + "delete(s) return } ",
+                "return } EraseConfirmation.ask(question, on: self) { [weak self] in "
                     + "guard let self, self.summary?.id == s.id else { return } self.delete(s) } }",
                 "private func delete(_ s: MessageSummary) { guard writes.startDelete(at: "
                     + "ProcessInfo.processInfo.systemUptime, untilAnswered: NextLetter.action == "
@@ -123,8 +127,9 @@ final class EraseQuestionTests: XCTestCase {
             ]),
             ("UI/MessageListViewController.swift", [
                 "guard let question = EraseQuestion.before(deleting: chosen, role: { "
-                    + "self.role(of: $0) }) else { delete(chosen) return } "
-                    + "EraseConfirmation.ask(question, on: self) { [weak self] in "
+                    + "self.role(of: $0) }) else { guard let asked = DiscardQuestion.before(.trash, "
+                    + "letters: chosen.count, from: .editBar) else { delete(chosen) return } ",
+                "return } EraseConfirmation.ask(question, on: self) { [weak self] in "
                     + "self?.delete(chosen) }",
                 "private func role(of mailboxID: String) -> Mailbox.Role? { "
                     + "([mailbox] + folders()).role(of: mailboxID) }",

@@ -22,6 +22,10 @@ import Foundation
 /// Not in Spam. Delete there moves the letter to Trash, as Mail's does
 /// from Junk, so it can be got back, and the spec asks only for Trash.
 ///
+/// Mail's Ask Before Deleting asks before a Trash or an Archive anywhere
+/// else (`DiscardQuestion`, B-168); inside Trash this is asked, whatever it
+/// says, and that is not asked as well.
+///
 /// Apart from the controllers, which are UIKit and do not exist on the
 /// machine the suite runs on, so the words and the rule are pinned on the
 /// host; `EraseConfirmation` puts it up.

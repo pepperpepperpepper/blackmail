@@ -195,6 +195,9 @@ enum RowSwipes {
 /// letter of the conversation, as Edit mode's do. In the order of Mail's
 /// sheet and of its Reply menu: Reply, Reply All, Forward, Trash, Flag,
 /// Mark, Move (Gadget Hacks, 2019; the popover of INVESTIGATIONS' ban 5).
+/// Under Ask Before Deleting, its Trash Message or Archive Message asks
+/// first, as the drag's button tapped does, and a full drag does not
+/// (`DiscardQuestion`, B-168).
 ///
 /// After the read mark, Move to Junk, or Move to Inbox inside Junk, as the
 /// Flag button's sheet in the reading pane offers it (`FlagMenu.junkItem`,

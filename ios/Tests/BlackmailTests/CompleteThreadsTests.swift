@@ -1319,8 +1319,11 @@ final class CompleteThreadsTests: XCTestCase {
         // own section, never one by the letter's id.
         for wiring in [
             "guard let load = related.load(for: entryID) else { return }",
-            "loads.start({ try await repository.openLetter(load.row) }, "
-                + "prepare: { m in (m, PanePage.stackBody(m)) }, "
+            // Held back under Block All Remote Content by its own entry,
+            // as the stack's letters are by theirs (B-168).
+            "let held = remote.holdsBack(load.entryID) ? load.entryID : nil "
+                + "loads.start({ try await repository.openLetter(load.row) }, "
+                + "prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) }, "
                 + "settle: { [weak self] result in self?.settleRelated(result, for: load) })",
             "case .success(let (m, body)): prepareInlineImages(for: [m]) related.keep(m, for: load) "
                 + "fill(related.bodyCame(for: load), body) "

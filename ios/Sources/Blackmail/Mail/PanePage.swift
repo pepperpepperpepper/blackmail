@@ -73,7 +73,14 @@ enum PanePage {
     /// what was not fetched, or what the server would not give, can be all
     /// its words, and it is not a letter with no text. Its page says it is
     /// only the beginning, over whatever came (B-114).
-    static func letter(_ m: Message, style: Style) -> String? {
+    ///
+    /// `heldBack` under Block All Remote Content, until "Load All Images"
+    /// (`RemotePictures`, B-168): a letter that asks the web for anything
+    /// has Mail's line over it, its button naming the letter, and every
+    /// reference to the web in it held back (`RemoteContent`); one that
+    /// asks for nothing is as it was. Not held back, the page is as it
+    /// always was.
+    static func letter(_ m: Message, style: Style, heldBack: Bool = false) -> String? {
         guard !isEmpty(m) else { return nil }
         let isHTML = m.htmlBody != nil
         // Leading blank lines are dropped from PLAIN TEXT before rendering.
@@ -94,9 +101,10 @@ enum PanePage {
         //
         // A file sent among the words has its row where it sat, a link that
         // opens it (`BodyFiles`, B-113); a letter with none is as it was.
+        let held = heldBack ? Self.held(m, as: m.id) : ""
         let content = isHTML
             ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
-                                              flowed: false), of: m)
+                                              flowed: false, heldBack: !held.isEmpty), of: m)
             : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed)
 
         // Every property lives on #bm, a container the inner document cannot
@@ -143,8 +151,17 @@ enum PanePage {
           img, table { max-width: 100% !important; height: auto; }
           a { color: \(isHTML ? "#007AFF" : "#0A84FF"); }
           \(smartInvert)
-        </style></head><body><div id="bm">\(shortened(m))\(content)</div></body></html>
+        </style></head><body><div id="bm">\(held)\(shortened(m))\(content)</div></body></html>
         """
+    }
+
+    /// Mail's line for `m`, its button naming `id`, when its markup asks the
+    /// web for anything (`RemoteContent.line`, B-168); "" when it asks for
+    /// nothing, a plain letter's never does, and nothing is held back.
+    static func held(_ m: Message, as id: String) -> String {
+        guard let html = m.htmlBody,
+              RemoteContent.asksTheWeb(DocumentWrapper.stripped(from: html)) else { return "" }
+        return RemoteContent.line(for: id)
     }
 
     /// The pane's line above a letter it shows only the beginning of
@@ -173,9 +190,15 @@ enum PanePage {
     /// so a printed letter is the letter he read. `flowed` has no default,
     /// so neither can leave it out and count a flowed letter's quotes as
     /// one not flowed.
-    static func content(text: String?, html: String?, known: Set<String>, flowed: Bool) -> String {
+    ///
+    /// `heldBack`, the sender's markup with every reference to the web in it
+    /// held back (`RemoteContent.blocked`, B-168), before its pictures by
+    /// `cid:` are pointed at the loader, which it leaves as they are.
+    static func content(text: String?, html: String?, known: Set<String>, flowed: Bool,
+                        heldBack: Bool = false) -> String {
         if let html {
-            return TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: html),
+            let page = DocumentWrapper.stripped(from: html)
+            return TextLinks.html(InlineImageRewriter.rewrite(heldBack ? RemoteContent.blocked(page) : page,
                                                               known: known))
         }
         return PlainQuotes.html((text ?? "").drop(while: { $0 == "\n" || $0 == "\r" }), flowed: flowed,
@@ -188,17 +211,25 @@ enum PanePage {
     /// for a letter with nothing in it. Its links are made links, a plain
     /// letter's quotes Mail's blockquotes (B-147), and a file sent among its
     /// words has its row there, as a letter on its own has them.
-    static func stackBody(_ m: Message) -> ConversationDocument.Entry.Rendered {
+    ///
+    /// `heldBack`, the id of the letter's entry in the stack, under Block
+    /// All Remote Content until "Load All Images" (`RemotePictures`,
+    /// B-168): a letter that asks the web for anything has Mail's line at
+    /// the top of its section, its button naming the entry, and every
+    /// reference to the web in it held back, as a letter on its own has
+    /// them. Nil, the body is as it always was.
+    static func stackBody(_ m: Message, heldBack: String? = nil) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = isEmpty(m)
+        let held = empty ? "" : heldBack.map { Self.held(m, as: $0) } ?? ""
         let content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : (isHTML
-               ? BodyFiles.rows(in: TextLinks.html(InlineImageRewriter.rewrite(
-                   DocumentWrapper.stripped(from: m.htmlBody!), known: contentIDs(of: m))), of: m)
+               ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
+                                                 flowed: false, heldBack: !held.isEmpty), of: m)
                : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                                   flowed: m.textIsFlowed, escaping: .ampersandAndBrackets))
-        return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)
+        return .init(html: empty ? content : held + shortened(m) + content, isHTML: isHTML && !empty)
     }
 
     /// Whether the pane says the letter has no text: nothing in it to draw,

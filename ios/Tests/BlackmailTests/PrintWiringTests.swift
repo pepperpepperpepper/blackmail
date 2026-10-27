@@ -85,8 +85,9 @@ final class PrintWiringTests: XCTestCase {
                                 to: "private var printStyle")
         XCTAssertTrue(printing.hasPrefix("private func printLetter(_ m: Message) { "
                                          + "guard printing?.isPreparing != true else { return }"), printing)
-        for wiring in ["letter: m, repository: repository, style: printStyle, pane: self, "
-                           + "anchor: actionItems[.reply],",
+        // Held back as the pane holds the letter back (B-168).
+        for wiring in ["letter: m, heldBack: remote.holdsBack(m.id), repository: repository, "
+                           + "style: printStyle, pane: self, anchor: actionItems[.reply],",
                        "guard let shown = self?.message else { return false } "
                            + "return shown.id == m.id && shown.mailboxID == m.mailboxID",
                        "ended: { [weak self] job in guard let self, self.printing === job else { return } "
@@ -141,7 +142,9 @@ final class PrintWiringTests: XCTestCase {
 
     /// Its own configuration, locked down as the pane's is, all of it set
     /// before the view is built from it; no script of any kind, the app's
-    /// or the letter's.
+    /// or the letter's. Its content controller holds WebKit's list that
+    /// blocks the web, for a letter the pane holds back, and nothing else
+    /// (B-168).
     func testTheJobsWebViewIsLockedDown() throws {
         let job = try self.job
         let built = try XCTUnwrap(place(of: "let web = WKWebView(frame:", in: job))
@@ -149,12 +152,15 @@ final class PrintWiringTests: XCTestCase {
                         "config.defaultWebpagePreferences.allowsContentJavaScript = false",
                         "config.websiteDataStore = .nonPersistent()",
                         "let loader = InlineImageLoader() "
-                            + "config.setURLSchemeHandler(loader, forURLScheme: InlineImageRewriter.scheme)"] {
+                            + "config.setURLSchemeHandler(loader, forURLScheme: InlineImageRewriter.scheme)",
+                        "if heldBack, let list = RemoteBlockList.list { "
+                            + "config.userContentController.add(list) }"] {
             let at = try XCTUnwrap(place(of: setting, in: job), setting)
             XCTAssertLessThan(at, built, setting)
         }
         XCTAssertEqual(count("WKWebView(frame:", in: job), 1)
-        for never in ["addUserScript", "userContentController", "evaluateJavaScript", "callAsyncJavaScript",
+        XCTAssertEqual(count("userContentController", in: job), 1, "the list, and nothing else")
+        for never in ["addUserScript", "evaluateJavaScript", "callAsyncJavaScript",
                       "WKUserScript", "WKScriptMessageHandler"] {
             XCTAssertFalse(job.contains(never), never)
         }
@@ -202,7 +208,8 @@ final class PrintWiringTests: XCTestCase {
         let job = try self.job
         XCTAssertNotNil(place(of: "switch PaneNavigation.decide(PaneNavigation.Kind(action.navigationType), "
                                   + "mainFrame: action.targetFrame?.isMainFrame, url: action.request.url) { "
-                                  + "case .allow: decisionHandler(.allow) case .cancel, .follow, .openFile: "
+                                  + "case .allow: decisionHandler(.allow) "
+                                  + "case .cancel, .follow, .openFile, .loadImages: "
                                   + "decisionHandler(.cancel) }", in: job))
         XCTAssertEqual(count("decisionHandler(.allow)", in: job), 1)
         XCTAssertFalse(job.contains(".open("))
@@ -319,7 +326,8 @@ final class PrintWiringTests: XCTestCase {
     func testThePageIsLoadedOnlyOnceItAndItsWordsAreMade() throws {
         let job = try self.job
         XCTAssertNotNil(place(of: "building = Task { @MainActor [weak self] in "
-                                  + "let made = await Self.made(m, style: style) guard let self else { return } "
+                                  + "let made = await Self.made(m, style: style, heldBack: heldBack) "
+                                  + "guard let self else { return } "
                                   + "self.page = made.page self.words = made.words self.take(.built) }", in: job))
         XCTAssertEqual(count("take(.built)", in: job), 1)
         XCTAssertNotNil(place(of: "private func load() { guard let page, let pane, "

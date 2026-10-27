@@ -523,7 +523,10 @@ final class NextLetterTests: XCTestCase {
                 + "else { return } self.openNext(next) })",
             "private func lettersAfter(_ chosen: [MessageSummary], _ action: PaneAction) -> String? { "
                 + "guard NextLetter.action == .viewNextMessage, !inEditMode, let first = chosen.first",
-            "case .trash: runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true)",
+            // At once, or once Ask Before Deleting's sheet is answered
+            // (B-168), the same batch.
+            "case .trash: return discard(.trash, chosen, on: key, from: from) { [weak self] in "
+                + "self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true) }",
         ] {
             XCTAssertTrue(list.contains(line), line)
         }
