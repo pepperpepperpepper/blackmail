@@ -106,6 +106,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Where the finger was held on a picture, in the web view, for the
     /// share sheet its menu's Share puts up there (B-150).
     private var pictureSpot = CGRect.zero
+    /// Markup and Reply (B-171): where the picture's marking up stands, the
+    /// copy of what he drew among it (`MarkupReply`), and the letter and the
+    /// picture of it being marked up, the letter the reply answers. The
+    /// last picture opened for Markup, until its reply has opened.
+    private var markup = MarkupReply()
+    private var marking: (letter: Message, picture: Attachment)?
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -1072,9 +1078,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// the one running opens it as it lands.
     ///
     /// `item` is what it is opened for: Quick Look, or an item of the menu
-    /// of a picture held (`holdPicture`, B-150), Save Image, Save to Files,
-    /// Share or Copy, each done with the bytes as they land by the same
-    /// rules, and what the last tap on it asked for wins.
+    /// of a picture held (`holdPicture`, B-150), Markup and Reply (B-171),
+    /// Save Image, Save to Files, Share or Copy, each done with the bytes
+    /// as they land by the same rules, and what the last tap on it asked
+    /// for wins.
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil,
                                 for item: PanePictures.Item = .quickLook) {
         guard let m = letter ?? message else { return }
@@ -1151,6 +1158,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     share.popoverPresentationController?.sourceView = webView
                     share.popoverPresentationController?.sourceRect = pictureSpot
                     present(share, animated: true)
+                case .markupAndReply:
+                    // iOS's own Markup on it, in Quick Look, full screen as
+                    // a tap opens it, a copy made of what he draws and the
+                    // picture left as it came (B-171). The one preview with
+                    // the pane as its delegate (`QLPreviewControllerDelegate`
+                    // below): a tap's Quick Look has no Markup, as before.
+                    let preview = QLPreviewController()
+                    preview.dataSource = self
+                    preview.delegate = self
+                    preview.modalPresentationStyle = .fullScreen
+                    MarkupReply.letGo(markup.begin())
+                    marking = (m, attachment)
+                    present(preview, animated: true)
                 case .quickLook, .saveImage, .copy:
                     let preview = QLPreviewController()
                     preview.dataSource = self
@@ -1332,14 +1352,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// A finger held on a picture of a letter's own (B-150): Mail's menu
-    /// for a file of the letter's, Quick Look, Save Image, Save to Files,
-    /// Share and Copy (`PanePictures.menu`), as a sheet at the finger, as
-    /// the Flag and Reply buttons have theirs, where WebKit's own menu was,
-    /// with Save to Photos and no Save to Files. The picture is the one a
-    /// tap would open, any size; each item downloads it as a tap does
-    /// (`openAttachment`), unless the pane has been given something else
-    /// meanwhile, and does with it what it says. A tap outside closes it
-    /// with nothing done.
+    /// for a file of the letter's, Quick Look, Markup and Reply (B-171),
+    /// Save Image, Save to Files, Share and Copy (`PanePictures.menu`), as
+    /// a sheet at the finger, as the Flag and Reply buttons have theirs,
+    /// where WebKit's own menu was, with Save to Photos and no Save to
+    /// Files. The picture is the one a tap would open, any size; each item
+    /// downloads it as a tap does (`openAttachment`), unless the pane has
+    /// been given something else meanwhile, and does with it what it says.
+    /// A tap outside closes it with nothing done.
     private func holdPicture(_ tap: PanePictures.Tap) {
         guard presentedViewController == nil,
               let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,
@@ -1396,9 +1416,41 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     }
                 }
             }
-        case .quickLook, .saveToFiles, .share:
+        case .quickLook, .markupAndReply, .saveToFiles, .share:
             break
         }
+    }
+
+    /// Markup and Reply's Reply (B-171): the app's own Reply to the letter
+    /// whose picture he marked up, as the Reply button's sheet opens it
+    /// (`openCompose`), whom it goes to, its subject, its quote and his
+    /// signature, with his copy landing in it as a photo he picks lands:
+    /// in the letter under his words, a row of his with its Remove. Mail's
+    /// question about the original's files is not asked; it is asked only
+    /// under Ask (`ReplyFiles.asks`), which his Mail is not taken to be,
+    /// and the reply carries none of them then, as Don’t Include. Nothing
+    /// goes unless he taps Send.
+    ///
+    /// Opened once Quick Look has gone from over the pane, which can still
+    /// be there as it says it has closed: looked for again a tenth of a
+    /// second later, ten times at most. Anything else over the pane, and the
+    /// copy is let go, said in the log alone.
+    private func replyWithMarkup(_ copy: DraftAttachment, tries: Int = 0) {
+        guard let letter = marking?.letter else { return MarkupReply.letGo(copy) }
+        if let over = presentedViewController {
+            guard over is QLPreviewController, tries < 10 else {
+                marking = nil
+                MarkupReply.letGo(copy)
+                Diagnostics.log(.note, "markup: reply not opened, the pane covered")
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.replyWithMarkup(copy, tries: tries + 1)
+            }
+            return
+        }
+        marking = nil
+        openCompose(replyTo: letter, all: false, forward: false, landing: [copy])
     }
 
     /// A tapped link opens at once, in Safari or the app that claims it, as
@@ -1709,7 +1761,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// warning waits for it too (B-137). Put up meanwhile, it was taken by
     /// `openAttachment` for something already over the pane, and the
     /// preview was let go without a word; after OK nothing opened.
-    var isOpeningFile: Bool { filesOpening > 0 }
+    /// And so does a picture being marked up for Markup and Reply, until
+    /// its reply has opened (`MarkupReply.isBusy`, B-171).
+    var isOpeningFile: Bool { filesOpening > 0 || markup.isBusy(at: Date()) }
 
     /// Prints `m`, the letter the sheet was opened for (B-110). Nothing
     /// while a print is being made ready; a print whose panel is up holds
@@ -1826,9 +1880,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     ///
     /// A Reply or Reply All hands the composer its files' rule
     /// (`ReplyFiles`, B-107), and nothing else does. `included` is his
-    /// answer to Mail's question, nil where none was asked.
+    /// answer to Mail's question, nil where none was asked. `landing` lands
+    /// in the letter once the sheet has opened, as a photo he picks lands
+    /// (`ComposeViewController.landing`): the copy Markup and Reply made
+    /// (B-171), and nothing for any other letter.
     private func openCompose(replyTo m: Message?, all: Bool, forward: Bool,
-                             included: Bool? = nil) {
+                             included: Bool? = nil, landing: [DraftAttachment] = []) {
         let account = CredentialStore.loadAccount()
         let signature = account?.signature ?? ""
         var draft = Draft.blank(signature: signature)
@@ -1846,6 +1903,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
         let compose = ComposeViewController(repository: repository, draft: draft,
                                             replyFiles: replyFiles)
+        compose.landing = landing
         let nav = UINavigationController(rootViewController: compose)
         nav.modalPresentationStyle = .formSheet
         present(nav, animated: true)
@@ -1886,6 +1944,54 @@ extension MessageDetailViewController: QLPreviewControllerDataSource {
         // QuickLook is handed the empty store, where there is nothing to
         // show, rather than the app ending.
         (previewURL ?? AttachmentStore.root) as NSURL
+    }
+}
+
+/// Markup and Reply's preview's delegate (B-171), and no other preview's:
+/// the pane is the delegate of the one Quick Look it opens for Markup and
+/// Reply alone (`openAttachment`). What he draws is saved as a copy, the
+/// picture itself left as it came, and the copy goes in the reply as Quick
+/// Look closes (`MarkupReply`). Nothing here touches the file Quick Look
+/// shows (`previewURL`), which goes only as the next file is written
+/// (B-063).
+extension MessageDetailViewController: QLPreviewControllerDelegate {
+
+    /// Markup on, a copy made of what he draws: Quick Look's Markup button,
+    /// as Mail's composer has Quick Look's for a file.
+    func previewController(_ controller: QLPreviewController,
+                           editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode {
+        .createCopy
+    }
+
+    /// A copy of what he drew, staged at once, since the file Quick Look
+    /// hands over is its own and temporary: kept for the reply while the
+    /// preview is up, the copy before it let go, or put in the reply now if
+    /// the preview has closed already. One that cannot be staged is said
+    /// in the log alone.
+    func previewController(_ controller: QLPreviewController, didSaveEditedCopyOf previewItem: QLPreviewItem,
+                           at modifiedContentsURL: URL) {
+        guard let picture = marking?.picture else { return }
+        let made = MarkupReply.picture(original: picture.filename, originalType: picture.mimeType,
+                                       copy: modifiedContentsURL,
+                                       lookup: { UTType(filenameExtension: $0)?.preferredMIMEType })
+        let copy: DraftAttachment
+        do {
+            copy = try MarkupReply.stage(modifiedContentsURL, as: made, jpeg: {
+                UIImage(contentsOfFile: $0.path)?.jpegData(compressionQuality: SharedPhoto.quality)
+            })
+        } catch {
+            Diagnostics.log(.note, "markup: copy not staged")
+            return
+        }
+        let saved = markup.saved(copy, at: Date())
+        MarkupReply.letGo(saved.unused)
+        if let reply = saved.reply { replyWithMarkup(reply) }
+    }
+
+    /// Quick Look closed: the reply, with the last copy saved; with none,
+    /// nothing drawn, he is back at the letter with nothing made.
+    func previewControllerDidDismiss(_ controller: QLPreviewController) {
+        if let copy = markup.closed(at: Date()) { replyWithMarkup(copy) }
     }
 }
 

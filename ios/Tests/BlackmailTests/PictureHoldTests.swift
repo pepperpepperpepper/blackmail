@@ -79,14 +79,14 @@ final class PictureHoldTests: XCTestCase {
 
     // MARK: - The menu
 
-    /// Mail's menu for a file of the letter's, in its order, less Markup
-    /// and Reply and Look Up: Quick Look, Save Image, Save to Files, Share,
-    /// Copy. Save Image and Copy put nothing over the pane.
+    /// Mail's menu for a file of the letter's, in its order, less Look Up:
+    /// Quick Look, Markup and Reply (B-171), Save Image, Save to Files,
+    /// Share, Copy. Save Image and Copy put nothing over the pane.
     func testTheMenuIsMailsInMailsOrder() {
         XCTAssertEqual(PanePictures.menu.map(\.title),
-                       ["Quick Look", "Save Image", "Save to Files", "Share", "Copy"])
+                       ["Quick Look", "Markup and Reply", "Save Image", "Save to Files", "Share", "Copy"])
         XCTAssertEqual(PanePictures.menu, PanePictures.Item.allCases)
-        XCTAssertEqual(PanePictures.menu.filter(\.presents), [.quickLook, .saveToFiles, .share])
+        XCTAssertEqual(PanePictures.menu.filter(\.presents), [.quickLook, .markupAndReply, .saveToFiles, .share])
     }
 
     /// A hold has the menu for any picture of the letter's own, his logo

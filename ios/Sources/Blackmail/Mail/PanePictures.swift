@@ -29,13 +29,13 @@ import Foundation
 /// spacer, an icon, a logo in a signature (`Tap.opens`).
 ///
 /// A finger held on such a picture gives Mail's menu for a file of the
-/// letter's (B-150): Quick Look, Save Image, Save to Files, Share and Copy
-/// (`menu`), where it gave WebKit's, with Save to Photos and no Save to
-/// Files (B-067, B-122). The script tells the pane of the hold as of a tap
-/// (`Tap.isHold`), with where the finger is, and keeps WebKit's own menu
-/// off the picture; any picture of the letter's own has it, whatever its
-/// size, as a file has it in Mail. A picture from the web, or in a link,
-/// keeps WebKit's menu.
+/// letter's (B-150): Quick Look, Markup and Reply (B-171), Save Image, Save
+/// to Files, Share and Copy (`menu`), where it gave WebKit's, with Save to
+/// Photos and no Save to Files (B-067, B-122). The script tells the pane of
+/// the hold as of a tap (`Tap.isHold`), with where the finger is, and keeps
+/// WebKit's own menu off the picture; any picture of the letter's own has
+/// it, whatever its size, as a file has it in Mail. A picture from the web,
+/// or in a link, keeps WebKit's menu.
 enum PanePictures {
 
     /// The name the stack's script posts a tap under, in the app's content
@@ -183,6 +183,11 @@ enum PanePictures {
     enum Item: String, CaseIterable {
         /// Full screen in Quick Look, as a tap opens it.
         case quickLook = "Quick Look"
+        /// Full screen in Quick Look with its Markup, and what he draws on
+        /// it in a Reply to the letter, under his words (`MarkupReply`,
+        /// B-171). Mail's words, iOS 18.6's MobileMailUI's
+        /// `MARKUP_DOCUMENT`.
+        case markupAndReply = "Markup and Reply"
         /// Into Photos, as its own bytes, which the app asks to add to
         /// Photos for (`NSPhotoLibraryAddUsageDescription`, B-067).
         case saveImage = "Save Image"
@@ -201,9 +206,9 @@ enum PanePictures {
     }
 
     /// The menu, in Mail's order, for a picture of the letter's own: Mail's
-    /// for a file, less Markup and Reply, which would be a composer of its
-    /// own, and Look Up, which is for the words in a picture.
-    static let menu: [Item] = [.quickLook, .saveImage, .saveToFiles, .share, .copy]
+    /// for a file, Markup and Reply second (B-171), less Look Up, which is
+    /// for the words in a picture.
+    static let menu: [Item] = [.quickLook, .markupAndReply, .saveImage, .saveToFiles, .share, .copy]
 
     /// The part of `m` with the `Content-ID` `contentID`: the last of them
     /// where it has two, the one the loader drew (`PanePage.pictures`).

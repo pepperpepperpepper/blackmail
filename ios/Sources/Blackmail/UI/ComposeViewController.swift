@@ -208,6 +208,16 @@ final class ComposeViewController: UIViewController,
     /// the Outbox, which keep the rows they were saved with.
     private var replyFiles: ReplyFiles?
 
+    /// What lands in the letter once the sheet has opened, as a photo he
+    /// picks lands (`landed`): the copy of a picture he marked up, for
+    /// Markup and Reply (B-171), staged in `tmp/Attachments` by the pane.
+    /// After the letter is taken as it opened, so that Cancel asks Save
+    /// Draft or Delete Draft of it, as of a photo he added; kept on the
+    /// iPad with the letter as he writes it, and its staged file removed as
+    /// this controller goes (`staged`). Empty for every other letter. Set
+    /// before the sheet is shown.
+    var landing: [DraftAttachment] = []
+
     /// `key` is the letter's on the iPad when it was reopened from there;
     /// any other letter is given a new one. `replyFiles` is a Reply's or a
     /// Reply All's, nil for every other letter.
@@ -383,6 +393,12 @@ final class ComposeViewController: UIViewController,
         // it, before the letter is taken as it opened.
         followRecipients()
         opened = currentLetter()
+        // The picture Markup and Reply made (B-171), in after the letter is
+        // taken as it opened, as a photo he picks comes in.
+        for row in landing {
+            guard case let .localFile(url) = row.source else { continue }
+            landed(url, row)
+        }
         updateSend()
         // A tap outside the sheet does nothing, and a swipe down asks what
         // Cancel asks (`presentationControllerDidAttemptToDismiss`), as in
