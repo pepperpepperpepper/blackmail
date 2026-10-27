@@ -31311,7 +31311,7 @@ before has, read as not among. `PrintWiringTests`, one changed: the
 printed header is the pane's but for the files, which a printed letter
 lists all of.
 
-Each part undone by hand, up to five at a time, each failure read back to
+Each part undone by hand, up to six at a time, each failure read back to
 its part by the assertion that failed, these and the pane's other suites
 run (`PictureTapTests`, `PrintWiringTests`, `BodyInOrderTests` among
 them), then put back and passing, counted as failures in tests: no file
@@ -31456,7 +31456,7 @@ first in each `show` and in nothing else, not in `loadBody`, `fill`,
 commit, the paint by the private name, the end, and the limit with its
 line in the log; the events asked for only where the setter is.
 
-Each part undone by hand, up to five at a time, each failure read back to
+Each part undone by hand, up to six at a time, each failure read back to
 its part by the assertion that failed, these and the pane's other suites
 run, then put back and passing, counted as failures in tests: a paint
 before the commit lifting it, 13 in 4; the first document given waited
@@ -31665,7 +31665,7 @@ Changed, as the code they read changed: `PictureTapTests` (three),
 touch listeners on the window, the lines' four and the picture's four, and
 two `preventDefault`s.
 
-Each part undone by hand, up to five at a time, each failure read back to
+Each part undone by hand, up to six at a time, each failure read back to
 its part by the assertion that failed, these and the pane's other suites
 run, then put back and passing, counted as failures in tests: WebKit's
 menu not kept off, 3 in 3; the lift after a hold not stopped, 4 in 4,
