@@ -716,12 +716,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// The stack itself, drawn at the tap as the stand-in, on the main
     /// thread: it holds no body, only a line per letter, and waiting for it
-    /// would leave the previous letter on screen in the meantime.
+    /// would leave the previous letter on screen in the meantime. At the
+    /// accessibility sizes each part of a letter's line has a line of its
+    /// own, as a row's date has (B-166).
     private func renderConversation(_ entries: [ConversationDocument.Entry]) {
         let style = pageStyle
         load(ConversationDocument.html(entries: entries, inset: style.inset,
                                        bodyPointSize: style.bodyPointSize,
-                                       lineHeight: style.lineHeight),
+                                       lineHeight: style.lineHeight,
+                                       stacked: Theme.textSize.stacksRowDate),
              as: .conversation(entries))
     }
 

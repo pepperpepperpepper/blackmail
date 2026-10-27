@@ -304,9 +304,14 @@ final class MessageListViewController: UITableViewController {
     /// rebuilt, since row numbers mean nothing after; see `ListPlace`.
     /// So is the row VoiceOver is on, which is put back on its letter at
     /// the end, once the list is where it goes (`keepVoiceOver`, B-079).
+    ///
+    /// `held` is his place taken by the caller before something else
+    /// moved the rows under it, as a new text size does (B-166); without
+    /// it his place is taken here.
     @MainActor
-    private func regroup(highlighting opened: String? = nil, to move: ListPlaces.Move = .stay) {
-        let before = place()
+    private func regroup(highlighting opened: String? = nil, to move: ListPlaces.Move = .stay,
+                         from held: ListPlace? = nil) {
+        let before = held ?? place()
         let voiceOverOn = voiceOverHeld()
         defer { keepVoiceOver(voiceOverOn) }
         rebuildRows()
@@ -1400,11 +1405,22 @@ final class MessageListViewController: UITableViewController {
     /// under the field and "No messages" at the new size. Nothing is
     /// fetched. The bars and the line under the list keep theirs, as
     /// UIKit's bars do.
+    ///
+    /// His place is taken first, while the rows are still at their old
+    /// height, and put back once they are at the new one. Taken after the
+    /// new `rowHeight`, which can move every row's top at once with the
+    /// offset left where it was, it could be measured with the rows at the
+    /// new height and the offset at the old, putting the rows he was
+    /// looking at lower down the pane than they were, and the regroup
+    /// would leave the offset there: scrolled to the tenth row at 96
+    /// points, at the largest of the seven sizes he would be left looking
+    /// at the seventh. Read in the code, not seen.
     @objc private func textSizeChanged() {
+        let here = place()
         tableView.rowHeight = Theme.messageRowHeightScaled
         emptyLabel.font = Theme.fontListSubject
         searchBar.restyle()
-        regroup()
+        regroup(from: here)
     }
 
     /// The iPad's 24-Hour Time switch, its time zone or its region has

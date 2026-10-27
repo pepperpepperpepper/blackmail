@@ -1472,11 +1472,13 @@ final class ListPlaceTests: XCTestCase {
                        + "selected: selected) }")
         XCTAssertEqual(list.components(separatedBy: "ListPlace(rows:").count - 1, 1)
         XCTAssertEqual(lines(of: list, containing: "place()"),
-                       ["let before = place()", "let here = place()",
+                       ["let before = held ?? place()", "let here = place()",
                         "taken.drawn(change, from: here, to: place())",
                         "private func place() -> ListPlace {",
                         "regroup(to: keepingPlace ? places.refetched(here: place()) : places.replaced())",
                         "let here = place()", "let here = place()",
+                        // A new text size's, before the rows' new height (B-166).
+                        "let here = place()",
                         "let move = self.landed.move(forPageAboveFrom: self.place())",
                         "return places.resultsShown(overFolder: overFolder, here: overFolder ? place() : nil)"])
         // A row put back goes back by the place from before its take while

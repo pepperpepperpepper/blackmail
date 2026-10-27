@@ -903,7 +903,7 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertFalse(list.contains("insertRows("))
         XCTAssertFalse(list.contains("deleteRows("))
         for opener in ["private func regroup(highlighting opened: String? = nil, "
-                       + "to move: ListPlaces.Move = .stay)",
+                       + "to move: ListPlaces.Move = .stay,",
                        "private func showKeptPage()",
                        "private func show(_ window: MessageWindow)"] {
             let redraw = flat(body(after: opener, in: list))

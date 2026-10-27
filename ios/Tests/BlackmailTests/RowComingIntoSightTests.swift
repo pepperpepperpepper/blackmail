@@ -284,7 +284,7 @@ final class RowComingIntoSightTests: XCTestCase {
         XCTAssertEqual(count("cellForRow(at:", in: pane), 1)
         XCTAssertTrue(pane.contains("let cell = tableView.cellForRow(at: IndexPath(row: place.row, "
                                     + "section: place.section)) else { continue } "
-                                    + "configure(cell, with: folder) }"))
+                                    + "configure(cell, with: folder) patched = true }"))
     }
 }
 

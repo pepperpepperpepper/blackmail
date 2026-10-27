@@ -120,7 +120,9 @@ final class TextSizeWiringTests: XCTestCase {
     /// size changed; it places its lines by `RowLines`, the date on its own
     /// line at the accessibility sizes, and never by Theme's baselines at
     /// Large alone. The list sets the rows' height and draws them again by
-    /// a regroup, which holds his place, at the change.
+    /// a regroup, which holds his place, at the change: the place taken
+    /// before the height is set, while the rows are at the old one, and
+    /// handed to the regroup, which takes its own only when given none.
     func testTheListsRowsFollowTheSize() throws {
         let cell = try source("UI/MessageCell.swift")
         XCTAssertNotNil(place(of: "func configure(with m: MessageSummary, marked: Bool) { restyle()", in: cell))
@@ -148,10 +150,14 @@ final class TextSizeWiringTests: XCTestCase {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertNotNil(place(of: "NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged), "
                                   + "name: TextSizes.didChange, object: nil)", in: list))
-        XCTAssertNotNil(place(of: "@objc private func textSizeChanged() { "
+        XCTAssertNotNil(place(of: "@objc private func textSizeChanged() { let here = place() "
                                   + "tableView.rowHeight = Theme.messageRowHeightScaled "
-                                  + "emptyLabel.font = Theme.fontListSubject searchBar.restyle() regroup() }",
+                                  + "emptyLabel.font = Theme.fontListSubject searchBar.restyle() "
+                                  + "regroup(from: here) }",
                               in: list))
+        XCTAssertNotNil(place(of: "private func regroup(highlighting opened: String? = nil, "
+                                  + "to move: ListPlaces.Move = .stay, from held: ListPlace? = nil) { "
+                                  + "let before = held ?? place()", in: list))
         let band = try source("UI/SearchHeaderView.swift")
         XCTAssertNotNil(place(of: "func restyle() { recentHeading.font = Theme.fontListSender "
                                   + "for row in recentRows { row.restyle() } setNeedsLayout() }", in: band))
@@ -159,20 +165,51 @@ final class TextSizeWiringTests: XCTestCase {
 
     /// The Mailboxes: the rows at their height and drawn again, the
     /// highlight put back, at the change; their names, counts and icons
-    /// read from `Theme` as each row is drawn.
+    /// read from `Theme` as each row is drawn. At Large the rows are the
+    /// 44 they were; at any other size each is as tall as its name, never
+    /// under the rows' height there, in the Mailboxes and the Move sheet
+    /// alike, and measured again when a count comes or goes in place.
     func testTheMailboxesFollowTheSize() throws {
         let folders = try source("UI/MailboxListViewController.swift")
         XCTAssertNotNil(place(of: "NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged), "
                                   + "name: TextSizes.didChange, object: nil)", in: folders))
         XCTAssertNotNil(place(of: "@objc private func textSizeChanged() { "
-                                  + "tableView.rowHeight = Theme.mailboxRowHeightScaled redraw() }", in: folders))
+                                  + "FolderCell.size(tableView) redraw() }", in: folders))
         let configure = try section(folders, from: "private func configure(_ cell: UITableViewCell, "
                                         + "with mailbox: Mailbox) {", to: "cell.accessibilityLabel")
         for wiring in ["content.textProperties.font = Theme.fontMailboxName",
                        "content.image = Theme.symbol(icon(for: mailbox.role))",
-                       "label.font = Theme.fontMailboxCount"] {
+                       "label.font = Theme.fontMailboxCount",
+                       "cell.contentConfiguration = content (cell as? FolderCell)?.holdFloor()"] {
             XCTAssertTrue(configure.contains(wiring), wiring)
         }
+        let adjust = try section(folders, from: "func adjustUnreadCounts(", to: "AppBadge.app.counted")
+        XCTAssertTrue(adjust.contains("configure(cell, with: folder) patched = true }"), adjust)
+        XCTAssertTrue(adjust.contains("if patched, Theme.textSize != .factory { "
+                                      + "tableView.beginUpdates() tableView.endUpdates() }"), adjust)
+
+        let move = try source("UI/MoveMessageViewController.swift")
+        XCTAssertNotNil(place(of: "cell.contentConfiguration = content (cell as? FolderCell)?.holdFloor() "
+                                  + "return cell", in: move))
+        for (file, code) in [("folders", folders), ("move", move)] {
+            XCTAssertNotNil(place(of: "tableView.register(FolderCell.self, forCellReuseIdentifier: \"Mailbox\") "
+                                      + "FolderCell.size(tableView)", in: code), file)
+            XCTAssertFalse(code.contains("rowHeight = Theme.mailboxRowHeightScaled"), file)
+        }
+
+        let cell = try source("UI/FolderCell.swift")
+        XCTAssertNotNil(place(of: "static func size(_ table: UITableView) { "
+                                  + "if Theme.textSize == .factory { "
+                                  + "table.rowHeight = Theme.mailboxRowHeightScaled "
+                                  + "table.estimatedRowHeight = UITableView.automaticDimension } else { "
+                                  + "table.rowHeight = UITableView.automaticDimension "
+                                  + "table.estimatedRowHeight = Theme.mailboxRowHeightScaled } }", in: cell))
+        XCTAssertNotNil(place(of: "let floor = contentView.heightAnchor.constraint("
+                                  + "greaterThanOrEqualToConstant: 0) floor.priority = UILayoutPriority(999)",
+                              in: cell))
+        XCTAssertNotNil(place(of: "func holdFloor() { floor.constant = Theme.mailboxRowHeightScaled "
+                                  + "floor.isActive = Theme.textSize != .factory }", in: cell))
+        XCTAssertFalse(cell.contains("numberOfLines"), "the name on as many lines as it takes")
     }
 
     /// The reading pane: the header's type at once; the letter drawn again
@@ -200,6 +237,11 @@ final class TextSizeWiringTests: XCTestCase {
         XCTAssertNotNil(place(of: "@objc private func appBecameActive() { drawAgain() restyleIfOwed() }", in: pane))
         XCTAssertNotNil(place(of: ".init(inset: Int(Theme.detailContentInsetLeft), "
                                   + "bodyPointSize: Int(Theme.scaled(17)),", in: pane))
+        XCTAssertNotNil(place(of: "load(ConversationDocument.html(entries: entries, inset: style.inset, "
+                                  + "bodyPointSize: style.bodyPointSize, lineHeight: style.lineHeight, "
+                                  + "stacked: Theme.textSize.stacksRowDate), as: .conversation(entries))",
+                              in: pane))
+        XCTAssertEqual(count("ConversationDocument.html(", in: pane), 1, "the stack is built in one place")
 
         let header = try source("UI/MessageHeaderView.swift")
         XCTAssertNotNil(place(of: "func restyle() { senderLabel.font = Theme.fontDetailSender "
@@ -217,8 +259,29 @@ final class TextSizeWiringTests: XCTestCase {
     /// body kept as a step, run again at the change with the files' rows
     /// made again and the addresses offered at their height; no line of
     /// either held at 44 whatever the size, and a line of bubbles in To
-    /// growing with its names.
+    /// growing with its names. Each step sets its line's height, and its
+    /// caption's room and place, again, not its type alone: a step that
+    /// set only the fonts would leave an open composer's lines at their
+    /// old height, its words cut, until it was opened again.
     func testTheComposerAndTheShareSheetFollowTheSize() throws {
+        let steps = [
+            "restyles.keep { [ccToggle] in ccToggle.titleLabel?.font = Theme.fontDetailMeta "
+                + "toggleHeight.constant = Theme.lineHeight }",
+            "label.font = Theme.fontDetailMeta field.font = .systemFont(ofSize: Theme.scaled(17)) "
+                + "captionWidth.constant = Theme.scaled(72) height.constant = Theme.lineHeight }",
+            "label.font = Theme.fontDetailMeta field.font = .systemFont(ofSize: Theme.scaled(17)) "
+                + "captionY.constant = Theme.lineHeight / 2 captionWidth.constant = Theme.scaled(72) }",
+        ]
+        for file in ["UI/ComposeViewController.swift", "Share/ShareViewController.swift"] {
+            let code = try source(file)
+            for step in steps { XCTAssertEqual(count(step, in: code), 1, "\(file): \(step)") }
+        }
+        XCTAssertNotNil(place(of: "button.configuration?.attributedTitle?.font = Theme.fontDetailMeta } "
+                                  + "height.constant = Theme.lineHeight }",
+                              in: try source("UI/ComposeViewController.swift")))
+        XCTAssertNotNil(place(of: "restyles.keep { label.font = Theme.fontDetailMeta "
+                                  + "height.constant = Theme.lineHeight }",
+                              in: try source("Share/ShareViewController.swift")))
         for (file, offered) in [("UI/ComposeViewController.swift",
                                  "if let field = activeAddressField { layoutSuggestions(under: field) }"),
                                 ("Share/ShareViewController.swift",

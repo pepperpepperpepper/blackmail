@@ -161,6 +161,55 @@ final class TextSizeTests: XCTestCase {
         }
     }
 
+    /// Above Large the names lose no more of the top line than the date
+    /// needs: 110 points, as at Large, or the date's own width where that
+    /// is more, never its 110 scaled with the type, which at the largest of
+    /// the seven kept 149 of a three-pane line of 256 for "Wednesday"'s
+    /// 107 and left the names 99. Under Large, as it was, scaled.
+    func testTheNamesKeepAllButTheDatesRoom() {
+        let largest = TextSize(step: .extraExtraExtraLarge, bold: false)
+        let wednesday = 80 * largest.scaled(15) / 15
+        let line = RowTopLine(left: 29, right: 285, mark: nil, gap: 5, date: wednesday,
+                              scale: largest.scale)
+        XCTAssertEqual(line.dateWidth, 110)
+        XCTAssertEqual(line.namesWidth, 138, "256 less the date's 110 and the 8 between")
+        let wide = RowTopLine(left: 29, right: 285, mark: nil, gap: 5, date: 120, scale: largest.scale)
+        XCTAssertEqual(wide.dateWidth, 120, "a date wider than 110 has its own width")
+        XCTAssertEqual(wide.namesWidth, 128)
+        let narrow = RowTopLine(left: 49, right: 120, mark: nil, gap: 5, date: 120, scale: largest.scale)
+        XCTAssertEqual(narrow.dateWidth, 71 * 0.45 * largest.scale, accuracy: 0.001,
+                       "never more than the line's scaled share")
+        let small = TextSize(step: .extraSmall, bold: false)
+        let under = RowTopLine(left: 29, right: 285, mark: nil, gap: 5, date: 60, scale: small.scale)
+        XCTAssertEqual(under.dateWidth, min(110 * small.scale, 256 * 0.45 * small.scale), accuracy: 0.001)
+    }
+
+    /// The reply or forward arrow's square, centred on the dot's 14 points
+    /// from the row's edge with the names at 29, grows with the type and
+    /// never past the gutter, which stays as at Large: inside the row's
+    /// left edge and a point short of the names at every size, 12 at
+    /// Large, scaled up to the third accessibility size, 28 at the two
+    /// largest, where scaled it was 33 and 37 and ran off the edge and into
+    /// the names.
+    func testTheArrowStaysInTheGutter() {
+        var boxes: [CGFloat] = []
+        for step in Step.allCases {
+            let size = TextSize(step: step, bold: false)
+            let box = RowLines.gutterBox(12, at: size, centre: 14, textLeft: 29)
+            XCTAssertGreaterThanOrEqual(14 - box / 2, 0, "\(step)")
+            XCTAssertLessThanOrEqual(14 + box / 2, 28, "\(step)")
+            if step <= .accessibilityExtraLarge { XCTAssertEqual(box, size.scaled(12), "\(step)") }
+            boxes.append(box)
+        }
+        XCTAssertEqual(boxes[3], 12)
+        XCTAssertEqual(boxes, boxes.sorted())
+        XCTAssertEqual(boxes.suffix(2), [28, 28])
+        // An indented row, a conversation's own letter, moves the dot and the
+        // names alike, so its gutter is the same.
+        XCTAssertEqual(RowLines.gutterBox(12, at: TextSize(step: .accessibilityExtraExtraExtraLarge, bold: false),
+                                          centre: 14 + 20, textLeft: 29 + 20), 28)
+    }
+
     /// At the accessibility sizes the names have the whole line, and the
     /// date the line under them, ending where it always ends, before the
     /// mark on a marked row, and as wide as the line leaves it.
@@ -352,6 +401,40 @@ final class TextSizeTests: XCTestCase {
             return XCTFail("the words")
         }
         XCTAssertEqual(lines, [PaneDocument.cannotShow])
+    }
+
+    // MARK: - A conversation's lines
+
+    /// At the accessibility sizes each part of a letter's line in a
+    /// conversation has a line of its own: the line wraps, the name takes
+    /// the width and may go on to a second line, the date comes under it at
+    /// its left, and a closed letter's first words under that. The rules
+    /// come after the line's own, which they override, and only then: at
+    /// every other size the document is as it was, to the byte.
+    func testAConversationsLinesStackAtTheAccessibilitySizes() {
+        let stack = [entry("7/3", open: true), entry("7/2")]
+        let plain = ConversationDocument.html(entries: stack, inset: 20, bodyPointSize: 17, lineHeight: 1.41)
+        XCTAssertEqual(ConversationDocument.html(entries: stack, inset: 20, bodyPointSize: 17, lineHeight: 1.41,
+                                                 stacked: false), plain)
+        XCTAssertFalse(plain.contains("flex-wrap"))
+        let big = ConversationDocument.html(entries: stack, inset: 20, bodyPointSize: 53, lineHeight: 1.41,
+                                            stacked: true)
+        let rules = ConversationDocument.stackedLines
+        for rule in [".bm-head { flex-wrap: wrap; }",
+                     ".bm-from { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }",
+                     ".bm-when { flex: 1 1 100%; margin-left: 0; order: 1; }",
+                     ".bm-peek { flex: 1 1 100%; min-width: 0; order: 2; }"] {
+            XCTAssertTrue(rules.contains(rule), rule)
+        }
+        XCTAssertFalse(rules.contains("white-space"), "the name is never held to one line")
+        guard let own = big.range(of: ".bm-when { color: #8e8e93; font-size: 50px;"),
+              let over = big.range(of: rules), let end = big.range(of: "</style>") else {
+            return XCTFail("the rules")
+        }
+        XCTAssertLessThan(own.lowerBound, over.lowerBound, "after the line's own rules")
+        XCTAssertLessThan(over.upperBound, end.lowerBound, "in the style sheet")
+        let sized = ConversationDocument.html(entries: stack, inset: 20, bodyPointSize: 53, lineHeight: 1.41)
+        XCTAssertEqual(big.replacingOccurrences(of: rules, with: ""), sized, "nothing else")
     }
 
     // MARK: - Helpers

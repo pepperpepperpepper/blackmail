@@ -22,13 +22,17 @@ import Foundation
 /// sooner by as much: Mail cuts the names before the date, never the date
 /// (B-080). A row without a mark is as it always was.
 ///
-/// At a text size other than Large (B-166) the date's room is scaled as
-/// its type is, the 110 points and the share of the line alike, so a date
-/// that fitted at Large fits at every size up to the largest of the seven,
-/// in Edit mode in three panes too. At the accessibility sizes, where the
-/// date beside the names left them nothing, it has a line of its own under
-/// them (`stacked`): the names the whole line, and the date that line's
-/// right end, before the mark as ever.
+/// At a text size other than Large (B-166) the date's share of the line is
+/// scaled as its type is, so a date that fitted at Large fits at every size
+/// up to the largest of the seven, in Edit mode in three panes too. Its
+/// 110 points are scaled below Large; above Large they stay 110, or the
+/// date's own width where that is more, so the names lose no more of the
+/// line than the date needs: scaled with the type, the 110 kept 149 of a
+/// 256-point line at the largest of the seven for a date of 107 at most,
+/// "Wednesday", and cut the names at 99 points. At the accessibility
+/// sizes, where the date beside the names left them nothing, it has a line
+/// of its own under them (`stacked`): the names the whole line, and the
+/// date that line's right end, before the mark as ever.
 struct RowTopLine: Equatable {
 
     /// The names' label: its left edge and width.
@@ -55,7 +59,8 @@ struct RowTopLine: Equatable {
             dateWidth = textWidth - (mark.map { $0 + gap } ?? 0)
             return
         }
-        let stampWidth = min(110 * scale, textWidth * 0.45 * scale)
+        let points = scale > 1 ? max(110, date) : 110 * scale
+        let stampWidth = min(points, textWidth * 0.45 * scale)
         if let mark {
             markX = right - mark
             let room = stampWidth - mark - gap

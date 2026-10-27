@@ -255,8 +255,10 @@ enum ConversationDocument {
     ///     view so a conversation and a letter are laid out identically.
     ///   - bodyPointSize / lineHeight: from `Theme`, passed in rather than
     ///     read, so this file stays free of UIKit.
+    ///   - stacked: at the accessibility sizes, each part of a letter's
+    ///     line on a line of its own (`stackedLines`, B-166).
     static func html(entries: [Entry], inset: Int, bodyPointSize: Int,
-                     lineHeight: Double) -> String {
+                     lineHeight: Double, stacked: Bool = false) -> String {
         var sections = ""
         for entry in entries {
             sections += section(entry)
@@ -352,12 +354,36 @@ enum ConversationDocument {
              it is open (B-104): grey, as the time on the line. */
           .bm-found { color: #8e8e93; font-size: \(bodyPointSize - 3)px;
                       padding: 0 \(inset)px 8px \(inset)px; }
-          .bm-letter:not(.bm-open) > .bm-found { display: none; }
+          .bm-letter:not(.bm-open) > .bm-found { display: none; }\(stacked ? stackedLines : "")
         </style></head><body>
         \(sections)
         </body></html>
         """
     }
+
+    /// A letter's line at the accessibility sizes (B-166): the name, whole,
+    /// on as many lines as it takes; the date on the line under it, at its
+    /// left; and a closed letter's first words under that, cut with "…" as
+    /// ever. Mail's header at the largest size puts the sender's name on a
+    /// line of its own and the date on one below it (Apple's Human
+    /// Interface Guidelines, Typography, Supporting Dynamic Type: "Mail
+    /// content at the largest accessibility text size"), as the app's own
+    /// header has its date on a line of its own at every size. Beside each
+    /// other, neither able to give way, the name and the date ran off the
+    /// pane's right edge: "Sam Example" and "Wednesday" at the largest
+    /// size need more than the reading pane has in three panes. Read in the
+    /// code, not seen. Added after the rules above, which these override at
+    /// the accessibility sizes only, so the stack at every other size is
+    /// as it was to the byte.
+    static let stackedLines = """
+
+      /* At the accessibility sizes each part of a letter's line has a
+         line of its own (B-166). */
+      .bm-head { flex-wrap: wrap; }
+      .bm-from { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+      .bm-when { flex: 1 1 100%; margin-left: 0; order: 1; }
+      .bm-peek { flex: 1 1 100%; min-width: 0; order: 2; }
+    """
 
     /// The stack's own script: every page the pane loads is given it, at
     /// the end of the document, in the app's content world

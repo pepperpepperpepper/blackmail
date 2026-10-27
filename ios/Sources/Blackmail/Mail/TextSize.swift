@@ -130,6 +130,20 @@ struct RowLines: Equatable, Sendable {
         pitch = (preview2 - preview1) * scale
         self.height = ((height + lower) * scale).rounded()
     }
+
+    /// The square a mark in the row's gutter is drawn in, the reply or
+    /// forward arrow, `points` wide at Large and centred `centre` points
+    /// from the row's left, where the dot is, with the names beginning at
+    /// `textLeft`: scaled with the type, and never wider than the gutter
+    /// holds, so that it neither runs off the row's left edge nor comes
+    /// within a point of the names. The gutter stays as at Large at every
+    /// size, and the arrow scaled alone outgrew it at the two largest
+    /// sizes: 33 and 37 points about a centre 14 from the edge. At Large,
+    /// and up to the third accessibility size, the scaled width (B-166).
+    static func gutterBox(_ points: CGFloat, at size: TextSize, centre: CGFloat,
+                          textLeft: CGFloat) -> CGFloat {
+        min(size.scaled(points), 2 * min(centre, textLeft - centre - 1))
+    }
 }
 
 /// The app's text size, read when iOS says it may have changed, put where

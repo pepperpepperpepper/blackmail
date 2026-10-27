@@ -434,7 +434,10 @@ final class RowArrowsTests: XCTestCase {
                                   + "x: gutterX - size / 2, y: (Theme.unreadDotCenterY * Theme.textScale) "
                                   + "- size / 2, width: size, height: size)", in: cell))
         let theme = try source("Theme/Theme.swift")
-        XCTAssertNotNil(place(of: "static var rowArrowBox: CGFloat { scaled(12) }", in: theme))
+        XCTAssertNotNil(place(of: "static var rowArrowBox: CGFloat { RowLines.gutterBox(12, at: textSize, "
+                                  + "centre: unreadDotCenterX, textLeft: messageTextLeft) }", in: theme))
+        XCTAssertEqual(RowLines.gutterBox(12, at: .factory, centre: 14, textLeft: 29), 12,
+                       "12 at Large, the dot's width")
         XCTAssertNotNil(place(of: "static let unreadDotDiameter: CGFloat = 12", in: theme),
                         "the arrow as wide as the dot")
         XCTAssertNotNil(place(of: "static var rowArrowSymbol: UIImage.SymbolConfiguration { "

@@ -499,7 +499,7 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertTrue(regroup.contains("case .holding(let letter): "
                                        + "scroll(to: before, in: threads, holding: letter) "
                                        + "case .stay: scroll(to: before, in: threads) }"), regroup)
-        XCTAssertTrue(regroup.hasPrefix("{ let before = place() let voiceOverOn = voiceOverHeld() "
+        XCTAssertTrue(regroup.hasPrefix("{ let before = held ?? place() let voiceOverOn = voiceOverHeld() "
                                         + "defer { keepVoiceOver(voiceOverOn) }"), regroup)
         XCTAssertTrue(flat(body(after: "private func scroll(to place: ListPlace", in: list)).hasPrefix(
             "{ guard let landing = place.landing(in: threads, holding: letter) else { return false }"))

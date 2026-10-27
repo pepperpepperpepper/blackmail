@@ -231,10 +231,11 @@ final class FolderCountsTests: XCTestCase {
             "func adjustUnreadCounts(_ mailboxIDs: [String], by delta: Int) { "
             + "sweeps.requestIfRunning()"))
         XCTAssertTrue(pane.contains(
-            "let blocks = groups for folder in counts.adjust(mailboxIDs, by: delta) { "
+            "let blocks = groups var patched = false for folder in counts.adjust(mailboxIDs, by: delta) { "
             + "guard let place = FolderCounts.place(of: folder.id, in: blocks), "
             + "let cell = tableView.cellForRow(at: IndexPath(row: place.row, "
-            + "section: place.section)) else { continue } configure(cell, with: folder) }"))
+            + "section: place.section)) else { continue } configure(cell, with: folder) "
+            + "patched = true }"))
         XCTAssertTrue(pane.contains(
             "let mark = counts.mark do { let fresh = try await repository.listMailboxes() "
             + "let held = counts.land(fresh, sweptFrom: mark) if held > 0 { "

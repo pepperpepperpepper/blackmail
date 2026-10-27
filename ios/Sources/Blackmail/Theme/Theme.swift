@@ -419,8 +419,12 @@ extension Theme {
     /// page) at its 3 pixels a point, the name's capitals being 35 pixels
     /// for 17 pt semibold's 12, is 12 to 12.7 points wide and 10 high,
     /// centred on the name's capitals as the dot is. Not the paperclip's
-    /// 16, which would draw it a quarter larger than Mail's.
-    static var rowArrowBox: CGFloat { scaled(12) }
+    /// 16, which would draw it a quarter larger than Mail's. Scaled with
+    /// the type, never wider than the gutter, which is as at Large at every
+    /// size (`RowLines.gutterBox`, B-166).
+    static var rowArrowBox: CGFloat {
+        RowLines.gutterBox(12, at: textSize, centre: unreadDotCenterX, textLeft: messageTextLeft)
+    }
 
     /// The arrow's symbol at a size of its own, not UIKit's (B-071); its
     /// box decides how large it is drawn, and grows with the type (B-166).

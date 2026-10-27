@@ -63,8 +63,10 @@ final class MailboxListViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Mailbox")
-        tableView.rowHeight = Theme.mailboxRowHeightScaled
+        tableView.register(FolderCell.self, forCellReuseIdentifier: "Mailbox")
+        // 44 points at Large; at any other size as tall as each name
+        // (`FolderCell`, B-166).
+        FolderCell.size(tableView)
         tableView.backgroundColor = Theme.canvas
         tableView.separatorColor = Theme.separator
         tableView.separatorInset = UIEdgeInsets(top: 0, left: Theme.mailboxSeparatorInset,
@@ -213,12 +215,23 @@ final class MailboxListViewController: UITableViewController {
         // Where each is drawn, in its block: not its place in the flat
         // list, which is a row of the first block, the Inbox's (B-059).
         let blocks = groups
+        var patched = false
         for folder in counts.adjust(mailboxIDs, by: delta) {
             guard let place = FolderCounts.place(of: folder.id, in: blocks),
                   let cell = tableView.cellForRow(at: IndexPath(row: place.row,
                                                                 section: place.section))
             else { continue }
             configure(cell, with: folder)
+            patched = true
+        }
+        // Away from Large a row is as tall as its name (`FolderCell`,
+        // B-166), and a count come or gone gives the name less or more of
+        // the row: the table measures the rows again, without reloading
+        // them, which would drop the highlight. At Large the rows are of
+        // one height, and nothing is asked.
+        if patched, Theme.textSize != .factory {
+            tableView.beginUpdates()
+            tableView.endUpdates()
         }
         // A read mark, or an unread letter binned, on the icon's number too
         // (B-161).
@@ -251,11 +264,12 @@ final class MailboxListViewController: UITableViewController {
     }
 
     /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166):
-    /// the rows at their new height, each drawn again with its name, count
-    /// and icon at the new size, and the highlight put back, as a sweep
-    /// puts it back. As Mail's folders follow it, while the app is open.
+    /// the rows at their new height, or as tall as their names away from
+    /// Large (`FolderCell`), each drawn again with its name, count and
+    /// icon at the new size, and the highlight put back, as a sweep puts
+    /// it back. As Mail's folders follow it, while the app is open.
     @objc private func textSizeChanged() {
-        tableView.rowHeight = Theme.mailboxRowHeightScaled
+        FolderCell.size(tableView)
         redraw()
     }
 
@@ -331,6 +345,7 @@ final class MailboxListViewController: UITableViewController {
         content.directionalLayoutMargins.leading =
             Theme.mailboxIconCenterX - 11 + CGFloat(mailbox.depth) * Theme.mailboxIndentStep
         cell.contentConfiguration = content
+        (cell as? FolderCell)?.holdFloor()
 
         // Unread count on the right, as a plain label. Not a badge: a grey
         // number is quieter and reads the same at any size.
