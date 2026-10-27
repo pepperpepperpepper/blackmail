@@ -35562,7 +35562,7 @@ Deleting's already was, and the still-open list in the item on his
 iPad's own settings leaves out the text size (B-166's integration
 paragraph).
 
-## B-168 — FIXED 2026-10-27, not yet seen on the iPad. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
+## B-168 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
 
 TODO items 7386 (pictures from the web in letters) and the Messages part
 of 7562 (his iPad's own settings), ruled 2026-10-26: copy Apple Mail,
@@ -35702,11 +35702,12 @@ existed.
      Message", or "Trash Messages" for a conversation of more, the row
      sliding back while he is asked and going if he taps it;
    - a full drag goes at once, as Mail's does. UIKit says the same to a
-     button tapped and a full drag; a full drag has stretched the button
-     across the row, and one wider than three fifths of the row is taken
-     for it (`DiscardQuestion.fullDrag`), so a tap is never taken for a
-     full drag, and if UIKit has not stretched it by then, a full drag
-     asks, erring toward the question.
+     button tapped and a full drag; the drag's own pan tells them apart,
+     ended as the button is done or lifted within a third of a second
+     before (`DiscardQuestion.fullDrag`), so a slow drag's button tapped
+     still asks. Built telling them by the button's width, over three
+     fifths of the row, which every full drag on the test iPad failed
+     (the fix after it, below).
    An action sheet, as Mail's, its red button the words and Cancel, which
    on the iPad is a tap anywhere else, as the Flag button's sheet is; not
    `EraseConfirmation`'s alert, since a letter trashed or archived can be
@@ -35817,8 +35818,11 @@ failing. The release build for the iPad links.
 - That WebKit applies a list taken off the controller to the page on
   screen before the body put back asks for its pictures, and one put on
   for the next letter to its first requests.
-- That UIKit has stretched a drag's button across the row when a full
-  drag calls it; if not, a full drag asks.
+- That UIKit's pan for a row's buttons is a pan of the table's and is
+  ended, or a third of a second or less from its end, when a full drag's
+  button is done; if not, a full drag asks. And that no button is tapped
+  within a third of a second of the lift of the drag that opened it,
+  which would go with no question.
 - Which of Mail's words Mail puts up where, read from the strings' names:
   "Trash 3 Messages" for a selection, "Trash Messages" for a
   conversation's row; and whether More's Trash Message asks in Mail. Here
@@ -35875,6 +35879,43 @@ the Edit bar, the erase question counts the letters deleted alone, and
 the letters it archives are asked of after it (B-167's paragraph). In TODO, this
 entry's line of 2026-10-27 on his iPad's own settings follows B-167's
 words there and B-166's line, its own words as they were.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-options, on the
+int19 build, at the check's step 8, and reproduced by a second run on new
+letters. With Ask Before Deleting on, a full drag to the left on a letter
+in "Notes", the finger from the row's right end to near its left in a
+quarter of a second, put up "Trash Message" over the row, which slid
+back; nothing went, twice. Done in a second and a half, the same. With
+the option off, the same drag trashed the letter at once, so UIKit did
+the full drag's button; the app took it for a tap. Measured in the
+second run's shots, UIKit moves the row about six tenths of the finger's
+way, and as the finger lifted the stretched Trash covered 53 to 56 per
+cent of the row, More and Flag under it: "Not seen"'s risk, seen, on
+every full drag, slow or fast.
+
+*The cause.* The handler took a drag for a full one only when its
+button's view was wider than three fifths of the row
+(`DiscardQuestion.fullDrag(button:row:)`); UIKit never stretched it
+that far on this iPad.
+
+*Changed.* A full drag is told by the drag itself. The first time a drag
+opens a row's buttons (`willBeginEditingRowAt`, which did nothing), the
+list listens to every pan of the table's but its scrolling one, UIKit's
+pan for the buttons among them, and notes when one ends (`swipePan`,
+`swipeLift`). As a button is done, it was a full drag when one of those
+pans is just ended, or ended no more than a third of a second before
+(`DiscardQuestion.fullDrag(panEnded:sinceLift:)`, `liftWindow`); the
+button's width is no longer read. A slow drag that leaves the buttons
+open does nothing as it lifts, and a button tapped after it comes with a
+tap, later than that, so it asks as before.
+
+*Tests.* `DiscardQuestionTests`: a full drag by the pan ended or a lift
+up to 0.29 s before, a tap with no lift or one 0.3 s or more before, and
+the question for each; the wiring read from the source, the pans
+listened to and their lift noted. `RowSwipesTests`' pins of the handler
+and of `willBeginEditingRowAt` follow. The width test put back in the
+handler and the new rule made a tap always, 12 failures in 4 tests of
+the two; then restored.
 
 ## B-169 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 

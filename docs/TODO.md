@@ -9069,8 +9069,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       a `style` `url()`: "B-168 news", which also carries a picture of its
       own by `cid:` and a link, and a conversation of two, "B-168 talk"
       (a) and (b), (b)'s References naming (a), each with its own two
-      paths, (b) with a picture of its own by `cid:` too. Then six plain
-      letters, "B-168 bin 1" to "B-168 bin 6", and a conversation of two
+      paths, (b) with a picture of its own by `cid:` too. Then seven plain
+      letters, "B-168 bin 1" to "B-168 bin 7", and a conversation of two
       plain ones, "B-168 pair" (a) and (b). The list goes by UID, the
       last APPENDed on top. Organize by Thread on, three panes. In
       Blackmail's Settings both options written down as found, then set
@@ -9117,7 +9117,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       8. *A drag.* A slow drag to the left on "B-168 bin 4": More, Flag
       and Trash. Trash tapped: the row slides back, and a sheet over
       the row, "Trash Message"; a tap outside: nothing goes. Then a full
-      drag to the left on it: it goes at once, no sheet. On "B-168 bin
+      drag to the left on it, from the row's right end to near its left,
+      once in a quarter of a second and, on "B-168 bin 7", once in a
+      second and a half: each goes at once, no sheet (the round of
+      2026-10-27 had a sheet for both, and nothing went). On "B-168 bin
       5", a slow drag, More, "Trash Message": a sheet over the row,
       "Trash Message"; tapped, it goes. On "B-168 pair", a slow drag,
       Trash: "Trash Messages"; tapped, both letters go. If a full drag

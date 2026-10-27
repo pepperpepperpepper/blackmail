@@ -72,13 +72,26 @@ struct DiscardQuestion: Equatable {
         }
     }
 
-    /// Whether a drag's button was done by a full drag, not tapped: UIKit
-    /// says the same to both, with the button's view, which a full drag
-    /// has stretched across the row (`button` and `row`, the two widths).
-    /// Taken as a tap unless it spans more than three fifths of the row, so
-    /// a tap is never taken for a full drag; if UIKit has not stretched it
-    /// by then, a full drag asks, which errs toward the question.
-    static func fullDrag(button: Double, row: Double) -> Bool {
-        row > 0 && button > row * 0.6
+    /// Whether a drag's button was done by a full drag, not tapped. UIKit
+    /// says the same to both, so it is read from the drag itself: its pan
+    /// has just ended (`panEnded`, its state as the button is done, in the
+    /// turn the finger lifts), or it lifted no more than `liftWindow`
+    /// seconds ago (`sinceLift`, nil for none since the list was shown).
+    /// A slow drag that leaves the buttons open does nothing as it lifts,
+    /// and a button tapped after it comes with a tap, not the pan, so a
+    /// tap still asks.
+    ///
+    /// It was told by the button's width, a full drag being taken for one
+    /// whose button UIKit had stretched over three fifths of the row; on
+    /// the test iPad (2026-10-27) UIKit moves the row about six tenths of
+    /// the finger's way, and a full drag's Trash was 53 to 56 per cent of
+    /// the row as it went, so every full drag asked.
+    static func fullDrag(panEnded: Bool, sinceLift: Double?) -> Bool {
+        panEnded || (sinceLift.map { $0 >= 0 && $0 < liftWindow } ?? false)
     }
+
+    /// How soon after a drag's lift its button counts as done by it: a
+    /// third of a second, more than UIKit takes to do a full drag's button
+    /// and less than a finger takes to come down again on a button.
+    static let liftWindow = 0.3
 }

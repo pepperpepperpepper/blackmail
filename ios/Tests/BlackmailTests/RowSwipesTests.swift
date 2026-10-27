@@ -182,12 +182,12 @@ final class RowSwipesTests: XCTestCase {
             "guard threads.indices.contains(ip.row) else { return UISwipeActionsConfiguration(actions: "
                 + "[]) }",
             "let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)",
-            // A full drag told from a tap by the button's width, for Ask
+            // A full drag told from a tap by the drag's own pan, for Ask
             // Before Deleting (`DiscardQuestionTests`, B-168).
-            "let button = UIContextualAction(style: .normal, title: action.title) { [weak self] _, source, "
+            "let button = UIContextualAction(style: .normal, title: action.title) { [weak self] _, _, "
                 + "done in guard let self else { return done(false) } "
-                + "let whole = DiscardQuestion.fullDrag(button: Double(source.bounds.width), "
-                + "row: Double(self.tableView.bounds.width)) "
+                + "let whole = DiscardQuestion.fullDrag( panEnded: self.swipePans.contains { $0.state == .ended }, "
+                + "sinceLift: self.swipeLift.map { CACurrentMediaTime() - $0 }) "
                 + "done(self.swiped(action, on: RowKey(thread), from: whole ? .fullDrag : .rowButton)) }",
             "configuration.performsFirstActionWithFullSwipe = true",
             "case .trash, .delete: return Theme.destructive case .flag, .unflag: return Theme.flagTint "
@@ -272,7 +272,10 @@ final class RowSwipesTests: XCTestCase {
             "let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)",
             "guard !inEditMode, let row = lettersOfRow(key), !row.letters.isEmpty else {",
             "private func chose(_ item: RowMore.Item, on key: RowKey) { guard !inEditMode, ",
-            "override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) {}",
+            // Not UITableViewController's, which would turn Edit mode on:
+            // only the drag's pans listened to (B-168).
+            "override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) { "
+                + "for case let pan as UIPanGestureRecognizer in t.gestureRecognizers ?? [] ",
             "override func tableView(_ t: UITableView, didEndEditingRowAt ip: IndexPath?) { "
                 + "highlightLetterInPane() }",
         ] {
