@@ -8257,12 +8257,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       address: the test account's own address on the first row, every row
       offered written down in order. "Prefix Fill" need not be among them:
       four rows are offered, ranked by how many letters he wrote to each,
-      and its one letter puts it below every address starting with the
-      same letters that he wrote to more often, as the test account's
-      `+tag` addresses of earlier rounds are (on 2026-10-27, nineteen of
-      them, and it came 21st of 21). Then delete it and type P and a "."
-      (P as in 1(e)), which only it matches: "Prefix Fill" offered. Cancel,
-      Delete Draft if asked.
+      a tie going to the later letter, and its one letter puts it below
+      every address starting with the same letters that he wrote to as
+      often or more often, as the test account's `+tag` addresses of
+      earlier rounds are (on 2026-10-27, nineteen of them, five at one
+      letter but a later one, and it came 21st of 21). Then delete it and
+      type P and a "." (P as in 1(e)), which only it matches: "Prefix
+      Fill" offered. Cancel, Delete Draft if asked.
       4. *Nothing marked.* The host reads (b)'s flags: still no `\Seen`.
       5. *Search* (B-123). In Sent Mail, Current Mailbox, type "Quen" with
       no space after it: (a) and (b) found. Cancel the search. Nothing

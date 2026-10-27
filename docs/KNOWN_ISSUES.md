@@ -32636,10 +32636,12 @@ up to the "." after the prefix offered it. A second run ported the
 ranking to the host and ran it on the book pulled from the iPad after
 the fill: the four letters match 21 entries, his own two first as
 designed, then the `+tag` addresses earlier rounds wrote to, by their
-counts; Prefix Fill, with its one letter, came 21st. Working as designed
-(`AddressSuggestions.rank`, `RecipientBook.suggestionLimit`, four): the
-check's step 3 assumed nothing else starting with those letters had more
-letters than one. No change in the app; step 3 now checks his own
+counts and dates, five of them at one letter like Prefix Fill but a later
+one; Prefix Fill, with its one letter a month back, came 21st. Working as
+designed (`AddressSuggestions.rank`, `RecipientBook.suggestionLimit`,
+four; a tie in letters goes to the later): the check's step 3 assumed
+nothing else starting with those letters had as many letters as it, or
+more. No change in the app; step 3 now checks his own
 address on the first row, and Prefix Fill by a prefix only it matches.
 
 ## B-156 — FIXED 2026-10-26, not yet seen on the iPad. A row of the list had no drag at all, by the brief's rule against swipes; it has Mail's: a slow drag to the left shows More, Flag and Trash, a full drag trashes at once with no question, and a drag to the right marks it read or unread, as iPadOS 18 Mail with its factory Swipe Options
