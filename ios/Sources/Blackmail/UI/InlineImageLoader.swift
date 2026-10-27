@@ -57,12 +57,17 @@ final class InlineImageLoader: NSObject, WKURLSchemeHandler {
         requests.answering(key, with: Task { @MainActor in
             var result = try? await fetch(contentID)
             // A HEIC as a JPEG where WebKit draws none, below iOS 17, made
-            // away from the main thread (`HEICPicture`, B-171).
+            // away from the main thread, one at a time, and not for a
+            // request WebKit stopped while it waited (`HEICPicture`, B-171).
             if let (data, kind) = result, !HEICPicture.systemDrawsHEIC, HEICPicture.isHEIC(kind) {
-                let served = await Task.detached(priority: .userInitiated) {
-                    HEICPicture.served(data, as: kind, drawsHEIC: false, jpeg: HEICPicture.jpeg)
-                }.value
-                result = (served.data, served.mimeType)
+                await HEICPicture.turns.take()
+                if !Task.isCancelled {
+                    let served = await Task.detached(priority: .userInitiated) {
+                        HEICPicture.served(data, as: kind, drawsHEIC: false, jpeg: HEICPicture.jpeg)
+                    }.value
+                    result = (served.data, served.mimeType)
+                }
+                await HEICPicture.turns.give()
             }
             self.finish(task, key: key, with: result?.0, mimeType: result?.1)
         })

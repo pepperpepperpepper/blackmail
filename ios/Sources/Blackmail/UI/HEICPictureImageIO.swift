@@ -14,11 +14,12 @@ extension HEICPicture {
     static let systemDrawsHEIC = ProcessInfo.processInfo.isOperatingSystemAtLeast(
         OperatingSystemVersion(majorVersion: 17, minorVersion: 0, patchVersion: 0))
 
-    /// A JPEG of the picture in `data`, upright, at most `maxPixels` on its
-    /// longer side and decoded at that size, never whole, at the quality a
-    /// shared photo is made at (`SharedPhoto.quality`); nil where ImageIO
-    /// opens no picture in it. Off the main thread: it takes a moment for a
-    /// photo.
+    /// A JPEG of the picture in `data`, upright, drawn at most `maxPixels`
+    /// on its longer side by ImageIO's thumbnail, at the quality a shared
+    /// photo is made at (`SharedPhoto.quality`); nil where ImageIO opens no
+    /// picture in it. How much of the photo ImageIO holds while it draws
+    /// it was not measured. Off the main thread, one at a time
+    /// (`HEICPicture.turns`): it takes a moment for a photo.
     static func jpeg(_ data: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let options: [CFString: Any] = [

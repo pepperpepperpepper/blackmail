@@ -9,10 +9,11 @@ import Foundation
 /// iPhone put among a letter's words by `cid:`, its part `image/heic`. A
 /// HEIC the letter does not show among its words is a tile (`BodyFiles`,
 /// B-170), so this is only for one it shows. Below iPadOS 17 the loader
-/// (`InlineImageLoader`) serves such a part as a JPEG made of it, at most
-/// `maxPixels` on its longer side, so a 12-megapixel photo is never
-/// decoded whole; from 17 as it came. The hold's menu, Quick Look and
-/// Markup and Reply use the part as it came, which Quick Look draws.
+/// (`InlineImageLoader`) serves such a part as a JPEG made of it, drawn at
+/// most `maxPixels` on its longer side by ImageIO's thumbnail, one at a
+/// time (`turns`), and none for a request WebKit has stopped; from 17 as it
+/// came. The hold's menu, Quick Look and Markup and Reply use the part as
+/// it came, which Quick Look draws.
 ///
 /// Pure, so the suite can run it; the making of the JPEG is ImageIO
 /// (`jpeg`), handed in.
@@ -31,6 +32,46 @@ enum HEICPicture {
         let kind = mimeType.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false).first
             .map { $0.trimmingCharacters(in: .whitespaces).lowercased() } ?? ""
         return kinds.contains(kind)
+    }
+
+    /// How many JPEGs are made at once: one, so a letter of many iPhone
+    /// photos has them made one after another, each decoding alone, and
+    /// not all together on the threads Swift's tasks share. How much of a
+    /// 12-megapixel photo ImageIO holds while it makes one was not
+    /// measured.
+    static let atOnce = 1
+
+    /// The loader's turns at making a JPEG, `atOnce` at a time.
+    static let turns = Turns(limit: atOnce)
+
+    /// Turns at something, at most `limit` taken at once: `take` waits for
+    /// one, those waiting served in the order they came, and `give` hands
+    /// it to the next waiting, or back. A turn taken is given back once,
+    /// whatever came of it.
+    actor Turns {
+        nonisolated let limit: Int
+        private var taken = 0
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+
+        init(limit: Int) {
+            self.limit = max(1, limit)
+        }
+
+        func take() async {
+            guard taken >= limit else {
+                taken += 1
+                return
+            }
+            await withCheckedContinuation { waiting.append($0) }
+        }
+
+        func give() {
+            if waiting.isEmpty {
+                taken = max(0, taken - 1)
+            } else {
+                waiting.removeFirst().resume()
+            }
+        }
     }
 
     /// What the loader serves for a part of `data` and `mimeType`: on a

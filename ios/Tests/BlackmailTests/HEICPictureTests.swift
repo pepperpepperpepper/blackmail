@@ -3,8 +3,8 @@ import XCTest
 
 /// A HEIC picture among a letter's words, its part `image/heic` and shown
 /// by `cid:`, on iPadOS 16, whose WebKit draws no HEIC: the loader serves
-/// it as a JPEG made of it, at most 2048 px on its longer side, decoded at
-/// that size, away from the main thread; from iPadOS 17 as it came. On the
+/// it as a JPEG made of it, drawn at most 2048 px on its longer side, away
+/// from the main thread, one at a time; from iPadOS 17 as it came. On the
 /// test iPad, iPadOS 16.5.1, such a picture was a small box with WebKit's
 /// broken picture in it (2026-10-27). The making of the JPEG is ImageIO,
 /// read from its source; what is served is run here (B-171).
@@ -50,9 +50,41 @@ final class HEICPictureTests: XCTestCase {
         XCTAssertEqual(HEICPicture.maxPixels, 2048)
     }
 
+    /// The JPEGs are made one at a time (`HEICPicture.turns`): of five
+    /// asking at once, never two at their turn together, each its turn
+    /// once, and the turns given back, so the next is had at once; a
+    /// limit of two never has three. Found in the review of the fix: each
+    /// HEIC of a letter began its decode at once.
+    func testTheJPEGsAreMadeOneAtATime() async {
+        XCTAssertEqual(HEICPicture.atOnce, 1)
+        XCTAssertEqual(HEICPicture.turns.limit, 1)
+        for limit in [1, 2] {
+            let turns = HEICPicture.Turns(limit: limit)
+            let log = TurnLog()
+            await withTaskGroup(of: Void.self) { group in
+                for i in 0..<5 {
+                    group.addTask {
+                        await turns.take()
+                        await log.enter(i)
+                        try? await Task.sleep(nanoseconds: 10_000_000)
+                        await log.leave()
+                        await turns.give()
+                    }
+                }
+            }
+            let most = await log.most
+            let had = await log.had
+            XCTAssertLessThanOrEqual(most, limit, "limit \(limit)")
+            XCTAssertEqual(had.sorted(), [0, 1, 2, 3, 4], "limit \(limit)")
+            for _ in 0..<limit { await turns.take() }
+            for _ in 0..<limit { await turns.give() }
+        }
+    }
+
     /// The loader, read: after the part is fetched, a HEIC where the
     /// system draws none goes through `served` in a detached task, off the
-    /// main thread, before WebKit is answered; the system read by its
+    /// main thread, at its turn and not for a request stopped while it
+    /// waited, before WebKit is answered; the system read by its
     /// version, 17; the JPEG made by ImageIO's thumbnail, upright, at most
     /// `maxPixels`, at the shared photo's quality.
     func testTheLoaderMakesTheJPEGAwayFromTheMainThread() throws {
@@ -60,9 +92,10 @@ final class HEICPictureTests: XCTestCase {
         XCTAssertTrue(loader.contains(
             "requests.answering(key, with: Task { @MainActor in var result = try? await fetch(contentID) "
                 + "if let (data, kind) = result, !HEICPicture.systemDrawsHEIC, HEICPicture.isHEIC(kind) { "
+                + "await HEICPicture.turns.take() if !Task.isCancelled { "
                 + "let served = await Task.detached(priority: .userInitiated) { "
                 + "HEICPicture.served(data, as: kind, drawsHEIC: false, jpeg: HEICPicture.jpeg) }.value "
-                + "result = (served.data, served.mimeType) } "
+                + "result = (served.data, served.mimeType) } await HEICPicture.turns.give() } "
                 + "self.finish(task, key: key, with: result?.0, mimeType: result?.1) })"), loader)
         let imageIO = try source("UI/HEICPictureImageIO.swift")
         for line in [
@@ -77,8 +110,25 @@ final class HEICPictureTests: XCTestCase {
         ] {
             XCTAssertTrue(imageIO.contains(line), line)
         }
-        XCTAssertFalse(imageIO.contains("UIImage"), "never decoded whole")
+        XCTAssertFalse(imageIO.contains("UIImage"), "made by ImageIO's thumbnail alone")
         XCTAssertFalse(imageIO.contains("#available"))
+    }
+
+    /// Who had a turn, and the most at theirs at once.
+    private actor TurnLog {
+        private(set) var had: [Int] = []
+        private(set) var most = 0
+        private var inside = 0
+
+        func enter(_ i: Int) {
+            inside += 1
+            most = max(most, inside)
+            had.append(i)
+        }
+
+        func leave() {
+            inside -= 1
+        }
     }
 
     /// The source of `file` under `Sources/Blackmail`, comments out and

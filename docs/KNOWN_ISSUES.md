@@ -37093,7 +37093,8 @@ supports iOS 16, so on a supported iPad such a photo was a broken box;
 on iPadOS 17 and 18, his, WebKit draws it.
 
 *Changed.* (a) The pane is the delegate of a tap's Quick Look too (also
-of the held menu's Quick Look, Save Image and Copy's, the same branch),
+of the held menu's Quick Look, the same branch; Save Image and Copy
+present nothing, as B-170 says),
 and `editingModeFor` answers by `MarkupReply.marks(in:)`, new: true for
 the preview a picture was last opened in for Markup and Reply, while it
 is up, and `createCopy` there; `disabled` for any other. The other two
@@ -37103,9 +37104,9 @@ sequences, in any case and with any parameter, is served by the loader
 (`InlineImageLoader`) on a system older than iOS 17
 (`HEICPicture.systemDrawsHEIC`, by `ProcessInfo`) as a JPEG made of it,
 away from the main thread in a detached task, by ImageIO's thumbnail of
-it, upright and at most 2048 pixels on its longer side, so a 12-megapixel
-photo is never decoded whole, at the shared photo's quality
-(`HEICPictureImageIO.swift`); where none can be made, as it came. From
+it, upright and drawn at most 2048 pixels on its longer side, at the
+shared photo's quality (`HEICPictureImageIO.swift`); where none can be
+made, as it came. From
 iOS 17, and for any other kind, as it came. The pane's page and the
 print's both take their pictures from the loader, so a printed letter has
 the photo too; the menu, Quick Look and Markup and Reply use the part as
@@ -37125,3 +37126,22 @@ by hand, the pane as it was with `marks` true for any preview, 9
 failures in 2 tests of `MarkupReplyTests` and 1 in
 `AttachmentStoreTests`; the loader as it was with `served` giving the
 part as it came, 16 in 2 tests of `HEICPictureTests`; then restored.
+
+*After the review of the fix, 2026-10-27.* Each HEIC of a letter began
+its JPEG at once, all of them together on the threads Swift's tasks
+share, and one for a request WebKit had stopped, as he tapped past the
+letter or a print was let go, still made its JPEG to throw it away. The
+loader makes them one at a time (`HEICPicture.turns`, `atOnce` 1, a
+`Turns` of its own that serves those waiting in the order they came) and
+makes none for a request stopped while it waited for its turn
+(`Task.isCancelled`, which stopping the request sets); one already being
+made runs to its end, its answer dropped as before. How much of a
+12-megapixel photo ImageIO holds while it draws one at 2048 pixels was
+not measured: "never decoded whole" above said more than was known, and
+says "drawn at most 2048 pixels" now. The pane's delegate's comment
+names every Quick Look it opens, Markup only in Markup and Reply's.
+`HEICPictureTests`, one new: five asking at once never two at their
+turn together with one, nor three with two, each its turn once and the
+turns given back; and the loader's pin takes the turn, the stopped
+request and the turn given back. Every request let through at once, 2
+failures in the new test; then restored.

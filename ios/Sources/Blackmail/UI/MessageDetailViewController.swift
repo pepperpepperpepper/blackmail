@@ -1311,6 +1311,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     handedOver = true
                     present(preview, animated: true, completion: ready)
                 case .quickLook, .saveImage, .copy:
+                    // A tap's Quick Look, or the held menu's; Save Image and
+                    // Copy present nothing and never come here (`presents`).
                     let preview = QLPreviewController()
                     preview.dataSource = self
                     // The pane its delegate too, which says it has no
@@ -2229,13 +2231,15 @@ extension MessageDetailViewController: QLPreviewControllerDataSource {
     }
 }
 
-/// Markup and Reply's preview's delegate (B-171), and no other preview's:
-/// the pane is the delegate of the one Quick Look it opens for Markup and
-/// Reply alone (`openAttachment`). What he draws is saved as a copy, the
-/// picture itself left as it came, and the copy goes in the reply as Quick
-/// Look closes (`MarkupReply`). Nothing here touches the file Quick Look
-/// shows (`previewURL`), which goes only as the next file is written
-/// (B-063).
+/// The delegate of every Quick Look the pane opens (`openAttachment`, B-171):
+/// a tap's, the held menu's Quick Look and Markup and Reply's. Markup, a
+/// copy made of what he draws, only in the preview `MarkupReply.marks`
+/// names, the one opened for Markup and Reply, and none in any other; the
+/// other methods act on that preview alone. What he draws is saved as a
+/// copy, the picture itself left as it came, and the copy goes in the
+/// reply as Quick Look closes (`MarkupReply`). Nothing here touches the
+/// file Quick Look shows (`previewURL`), which goes only as the next file
+/// is written (B-063).
 extension MessageDetailViewController: QLPreviewControllerDelegate {
 
     /// Markup on, a copy made of what he draws, in Markup and Reply's
