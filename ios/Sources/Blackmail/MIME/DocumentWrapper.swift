@@ -56,8 +56,22 @@ enum DocumentWrapper {
         return out.map { String(decoding: $0, as: UTF8.self) } ?? html
     }
 
+    /// The heads `stripped` takes off, each from its `<head` to its
+    /// `</head>`, in their order: what a letter drawn in its own colours
+    /// brings its style sheets back from (`LetterScheme.headStyles`, B-169).
+    static func heads(in html: String) -> [String] {
+        var contiguous = html
+        return contiguous.withUTF8 { bytes in
+            var pass = Pass(bytes)
+            _ = pass.run()
+            return pass.heads.map { String(decoding: UnsafeBufferPointer(rebasing: bytes[$0]), as: UTF8.self) }
+        }
+    }
+
     private struct Pass {
         let b: UnsafeBufferPointer<UInt8>
+        /// Each head taken off, as the bytes' range.
+        var heads: [Range<Int>] = []
         /// The last search for a `>`: where it began and what it found, nil
         /// for none from there to the end.
         var greater: (from: Int, at: Int?) = (Int.max, nil)
@@ -101,6 +115,7 @@ enum DocumentWrapper {
             if matches(headOpen, at: i), endsTagName(at: i + headOpen.count),
                let tagEnd = next(greaterFrom: i + headOpen.count),
                let close = next(headCloseFrom: tagEnd + 1) {
+                heads.append(i..<(close + headCloseTag.count))
                 return close + headCloseTag.count
             }
             return nil

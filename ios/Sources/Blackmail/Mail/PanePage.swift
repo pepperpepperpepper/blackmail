@@ -80,9 +80,21 @@ enum PanePage {
     /// reference to the web in it held back (`RemoteContent`); one that
     /// asks for nothing is as it was. Not held back, the page is as it
     /// always was.
-    static func letter(_ m: Message, style: Style, heldBack: Bool = false) -> String? {
+    ///
+    /// An HTML letter drawn as Mail draws it in Dark Mode (`LetterScheme`,
+    /// B-169): inverted, on its own white, or in its own colours, decided
+    /// from its markup, or as `scheme` says, which a test uses to draw a
+    /// letter inverted. A plain letter's page has no scheme. Decided from
+    /// its markup as it came, held back or not: a letter with a picture
+    /// from the web is light whether the picture is shown or held back, as
+    /// Mail's rule reads the page's `src`, which Block All Remote Content
+    /// leaves as written (int19).
+    static func letter(_ m: Message, style: Style, heldBack: Bool = false,
+                       scheme: LetterScheme? = nil) -> String? {
         guard !isEmpty(m) else { return nil }
         let isHTML = m.htmlBody != nil
+        let drawn = m.htmlBody.map { scheme ?? LetterScheme.of(html: $0) }
+        let darkWords = !isHTML || drawn == .own
         // Leading blank lines are dropped from PLAIN TEXT before rendering.
         //
         // Not cosmetic tidying — it is this app's own doing coming back.
@@ -101,11 +113,12 @@ enum PanePage {
         //
         // A file sent among the words has its row where it sat, a link that
         // opens it (`BodyFiles`, B-113); a letter with none is as it was.
-        let held = heldBack ? Self.held(m, as: m.id) : ""
-        let content = isHTML
+        let held = heldBack ? Self.held(m, as: m.id, drawn: drawn) : ""
+        let html = isHTML
             ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
                                               flowed: false, heldBack: !held.isEmpty), of: m)
             : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed)
+        let content = drawn == .own ? inOwnColours(html, of: m, heldBack: !held.isEmpty) : html
 
         // Every property lives on #bm, a container the inner document cannot
         // reach, rather than on `body` where a sender's inline style outranks
@@ -130,18 +143,39 @@ enum PanePage {
         // letter's quotes are Mail's blockquotes too (`PlainQuotes`,
         // B-147), and its page is not inverted: the bars in Mail's dark
         // colours, as Mail draws a plain letter in Dark Mode.
-        let smartInvert = isHTML
-            ? """
+        //
+        // Inverted only where Mail turns the letter to the dark, which is
+        // a letter with no scheme of its own, no picture from the web and
+        // no background picture (`LetterScheme`, B-169); its page is as it
+        // always was. One with a picture from the web, or a light scheme
+        // only, is drawn light as its sender made it, black words on its
+        // own white, the pane's black around it, Mail's bars in its light
+        // colours, as on paper. One that declares the dark is drawn in its
+        // own colours, words white on the pane's black, its style for the
+        // dark with it (`inOwnColours`), Mail's bars in its dark colours.
+        let smartInvert: String
+        switch drawn {
+        case .inverted?:
+            smartInvert = """
               #bm { filter: \(SignatureSheet.invert); background: #fff; }
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: \(SignatureSheet.invert); }
               """ + "\n" + QuoteBars.css(in: "#bm")
-            : QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+        case .light?:
+            smartInvert = "#bm { background: #fff; color-scheme: light only; }\n" + QuoteBars.css(in: "#bm")
+        case .own?:
+            smartInvert = "#bm { color-scheme: light dark; }\n"
+                + QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+        case nil:
+            smartInvert = QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+        }
         // Mail's line, when there is one, at the body's size whatever the
-        // letter's own rules say (B-166, B-168); nothing otherwise, so the
-        // page is as it was.
+        // letter's own rules say (B-166, B-168), and in Mail's dark colours
+        // over a letter in its own (B-169); nothing otherwise, so the page
+        // is as it was.
         let heldSize = held.isEmpty
             ? "" : "\n  " + RemoteContent.sizeRule(in: "#bm", pointSize: style.bodyPointSize)
+                + (drawn == .own ? "\n  " + RemoteContent.darkRule(in: "#bm") : "")
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -151,10 +185,10 @@ enum PanePage {
           #bm { padding: \(style.inset)px;
                 font: \(style.bodyPointSize)px -apple-system, sans-serif;
                 line-height: \(style.lineHeight);
-                color: \(isHTML ? "#000" : "#fff"); word-wrap: break-word;\
+                color: \(darkWords ? "#fff" : "#000"); word-wrap: break-word;\
         \(isHTML ? "" : " white-space: pre-wrap;") }
           img, table { max-width: 100% !important; height: auto; }
-          a { color: \(isHTML ? "#007AFF" : "#0A84FF"); }
+          a { color: \(darkWords ? "#0A84FF" : "#007AFF"); }
           \(smartInvert)\(heldSize)
         </style></head><body><div id="bm">\(held)\(shortened(m))\(content)</div></body></html>
         """
@@ -162,11 +196,16 @@ enum PanePage {
 
     /// Mail's line for `m`, its button naming `id`, when its markup asks the
     /// web for anything (`RemoteContent.line`, B-168); "" when it asks for
-    /// nothing, a plain letter's never does, and nothing is held back.
-    static func held(_ m: Message, as id: String) -> String {
-        guard let html = m.htmlBody,
-              RemoteContent.asksTheWeb(DocumentWrapper.stripped(from: html)) else { return "" }
-        return RemoteContent.line(for: id)
+    /// nothing, a plain letter's never does, and nothing is held back. For a
+    /// letter drawn in its own colours (`drawn`, B-169), the style of its
+    /// head and body that comes back with it counts too: a `url()` of the
+    /// web there is held back as the markup's are, and Mail's line says so
+    /// (int19).
+    static func held(_ m: Message, as id: String, drawn: LetterScheme? = nil) -> String {
+        guard let html = m.htmlBody else { return "" }
+        let asks = RemoteContent.asksTheWeb(DocumentWrapper.stripped(from: html))
+            || (drawn == .own && RemoteContent.asksTheWeb(ownFrame(of: m).open))
+        return asks ? RemoteContent.line(for: id) : ""
     }
 
     /// The pane's line above a letter it shows only the beginning of
@@ -223,18 +262,92 @@ enum PanePage {
     /// the top of its section, its button naming the entry, and every
     /// reference to the web in it held back, as a letter on its own has
     /// them. Nil, the body is as it always was.
+    ///
+    /// Each letter drawn as Mail draws it in Dark Mode, decided on its own
+    /// (`LetterScheme`, B-169): its body's class in the stack says how
+    /// (`Rendered.kind`), and one in its own colours has its style for the
+    /// dark with it, in a box of its own, as on its own page; held back,
+    /// that style's references to the web too (int19).
     static func stackBody(_ m: Message, heldBack: String? = nil) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = isEmpty(m)
-        let held = empty ? "" : heldBack.map { Self.held(m, as: $0) } ?? ""
-        let content = empty
+        let drawn = isHTML && !empty ? LetterScheme.of(html: m.htmlBody!) : .inverted
+        let held = empty ? "" : heldBack.map { Self.held(m, as: $0, drawn: drawn) } ?? ""
+        var content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : (isHTML
                ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
                                                  flowed: false, heldBack: !held.isEmpty), of: m)
                : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                                   flowed: m.textIsFlowed, escaping: .ampersandAndBrackets))
-        return .init(html: empty ? content : held + shortened(m) + content, isHTML: isHTML && !empty)
+        if drawn == .own { content = inOwnColours(content, of: m, heldBack: !held.isEmpty) }
+        return .init(html: empty ? content : held + shortened(m) + content, isHTML: isHTML && !empty,
+                     scheme: drawn)
+    }
+
+    /// A letter drawn in its own colours (`LetterScheme.own`, B-169): its
+    /// markup in a box of its own, `ownBox`, with the style sheets of its
+    /// head in front of it, each rule made to apply in that box alone
+    /// (`LetterCSS.scoped`). Taking off the letter's wrapper takes its head
+    /// off, and its rules for the dark, `@media (prefers-color-scheme:
+    /// dark)`, are in it all but always; without them its words, written
+    /// dark for a white page, would be dark on the pane's black.
+    ///
+    /// The box stands for its root, a `div` of the class
+    /// `LetterCSS.rootClass`, and a `div` in it of the class
+    /// `LetterCSS.bodyClass` for its body, the markup inside that. Its
+    /// rules for its root or its body are theirs, inside the pane's margin,
+    /// which they cannot take away. Its body's tag goes with the wrapper,
+    /// and with it what a letter can give its body; so the `div` for the
+    /// body has its body's `class`, for its rules that name the body by it,
+    /// and its `style`, and its `bgcolor` and `text` are the `div`'s
+    /// background and colour by a rule in front of the head's that weighs
+    /// nothing, as HTML weighs them below every rule of a sheet
+    /// (`LetterCSS.legacyColour`). Without them a letter whose white page
+    /// is its body's had its dark words on the pane's black, and its rules
+    /// for the dark by its body's class matched nothing. A letter with no
+    /// style in its head and nothing on its body has the two `div`s alone.
+    ///
+    /// `heldBack` under Block All Remote Content (B-168): the style brought
+    /// back with it has every reference to the web in it held back, as the
+    /// markup's are (`RemoteContent.blocked`), so a `url()` in its head or
+    /// on its body loads nothing until "Load All Images" (int19).
+    static func inOwnColours(_ markup: String, of m: Message, heldBack: Bool = false) -> String {
+        let frame = ownFrame(of: m)
+        return (heldBack ? RemoteContent.blocked(frame.open) : frame.open) + markup + frame.close
+    }
+
+    /// The two `div`s `inOwnColours` puts a letter's markup in, the style
+    /// brought back with it in front: what goes before the markup, and what
+    /// after.
+    static func ownFrame(of m: Message) -> (open: String, close: String) {
+        let html = m.htmlBody ?? ""
+        let box = ownBox(of: m)
+        var letter = LetterScheme.Markup(html)
+        letter.read()
+        let hints = [("background-color", letter.bodyColour), ("color", letter.bodyText)]
+            .compactMap { name, value in value.flatMap(LetterCSS.legacyColour).map { "\(name): \($0);" } }
+        var sheets = hints.isEmpty
+            ? [] : [":where(#\(box) > .\(LetterCSS.bodyClass)) { " + hints.joined(separator: " ") + " }\n"]
+        sheets += LetterScheme.headStyles(of: html).map { LetterCSS.scoped($0, in: "#" + box) }
+            .filter { !$0.isEmpty }
+        let style = sheets.isEmpty ? "" : "<style>\n" + sheets.joined(separator: "\n") + "</style>"
+        let classes = [LetterCSS.bodyClass]
+            + (letter.bodyClass ?? "").components(separatedBy: LetterScheme.htmlSpaces).filter { !$0.isEmpty }
+        let own = letter.bodyStyle.map { " style=\"" + QuotedMarkup.attributeEscaped($0) + "\"" } ?? ""
+        return ("<div id=\"\(box)\" class=\"\(LetterCSS.rootClass)\">" + style
+                    + "<div class=\"" + QuotedMarkup.attributeEscaped(classes.joined(separator: " ")) + "\""
+                    + own + ">",
+                "</div></div>")
+    }
+
+    /// The id of that box: from the letter's own, `"<uidvalidity>/<uid>"`,
+    /// its slash, and anything but letters, digits and `-`, made an
+    /// underscore, so two letters of a stack each have their own.
+    static func ownBox(of m: Message) -> String {
+        "bm-own-" + String(String.UnicodeScalarView(m.id.unicodeScalars.map {
+            ($0.isASCII && (CharacterSet.alphanumerics.contains($0) || $0 == "-")) ? $0 : "_"
+        }))
     }
 
     /// Whether the pane says the letter has no text: nothing in it to draw,

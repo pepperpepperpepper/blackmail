@@ -128,7 +128,8 @@ final class ConversationDocumentTests: XCTestCase {
                 let fill = ConversationDocument.Fill(
                     sectionID: "m1_9", body: .init(html: html, isHTML: isHTML))
                 let arguments = fill.arguments
-                XCTAssertEqual(arguments.count, 3)
+                XCTAssertEqual(arguments.count, 4)
+                XCTAssertEqual(arguments["scheme"] as? String, "bm-html")
                 XCTAssertEqual(arguments["id"] as? String, "m1_9")
                 let sent = try XCTUnwrap(arguments["html"] as? String)
                 XCTAssertEqual(Array(sent.utf8), Array(html.utf8), html.debugDescription)
@@ -139,13 +140,14 @@ final class ConversationDocumentTests: XCTestCase {
 
     /// What the web view is asked to run is the same few characters for
     /// every body, naming `bmFill`'s own parameters, which the stack's user
-    /// script defines, in the app's world.
+    /// script defines, in the app's world. The fourth, `scheme`, the class
+    /// a body of markup takes, as Mail draws it in Dark Mode (B-169).
     func testTheFillCallsTheStacksOwnFunctionByItsArguments() {
-        XCTAssertEqual(ConversationDocument.Fill.script, "bmFill(id, html, isHTML)")
+        XCTAssertEqual(ConversationDocument.Fill.script, "bmFill(id, html, isHTML, scheme)")
         let fill = ConversationDocument.Fill(sectionID: "m1_9",
                                              body: .init(html: "x", isHTML: true))
-        XCTAssertEqual(Set(fill.arguments.keys), ["id", "html", "isHTML"])
-        XCTAssertTrue(ConversationDocument.script.contains("function bmFill(id, html, isHTML) {"))
+        XCTAssertEqual(Set(fill.arguments.keys), ["id", "html", "isHTML", "scheme"])
+        XCTAssertTrue(ConversationDocument.script.contains("function bmFill(id, html, isHTML, scheme) {"))
     }
 
     // MARK: - No script in the document
@@ -180,7 +182,7 @@ final class ConversationDocumentTests: XCTestCase {
             "var opening = !section.classList.contains('bm-open');",
             "section.classList.toggle('bm-open');",
             "window.webkit.messageHandlers.bmLetter.postMessage({ id: section.id, open: opening });",
-            "body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');",
+            "body.className = 'bm-body ' + (isHTML ? bmScheme(scheme) : 'bm-text');",
             "body.innerHTML = html;",
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
@@ -237,7 +239,9 @@ final class ConversationDocumentTests: XCTestCase {
         \(QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark))
           .bm-body img, .bm-body table {
         """), sheet)
-        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 * (2 + 4 + 6))
+        // Four sets since B-169: the HTML inverted, the text, and the HTML
+        // drawn light and in its own colours (`DarkLikeMailTests`).
+        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 4 * (2 + 4 + 6))
         XCTAssertEqual(sheet.components(separatedBy: ".bm-html :is(").count - 1, 3)
         XCTAssertEqual(sheet.components(separatedBy: ".bm-text :is(").count - 1, 3)
         XCTAssertFalse(sheet.contains("#bm"), "the letter's own page's scope")

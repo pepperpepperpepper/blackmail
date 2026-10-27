@@ -25,10 +25,19 @@ import Foundation
 /// Mail. The printed page (`PrintPage`) never had the sheet's rules: it is
 /// not inverted, and the sheet prints as written, black words on the
 /// paper's white.
+///
+/// Since B-169 the pane inverts only the letters Mail turns to the dark,
+/// those that declare no colour scheme and have no picture from the web
+/// and no background picture (`LetterScheme`). His letters are such
+/// letters, so his signature is as above. A letter of his with a picture
+/// from the web in it, one he forwards or quotes, is drawn light, on its
+/// own white, as Mail draws it, and the sheet in it as written, white with
+/// black words, as on paper.
 enum SignatureSheet {
 
     /// The pane's invert: the one string both pages invert a letter's HTML
     /// and its pictures by (`PanePage.letter`, `ConversationDocument.html`),
-    /// so the two can never differ.
+    /// so the two can never differ. Only a letter Mail would turn to the
+    /// dark (`LetterScheme.inverted`, B-169).
     static let invert = "invert(1) hue-rotate(180deg)"
 }

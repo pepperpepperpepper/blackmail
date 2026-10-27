@@ -65,6 +65,15 @@ enum ConversationDocument {
             /// Whether `html` came from the sender as markup. Drives the
             /// invert trick below, which must not be applied to text.
             let isHTML: Bool
+            /// How markup is drawn in the dark pane, as Mail draws it
+            /// (`LetterScheme`, B-169): inverted, as every letter's was
+            /// until then, light on its own white, or in its own colours.
+            /// Nothing for text.
+            var scheme: LetterScheme = .inverted
+
+            /// The class its body has in the stack: `bm-text` for text, and
+            /// for markup its scheme's (`LetterScheme.stackClass`).
+            var kind: String { isHTML ? scheme.stackClass : "bm-text" }
         }
     }
 
@@ -349,6 +358,21 @@ enum ConversationDocument {
           .bm-body img, .bm-body table { max-width: 100% !important; height: auto; }
           .bm-text a { color: #0A84FF; }
           .bm-html a { color: #007AFF; }
+          /* Each letter as Mail draws it in Dark Mode, decided on its own
+             (LetterScheme, B-169): inverted above, only where Mail turns a
+             letter to the dark. One with a picture from the web, or a light
+             scheme only, light as its sender made it, black words on its
+             own white, the pane dark around it, Mail's bars in its light
+             colours. One that declares the dark, in its own colours, words
+             white on the pane's black, its style for the dark in its body,
+             Mail's bars in its dark colours. Their links' colour weighs no
+             more than the letter's own rule for links (:where). */
+          .bm-light { background: #fff; color: #000; color-scheme: light only; }
+          :where(.bm-light) a { color: #007AFF; }
+          .bm-own { color: #fff; color-scheme: light dark; }
+          :where(.bm-own) a { color: #0A84FF; }
+        \(QuoteBars.css(in: ".bm-light"))
+        \(QuoteBars.css(in: ".bm-own", palette: QuoteBars.dark))
           .bm-waiting { color: #8e8e93; padding: 0 \(inset)px \(inset)px \(inset)px; }
           /* Where his letter from another folder was found, over it once
              it is open (B-104): grey, as the time on the line. */
@@ -357,8 +381,10 @@ enum ConversationDocument {
           .bm-letter:not(.bm-open) > .bm-found { display: none; }
           /* Mail's line over a letter whose pictures from the web are held
              back, at the body's size whatever the letter's own rules say
-             (B-166, B-168). */
-          \(RemoteContent.sizeRule(in: "body", pointSize: bodyPointSize))\(stacked ? stackedLines : "")
+             (B-166, B-168), and in Mail's dark colours over a letter in
+             its own (B-169). */
+          \(RemoteContent.sizeRule(in: "body", pointSize: bodyPointSize))
+          \(RemoteContent.darkRule(in: ".bm-own"))\(stacked ? stackedLines : "")
         </style></head><body>
         \(sections)
         </body></html>
@@ -578,17 +604,20 @@ enum ConversationDocument {
         window.webkit.messageHandlers.bmLetter.postMessage({ id: section.id, open: opening });
       }
     }
-    function bmFill(id, html, isHTML) {
+    function bmFill(id, html, isHTML, scheme) {
       var el = document.getElementById(id);
       if (!el) {
-        if (bmHeld.length) bmLater(function () { bmFill(id, html, isHTML); });
+        if (bmHeld.length) bmLater(function () { bmFill(id, html, isHTML, scheme); });
         return;
       }
       var body = el.querySelector('.bm-body');
       if (!body) return;
-      body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');
+      body.className = 'bm-body ' + (isHTML ? bmScheme(scheme) : 'bm-text');
       body.innerHTML = html;
       bmWirePictures(body);
+    }
+    function bmScheme(scheme) {
+      return scheme === 'bm-light' || scheme === 'bm-own' ? scheme : 'bm-html';
     }
     function bmWhen(when) {
       var letters = document.querySelectorAll('body > .bm-letter');
@@ -936,8 +965,7 @@ enum ConversationDocument {
 
         let body: String
         if let rendered = e.body {
-            body = "<div class=\"bm-body \(rendered.isHTML ? "bm-html" : "bm-text")\">"
-                + rendered.html + "</div>"
+            body = "<div class=\"bm-body \(rendered.kind)\">" + rendered.html + "</div>"
         } else {
             // A placeholder rather than nothing, so an expanded letter whose
             // body has not arrived says so instead of looking like an empty
@@ -982,12 +1010,13 @@ enum ConversationDocument {
         let body: Entry.Rendered
 
         /// What `callAsyncJavaScript` runs, in the app's content world,
-        /// where `script` defined `bmFill`: the three names are its
-        /// arguments.
-        static let script = "bmFill(id, html, isHTML)"
+        /// where `script` defined `bmFill`: the four names are its
+        /// arguments, `scheme` the class markup's body takes, as Mail draws
+        /// it in Dark Mode (`LetterScheme.stackClass`, B-169).
+        static let script = "bmFill(id, html, isHTML, scheme)"
 
         var arguments: [String: Any] {
-            ["id": sectionID, "html": body.html, "isHTML": body.isHTML]
+            ["id": sectionID, "html": body.html, "isHTML": body.isHTML, "scheme": body.scheme.stackClass]
         }
     }
 

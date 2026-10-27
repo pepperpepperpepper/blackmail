@@ -28,6 +28,13 @@ import Foundation
 /// dark violet, rgb(191, 90, 242). A signature's white sheet is inverted
 /// with the rest since B-146, and a quote inside it too.
 ///
+/// Since B-169 only a letter Mail turns to the dark is inverted
+/// (`LetterScheme`). A letter drawn light, on its own white, has the light
+/// colours as they are, as Mail draws one, and as on paper: under `#bm`
+/// on its page, `.bm-light` in the stack. A letter drawn in its own
+/// colours, the dark among them, has the dark ones, as Mail's system
+/// colours are in a page drawn dark: under `#bm`, `.bm-own` in the stack.
+///
 /// A plain letter's quotes, its lines begun with `>`, are made Mail's
 /// blockquotes as its page is built (`PlainQuotes`, B-147), and take the
 /// same rules, under its own scope: `#bm` on its page, `.bm-text` in the

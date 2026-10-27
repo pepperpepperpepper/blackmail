@@ -92,6 +92,15 @@ enum RemoteContent {
             + "font-family: -apple-system, sans-serif !important; }"
     }
 
+    /// The head's rule for the line over a letter drawn in its own colours
+    /// on the pane's black (`LetterScheme.own`, B-169), not inverted: Mail's
+    /// dark colours for its rule and its button, as the invert makes them
+    /// over a letter turned to the dark (int19).
+    static func darkRule(in scope: String) -> String {
+        "\(scope) .\(lineClass) { border-bottom-color: #38383a !important; } "
+            + "\(scope) .\(lineClass) a { color: #0A84FF !important; }"
+    }
+
     /// The button's link: `bmimages:?letter=<id>`, the id escaped as a
     /// query's value is.
     static func link(for id: String) -> String {
