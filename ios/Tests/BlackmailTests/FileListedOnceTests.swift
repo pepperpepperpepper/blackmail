@@ -541,7 +541,7 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertEqual(run.clicks.map(\.stopped), [true, false, false, false])
         XCTAssertEqual(run.stopped, 1, "the lift of the hold, and no other")
         XCTAssertEqual(run.pictures, [])
-        let held = try XCTUnwrap(BodyFiles.Hold(run.tileHolds[0].body))
+        let held = try XCTUnwrap(BodyFiles.Hold(try XCTUnwrap(run.tileHolds.first).body))
         XCTAssertEqual([held.letter, held.section], [letter.id, "2.2"])
 
         let entry = ConversationDocument.Entry(id: letter.id, sender: letter.sender, date: letter.date,

@@ -7805,7 +7805,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       as its internal date; it notes each UID from its APPENDUID, and stops
       if one has none. Three panes unless a step says two; the app's
       connection log read after each step; the screen recorded at 60
-      frames a second for 2 and 5.
+      frames a second for 2 and 5. On a build with B-170 the header lists
+      no file and each row named here is a tile in the body: steps 3 and 4
+      read as B-170's check, 2 and 4.
       1. *The letters,* "B-148 one", "B-148 two", "B-148 end", "B-148
       three" and "B-148 large": one, and two made as it is, Apple Mail's
       shape for a PDF among the words, as B-113's
@@ -8823,6 +8825,77 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
+
+- [ ] **B-170, every file in the letter's body.** On the test iPad, the
+      test account only, from a build of the `bm-cm-inlinefiles` worktree
+      (branch `copy-inlinefiles`) or of the int it is merged into. Nothing
+      is composed, sent, saved, moved or deleted in the app: one of the
+      test accounts is signed in on the owner's phone and new mail rings
+      it. The host makes the letters, each from another address, with a
+      new Message-ID of its own and naming none on the account, and
+      APPENDs them, read (`\Seen`), to the label "Notes", never the Inbox,
+      each with its Date as its internal date; it notes each UID from its
+      APPENDUID, and stops if one has none. Three panes unless a step says
+      two; the app's connection log read after each step; the screen
+      recorded at 60 frames a second for 2 and 6, and a screenshot of each
+      letter as it is drawn.
+      1. *The letters,* "B-170 pdf", "B-170 photo", "B-170 among",
+      "B-170 before", "B-170 plain", "B-170 only", "B-170 large",
+      "B-170 heic", "B-170 thread 1" and "B-170 thread 2": pdf, an HTML
+      part and a PDF of about 300 KB attached after it; photo, an HTML
+      part, then a JPEG of about 2 MB from a camera attached with no
+      `Content-ID`, then a PDF; among, Apple Mail's shape for a PDF among
+      the words, as B-148's check made it; before, a PDF and then an HTML
+      part; plain, plain words, then a PDF and a JPEG; only, a PDF and no
+      words; large, an HTML part, three JPEGs of about 2 MB each and a PDF
+      of about 300 KB, over 5 MB, so it is opened in part; heic, an HTML
+      part and a HEIC photo attached; thread 1 and 2, one conversation, the
+      second's References naming the first, each an HTML part and a PDF
+      named for its letter, "one.pdf" and "two.pdf".
+      2. *PDF:* "Notes" opened, "B-170 pdf" tapped. From the first frame
+      after the tap the header ends at the date and its lower rule, no file
+      in it, the rule at the same height in every frame to the letter
+      drawn: the height written down. Under the words a tile: a rounded
+      box with a hairline border, about 160 by 120 pt, a page marked "PDF",
+      the name, the size in grey, its last line empty. Written down: its
+      colours on the dark pane, and whether its lines read. The tile
+      tapped: it dims and its last line says "Loading…" until the PDF is in
+      Quick Look; Done: the tile as it was.
+      3. *Photo:* "B-170 photo": the photo under the words, as wide as the
+      letter at most, and no tile for it; the PDF's tile under it. The
+      photo tapped: Quick Look; Done. A finger held on the photo half a
+      second: the menu Quick Look, Save Image, Save to Files, Share, Copy;
+      a tap outside it. A finger held on the PDF's tile: Quick Look, Save
+      to Files, Share, Copy, and the lift opens nothing; Save to Files:
+      Files' sheet, Cancel in it; Copy: nothing over the pane. Written
+      down if WebKit's own menu, a preview of the link or a drag of the
+      tile comes first.
+      4. *Among and before:* "B-170 among": the words before, the PDF's
+      tile, the words after, "Sent from my iPad". "B-170 before": the tile
+      above the words.
+      5. *Plain and only:* "B-170 plain": its words light on the black,
+      then the PDF's tile, light on the black too, and the photo. "B-170
+      only": the PDF's tile alone, and no "This message has no text.".
+      6. *Large:* "B-170 large" tapped: the log has its BODYSTRUCTURE
+      first, then its words, then a FETCH of each photo by its section as
+      the pane draws it, and not the PDF; the photos come in one after
+      another, in the recording; the PDF's tile says "Tap to Download".
+      Tapped: "Loading…", the PDF's FETCH in the log, Quick Look; Done:
+      "Tap to Download" again.
+      7. *HEIC:* "B-170 heic": a tile marked "HEIC", not the photo;
+      tapped, Quick Look shows the photo; held, the menu has Save Image.
+      8. *Thread:* the conversation "B-170 thread": "one.pdf" under the
+      first letter's words and "two.pdf" under the second's, each in its
+      own letter; each tapped opens its own.
+      9. *Print:* "B-170 photo", the Reply button, Print: in the preview,
+      the header with no file line, and in the body the photo and the
+      PDF's tile, in the letter's own colours on white, no "Tap to
+      Download". Cancel: nothing printed.
+      10. *Two panes,* 2 and 3 again, then three panes.
+      11. *Put back:* "Notes" left, the Inbox at its top. The host moves
+      the UIDs it noted, and only them, from "Notes" to the Trash, and
+      deletes in the Trash only the UIDs that move answered. Nothing else
+      was written.
 
 ## Blocked on the owner
 
