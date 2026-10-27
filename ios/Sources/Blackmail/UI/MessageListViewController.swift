@@ -2592,12 +2592,14 @@ final class MessageListViewController: UITableViewController {
     /// nothing, and nothing said Delete was working. Inside Trash, where
     /// Delete erases, he is asked first (`EraseQuestion`), and Cancel leaves
     /// his ticks as they were; where the bar archives, of the letters it
-    /// deletes alone (`EditBar.question`, B-167). Anywhere else, under Ask
-    /// Before Deleting, Mail's sheet from the Edit bar's Trash first, "Trash
-    /// 3 Messages", counted (`DiscardQuestion`, B-168), or from its Archive,
-    /// "Archive 3 Messages", as Mail asks before an Archive too
-    /// (`EditBar.discardVerb`), and a tap outside it leaves his ticks as
-    /// they were too.
+    /// deletes alone (`EditBar.question`, B-167), and then, under Ask
+    /// Before Deleting, of those it archives, "Archive 2 Messages" (int19).
+    /// Anywhere else, under Ask Before Deleting, Mail's sheet from the Edit
+    /// bar first, counted (`DiscardQuestion`, B-168): "Archive 3 Messages"
+    /// where the tap archives every letter, as Mail asks before an Archive
+    /// too, and "Trash 3 Messages" where it sends any to the Trash
+    /// (`EditBar.discardVerb`), whatever the button's word; and a tap
+    /// outside it leaves his ticks as they were too.
     ///
     /// A letter kept on the iPad goes from the iPad, as Delete Draft in the
     /// composer takes it (`LocalDrafts.delete`). Handed to the repository
@@ -2609,7 +2611,8 @@ final class MessageListViewController: UITableViewController {
         guard !chosen.isEmpty else { return }
         guard let question = EditBar.question(before: chosen, role: { self.role(of: $0) },
                                               allMail: allMail) else {
-            guard let asked = DiscardQuestion.before(EditBar.discardVerb(forTitle: discardWord),
+            let split = EditBar.discarding(chosen, role: { self.role(of: $0) }, allMail: allMail)
+            guard let asked = DiscardQuestion.before(EditBar.discardVerb(for: split),
                                                      letters: chosen.count, from: .editBar) else {
                 delete(chosen)
                 return
@@ -2617,7 +2620,22 @@ final class MessageListViewController: UITableViewController {
             DiscardConfirmation.ask(asked, on: self, from: deleteItem) { [weak self] in self?.delete(chosen) }
             return
         }
-        EraseConfirmation.ask(question, on: self) { [weak self] in self?.delete(chosen) }
+        // The erase question counts the letters it deletes alone; those the
+        // bar archives are asked of after it, under Ask Before Deleting, as
+        // they would be with none erased (int19).
+        EraseConfirmation.ask(question, on: self) { [weak self] in
+            guard let self else { return }
+            let archived = EditBar.discarding(chosen, role: { self.role(of: $0) },
+                                              allMail: self.allMail).archived
+            guard let asked = DiscardQuestion.before(.archive, letters: archived.count,
+                                                     from: .editBar) else {
+                self.delete(chosen)
+                return
+            }
+            DiscardConfirmation.ask(asked, on: self, from: self.deleteItem) { [weak self] in
+                self?.delete(chosen)
+            }
+        }
     }
 
     /// Edit mode's Delete, asked or not. The letters kept on the iPad go

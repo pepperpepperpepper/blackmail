@@ -132,11 +132,19 @@ final class EraseQuestionTests: XCTestCase {
                 // (B-167), and anywhere but Trash, Ask Before Deleting's
                 // sheet in the bar's word, or none (B-168).
                 "guard let question = EditBar.question(before: chosen, role: { "
-                    + "self.role(of: $0) }, allMail: allMail) else { guard let asked = "
-                    + "DiscardQuestion.before(EditBar.discardVerb(forTitle: discardWord), "
+                    + "self.role(of: $0) }, allMail: allMail) else { let split = "
+                    + "EditBar.discarding(chosen, role: { self.role(of: $0) }, allMail: allMail) "
+                    + "guard let asked = DiscardQuestion.before(EditBar.discardVerb(for: split), "
                     + "letters: chosen.count, from: .editBar) else { delete(chosen) return } ",
+                // Then, of the letters it archives, Ask Before Deleting's
+                // sheet, or none (int19).
                 "return } EraseConfirmation.ask(question, on: self) { [weak self] in "
-                    + "self?.delete(chosen) }",
+                    + "guard let self else { return } let archived = EditBar.discarding(chosen, "
+                    + "role: { self.role(of: $0) }, allMail: self.allMail).archived "
+                    + "guard let asked = DiscardQuestion.before(.archive, letters: archived.count, "
+                    + "from: .editBar) else { self.delete(chosen) return } "
+                    + "DiscardConfirmation.ask(asked, on: self, from: self.deleteItem) { [weak self] in "
+                    + "self?.delete(chosen) } }",
                 "private func role(of mailboxID: String) -> Mailbox.Role? { "
                     + "([mailbox] + folders()).role(of: mailboxID) }",
             ]),

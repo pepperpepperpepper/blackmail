@@ -92,16 +92,47 @@ final class DiscardQuestionTests: XCTestCase {
 
     /// The sheet: an action sheet, its red button Mail's words, then Cancel,
     /// from the button tapped or over the row, `go` only on the red one.
-    /// Under Archive Mailbox (B-167) the Edit bar's "Archive" asks Mail's
-    /// Archive words, counted, and its "Trash" and "Delete" the Trash's: the
-    /// sheet says what the button says (integration, int19).
+    /// Under Archive Mailbox (B-167) the Edit bar asks Mail's Archive
+    /// words, counted, where its tap archives every letter, and the
+    /// Trash's where it sends any to the Trash: the sheet says what the tap
+    /// does, not the button's word. Under "Archive", an All Mailboxes
+    /// search's hits from All Mail go to the Trash, and the sheet says so
+    /// (integration, int19).
     func testTheEditBarAsksInItsOwnWord() {
-        XCTAssertEqual(EditBar.discardVerb(forTitle: "Archive"), .archive)
-        XCTAssertEqual(EditBar.discardVerb(forTitle: EditBar.trash), .trash)
-        XCTAssertEqual(EditBar.discardVerb(forTitle: EditBar.delete), .trash)
-        XCTAssertEqual(DiscardQuestion.before(EditBar.discardVerb(forTitle: "Archive"), letters: 3,
+        let archiving = SwipeOptions(swipeLeft: .flag, swipeRight: .mark, discardInto: .archive)
+        let allMail = Mailbox(id: "[Gmail]/All Mail", name: "All Mail", unreadCount: 0, role: .archive)
+        let folders: [String: Mailbox.Role] = ["INBOX": .inbox, "[Gmail]/Spam": .junk,
+                                               "[Gmail]/All Mail": .archive]
+        func letter(_ id: String, in mailbox: String) -> MessageSummary {
+            MessageSummary(id: id, mailboxID: mailbox, sender: "Sam Example <sam@example.com>",
+                           subject: "Lunch on Sunday", preview: "", date: Date(timeIntervalSince1970: 0),
+                           isRead: false, isFlagged: false)
+        }
+        func verb(_ letters: [MessageSummary]) -> DiscardQuestion.Verb {
+            EditBar.discardVerb(for: EditBar.discarding(letters, role: { folders[$0] },
+                                                        allMail: allMail, options: archiving))
+        }
+        let inbox = letter("1/1", in: "INBOX"), spam = letter("2/1", in: "[Gmail]/Spam")
+        let all = [letter("3/1", in: "[Gmail]/All Mail"), letter("3/2", in: "[Gmail]/All Mail")]
+        // The list's word is "Archive" (an All Mailboxes search from the
+        // Inbox); the hits from All Mail go to the Trash, and so says the sheet.
+        XCTAssertEqual(EditBar.deleteTitle(inFolderWithRole: .inbox, canArchive: true, options: archiving),
+                       "Archive")
+        XCTAssertEqual(verb(all), .trash)
+        XCTAssertEqual(verb([inbox] + all), .trash)
+        XCTAssertEqual(verb([inbox, spam]), .archive)
+        // The factory's Deleted Mailbox, or no All Mail: the Trash.
+        XCTAssertEqual(EditBar.discardVerb(for: EditBar.discarding([inbox], role: { folders[$0] },
+                                                                   allMail: allMail)), .trash)
+        XCTAssertEqual(EditBar.discardVerb(for: EditBar.discarding([inbox], role: { folders[$0] },
+                                                                   allMail: nil, options: archiving)),
+                       .trash)
+        XCTAssertEqual(DiscardQuestion.before(verb([inbox, spam]), letters: 2,
                                               from: .editBar, asking: true)?.button,
-                       "Archive 3 Messages")
+                       "Archive 2 Messages")
+        XCTAssertEqual(DiscardQuestion.before(verb(all), letters: 2,
+                                              from: .editBar, asking: true)?.button,
+                       "Trash 2 Messages")
         XCTAssertEqual(DiscardQuestion.before(.archive, letters: 1, from: .pane, asking: true)?.button,
                        "Archive Message")
     }
@@ -138,10 +169,17 @@ final class DiscardQuestionTests: XCTestCase {
         for line in [
             "guard let question = EditBar.question(before: chosen, role: { self.role(of: $0) }, "
                 + "allMail: allMail) else { "
-                + "guard let asked = DiscardQuestion.before(EditBar.discardVerb(forTitle: discardWord), "
+                + "let split = EditBar.discarding(chosen, role: { self.role(of: $0) }, allMail: allMail) "
+                + "guard let asked = DiscardQuestion.before(EditBar.discardVerb(for: split), "
                 + "letters: chosen.count, from: .editBar) else { delete(chosen) return } DiscardConfirmation.ask(asked, on: self, from: deleteItem) "
                 + "{ [weak self] in self?.delete(chosen) } return } "
-                + "EraseConfirmation.ask(question, on: self) { [weak self] in self?.delete(chosen) }",
+                + "EraseConfirmation.ask(question, on: self) { [weak self] in guard let self else { return } "
+                + "let archived = EditBar.discarding(chosen, role: { self.role(of: $0) }, "
+                + "allMail: self.allMail).archived "
+                + "guard let asked = DiscardQuestion.before(.archive, letters: archived.count, "
+                + "from: .editBar) else { self.delete(chosen) return } "
+                + "DiscardConfirmation.ask(asked, on: self, from: self.deleteItem) { [weak self] in "
+                + "self?.delete(chosen) } }",
             "let whole = DiscardQuestion.fullDrag(button: Double(source.bounds.width), "
                 + "row: Double(self.tableView.bounds.width)) "
                 + "done(self.swiped(action, on: RowKey(thread), from: whole ? .fullDrag : .rowButton))",
@@ -159,8 +197,8 @@ final class DiscardQuestionTests: XCTestCase {
         ] {
             XCTAssertTrue(list.contains(line), line)
         }
-        XCTAssertEqual(list.components(separatedBy: "DiscardQuestion.before(").count - 1, 2,
-                       "the Edit bar's, and a row's")
+        XCTAssertEqual(list.components(separatedBy: "DiscardQuestion.before(").count - 1, 3,
+                       "the Edit bar's, after its erase question, and a row's")
         XCTAssertEqual(list.components(separatedBy: "discard(.").count - 1, 2, "Trash and Archive")
         // Inside Trash the erase question alone, from a drag as from More.
         let swiped = try XCTUnwrap(list.range(of: "case .delete: guard let question = EraseQuestion.before("))

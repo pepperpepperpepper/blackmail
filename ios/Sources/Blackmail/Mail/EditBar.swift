@@ -83,13 +83,17 @@ enum EditBar {
     }
 
     /// What Ask Before Deleting's sheet says the third button does
-    /// (`DiscardQuestion`, B-168), by the button's word, `title`: "Archive 3
-    /// Messages" under "Archive", as Mail asks before an Archive with its
-    /// own words (`ARCHIVE_FORMAT`), and "Trash 3 Messages" otherwise. The
-    /// letters an All Mailboxes search's Archive sends to the Trash are
-    /// counted with the rest, as the button names them.
-    static func discardVerb(forTitle title: String) -> DiscardQuestion.Verb {
-        title == RowSwipes.Action.archive.title ? .archive : .trash
+    /// (`DiscardQuestion`, B-168), by what its tap does to the letters
+    /// (`discarding`), not by its word: "Archive 3 Messages" where it
+    /// archives every one, as Mail asks before an Archive with its own
+    /// words (`ARCHIVE_FORMAT`), and "Trash 3 Messages" where any goes to
+    /// the Trash. Under "Archive", an All Mailboxes search's hits from All
+    /// Mail go to the Trash (`archive(fromFolderWithRole: .archive)` is
+    /// none), and the sheet said "Archive 2 Messages" before it trashed
+    /// them (int19).
+    static func discardVerb(for split: (archived: [MessageSummary], deleted: [MessageSummary]))
+        -> DiscardQuestion.Verb {
+        split.deleted.isEmpty && !split.archived.isEmpty ? .archive : .trash
     }
 
     /// The two words, here and nowhere else: the bar's, a drag's button on
