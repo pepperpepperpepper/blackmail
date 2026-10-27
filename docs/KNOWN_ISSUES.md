@@ -34840,3 +34840,249 @@ source, `keptChanged` and `listOutbox` taking the move before the list
 changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
+
+## B-169 — FIXED 2026-10-27, not yet seen on the iPad. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
+
+**Asked for** by the owner on 2026-10-27: "build the three Mail
+differences next: light colours in dark mode, …". The first of the gaps
+found on the way in the copy-Mail decisions of 2026-10-26 (from 7578;
+B-146's "Not covered" named it).
+
+**What Mail does.** Read in iOS 18.6's simulator runtime on the Mac
+(read only, nothing copied), high for the rule, not seen on a screen.
+MobileMailUI's script for a letter's page runs, as the page loads
+(`message_on_document_load`), `_styleForSystemAppearance`:
+
+- `_declaredColorSchemes` first: the `color-scheme` the page's root
+  computes to, Mail's own rule for it turned off while it looks (the
+  class `testing-dark-mode`), and, its comment says, WebKit reads the old
+  `supported-color-schemes` as the same property; if that is `normal` or
+  `auto`, the content of the last `<meta name='color-scheme'>`, in lower
+  case, split at its spaces. Its look for `<meta
+  name='supported-color-schemes'>` runs only when `querySelectorAll`
+  returns nothing at all, which it never does, so that meta alone declares
+  nothing.
+- Declared: Mail's colour filter is off; `light` or `only` without `dark`
+  gives the root `apple-mail-light-only`, and anything else no class, the
+  letter drawn in the schemes it declares, its own rules for the dark
+  applying.
+- Not declared: any `<img>` whose `src` begins `http` with `width > 1 ||
+  height > 1`, and whose class does not hold `lp-rich-link`, or a
+  computed `background-image` on the body other than `none`, gives
+  `apple-mail-light-only`; otherwise `apple-mail-implicit-dark-support`.
+
+MessageUI's style sheet has `:root.apple-mail-implicit-dark-support {
+-apple-color-filter: apple-invert-lightness() }`, a `color-scheme` of
+"light only" on `:root.apple-mail-light-only:not(.testing-dark-mode)`,
+and a `color-scheme` of its own on `:root:not(.testing-dark-mode)`. So in
+Dark Mode Mail turns to the dark only a letter that declares nothing and
+has no picture from the web and no background picture on its body; a
+letter with such a picture, or one declaring a light scheme only, is
+drawn light, as its sender made it, on white; one declaring the dark is
+drawn by its own rules. Each letter of a conversation has a page of its
+own in Mail, so each is decided on its own. The message view around a
+letter, its header, stays dark (inferred, not seen).
+
+**What Blackmail did.** Inverted every HTML letter, `invert(1)
+hue-rotate(180deg)` on the letter's white with its pictures inverted back
+(`SignatureSheet.invert`): on a letter's own page under `#bm`
+(`PanePage.letter`) and in a conversation's stack under `.bm-html`
+(`ConversationDocument`), since the app's first version, as D-010 has
+it: "HTML mail is inverted in CSS, not painted over". A newsletter with
+its photographs from the web came out black with white words, and a
+letter written for the dark was inverted from its light colours, its
+rules for the dark never seen: the sender's head, where they are, is
+taken off with the wrapper (`DocumentWrapper`).
+
+**Changed.**
+
+1. *Mail's rule* (`Mail/LetterScheme.swift`, new). `LetterScheme.of(html:)`
+   reads a letter's HTML as it came, wrapper and all, as Mail reads its
+   whole document, and says `inverted`, `light` or `own`. The markup is
+   read as HTML's tokenizer reads it, as far as that goes (`Markup`): tags,
+   attributes quoted or not, character references in values, nothing in a
+   comment or an Outlook conditional comment, the text of `<style>`,
+   `<script>`, `<title>`, `<textarea>` and the like as text, a later
+   `<html>` or `<body>` adding only what the first lacks, `<image>` as
+   `<img>`. The root's scheme is the `color-scheme` or
+   `supported-color-schemes` declaration that wins on a selector that is
+   the root alone (`html`, `:root`, `html:root`), or on `<html style>`,
+   by `!important`, the attribute over the sheets, the selector's weight,
+   then order, under media the dark pane matches; a value CSS would not
+   take is passed over, `normal`, `auto` and the keywords for all
+   properties declare nothing; then the last `<meta name="color-scheme">`,
+   the name as written. A picture from the web: its address, made whole
+   against a `<base>` of the web when it has no scheme, beginning `http`;
+   measured by the width and height its `style` gives in px, or its
+   attributes give (a percentage or another unit is more than 1 px),
+   counted when one is more than 1, or when neither is given. The body's
+   background picture: its `background` attribute, the `background` or
+   `background-image` that wins from its `style` or a rule for the body
+   with the root alone before it, a colour alone taking a picture away;
+   any picture, the letter's own too, or a gradient.
+2. *Style sheets read* (`MIME/LetterCSS.swift`, new): CSS's own syntax as
+   far as needed, one pass, comments, strings and escapes skipped, a block
+   to its brace or the end. `rules`, with `@media`, `@supports` and
+   `@layer` gone through and each rule saying whether its media match the
+   pane (none, `all` or `screen`, and no feature but
+   `prefers-color-scheme: dark`); `declarations`; and `scoped`, below. A
+   sheet that names no colour scheme and no background is not read.
+3. *A letter on its own* (`PanePage.letter`): `inverted`, the page byte
+   for byte as it always was; `light`, no filter anywhere, its words black
+   and links `#007AFF` on `#bm { background: #fff; color-scheme: light
+   only; }`, Mail's bars in its light colours, as on paper, the pane's
+   black around and below it; `own`, no filter, words `#fff` and links
+   `#0A84FF` on the pane's black, `#bm { color-scheme: light dark; }`,
+   Mail's bars in its dark colours. `scheme:` lets a test say inverted.
+4. *A letter in its own colours* (`PanePage.inOwnColours`, `ownBox`): its
+   markup in a box of its own, `<div id="bm-own-<uidvalidity>_<uid>">`,
+   with the style sheets of its head in front of it
+   (`LetterScheme.headStyles`, from `DocumentWrapper.heads`, new: the heads
+   the wrapper's removal takes off, none in a comment), each rule made to
+   apply in that box alone (`LetterCSS.scoped`): a rule for the root or
+   the body, or a run of them, is the box's; any other has
+   `:where(#box)` before it, which weighs nothing, so it weighs against the
+   letter's own rules as in Mail; `@media`, `@supports`, `@layer`,
+   `@container` gone through; `@font-face`, `@keyframes`, `@page` kept;
+   `@import`, `@charset` and `@namespace` left out; `</` written `<\/`.
+   Inside the pane's margin, which a rule for the body cannot take away
+   (the reason the wrapper comes off).
+5. *A conversation* (`PanePage.stackBody`, `ConversationDocument`): each
+   letter decided on its own. `Entry.Rendered.scheme`, new, inverted
+   unless set, and `kind`, the body's class: `bm-html` inverted, as
+   before, `bm-light`, `bm-own`, `bm-text` for text. The stack's style
+   adds `.bm-light { background: #fff; color: #000; color-scheme: light
+   only; }`, `.bm-own { color: #fff; color-scheme: light dark; }`, their
+   links in `:where(…) a`, and Mail's bars for each, light and dark; the
+   invert stays on `.bm-html` alone. A body goes in with its class at the
+   first draw and by `bmFill`, whose fourth argument, `scheme`, is the
+   class (`Fill.script` is `bmFill(id, html, isHTML, scheme)`); the
+   script's `bmScheme` takes `bm-light` or `bm-own` and makes anything
+   else, or none, `bm-html`. A letter in its own colours has its box and
+   its head's rules in its body, its own box id, so two in one stack keep
+   their rules apart.
+6. Comments: `SignatureSheet`, `QuoteBars`, `PrintPage`, the pane's.
+
+**The printed page** (B-110) is as it was for all three: white paper,
+the sender's colours, no box and no style from the letter's head
+(`PrintPage` untouched but for its comment). **A plain letter** is as it
+was, white words on the black, Mail's dark bars (B-147). **His
+signature** (B-146): his letters declare no scheme and his logo is a
+`cid:` picture, so they are inverted, as since B-146; a letter of his
+with a picture from the web in it, one he forwards, is drawn light, and
+the sheet in it white with black words, as written, as Mail draws it.
+**Quote bars** (B-147, B-101): Mail's light colours as they are on a
+light letter, its dark ones on a letter in its own colours, the light
+ones under the invert as before. **The cover** (B-149) is the pane's
+black, as before: from the tap to the paint the pane under the header is
+black, then the letter, on white for a light one. The pane stays dark
+around a light letter, its header, lines and margins below the letter.
+
+**What it reverses.** D-010's "HTML mail is inverted in CSS, not painted
+over" now reads, for the pane (DECISIONS.md not edited): an HTML letter
+Mail turns to the dark is inverted in CSS as written there; one Mail
+draws light is drawn light, on its own white, the pane dark around it;
+one that declares the dark is drawn in its own colours on the pane's
+black. The pane itself, its header, list and lines, is dark as D-010
+has it. B-146's "Not covered" difference is built. B-147's and B-101's
+note that an HTML letter's bars are the light colours under the invert
+holds for inverted letters alone. Nothing of B-110.
+
+**Sibling batches.** The branch `copy-remoteask` (B-168, Block All
+Remote Content) changes `PanePage.letter`, `stackBody` and `content` in
+the same lines: a letter held back there keeps its web addresses in its
+markup, so this rule, which reads the markup as it came, still draws it
+light; and the head's style brought back here for a letter in its own
+colours can hold `url(…)` of the web, which B-168's hold-back does not
+see. To be put together where the two meet.
+
+**What he sees.** A newsletter with photographs from the web: white,
+as its sender made it, black words, its pictures as they are, the pane
+black around it, where it was black with white words. A letter that
+declares the dark, as some newsletters do: in its own dark colours,
+where its light ones were inverted. Letters from people, his
+own and their replies, Gmail's and Mail's, with no picture from the
+web: as before. No new words.
+
+**Tests.** `DarkLikeMailTests`, 14, new: Mail's rule, the inverted letters
+(every shape of the pane's set, his signed letter, Mail's and Gmail's
+replies, pictures by `cid:` and data, tracking pixels by size, a rich
+link's, relative addresses, a picture in a comment, a script, a title, a
+textarea or a style, a background off the body); a picture from the web
+in its forms; a background on the body, from its attribute, its style, a
+sheet, and taken away; declared schemes, the meta and the root, the
+last meta, an empty one, `supported-color-schemes` as a meta and as a
+property, weights, `!important`, invalid values, media; the ordinary
+letters (`OrdinaryMail.schemes`), light exactly where they have a
+picture from the web; the inverted page byte for byte as the page drawn
+inverted; a light letter's page and an own letter's, byte for byte at
+their end, the head's rules scoped, the Outlook comment's not read,
+`@import` out; a conversation of five, each its class at the first draw
+and in its fill, two own letters each in its box; the stack's script in
+node, `bmFill` giving each class, and the old three arguments inverted;
+print and a plain letter as they were; `scoped`'s rules one by one;
+`headStyles` the head's alone; half a megabyte made to be slow, read
+once. Changed: `ConversationDocumentTests`, the fill's four arguments,
+`bmFill`'s line and its class line, the bars' count four sets;
+`CompleteThreadsTests`, `bmFill`'s held line; `OrdinaryMail`'s page
+fingerprints drawn inverted, as every letter was, so they are the same
+values as before.
+
+Each part undone by hand in the worktree, the new class run, then put
+back, the sources' sum checked the same as before; counted as failures,
+read by their lines, in four runs of undoings that touch different
+tests: the size of a picture from the web not read, every one counted,
+5 in `testALetterWithNoSchemeAndNoPictureFromTheWebIsInverted` (the
+pixels); the body's background not read, 13 in
+`testABackgroundPictureOnTheBodyDrawsTheLetterLight`; the stack's script
+giving markup `bm-html` whatever its scheme, 2 in
+`testTheStacksScriptGivesABodyItsScheme`; every rule of the head put
+under the box as written, 1 in `testAHeadsRulesApplyInsideTheLetterAlone`;
+the heads the wrapper takes off not kept, 1 in
+`testTheStylesBroughtBackAreTheHeadsTheWrapperTakesOff`; each picture put
+on the list by copying the list, which reads it again for each picture,
+2.06 s, 1 in `testALetterMadeToBeSlowIsReadOnce`; the printed body taken
+from the stack's, with its box, 1 in
+`testPrintAndAPlainLetterAreAsTheyWere`; pictures from the web not
+counted, 15 in `testAPictureFromTheWebDrawsTheLetterLight` and 19 in
+`testOrdinaryMailIsDrawnAsMailWould`; declarations not read, 27 in
+`testADeclaredSchemeDecidesBeforeAnyPicture` (and 2 more there from the
+pictures, undone in the same run); a letter with nothing to make it
+light drawn light, 40 in `testAnInvertedLettersPageIsAsItWas`; a light
+letter's page given the invert, 3 in
+`testALetterWithAPictureFromTheWebIsDrawnOnItsOwnWhite`; a letter in its
+own colours with no box and no style from its head, 3 in
+`testALetterThatDeclaresTheDarkHasItsOwnColours`; and the stack's
+section given `bm-html` for all markup at the first draw, 3 in
+`testEachLetterOfAConversationIsDrawnOnItsOwn`, the only test to fail.
+
+The full suite, serially, on the branch: 2,959 tests, 14 of them new,
+6 skipped, none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad, nor Mail beside it: the test iPad has no Mail
+  (B-028). The TODO's B-169 check.
+- Mail measures a picture as WebKit drew it once the page loaded; here
+  by the size its style or attributes give it. A picture from the web
+  with no size written that is 1 px is counted here, not by Mail; one that
+  fails to load may not be counted by Mail. A picture hidden inside
+  `<noscript>`, which WebKit may read as text, is counted here.
+- The root's scheme is read from the letter's rules for the root alone,
+  not computed: a rule naming it by a class, a variable's value, or media
+  of a width are not read. Mail's base address for a letter's page was
+  not read; taken to be none of the web.
+- Mail's colour filter turns lightness alone; the pane's invert turns the
+  hue back as well (B-146): an inverted letter's colours a shade apart, as
+  before.
+- A light letter, and an inverted one, are drawn without the style sheets
+  of their head and without their body's own background, colour or
+  picture, as since the wrapper came off: Mail draws both. Only a letter
+  in its own colours has its head's rules back, and `<link>` sheets and
+  `@import` are not loaded for it. A letter's `<style>` in its body still
+  applies to the whole stack, as before.
+- A light letter's white is its `#bm` or its body in the stack, edge to
+  edge across the pane and as tall as the letter; where Mail's white ends
+  around a letter on the iPad was not seen.
+- In a conversation Mail gives each letter a page of its own; here they
+  share one, each with its own class and box.

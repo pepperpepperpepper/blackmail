@@ -13,6 +13,13 @@ import Foundation
 /// and a conversation's stack would print every letter open in it. So the
 /// letter is drawn again, here, on a page of its own.
 ///
+/// Since B-169 the pane inverts only the letters Mail turns to the dark,
+/// draws a letter with a picture from the web, or a light scheme only, on
+/// its own white, and one that declares the dark in its own colours, its
+/// style for the dark with it (`LetterScheme`). The page printed is as it
+/// was for all three: white paper, the sender's colours, no style brought
+/// back from the letter's head, as Mail prints.
+///
 /// Pure string work, Foundation only, built away from the main thread as
 /// the pane's page is (`PanePage`), so the suite can test it; `LetterPrint`
 /// draws it.

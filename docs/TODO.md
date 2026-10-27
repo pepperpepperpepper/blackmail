@@ -8823,6 +8823,64 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
+- [ ] **B-169, a letter drawn as Mail draws it in Dark Mode.** On the
+      test iPad, the test account only, from a build of the
+      `bm-cm-darkpics` worktree (branch `copy-darkpics`) or of the int it
+      is merged into. Nothing is composed, sent, saved, moved or deleted in
+      the app, and nothing is printed on paper: the Print panel's preview
+      only. The host makes the letters, each from another address, with a
+      new Message-ID of its own and naming none on the account, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, each with
+      its Date as its internal date; it notes each UID from its APPENDUID,
+      and stops if one has none. The pictures from the web are on a host
+      the round controls, by https, each about 600 by 300 px, so loading
+      them tells no one else. Three panes unless a step says two;
+      full-size screenshots, colours read from them.
+      1. *The letters:* (a) "B-169 inverted", HTML with no scheme and no
+         picture from the web: dark words on white, a picture by `cid:`,
+         a link, a `<blockquote type="cite">`; (b) "B-169 web picture", the
+         same with one picture from the web among the words; (c) "B-169
+         pixel", (a) with a picture from the web 1 by 1 px, its width and
+         height written; (d) "B-169 light only", (a) with `<meta
+         name="color-scheme" content="light only">`; (e) "B-169 dark
+         ready", a newsletter that declares `light dark` by `<meta>` and on
+         `:root`, white cards with dark words, and in its head `@media
+         (prefers-color-scheme: dark)` rules making the cards #1c1c1e and
+         the words #f2f2f7, a link coloured for the dark; (f) "B-169
+         background", (a) with `<body background="cid:…">` of a pale
+         picture; (g) "B-169 stack" with (b)'s body and (h) "Re: B-169
+         stack", a day later, (a)'s body, its In-Reply-To and References
+         naming (g), so the two are one conversation.
+      2. *Alone:* "Notes", then each letter. (a) and (c) as before B-169:
+         black, white words, the picture of its own as drawn, the bar
+         violet; (b), (d) and (f) white from under the header across the
+         pane and as tall as the letter, black words, the pictures as they
+         are, the bar Mail's light violet, about rgb(88, 86, 214), the link
+         blue, and the pane black below the letter; (e) its cards #1c1c1e
+         with words #f2f2f7, on the pane's black, its link in its own
+         colour. In each, the header and the list black as ever. Then two
+         panes: the same.
+      3. *The tap:* from (a) to (b) and back, recorded at 60 frames a
+         second: black under the header from the tap until the letter, as
+         B-149 has it, then the white of (b); no frame of (a)'s black under
+         (b)'s header after (b) is drawn.
+      4. *In a stack:* "Re: B-169 stack", both letters opened by their
+         lines: (g)'s body white, (h)'s black with white words, their lines
+         and the space between dark; (g) closed and opened again, white
+         again.
+      5. *Print:* on (b) and on (e), Reply, then Print: the preview's paper
+         white with the letter's own light colours, as before B-169; (e)'s
+         cards white with dark words, not its dark ones. Cancel.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+         UIDs it noted, and only them, from "Notes" to the Trash (`UID
+         MOVE`), and deletes in the Trash only the UIDs that move answered
+         (`COPYUID`); "Notes" itself stays. Never anything found by subject
+         or Message-ID: a UID not noted is left, and written down. Nothing
+         else was written.
+      If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
+      with iPadOS 18 and Mail is at hand: (a) to (f) there, how each is
+      drawn and where Mail's white ends around (b), written down beside
+      2's.
 
 ## Blocked on the owner
 

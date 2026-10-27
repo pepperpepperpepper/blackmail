@@ -429,7 +429,7 @@ final class CompleteThreadsTests: XCTestCase {
                 + "if (bmHeld.length || bmMoving()) { bmLater(function () { bmInsert(html, beforeID); }); return; }",
             "function bmAppend(html) { if (bmHeld.length) { bmLater(function () { bmAppend(html); }); return; }",
             "var el = document.getElementById(id); if (!el) { "
-                + "if (bmHeld.length) bmLater(function () { bmFill(id, html, isHTML); }); return; }",
+                + "if (bmHeld.length) bmLater(function () { bmFill(id, html, isHTML, scheme); }); return; }",
             "['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (name) { "
                 + "window.addEventListener(name, bmFinger, { capture: true, passive: true }); });",
         ] {

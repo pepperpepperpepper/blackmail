@@ -372,7 +372,11 @@ enum OrdinaryMail {
     /// bars beside quoted text (B-101), rules added to an HTML letter's
     /// style and nothing else, and checked there by `PanePageTests`; a
     /// signature's white sheet (B-130), whose rules were taken out with
-    /// them, has none since B-146.
+    /// them, has none since B-146. Each page drawn inverted, as every HTML
+    /// letter's was until B-169: since then a letter with a picture from
+    /// the web is drawn light (`schemes`, `DarkLikeMailTests`), and an
+    /// inverted letter's page is pinned here byte for byte as before. A
+    /// conversation's body is its markup alone, whatever its scheme.
     static func pageFingerprints() -> [String] {
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
         let bars = "\n" + QuoteBars.css(in: "#bm")
@@ -385,9 +389,16 @@ enum OrdinaryMail {
                             senderAddress: "jane@example.com", to: ["owner@example.com"], cc: [],
                             subject: "The garden", date: Date(timeIntervalSince1970: 1_790_000_000),
                             textBody: nil, htmlBody: html, attachments: parts)
-            let page = PanePage.letter(m, style: style)?.replacingOccurrences(of: bars, with: "")
+            let page = PanePage.letter(m, style: style, scheme: .inverted)?
+                .replacingOccurrences(of: bars, with: "")
             return fingerprint((page ?? "\u{1}") + "\u{0}" + PanePage.stackBody(m).html)
         }
+    }
+
+    /// How the pane draws each of `documents` in the dark, as Mail would
+    /// (`LetterScheme`, B-169).
+    static func schemes() -> [LetterScheme] {
+        documents().map(LetterScheme.of(html:))
     }
 
     /// `MIMEDecoder.decodeMessage` and `parseHeaders` of each of `letters`:
