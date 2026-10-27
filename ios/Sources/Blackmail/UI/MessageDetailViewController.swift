@@ -122,13 +122,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private var actionItems: [Theme.ToolbarAction: UIBarButtonItem] = [:]
     /// Answers the `cid:` images inside whatever message is on screen.
     private let inlineImages = InlineImageLoader()
+    /// The body fetches for what the pane shows, called off when it shows
+    /// something else. See `PaneLoads`.
+    private let loads = PaneLoads()
     /// What the loader answers from (`prepareInlineImages`): in a stack,
     /// the pictures of every body gone into it since the conversation was
     /// shown (B-170).
     private var pictureMap: [String: PanePage.Picture] = [:]
-    /// The body fetches for what the pane shows, called off when it shows
-    /// something else. See `PaneLoads`.
-    private let loads = PaneLoads()
     /// The Delete, the Flags and the read marks on their way to the server,
     /// which decide what the next tap on any of them does. See `PaneWrites`.
     private var writes = PaneWrites()
