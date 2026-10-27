@@ -13,42 +13,38 @@ import Foundation
 ///
 /// Foundation-only, so the default and the round trip are tested on the
 /// Linux host like everything else that lives in Mail/.
+///
+/// Both switches are kept by `MailOptions` since B-167, with Mail's other
+/// options, under the keys they always had; read here, where the list and
+/// the pane read them.
 enum ConversationSettings {
 
     /// Not private: a safe start takes it back to its default (`SafeStart`).
-    static let key = "blackmail.organizeByThread"
+    static let key = MailOptions.Option.organizeByThread.key
 
     /// Grouped unless he has said otherwise.
     ///
-    /// `object(forKey:)` rather than `bool(forKey:)` for the read, because
-    /// `bool(forKey:)` answers `false` for a missing key and the default
-    /// here is `true` — an absent value and an explicit `false` must not
-    /// mean the same thing, or the first launch of every update would
-    /// silently ungroup his list.
+    /// Read with `object(forKey:)` rather than `bool(forKey:)`
+    /// (`MailOptions.Option.isOn`), because `bool(forKey:)` answers `false`
+    /// for a missing key and the default here is `true` — an absent value
+    /// and an explicit `false` must not mean the same thing, or the first
+    /// launch of every update would silently ungroup his list.
     static var organizeByThread: Bool {
-        get {
-            UserDefaults.standard.object(forKey: key) as? Bool ?? true
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: key)
-        }
+        get { MailOptions.organizeByThread }
+        set { MailOptions.organizeByThread = newValue }
     }
 
     /// Mail's Complete Threads (B-104), its switch under Organize by Thread.
     /// Not private, for the reason `key` is not.
-    static let completeThreadsKey = "blackmail.completeThreads"
+    static let completeThreadsKey = MailOptions.Option.completeThreads.key
 
     /// Whether an Inbox conversation brings in his own letters of it from
     /// Sent Mail (`CompleteThreads`). On unless he has said otherwise, as
-    /// Mail's is from the factory; read with `object(forKey:)`, as
-    /// `organizeByThread` is and for the same reason. The next conversation
-    /// opened goes by it; one on screen stays as it was drawn.
+    /// Mail's is from the factory; read as `organizeByThread` is and for the
+    /// same reason. The next conversation opened goes by it; one on screen
+    /// stays as it was drawn.
     static var completeThreads: Bool {
-        get {
-            UserDefaults.standard.object(forKey: completeThreadsKey) as? Bool ?? true
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: completeThreadsKey)
-        }
+        get { MailOptions.completeThreads }
+        set { MailOptions.completeThreads = newValue }
     }
 }

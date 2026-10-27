@@ -1111,32 +1111,37 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertTrue(ConversationSettings.completeThreads)
         XCTAssertTrue(SafeStart.viewSettings.contains(ConversationSettings.completeThreadsKey),
                       "a safe start puts it back on")
-        let settings = (try? source("Mail/ConversationSettings.swift")) ?? ""
-        XCTAssertTrue(settings.contains("UserDefaults.standard.object(forKey: completeThreadsKey) "
-                                        + "as? Bool ?? true"), settings)
+        // Kept by `MailOptions` since B-167, read as before.
+        let options = (try? source("Mail/MailOptions.swift")) ?? ""
+        XCTAssertTrue(options.contains("get { MailOptions.defaults.object(forKey: key) as? Bool "
+                                       + "?? factoryOn }"), options)
+        XCTAssertTrue(MailOptions.Option.completeThreads.factoryOn)
     }
 
-    /// Settings has it under Organize by Thread, with Mail's words, the
-    /// switch called by them and the row one stop, and the line under it
-    /// from Apple's own; turned, it is saved at once.
+    /// Settings has it under Organize by Thread, in Threading, as Mail's
+    /// page has them (B-167), with Mail's words, the switch called by them
+    /// and the row one stop, and Apple's line under the part; turned, it is
+    /// saved at once.
     func testSettingsHasTheSwitchUnderOrganizeByThread() throws {
-        let code = try source("UI/SettingsViewController.swift")
-        let organize = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(organizeRow)"))
-        let complete = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(completeRow)"))
-        XCTAssertLessThan(organize.lowerBound, complete.lowerBound)
+        let threading = try XCTUnwrap(MailOptions.page.first { $0.heading == "Threading" })
+        XCTAssertEqual(threading.rows, [.option(.organizeByThread), .option(.collapseReadMessages),
+                                        .option(.mostRecentMessageOnTop), .option(.completeThreads)])
+        XCTAssertEqual(threading.footer, "Show all the messages in a thread, "
+                           + "even if some have been moved to other mailboxes.")
+        XCTAssertEqual(MailOptions.Option.completeThreads.title, "Complete Threads")
+        XCTAssertTrue(MailOptions.built.contains(.completeThreads))
+        let code = try source("UI/MailOptionsView.swift")
         for wiring in [
-            "private static let completeTitle = \"Complete Threads\"",
-            "private static let completeCaption = \"Show all the messages in a thread, "
-                + "even if some have been moved to other mailboxes.\"",
-            "stack.addArrangedSubview(completeRow) stack.addArrangedSubview(caption(Self.completeCaption)) "
-                + "completeSwitch.isOn = ConversationSettings.completeThreads "
-                + "completeSwitch.accessibilityLabel = Self.completeTitle",
-            "label.text = Self.completeTitle label.isAccessibilityElement = false",
-            "@objc private func completeToggled() { "
-                + "ConversationSettings.completeThreads = completeSwitch.isOn }",
+            "guard let toggle else { return } option.isOn = toggle.isOn self?.changed(option) }",
+            "toggle.accessibilityLabel = option.title",
+            "title.isAccessibilityElement = false",
         ] {
             XCTAssertTrue(code.contains(wiring), wiring)
         }
+        let settings = try source("UI/SettingsViewController.swift")
+        XCTAssertTrue(settings.contains("private let mailOptions = MailOptionsView(sections: "
+                                        + "MailOptions.page)"))
+        XCTAssertTrue(settings.contains("stack.addArrangedSubview(mailOptions)"))
     }
 
     // MARK: - The wiring, read from the source

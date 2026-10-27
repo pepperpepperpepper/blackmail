@@ -9,8 +9,8 @@ import Foundation
 /// Don't Select a Message opens none. Before 18.4 there was no setting, and
 /// the next letter opened. What his iPad says cannot be read from here, so
 /// Mail's factory default is built (the owner's ruling of 2026-10-26), and
-/// `action` is the one place the app reads it, for a Settings row to switch
-/// later. There is no such row now.
+/// `action` is the one place the app reads it. Its row is in Blackmail's
+/// Settings, under Message List as in Mail's (`MailOptions`, B-167).
 ///
 /// The pane used to empty after every Delete and Move, so that a second tap
 /// on Delete could not bin a letter opened by itself (B-041). Mail has no
@@ -22,8 +22,9 @@ import Foundation
 /// controller is UIKit and does not exist on the machine the suite runs on.
 enum NextLetter {
 
-    /// Mail's two answers, by their words in its Settings.
-    enum Action: String {
+    /// Mail's two answers, by their words in its Settings, in their order
+    /// there (`word`).
+    enum Action: String, CaseIterable {
         /// "View Next Message": the next letter opens. Mail's factory
         /// default.
         case viewNextMessage
@@ -33,20 +34,15 @@ enum NextLetter {
     }
 
     /// Not private, for the suite to hold it to its spelling.
-    static let key = "blackmail.deleteOrMoveMessageAction"
+    static let key = MailOptions.Option.deleteOrMoveMessageAction.key
 
     /// What his Delete or Move does to the pane. View Next Message unless
-    /// it has been set otherwise; read with `string(forKey:)`, so a key
-    /// never written, or one written by a later build with a value this one
-    /// does not know, is the factory default.
+    /// it has been set otherwise; kept by `MailOptions`, read with
+    /// `string(forKey:)`, so a key never written, or one written by a later
+    /// build with a value this one does not know, is the factory default.
     static var action: Action {
-        get {
-            UserDefaults.standard.string(forKey: key).flatMap(Action.init(rawValue:))
-                ?? .viewNextMessage
-        }
-        set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: key)
-        }
+        get { MailOptions.deleteOrMoveMessageAction }
+        set { MailOptions.deleteOrMoveMessageAction = newValue }
     }
 
     /// Seconds after a Delete in which another tap on Delete does nothing,

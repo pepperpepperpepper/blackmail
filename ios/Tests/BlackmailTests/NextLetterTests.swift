@@ -527,8 +527,10 @@ final class NextLetterTests: XCTestCase {
         ] {
             XCTAssertTrue(list.contains(line), line)
         }
-        XCTAssertTrue(list.contains("runBatch(.delete, on: onServer(chosen), saying: StatusLine.deleting) }"),
-                      "Edit mode's Delete opens nothing")
+        XCTAssertTrue(list.contains("if let all { runBatch(.move(to: all), on: discard.archived, "
+                                    + "saying: StatusLine.moving) } runBatch(.delete, on: "
+                                    + "discard.deleted, saying: StatusLine.deleting) }"),
+                      "Edit mode's Delete, or its Archive (B-167), opens nothing")
         XCTAssertTrue(list.contains("self.runBatch(.move(to: destination), on: chosen, "
                                     + "saying: StatusLine.moving) }"), "nor its Move")
         XCTAssertTrue(try source("Mail/ListBatch.swift").contains(
@@ -541,7 +543,8 @@ final class NextLetterTests: XCTestCase {
                 + "writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else { return }",
             "private func delete(_ s: MessageSummary) { guard writes.startDelete(at: "
                 + "ProcessInfo.processInfo.systemUptime, untilAnswered: NextLetter.action == "
-                + ".dontSelectAMessage) else { return } showEmpty()",
+                + ".dontSelectAMessage) else { return } let action = archiveTarget?(s).map { "
+                + "PaneAction.move(to: $0) } ?? .delete showEmpty()",
             "if summary?.id == s.id { showEmpty() }",
             "actionItems[.delete]?.isEnabled = enabled && !writes.deleting",
         ] {

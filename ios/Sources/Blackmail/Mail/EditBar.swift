@@ -11,10 +11,9 @@ import Foundation
 /// the Trash, where the same button erases and says "Delete". In the
 /// bar's own colour, as Mark and Move are; here it was "Delete" in red
 /// everywhere. Mail ends its Edit mode with "Cancel", the guides to it say;
-/// here it was "Done" (B-133). Not copied: Mail's "Archive" in the Trash's
-/// place, on an account whose Move Discarded Messages Into says Archive.
-/// A Delete here always goes to the Trash, and his iPad's setting has not
-/// been read.
+/// here it was "Done" (B-133). Mail's "Archive" in the Trash's place, on an
+/// account whose Move Discarded Messages Into says Archive Mailbox, since
+/// B-167: a move into All Mail, as a drag's Archive (`discarding`).
 enum EditBar {
     /// The button that begins Edit mode, D-008's word, kept.
     static let edit = "Edit"
@@ -35,17 +34,58 @@ enum EditBar {
     /// copy in the Trash, where the word was "Delete" in red. Left to the
     /// owner (TODO, "Blocked on the owner").
     ///
-    /// By `EraseQuestion` alone, not `SwipeOptions.his.discardInto`: with
-    /// that set to the Archive a drag and More archive, and this bar still
-    /// says "Trash" and trashes, until Mail's Archive is built here and in
-    /// the pane (B-144, "not built").
-    static func deleteTitle(inFolderWithRole role: Mailbox.Role?) -> String {
-        EraseQuestion.erases(fromFolderWithRole: role) ? delete : trash
+    /// "Archive" where the account discards into the Archive and the
+    /// folder's letters can be archived, `canArchive`: there is an All Mail
+    /// and the list is not it; never in Drafts or the Outbox (B-167). By
+    /// the rule a drag on a row goes by
+    /// (`SwipeOptions.discard(fromFolderWithRole:canArchive:)`), so the bar
+    /// and a drag on a row of the same list say the same.
+    static func deleteTitle(inFolderWithRole role: Mailbox.Role?, canArchive: Bool = false,
+                            options: SwipeOptions = .his) -> String {
+        options.discard(fromFolderWithRole: role, canArchive: canArchive).title
+    }
+
+    /// What the third button's tap does to each of `letters` (B-167): those
+    /// it archives, moved into `allMail`, and the rest, which go by Delete,
+    /// to the Trash, or erased inside it after `EraseQuestion`'s question.
+    /// Each by the folder it was listed from (`role`), as a drag on its row
+    /// would discard it: in an All Mailboxes search, under the list's
+    /// "Archive", a hit from All Mail goes to the Trash, as its row's drag
+    /// does, and one from Trash is erased. With the factory's Deleted
+    /// Mailbox, or no All Mail, every letter goes by Delete, as before.
+    static func discarding(_ letters: [MessageSummary], role: (String) -> Mailbox.Role?,
+                           allMail: Mailbox?, options: SwipeOptions = .his)
+        -> (archived: [MessageSummary], deleted: [MessageSummary]) {
+        var archived: [MessageSummary] = []
+        var deleted: [MessageSummary] = []
+        for letter in letters {
+            if options.archive(fromFolderWithRole: role(letter.mailboxID), into: allMail) != nil {
+                archived.append(letter)
+            } else {
+                deleted.append(letter)
+            }
+        }
+        return (archived, deleted)
+    }
+
+    /// What the third button asks before its tap, if it erases any of
+    /// `letters` (`EraseQuestion`), of the letters it deletes alone: those
+    /// it archives (`discarding`) are neither counted nor called deleted.
+    /// Under "Archive" in an All Mailboxes search whose ticked hits include
+    /// one from Trash, the question counts the letters going to the Trash
+    /// or erased, not the ones going to All Mail. With the factory's
+    /// Deleted Mailbox, or no All Mail, every letter, as before.
+    static func question(before letters: [MessageSummary], role: (String) -> Mailbox.Role?,
+                         allMail: Mailbox?, options: SwipeOptions = .his) -> EraseQuestion? {
+        EraseQuestion.before(deleting: discarding(letters, role: role, allMail: allMail,
+                                                  options: options).deleted,
+                             role: role)
     }
 
     /// The two words, here and nowhere else: the bar's, a drag's button on
     /// a row (`RowSwipes`) and the name of the step Undo takes back
-    /// (`UndoableMove`) say them from here.
+    /// (`UndoableMove`) say them from here. The third, "Archive", is a
+    /// drag's (`RowSwipes.Action.archive`).
     static let trash = "Trash"
     static let delete = "Delete"
 }

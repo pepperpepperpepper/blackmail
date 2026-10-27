@@ -1178,6 +1178,17 @@ final class RootViewController: UIViewController {
                                     junk: self.mailboxList.mailbox(for: .junk),
                                     inbox: self.mailboxList.mailbox(for: .inbox))
         }
+        // Mail's Archive in the Trash's place (B-167): All Mail, where the
+        // account discards into it, for a letter whose Delete archives it by
+        // the role of its own folder, as a drag on its row does; for an empty
+        // pane, by the list's folder. `self.list` is read at each letter.
+        detail.archiveTarget = { [weak self] letter in
+            guard let self else { return nil }
+            let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            let role = letter.map { folders.role(of: $0.mailboxID) } ?? self.list.shownMailbox.role
+            return SwipeOptions.his.archive(fromFolderWithRole: role,
+                                            into: self.mailboxList.mailbox(for: .archive))
+        }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
         }

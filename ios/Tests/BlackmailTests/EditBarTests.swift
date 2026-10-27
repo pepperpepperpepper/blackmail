@@ -53,8 +53,8 @@ final class EditBarTests: XCTestCase {
                     + "action: #selector(markSelected))",
                  "moveItem = UIBarButtonItem(title: \"Move\", style: .plain, target: self, "
                     + "action: #selector(moveSelected))",
-                 "deleteItem = UIBarButtonItem(title: EditBar.deleteTitle(inFolderWithRole: "
-                    + "mailbox.role), style: .plain, target: self, action: #selector(deleteSelected))",
+                 "deleteItem = UIBarButtonItem(title: discardWord, style: .plain, target: self, "
+                    + "action: #selector(deleteSelected))",
                  "for item in [markItem, moveItem, deleteItem, selectAllItem] { "
                     + "item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal) }",
                  "editItems = [selectAllItem, flex, markItem, flex, moveItem, flex, deleteItem]"],
@@ -65,7 +65,15 @@ final class EditBarTests: XCTestCase {
         XCTAssertTrue(list.contains("case .trash, .delete: return Theme.destructive"))
         XCTAssertFalse(bar.contains("tintColor"), "no item of the bar has a colour of its own")
         XCTAssertEqual(count("deleteItem = ", in: list), 1)
-        XCTAssertEqual(count("deleteItem.title", in: list), 0, "titled once, for its folder")
+        // Titled for its folder, and again as Edit mode begins, as the
+        // account discards then (B-167); nowhere else.
+        XCTAssertEqual(count("deleteItem.title", in: list), 1)
+        XCTAssertTrue(flat(list).contains("navigationItem.rightBarButtonItem?.title = editing ? "
+                                          + "EditBar.cancel : EditBar.edit if editing { "
+                                          + "deleteItem.title = discardWord }"))
+        XCTAssertTrue(flat(list).contains("private var discardWord: String { "
+                                          + "EditBar.deleteTitle(inFolderWithRole: mailbox.role, "
+                                          + "canArchive: allMail != nil && mailbox.role != .archive) }"))
         XCTAssertFalse(list.contains("private var mailbox"), "the folder is the list's for good")
         XCTAssertTrue(list.contains("private let mailbox: Mailbox"))
     }

@@ -4,8 +4,9 @@
 import UIKit
 
 /// The one screen that is not mail: his signature, his name, and the
-/// password when Google makes him change it; and, after a start that had to
-/// set them aside, the way back for the letters kept on the iPad.
+/// password when Google makes him change it; Mail's options, as Mail's own
+/// Settings page has them (B-167); and, after a start that had to set them
+/// aside, the way back for the letters kept on the iPad.
 ///
 /// It exists because the app already told him to come here. `MailError`
 /// has said **"Password needs to be updated in Settings."** since the error
@@ -51,8 +52,8 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     private let signatureHint = UILabel()
     private let plainOnlyButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
-    private let organizeSwitch = UISwitch()
-    private let completeSwitch = UISwitch()
+    /// Mail's options, as Settings > Apps > Mail lays them out (B-167).
+    private let mailOptions = MailOptionsView(sections: MailOptions.page)
     private let bringBackButton = UIButton(type: .system)
     private let statusLabel = UILabel()
     /// His addresses, as Mail's account lists them under Email (B-076): a
@@ -229,40 +230,28 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         statusLabel.textColor = Theme.secondaryText
         stack.addArrangedSubview(statusLabel)
 
-        // Mail's own switch, and the off switch for conversation grouping.
-        // Grouping stays the default — it is what Mail does, a
-        // conversation's row is marked after its date (B-080), and
-        // measurement against his mail found it disturbs no date by even
-        // a week. But three of twelve recent letters from him are about
-        // something vanishing, and if he ever decides the merged rows are
-        // why, this is here in plain words rather than a code change.
-        let organizeRow = UIStackView(arrangedSubviews: [organizeLabel(), organizeSwitch])
-        organizeRow.axis = .horizontal
-        organizeRow.alignment = .center
-        organizeRow.spacing = 12
-        stack.addArrangedSubview(organizeRow)
-        stack.addArrangedSubview(caption(
-            "Group a conversation and its replies into one row. "
-            + "Turn off to show every message separately."))
-        organizeSwitch.isOn = ConversationSettings.organizeByThread
-        organizeSwitch.accessibilityLabel = Self.organizeTitle
-        organizeSwitch.addTarget(self, action: #selector(organizeToggled),
-                                 for: .valueChanged)
-
-        // Mail's Complete Threads, under Organize by Thread as in Mail's
-        // Threading settings, with Apple's words under it (B-104). On, as
-        // Mail's is from the factory; the next conversation opened goes by
-        // it, so it is also the off switch for his letters from Sent Mail.
-        let completeRow = UIStackView(arrangedSubviews: [completeLabel(), completeSwitch])
-        completeRow.axis = .horizontal
-        completeRow.alignment = .center
-        completeRow.spacing = 12
-        stack.addArrangedSubview(completeRow)
-        stack.addArrangedSubview(caption(Self.completeCaption))
-        completeSwitch.isOn = ConversationSettings.completeThreads
-        completeSwitch.accessibilityLabel = Self.completeTitle
-        completeSwitch.addTarget(self, action: #selector(completeToggled),
-                                 for: .valueChanged)
+        // Mail's options (B-167): the parts of Settings > Apps > Mail that
+        // Blackmail follows, in Mail's order and words, each at Mail's value
+        // from the factory until it is set here, so whoever installs the
+        // app can set them as his Mail is set, from its page on his iPad.
+        // Organize by Thread and Complete Threads are among them, under
+        // Threading, as in Mail. Each acts at once, as they always did: the
+        // grouping is a way of LOOKING at the mail rather than a fact about
+        // the account, and a switch left visibly flipped with nothing
+        // behind it changing until another button is pressed is its own
+        // kind of trap. So Cancel does not undo them.
+        let mailHeading = UILabel()
+        mailHeading.text = Self.mailTitle
+        mailHeading.font = .systemFont(ofSize: 18, weight: .semibold)
+        mailHeading.textColor = Theme.primaryText
+        mailHeading.accessibilityTraits = .header
+        stack.addArrangedSubview(mailHeading)
+        stack.addArrangedSubview(caption(Self.mailCaption))
+        mailOptions.host = self
+        mailOptions.onChange = { [weak self] option in
+            if option == .organizeByThread { self?.onOrganizeByThreadChanged?() }
+        }
+        stack.addArrangedSubview(mailOptions)
 
         // The way back for the letters a safe start set aside when the app
         // could not start (B-057), which nothing else on the iPad can reach.
@@ -453,48 +442,19 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         showEmails()
     }
 
-    /// The switch's name, beside it and to VoiceOver.
-    private static let organizeTitle = "Organize by Thread"
+    /// Over Mail's options, and the line under it: where they come from,
+    /// and what to set them to. Not that they come as Mail's do: Move
+    /// Discarded Messages Into comes as the Trash, where Mail's for a Gmail
+    /// account is said to be the Archive (`MailOptions`).
+    private static let mailTitle = "Mail"
+    private static let mailCaption = "As in Settings > Apps > Mail. "
+        + "Set them as they are set for Mail on this iPad."
 
-    /// The row's label, out here so the switch and it stay one control.
-    private func organizeLabel() -> UILabel {
-        let label = UILabel()
-        label.text = Self.organizeTitle
-        // Drawn, not read (B-071). The switch is called by these words
-        // itself, and the row is one stop, as Mail's is.
-        label.isAccessibilityElement = false
-        label.font = .systemFont(ofSize: 17)
-        label.textColor = Theme.primaryText
-        label.setContentHuggingPriority(.required, for: .horizontal)
-        return label
-    }
-
-    @objc private func organizeToggled() {
-        ConversationSettings.organizeByThread = organizeSwitch.isOn
-        onOrganizeByThreadChanged?()
-    }
-
-    /// Mail's own words for its switch and the line under it (B-104).
-    private static let completeTitle = "Complete Threads"
-    private static let completeCaption =
-        "Show all the messages in a thread, even if some have been moved to other mailboxes."
-
-    /// The Complete Threads row's label, drawn and not read, as
-    /// `organizeLabel`'s is.
-    private func completeLabel() -> UILabel {
-        let label = UILabel()
-        label.text = Self.completeTitle
-        label.isAccessibilityElement = false
-        label.font = .systemFont(ofSize: 17)
-        label.textColor = Theme.primaryText
-        label.setContentHuggingPriority(.required, for: .horizontal)
-        return label
-    }
-
-    /// Acts from the next conversation opened; the one on screen stays as
-    /// it was drawn.
-    @objc private func completeToggled() {
-        ConversationSettings.completeThreads = completeSwitch.isOn
+    /// Mail's options drawn again as they are, on coming back from one of
+    /// their pages.
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        mailOptions.redraw()
     }
 
     override func viewDidAppear(_ animated: Bool) {
