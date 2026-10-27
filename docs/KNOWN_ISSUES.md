@@ -34919,6 +34919,8 @@ type was fixed (B-069). Bold Text was not read.
    a change (`restyle`), the mark drawn at the date's size with it. At
    the change the list sets the rows' height and regroups, which holds
    his place by the letters in sight, the highlight and Edit mode's ticks.
+   A drag's buttons (B-156) are UIKit's at the iPad's size, their symbols
+   at the rows' type; "No messages" at the subject's.
 5. *The Mailboxes*: the names and counts at the size, their icons with
    them (`Theme.symbolSize`), the rows 44 scaled and never under 44.
    B-071's trait holding the folders and the list at Large is gone
@@ -34926,7 +34928,9 @@ type was fixed (B-069). Bold Text was not read.
    UIKit's at the iPad's size, as in Mail: a folder's icon's room grows
    with its name, at the accessibility sizes each name begins after its
    own icon, and Edit mode's circles grow, to 49 points at the largest,
-   the row's words moving right with them, as B-071 measured them.
+   the row's words moving right with them, as B-071 measured them. The
+   Move sheet's folders are at the size it opens at, as its rows always
+   were the Mailboxes'.
 6. *The reading pane*: the header's type at once
    (`MessageHeaderView.restyle`), a file's row 44 points or taller with
    its paperclip at the words' size. The letter's words: the page's own
