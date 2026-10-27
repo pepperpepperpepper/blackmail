@@ -8850,7 +8850,14 @@ checks below is left as not needed, not open, and none is worth a round.*
          background", (a) with `<body background="cid:…">` of a pale
          picture; (g) "B-169 stack" with (b)'s body and (h) "Re: B-169
          stack", a day later, (a)'s body, its In-Reply-To and References
-         naming (g), so the two are one conversation.
+         naming (g), so the two are one conversation; (i) "B-169 own
+         body", `<meta name="color-scheme" content="light dark">`, nothing
+         in its head, `<body style="background-color:#ffffff">`, its words
+         `<p style="color:#333333">`; (j) "B-169 own class", declaring
+         `light dark` by `<meta>`, `<body class="body" bgcolor="#ffffff"
+         text="#333333">`, and in its head `@media (prefers-color-scheme:
+         dark) { .body { background: #1c1c1e !important; } .body p {
+         color: #f2f2f7 !important; } }`.
       2. *Alone:* "Notes", then each letter. (a) and (c) as before B-169:
          black, white words, the picture of its own as drawn, the bar
          violet; (b), (d) and (f) white from under the header across the
@@ -8858,8 +8865,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          are, the bar Mail's light violet, about rgb(88, 86, 214), the link
          blue, and the pane black below the letter; (e) its cards #1c1c1e
          with words #f2f2f7, on the pane's black, its link in its own
-         colour. In each, the header and the list black as ever. Then two
-         panes: the same.
+         colour; (i) white behind its words, which are #333333, the
+         pane's margin black around the white; (j) #1c1c1e behind words
+         #f2f2f7, not white. In each, the header and the list black as
+         ever. Then two panes: the same.
       3. *The tap:* from (a) to (b) and back, recorded at 60 frames a
          second: black under the header from the tap until the letter, as
          B-149 has it, then the white of (b); no frame of (a)'s black under
@@ -8878,9 +8887,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          or Message-ID: a UID not noted is left, and written down. Nothing
          else was written.
       If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
-      with iPadOS 18 and Mail is at hand: (a) to (f) there, how each is
-      drawn and where Mail's white ends around (b), written down beside
-      2's.
+      with iPadOS 18 and Mail is at hand: (a) to (f), (i) and (j) there,
+      how each is drawn and where Mail's white ends around (b) and (i),
+      written down beside 2's.
 
 ## Blocked on the owner
 

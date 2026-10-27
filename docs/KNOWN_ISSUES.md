@@ -34935,16 +34935,40 @@ taken off with the wrapper (`DocumentWrapper`).
    `#0A84FF` on the pane's black, `#bm { color-scheme: light dark; }`,
    Mail's bars in its dark colours. `scheme:` lets a test say inverted.
 4. *A letter in its own colours* (`PanePage.inOwnColours`, `ownBox`): its
-   markup in a box of its own, `<div id="bm-own-<uidvalidity>_<uid>">`,
-   with the style sheets of its head in front of it
+   markup in two boxes of its own, `<div id="bm-own-<uidvalidity>_<uid>"
+   class="bm-own-root">` for its root and in it `<div class="bm-own-body
+   …">` for its body, with the style sheets of its head in front of them
    (`LetterScheme.headStyles`, from `DocumentWrapper.heads`, new: the heads
    the wrapper's removal takes off, none in a comment), each rule made to
-   apply in that box alone (`LetterCSS.scoped`): a rule for the root or
-   the body, or a run of them, is the box's; any other has
-   `:where(#box)` before it, which weighs nothing, so it weighs against the
-   letter's own rules as in Mail; `@media`, `@supports`, `@layer`,
-   `@container` gone through; `@font-face`, `@keyframes`, `@page` kept;
-   `@import`, `@charset` and `@namespace` left out; `</` written `<\/`.
+   apply in that box alone (`LetterCSS.scoped`). A rule for the root or the
+   body, or a run of them, the body's compound with more in it too
+   (`body.x`, `body:hover`), names the two `div`s in their place, each by
+   a compound that weighs what it stood for: `div` for `html` and for
+   `body`, `.bm-own-root` for each `:root`, the box by `:where(#box)`,
+   which weighs nothing; so `body td` weighs two types, as in Mail, and
+   not an id and a type, which would beat the letter's own `.dm td`. Any
+   other rule has `:where(#box)` before it, so it too weighs against the
+   letter's rules as in Mail. `@media`, `@supports`, `@layer`,
+   `@container` and `@starting-style` gone through; the at-rules that
+   name no element kept as they are (`LetterCSS.namesNoElement`:
+   `@font-face`, `@keyframes` and its prefixed names, `@page`,
+   `@property`, `@counter-style`, `@font-feature-values`,
+   `@font-palette-values`); any other with a block, `@scope` among them,
+   left out, as what it names could not be kept in the box; `@import`,
+   `@charset` and `@namespace` left out; `</` written `<\/`. The body's
+   `div` has what the body's tag, which goes with the wrapper, gave it:
+   its `class`, so its rules that name the body by a class match it inside
+   the box; its `style`; and its `bgcolor` and `text`, read as WebKit reads
+   a legacy colour value (`LetterCSS.legacyColour`, from
+   `HTMLElement::parseLegacyColorValue` in WebKit's source: `fff` is
+   `#0f0f0f`, `#ffffff;` is `#ffff00`), as its background and colour by a
+   rule in front of the head's that weighs nothing, as HTML weighs them
+   below every rule of a sheet (`LetterScheme.Markup` reads the three,
+   the first body's, a later one's adding only what it lacked). Without
+   them a letter whose white page was its body's, `<body
+   style="background-color:#ffffff">` with words `#333333`, had those
+   words on the pane's black, D-010's black on black come back, and its
+   rules for the dark by its body's class, `.body p`, matched nothing.
    Inside the pane's margin, which a rule for the body cannot take away
    (the reason the wrapper comes off).
 5. *A conversation* (`PanePage.stackBody`, `ConversationDocument`): each
@@ -34992,9 +35016,18 @@ holds for inverted letters alone. Nothing of B-110.
 Remote Content) changes `PanePage.letter`, `stackBody` and `content` in
 the same lines: a letter held back there keeps its web addresses in its
 markup, so this rule, which reads the markup as it came, still draws it
-light; and the head's style brought back here for a letter in its own
-colours can hold `url(…)` of the web, which B-168's hold-back does not
-see. To be put together where the two meet.
+light; and the head's style and the body's `style` brought back here for
+a letter in its own colours can hold `url(…)` of the web, which B-168's
+hold-back does not see. The branch `copy-inlinefiles` (B-170, every file
+drawn in the letter) changes the same `let content = …` lines of
+`PanePage.letter` and `stackBody`, to `BodyFiles.drawn(in: …, of: m, on:
+isHTML ? .light : .dark, cut: …)`, and the stack's script in
+`ConversationDocument`, beside `bmFill`. Its tiles take their colours by
+`isHTML`, as if every HTML letter were inverted, so a letter in its own
+colours, not inverted and on the pane's black, would have light tiles:
+put together, `on:` follows the letter's scheme, `.dark` for `own`, as
+Mail's colours are in a page drawn dark, `.light` for `light` and for
+`inverted`, which the invert turns. To be put together where they meet.
 
 **What he sees.** A newsletter with photographs from the web: white,
 as its sender made it, black words, its pictures as they are, the pane
@@ -35004,7 +35037,7 @@ where its light ones were inverted. Letters from people, his
 own and their replies, Gmail's and Mail's, with no picture from the
 web: as before. No new words.
 
-**Tests.** `DarkLikeMailTests`, 14, new: Mail's rule, the inverted letters
+**Tests.** `DarkLikeMailTests`, 16, new: Mail's rule, the inverted letters
 (every shape of the pane's set, his signed letter, Mail's and Gmail's
 replies, pictures by `cid:` and data, tracking pixels by size, a rich
 link's, relative addresses, a picture in a comment, a script, a title, a
@@ -35017,12 +35050,23 @@ letters (`OrdinaryMail.schemes`), light exactly where they have a
 picture from the web; the inverted page byte for byte as the page drawn
 inverted; a light letter's page and an own letter's, byte for byte at
 their end, the head's rules scoped, the Outlook comment's not read,
-`@import` out; a conversation of five, each its class at the first draw
-and in its fill, two own letters each in its box; the stack's script in
+`@import` out; a letter in its own colours keeping on its body's `div`
+its body's `class`, `style`, `bgcolor` and `text` (a white body with
+words `#333333`, a body named by its class in the rules for the dark),
+each escaped, a later body adding only what the first lacked; a body's
+colours read as WebKit reads them, twenty values; a conversation of
+five, each its class at the first draw and in its fill, two own letters
+each in its box; the stack's script in
 node, `bmFill` giving each class, and the old three arguments inverted;
-print and a plain letter as they were; `scoped`'s rules one by one;
-`headStyles` the head's alone; half a megabyte made to be slow, read
-once. Changed: `ConversationDocumentTests`, the fill's four arguments,
+print and a plain letter as they were; `scoped`'s rules one by one,
+the root's and the body's each by a compound of its weight, `body.x`
+and `body:hover` the body's `div`'s, the at-rules that name no element
+kept, `@starting-style` gone through, `@scope` and `@-ms-viewport` left
+out; `headStyles` the head's alone; half a megabyte made to be slow,
+read once, each read bounded at 3 s, more than five times the slowest
+(a sheet of 83,333 rules scoped, 0.53 s in a debug build), its pictures
+45,454 small ones, so that a list copied for each is far over the bound.
+Changed: `ConversationDocumentTests`, the fill's four arguments,
 `bmFill`'s line and its class line, the bars' count four sets;
 `CompleteThreadsTests`, `bmFill`'s held line; `OrdinaryMail`'s page
 fingerprints drawn inverted, as every letter was, so they are the same
@@ -35041,7 +35085,8 @@ under the box as written, 1 in `testAHeadsRulesApplyInsideTheLetterAlone`;
 the heads the wrapper takes off not kept, 1 in
 `testTheStylesBroughtBackAreTheHeadsTheWrapperTakesOff`; each picture put
 on the list by copying the list, which reads it again for each picture,
-2.06 s, 1 in `testALetterMadeToBeSlowIsReadOnce`; the printed body taken
+2.06 s, 1 in `testALetterMadeToBeSlowIsReadOnce` (its 9,615 pictures and
+its bound of 1 s then); the printed body taken
 from the stack's, with its box, 1 in
 `testPrintAndAPlainLetterAreAsTheyWere`; pictures from the web not
 counted, 15 in `testAPictureFromTheWebDrawsTheLetterLight` and 19 in
@@ -35056,7 +35101,26 @@ own colours with no box and no style from its head, 3 in
 section given `bm-html` for all markup at the first draw, 3 in
 `testEachLetterOfAConversationIsDrawnOnItsOwn`, the only test to fail.
 
-The full suite, serially, on the branch: 2,959 tests, 14 of them new,
+The body's `div` with what the body's tag gave, the weights of the
+root's and the body's rules, the at-rules left out and the bound of the
+slow letters were undone the same way after, in two runs: the body's
+`class`, `style`, `bgcolor` and `text` not kept, 4 in
+`testALetterInItsOwnColoursKeepsWhatItsBodyHad` and 2 in
+`testALetterThatDeclaresTheDarkHasItsOwnColours`; the zeros all three
+parts begin with not dropped, 2 in
+`testABodysColoursAreReadAsWebKitReadsThem`; every at-rule with a block
+kept as it came, 1 in `testAHeadsRulesApplyInsideTheLetterAlone`; each
+picture put on the list by copying the list, 42 s for the 45,454
+pictures read for the scheme and 42 s read again for the body's tag,
+2 in `testALetterMadeToBeSlowIsReadOnce`, where the 9,615 larger pictures
+it had took 2.2 s, under the new bound; and, alone, a run of the root and
+the body written as the box, as it was, 1 in
+`testAHeadsRulesApplyInsideTheLetterAlone`, 1 in
+`testALetterInItsOwnColoursKeepsWhatItsBodyHad`, 2 in
+`testALetterThatDeclaresTheDarkHasItsOwnColours` and 2 in
+`testEachLetterOfAConversationIsDrawnOnItsOwn`.
+
+The full suite, serially, on the branch: 2,961 tests, 16 of them new,
 6 skipped, none failing. The release build for the iPad links.
 
 **Not covered.**
@@ -35076,11 +35140,24 @@ The full suite, serially, on the branch: 2,959 tests, 14 of them new,
   hue back as well (B-146): an inverted letter's colours a shade apart, as
   before.
 - A light letter, and an inverted one, are drawn without the style sheets
-  of their head and without their body's own background, colour or
-  picture, as since the wrapper came off: Mail draws both. Only a letter
-  in its own colours has its head's rules back, and `<link>` sheets and
-  `@import` are not loaded for it. A letter's `<style>` in its body still
-  applies to the whole stack, as before.
+  of their head and without what their body's tag gave them, its
+  background, colour, picture, class or style, as since the wrapper came
+  off: Mail draws both. Only a letter in its own colours has its head's
+  rules back, and its body's `class`, `style`, `bgcolor` and `text`;
+  `<link>` sheets and `@import` are not loaded for it, and its body's
+  `id`, `background` picture, `link`, `vlink`, `alink` and other
+  attributes, and its root's (`<html>`'s), are not brought, so a rule
+  naming the body by its id, or the root by a class or an attribute,
+  matches nothing. Letters that name no colour, in `bgcolor` or `text`,
+  are dropped, where WebKit makes a colour of them. A
+  letter's `<style>` in its body still applies to the whole stack, as
+  before.
+- A letter in its own colours with a white body has that white on its
+  body's `div`, inside the pane's margin, which stays black around it;
+  Mail's body's background fills its page. A type size its body's
+  `style` or its head's rules give its body sizes its words that have
+  none of their own, as in Mail; the pane's size is under it, as for a
+  size on any element of a letter.
 - A light letter's white is its `#bm` or its body in the stack, edge to
   edge across the pane and as tall as the letter; where Mail's white ends
   around a letter on the iPad was not seen.
