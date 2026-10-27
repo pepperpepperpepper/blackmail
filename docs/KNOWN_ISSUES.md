@@ -34841,7 +34841,7 @@ changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
 
-## B-166 — FIXED 2026-10-27, not yet seen on the iPad. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
+## B-166 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -34957,11 +34957,13 @@ type was fixed (B-069). Bold Text was not read.
    kept. B-071's trait holding the folders and the list at Large is gone
    (`RootViewController`), so what UIKit draws beside the words is
    UIKit's at the iPad's size, as in Mail: a folder's icon's room grows
-   with its name, at the accessibility sizes each name begins after its
-   own icon, and Edit mode's circles grow, to 49 points at the largest,
+   with its name, and Edit mode's circles grow, to 49 points at the largest,
    the row's words moving right with them, as B-071 measured them. The
    Move sheet's folders are at the size it opens at, as tall as their
    names as the Mailboxes' are, as its rows always were the Mailboxes'.
+   At the accessibility sizes a folder's icon has a line of its own
+   above its name, and its name a size at which each word fits the row
+   (`FolderName`, since the fix after the test iPad, below).
 6. *The reading pane*: the header's type at once
    (`MessageHeaderView.restyle`), a file's row 44 points or taller with
    its paperclip at the words' size. The letter's words: the page's own
@@ -35018,9 +35020,12 @@ closing section says so).
 **Not changed.** Settings, the setup form and the connection log keep
 their sizes, as they are not among the ruling's screens. The unread
 dot's 12 points, the 29-point gutter, the insets and the panes' widths
-are as at Large. With Bold Text switched while the app is open, the bars
-keep the weight they were drawn with until the app next starts: their
-fonts are made once, with the bar. A letter's page being built at the
+are as at Large. The bars' titles, buttons and symbols turn bolder with
+Bold Text at once, while the app is open, as UIKit draws them and as
+Mail's do, and keep their size and their places: the app does nothing
+for it, and this said, until the test iPad showed it on 2026-10-27, that
+they kept the weight they were drawn with until the app next started. A
+letter's page being built at the
 moment of a change comes at the size of the tap, and the next one at the
 new size. The place he had scrolled to in a letter is not kept when it
 is drawn again at a new size: it starts where it opens, as after
@@ -35127,10 +35132,7 @@ the accessibility sizes, so the row's date at the right end of a line of
 its own, and the folders' names going on to more lines, are the app's
 choices, in line with Apple's picture of Mail's header and its
 guidelines; whether Mail's search field grows with the size, where the
-app's keeps 15 points; whether the system's font made at a size of the
-app's (`systemFont(ofSize:weight:)`) takes Bold Text as iOS's text
-styles do, which is believed and not seen; whether WebKit's letter takes
-Bold Text; whether iOS says its word for a Per-App change, the return to
+app's keeps 15 points; whether WebKit's letter takes Bold Text; whether iOS says its word for a Per-App change, the return to
 the front reading it anyway; and which size the share extension's traits
 carry with a Per-App size set for Blackmail alone.
 
@@ -35169,6 +35171,70 @@ before the last build: a line of 2026-10-27 there names them built here, a size 
 Mail alone in Per-App Settings matched on the day. In TODO, this check's
 steps 1 and 2 read (a)'s files as B-170's tiles, and step 8 has (a)'s
 tiles within the pane.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-look, on the int19
+build, at the check's step 8, and reproduced by a second run, at the
+largest accessibility size. The list's rows, tiles, stack, Move sheet and
+Go to Date were as the check says. Two things were not. The Mailboxes'
+names were broken inside their words, "In" and "box", "Draft" and "s",
+"Tr" and "ash", "I", "mpor-" and "tant", each line after the first
+beginning under the icon, in a column of 250 points: "In" beside the
+Inbox's icon at x 128 to 160, "box" from x 23.5. And New Message's
+"Attach File" sat beside "Photo Library" broken into "Atta", "ch" and
+"File", its third line cut by a row 137 points high, one line's height
+at that size. The same round's step 7 found the bars bolder with Bold
+Text, where "Not changed" said they kept their weight: a fault of this
+entry, not of the app (above).
+
+*The cause.* The Mailboxes gave the name and the icon to UIKit's list
+configuration, 53 points of name in a 250-point column. UIKit puts the
+icon beside the first line of the words and, at these sizes, the next
+lines under it; a word too wide for the room left beside the icon is
+broken between its letters on that line rather than moved down, and a
+word wider than the column, as "Important" is at 53 points, is broken
+with hyphens wherever it goes. `FolderCell` only let the row grow. The
+check's "each name after its own icon, whole" was not what UIKit does
+with such a name. The composer's two buttons were side by side on one
+row held at one line's height, "Attach File" given only what "Photo
+Library" left it, so its title wrapped between letters into three lines
+of 47 points the row could not hold.
+
+*Changed.* `FolderName`, new (`Mail/TextSize.swift`): at the
+accessibility sizes (`TextSize.stacksRowDate`, where the list's date has
+a line of its own) a folder's icon has a line of its own above its name,
+and the name the names' size, or the largest whole size under it at which
+its widest word fits the row, never under Large's 17, every word measured
+in the font it is drawn in (`pointSize`). The Mailboxes draw such a row as
+one piece of text (`nameUnderIcon`): the icon, at its size in its blue,
+then a line break, then the name, broken only between words and never
+hyphenated; the count stays at the right. The room is the table's width
+but the name's margin, about 24 points for the row's own margin after
+it, and the count with 24 points before it, a few points over what UIKit
+leaves rather than under. Drawn again when the table's width changes
+(`viewDidLayoutSubviews`), as the columns do. Below the accessibility
+sizes the row is UIKit's, as it was. The composer's two buttons are in a
+stack, side by side and one line high as before below the accessibility
+sizes, and one under the other at them, each across the composer and as
+tall as its words, never under a line's height, its title broken only
+between words (`titleLineBreakMode`); the row's fixed height is held
+only below them.
+
+*Tests.* `TextSizeTests`, one new: the icon above at the five
+accessibility sizes alone, Bold Text or not; every word fitting at the
+size given, which is the largest that fits, never above the names' size
+or under 17, for six names, by two measures, one in proportion and one
+a little wider at the smaller sizes; "Important" 35 and "Deleted
+Messages" 39 at 190 points; a word too long for any line at 17; no room
+or no words as they were. `TextSizeWiringTests`: the Mailboxes' row at
+those sizes, the measure, the paragraph, the icon's line and the redraw
+at a new width; the composer's stack, its axis, the buttons' least
+heights, the row's height held below the accessibility sizes alone, and
+the title broken between words. `ComposerFilesWiringTests` reads the
+stack. The fit always the names' size, 15 failures in the new test; the
+Mailboxes' row as before and the composer's row as before, 11 failures
+in two tests of `TextSizeWiringTests`, and 1 in
+`ComposerFilesWiringTests`; then restored. The release build for the
+iPad links.
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 

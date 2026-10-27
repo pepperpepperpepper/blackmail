@@ -146,7 +146,7 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "let files = attachButton(.attachFile, action: #selector(attachFileTapped))",
                  "photoButton = photos",
                  "fileButton = files",
-                 "files.leadingAnchor.constraint(equalTo: photos.trailingAnchor)",
+                 "let buttons = UIStackView(arrangedSubviews: [photos, files])",
                  "private func attachButton(_ choice: ComposeForm.Attach, action: Selector) -> UIButton {",
                  "config.image = UIImage(systemName: choice.symbol)",
                  "config.preferredSymbolConfigurationForImage = "

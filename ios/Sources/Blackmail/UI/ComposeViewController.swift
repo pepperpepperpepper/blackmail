@@ -619,42 +619,60 @@ final class ComposeViewController: UIViewController,
     /// "press and hold in the body until a menu appears" is exactly the
     /// kind of thing that promise exists to rule out. Always visible, so
     /// they never move.
+    ///
+    /// At the accessibility sizes one under the other, each on a line of
+    /// its own across the composer, as a list of UIKit's own puts two
+    /// things that no longer fit side by side (`TextSize.stacksRowDate`,
+    /// B-166), and each as tall as its words, never under the line's
+    /// height; its words broken only between them. Side by side at the
+    /// largest size, "Attach File" had the room "Photo Library" left it
+    /// and was broken into "Atta", "ch" and "File", its last line cut by
+    /// a row held at one line's height (the test iPad, 2026-10-27). Below
+    /// those sizes the row is as it was, one line high.
     private func attachRow() -> UIView {
         let container = UIView()
         let photos = attachButton(.photoLibrary, action: #selector(photoLibraryTapped))
         let files = attachButton(.attachFile, action: #selector(attachFileTapped))
         photoButton = photos
         fileButton = files
+        let buttons = UIStackView(arrangedSubviews: [photos, files])
+        buttons.alignment = .fill
 
         let rule = UIView()
         rule.backgroundColor = Theme.separator
-        for v in [photos, files, rule] {
+        for v in [buttons, rule] {
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
-        NSLayoutConstraint.activate([
-            photos.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            photos.topAnchor.constraint(equalTo: container.topAnchor),
-            photos.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            files.leadingAnchor.constraint(equalTo: photos.trailingAnchor),
-            files.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
-            files.topAnchor.constraint(equalTo: container.topAnchor),
-            files.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        // Each a line high, or as tall as its words where they need more.
+        let heights = [photos, files].map { button -> NSLayoutConstraint in
+            button.setContentHuggingPriority(.defaultHigh, for: .vertical)
+            return button.heightAnchor.constraint(greaterThanOrEqualToConstant: Theme.lineHeight)
+        }
+        NSLayoutConstraint.activate(heights + [
+            buttons.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            buttons.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
+            buttons.topAnchor.constraint(equalTo: container.topAnchor),
+            buttons.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             rule.heightAnchor.constraint(equalToConstant: 0.5),
         ])
+        // One line high below the accessibility sizes, as it always was.
         let height = container.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
-        height.isActive = true
         restyles.keep {
             for button in [photos, files] {
                 button.configuration?.preferredSymbolConfigurationForImage =
                     UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
                 button.configuration?.attributedTitle?.font = Theme.fontDetailMeta
             }
+            let stacked = Theme.textSize.stacksRowDate
+            buttons.axis = stacked ? .vertical : .horizontal
+            for line in heights { line.constant = Theme.lineHeight }
             height.constant = Theme.lineHeight
+            height.isActive = !stacked
         }
         return container
     }
@@ -675,6 +693,8 @@ final class ComposeViewController: UIViewController,
         var title = AttributedString(choice.words)
         title.font = Theme.fontDetailMeta
         config.attributedTitle = title
+        // Broken between its words, should a line be too short for them.
+        config.titleLineBreakMode = .byWordWrapping
         button.configuration = config
         button.contentHorizontalAlignment = .leading
         button.addTarget(self, action: action, for: .touchUpInside)

@@ -183,6 +183,31 @@ final class TextSizeWiringTests: XCTestCase {
                        "cell.contentConfiguration = content (cell as? FolderCell)?.holdFloor()"] {
             XCTAssertTrue(configure.contains(wiring), wiring)
         }
+        // At the accessibility sizes the icon on a line of its own and the
+        // name under it, at a size at which each word fits the row
+        // (`FolderName`; the test iPad, 2026-10-27: "In" and "box").
+        XCTAssertTrue(configure.contains(
+            "if FolderName.iconAbove(at: Theme.textSize) { content.attributedText = nameUnderIcon(mailbox, "
+                + "leading: content.directionalLayoutMargins.leading) content.image = nil "
+                + "content.textProperties.numberOfLines = 0 } cell.contentConfiguration = content"), configure)
+        let under = try section(folders, from: "private func nameUnderIcon(", to: "return text }")
+        for wiring in ["let width = tableView.bounds.width - leading - 24 - (count > 0 ? count + 24 : 0)",
+                       "let points = FolderName.pointSize(mailbox.displayName, "
+                        + "upTo: Theme.fontMailboxName.pointSize, floor: 17, width: width) { word, size in "
+                        + "(word as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: size)]).width }",
+                       "paragraph.lineBreakMode = .byWordWrapping paragraph.hyphenationFactor = 0",
+                       ".font: UIFont.systemFont(ofSize: points), .foregroundColor: Theme.primaryText, "
+                        + ".paragraphStyle: paragraph,",
+                       "if let image = Theme.symbol(icon(for: mailbox.role))? "
+                        + ".withTintColor(Theme.tintBlue, renderingMode: .alwaysOriginal) { "
+                        + "text.append(NSAttributedString(attachment: NSTextAttachment(image: image))) "
+                        + "text.append(NSAttributedString(string: \"\\n\")) }",
+                       "text.append(NSAttributedString(string: mailbox.displayName)) "
+                        + "text.addAttributes(attributes, range: NSRange(location: 0, length: text.length))"] {
+            XCTAssertTrue(under.contains(wiring), wiring)
+        }
+        XCTAssertNotNil(place(of: "guard width != fittedWidth else { return } fittedWidth = width "
+                                  + "if FolderName.iconAbove(at: Theme.textSize) { redraw() }", in: folders))
         let adjust = try section(folders, from: "func adjustUnreadCounts(", to: "AppBadge.app.counted")
         XCTAssertTrue(adjust.contains("configure(cell, with: folder) patched = true }"), adjust)
         XCTAssertTrue(adjust.contains("if patched, Theme.textSize != .factory { "
@@ -279,9 +304,29 @@ final class TextSizeWiringTests: XCTestCase {
             let code = try source(file)
             for step in steps { XCTAssertEqual(count(step, in: code), 1, "\(file): \(step)") }
         }
+        // Its two buttons one under the other at the accessibility sizes,
+        // each as tall as its words; one line high, side by side, below
+        // them (the test iPad, 2026-10-27: "Attach File" broken and cut).
+        let composer = try source("UI/ComposeViewController.swift")
         XCTAssertNotNil(place(of: "button.configuration?.attributedTitle?.font = Theme.fontDetailMeta } "
-                                  + "height.constant = Theme.lineHeight }",
-                              in: try source("UI/ComposeViewController.swift")))
+                                  + "let stacked = Theme.textSize.stacksRowDate "
+                                  + "buttons.axis = stacked ? .vertical : .horizontal "
+                                  + "for line in heights { line.constant = Theme.lineHeight } "
+                                  + "height.constant = Theme.lineHeight height.isActive = !stacked }",
+                              in: composer))
+        let attach = try section(composer, from: "private func attachRow() -> UIView {",
+                                 to: "private func attachButton(")
+        for wiring in ["let buttons = UIStackView(arrangedSubviews: [photos, files])",
+                       "return button.heightAnchor.constraint(greaterThanOrEqualToConstant: Theme.lineHeight)",
+                       "buttons.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor)",
+                       "buttons.topAnchor.constraint(equalTo: container.topAnchor)",
+                       "buttons.bottomAnchor.constraint(equalTo: container.bottomAnchor)",
+                       "let height = container.heightAnchor.constraint(equalToConstant: Theme.lineHeight)"] {
+            XCTAssertTrue(attach.contains(wiring), wiring)
+        }
+        XCTAssertFalse(attach.contains("height.isActive = true"), attach)
+        XCTAssertNotNil(place(of: "config.titleLineBreakMode = .byWordWrapping button.configuration = config",
+                              in: composer))
         XCTAssertNotNil(place(of: "restyles.keep { label.font = Theme.fontDetailMeta "
                                   + "height.constant = Theme.lineHeight }",
                               in: try source("Share/ShareViewController.swift")))
