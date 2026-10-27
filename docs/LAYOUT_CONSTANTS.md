@@ -162,13 +162,22 @@ points and their four baselines (24 / 44 / 64 / 84), the date on the names'
 line, the folders' 44-point rows, the reply arrow's 12-point square, the
 composer's 44-point lines, the reading pane's 17-point letter and its
 tiles, Settings and the share sheet. What UIKit sizes by itself in those
-screens, a folder's icon's room, Edit mode's circles, a list
+screens, a folder's icon's room, Edit mode's circles' size, a list
 configuration's gaps, the calendar, is held at Large too, by a trait of
 Large on the three panes, on every sheet of the app's and on the share
 sheet's form (`UITraitCollection.heldTextSize`), as B-071 held the
-folders and the list. Bold Text is followed, as it moves nothing: the
-same fonts, bolder. B-166's scaling, every size multiplied by the size's
-body over Large's 17 (`TextSize.scale`, 1 at Large), and the rows at
-the other eleven sizes, stay in the code and its tests for the day the
+folders and the list; and what is put up over them, the questions, the
+action sheets and the bubble menu, and the setup form, by the window's
+limits of Large. One thing moves: Edit mode's circles, their size and the
+rows' words held, sit lower in their rows at the larger sizes, about 1
+point two steps above Large and 12.5 at the largest accessibility size,
+as B-071 saw on the test iPad under the same trait; UIKit's own placing.
+Bold Text is followed, as it was before B-166: no size and no row's
+height changes with it, the same fonts, bolder; but its wider glyphs may
+make a line that only just fit give way, a long name cut a little sooner,
+a preview broken at another word, the header's subject a line longer and
+the letter under it lower. B-166's scaling, every size multiplied by the
+size's body over Large's 17 (`TextSize.scale`, 1 at Large), and the rows
+at the other eleven sizes, stay in the code and its tests for the day the
 owner says otherwise; they are not used. The scaling rule above, that
 nothing varies by the screen's size but the panes' widths, is unchanged.

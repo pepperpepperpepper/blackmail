@@ -306,8 +306,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-166.*
       *Ruled 2026-10-27: the exact layout at every text size, for now
       ("Let's keep the exact layout for now"). Blackmail is drawn at Large
-      whatever the iPad's text size or a Per-App size; Bold Text, which
-      moves nothing, is still followed (B-166, Changed 2026-10-27).*
+      whatever the iPad's text size or a Per-App size, its questions and
+      menus too; Bold Text, which changes no size and no row's height, is
+      still followed, as it was before B-166 (B-166, Changed 2026-10-27).
+      Left as B-071 found it: Edit mode's circles sit a little lower in
+      their rows at the larger sizes.*
 - [ ] Replied and forwarded arrows on rows. *Shown 2026-10-22, seen on
       the iPad the same day: Mail's grey arrow in the gutter for a letter
       answered or forwarded, from the flags Gmail sends with the row.
@@ -8860,12 +8863,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       2026-10-27 by the owner's ruling, "Let's keep the exact layout for
       now": Blackmail is drawn at Large whatever the iPad's text size, and
       this check, which looked for the size followed, now looks for the
-      layout the same at the largest sizes. On the test iPad, the test
+      layout the same at the largest sizes, but for where UIKit puts Edit
+      mode's circles, a little lower (B-071). On the test iPad, the test
       account only, from a build of the `bm-textfixed` worktree (branch
       `fix-textsize-fixed`) or of the int it is merged into. Nothing is
       typed, sent, saved, moved or deleted in the app: every composer is
       opened untouched and closed with Cancel, which asks nothing for an
-      untouched letter (B-069), and every sheet closed with Cancel or Done.
+      untouched letter (B-069), every sheet closed with Cancel or Done,
+      and every action sheet and menu with a tap beside it, nothing chosen.
       The iPad's own settings are changed and put back. The host APPENDs, read
       (`\Seen`), to the label "Notes", never the Inbox, five letters, each
       from another address with a new Message-ID of its own and naming
@@ -8888,48 +8893,77 @@ checks below is left as not needed, not open, and none is worth a round.*
          off. In the app, each taken as the reference for the steps below:
          "Notes" with (a) open, its row highlighted, (e)'s row in sight;
          the same in Edit mode, then Cancel; (d)'s row, the conversation's
-         stack; New Message, then Cancel; Reply All on (a), then Cancel;
-         Settings, then closed; Go to Date (the calendar), then Cancel; the
-         pane's folder button, the Move sheet, then Cancel, nothing moved;
-         two panes, then three. The first three on the int18 build
-         (26740c2), taken first: the same to the pixel but for the clock,
-         and for (a)'s two files, tiles after its words on a build with
-         B-170 and not rows in the header.
+         stack; New Message, then Cancel; Reply All on (a), then a bubble
+         in To tapped, its menu, closed with a tap beside it, then Cancel;
+         the pane's Reply button on (a), its sheet, closed with a tap
+         beside it, and the pane's Flag button the same; Settings, then
+         its "Add Another Email…" question, then Cancel, nothing typed;
+         Mail's Swipe Options pushed in Settings, nothing chosen, then
+         back, and Settings closed with Cancel, nothing saved; Go to Date
+         (the calendar), then Cancel; the pane's folder button, the Move
+         sheet, then Cancel, nothing moved; two panes, then three. Every
+         one of them first on a build of master before this change
+         (bf7575a), taken first: the same to the pixel but for the clock,
+         the sheets, the questions and the menu among them, as the sheets
+         are now put up held and the window limited. The first three on
+         the int18 build (26740c2) as well: the same to the pixel but for
+         the clock, and for (a)'s two files, tiles after its words on a
+         build with B-170 and not rows in the header.
       2. *The largest of the seven, while the app is open.* With (a) open
          and "Notes" scrolled so its row is in sight a few rows down,
          leave the app; Text Size dragged to its right end; back in the
          app, at once: the same rows in sight where they were, (a)'s
          highlighted, every row 96 points, nothing larger. Then every
          screen of 1 again: each the same as in 1 to the pixel but for the
-         clock, the Mailboxes' names, icons and counts, Edit mode's
-         circles, the stack, the composer's lines, Settings' rows, the
-         calendar and the Move sheet's folders among them.
+         clock, the Mailboxes' names, icons and counts, the stack, the
+         composer's lines, the bubble's menu, the Reply and Flag sheets,
+         Settings' rows, its question and Swipe Options' page, the
+         calendar and the Move sheet's folders among them; and but for
+         Edit mode's circles, their size as in 1 and the rows' words where
+         they were, their column a little lower, as B-071 saw under the
+         same trait (about 1 point two steps above Large; three not
+         measured): how much, written down, or that it did not move. A
+         question, a sheet or a menu larger than in 1: the window's limits
+         do not reach it, written down, and B-166 opened again.
       3. *The largest accessibility size.* Larger Text, Larger Accessibility
          Sizes on, the slider at its right end, back in the app: every
          screen of 1 again, each the same as in 1 to the pixel but for the
-         clock: each row's date on the names' line, never on a line of its
-         own; (e)'s grey arrow 12 points in the gutter; the Mailboxes'
-         icons in one column and their names on one line each, as in 1;
-         the conversation's lines as in 1; (a)'s words and tiles as in 1.
+         clock and for Edit mode's circles: each row's date on the names'
+         line, never on a line of its own; (e)'s grey arrow 12 points in
+         the gutter; the Mailboxes' icons in one column and their names on
+         one line each, as in 1; the conversation's lines as in 1; (a)'s
+         words and tiles as in 1; the bubble's menu's, the Reply and Flag
+         sheets' and "Add Another Email…"'s words and buttons as in 1, its
+         Cancel and Add side by side, never one under the other; Swipe
+         Options as in 1. Edit mode's circles their size in 1 and the
+         rows' words where they were, the column about 12.5 points lower,
+         as B-071 saw: how much, written down, or that it did not move.
       4. *Bold Text, while the app is open.* With (a) open, Bold Text on,
          back in the app: the rows' names, subjects and previews, the
-         Mailboxes, the header and (a)'s words bolder, and nothing moved:
-         every row where it was in 1, 96 points, the Mailboxes' rows 44, a
-         long name cut a little sooner with "…" and nothing else. Bold
-         Text off: as in 1.
+         Mailboxes, the header and (a)'s words bolder, and no row moved or
+         grew: every row where it was in 1, 96 points, the Mailboxes' rows
+         44. A line that only just fit may give way, the glyphs being
+         wider: a long name cut a little sooner with "…", a preview broken
+         at another word, a subject that only just fit the header a line
+         longer and (a)'s words under it lower by as much; written down,
+         and nothing else. Bold Text off: as in 1.
       5. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
          at its middle step. Accessibility, Per-App Settings, Add App,
          Blackmail, Larger Text for it at the right end of the seven:
-         Blackmail as in 1, Settings itself at Large. Blackmail's entry
-         then taken off the list.
+         Blackmail as in 2, which is 1 but for Edit mode's circles,
+         Settings itself at Large. Blackmail's entry then taken off the
+         list.
       6. *The share sheet.* Text Size at its middle step: Safari, any
-         page, Share, Blackmail, the form taken; Cancel. Text Size at its
-         right end, and the same again: the form as at the middle step to
-         the pixel, "To:", "Cc/Bcc" and "Subject:" and the link in the
-         body as they were; Cancel. Nothing is sent.
-      7. *What stays UIKit's.* UIKit's own questions and menus, a file's
-         Quick Look and the iPad's own Share sheet are at the iPad's size,
-         as before B-166, and are not looked at here.
+         page, Share, Blackmail, the form taken; Cancel, and should it ask,
+         its question taken, then Delete Draft. Text Size at its right end,
+         and the same again: the form and the question as at the middle
+         step to the pixel, "To:", "Cc/Bcc" and "Subject:" and the link in
+         the body as they were. Nothing is sent.
+      7. *What stays iOS's.* A file's Quick Look, the photo and document
+         pickers, the print panel, the iPad's own Share sheet, and the
+         keyboard with its bar, the composer's paperclip and its menu among
+         them, are iOS's own, at the iPad's size as before B-166, and are
+         not looked at here.
       8. *Put back:* Text Size at its middle step, Bold Text off, Larger
          Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
