@@ -66,12 +66,30 @@ enum RemoteContent {
     /// and the pane's own grey line over a shortened letter is
     /// (`PanePage.shortenedLine`). A rule under it, the colour of the
     /// stack's own between letters once inverted.
+    ///
+    /// Its class, `lineClass`, is for the page's head to size it: at the
+    /// pane's body size, which follows the text size (B-166), and over a
+    /// sender's own rule for a `div`, a `span` or an `a`, which the line
+    /// would take otherwise (`sizeRule`; int19). In the head and not in the
+    /// line, so a stack drawn again at a new size, its bodies put back as
+    /// they came, has the line at the new size.
     static func line(for id: String) -> String {
-        "<div style=\"display: flex; align-items: baseline; gap: 12px; margin: 0 0 1em 0; "
+        "<div class=\"" + lineClass + "\" style=\"display: flex; align-items: baseline; gap: 12px; margin: 0 0 1em 0; "
             + "padding: 0 0 10px 0; border-bottom: 0.5px solid #c7c7c5; white-space: normal;\">"
             + "<span style=\"flex: 1 1 auto; color: #8e8e93;\">" + unloaded + "</span>"
             + "<a href=\"" + link(for: id) + "\" style=\"flex: 0 0 auto; color: #007AFF; "
             + "text-decoration: none;\">" + loadAll + "</a></div>"
+    }
+
+    /// The line's class (`line`).
+    static let lineClass = "bm-unloaded"
+
+    /// The head's rule for the line inside `scope`, the page's letter or the
+    /// stack: its words at `pointSize`, the pane's body size, as Mail's line
+    /// is in its own type at the text size (B-166, B-168; int19).
+    static func sizeRule(in scope: String, pointSize: Int) -> String {
+        "\(scope) .\(lineClass), \(scope) .\(lineClass) * { font-size: \(pointSize)px !important; "
+            + "font-family: -apple-system, sans-serif !important; }"
     }
 
     /// The button's link: `bmimages:?letter=<id>`, the id escaped as a

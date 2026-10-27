@@ -137,6 +137,11 @@ enum PanePage {
                   filter: \(SignatureSheet.invert); }
               """ + "\n" + QuoteBars.css(in: "#bm")
             : QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+        // Mail's line, when there is one, at the body's size whatever the
+        // letter's own rules say (B-166, B-168); nothing otherwise, so the
+        // page is as it was.
+        let heldSize = held.isEmpty
+            ? "" : "\n  " + RemoteContent.sizeRule(in: "#bm", pointSize: style.bodyPointSize)
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -150,7 +155,7 @@ enum PanePage {
         \(isHTML ? "" : " white-space: pre-wrap;") }
           img, table { max-width: 100% !important; height: auto; }
           a { color: \(isHTML ? "#007AFF" : "#0A84FF"); }
-          \(smartInvert)
+          \(smartInvert)\(heldSize)
         </style></head><body><div id="bm">\(held)\(shortened(m))\(content)</div></body></html>
         """
     }

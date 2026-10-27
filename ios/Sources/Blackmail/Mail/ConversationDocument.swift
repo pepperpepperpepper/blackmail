@@ -354,7 +354,11 @@ enum ConversationDocument {
              it is open (B-104): grey, as the time on the line. */
           .bm-found { color: #8e8e93; font-size: \(bodyPointSize - 3)px;
                       padding: 0 \(inset)px 8px \(inset)px; }
-          .bm-letter:not(.bm-open) > .bm-found { display: none; }\(stacked ? stackedLines : "")
+          .bm-letter:not(.bm-open) > .bm-found { display: none; }
+          /* Mail's line over a letter whose pictures from the web are held
+             back, at the body's size whatever the letter's own rules say
+             (B-166, B-168). */
+          \(RemoteContent.sizeRule(in: "body", pointSize: bodyPointSize))\(stacked ? stackedLines : "")
         </style></head><body>
         \(sections)
         </body></html>

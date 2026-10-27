@@ -377,13 +377,43 @@ final class MailOptionsTests: XCTestCase {
 
     // MARK: - The wiring, read from the source
 
+    /// Mail's part of Settings at the text size, as Mail's own Settings page
+    /// follows it (B-166): its heading, its line, every row's title, value
+    /// and line, and its chevrons and ticks, again when the size changes
+    /// with Settings open. The rest of Settings keeps its sizes (B-166's
+    /// "Not changed"). Integration, int19.
+    func testMailsRowsFollowTheTextSize() throws {
+        let view = try source("UI/MailOptionsView.swift")
+        for line in [
+            "restyles.keep { [weak label] in label?.font = .systemFont(ofSize: Theme.scaled(size)) }",
+            "NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged), "
+                + "name: TextSizes.didChange, object: nil)",
+            "@objc private func textSizeChanged() { restyles.again() setNeedsLayout() }",
+            "func restyle() { titleLabel.font = .systemFont(ofSize: Theme.scaled(17)) "
+                + "valueLabel.font = .systemFont(ofSize: Theme.scaled(17)) mark.image = Theme.symbol(symbol) }",
+        ] {
+            XCTAssertTrue(view.contains(line), line)
+        }
+        XCTAssertEqual(view.components(separatedBy: "restyles.keep { [weak control] in control?.restyle() }")
+                           .count - 1, 3, "every kind of row")
+        XCTAssertFalse(view.contains(".systemFont(ofSize: 17)"))
+        let settings = try source("UI/SettingsViewController.swift")
+        for line in [
+            "@objc private func sizeMailWords() { mailHeading.font = .systemFont(ofSize: Theme.scaled(18), "
+                + "weight: .semibold) mailCaption.font = .systemFont(ofSize: Theme.scaled(14)) }",
+            "self, selector: #selector(sizeMailWords), name: TextSizes.didChange, object: nil)",
+        ] {
+            XCTAssertTrue(settings.contains(line), line)
+        }
+    }
+
     /// Settings draws Mail's page under its password, before Bring Back,
     /// and draws it again on coming back from one of its pages; a row sets
     /// its value at once and says so; a greyed row takes no tap.
     func testSettingsDrawsMailsPageAndARowSetsItsValueAtOnce() throws {
         let settings = try source("UI/SettingsViewController.swift")
         inOrder(["stack.addArrangedSubview(statusLabel)",
-                 "stack.addArrangedSubview(mailHeading) stack.addArrangedSubview(caption(Self.mailCaption))",
+                 "stack.addArrangedSubview(mailHeading) mailCaption.text = Self.mailCaption",
                  "mailOptions.onChange = { [weak self] option in if option == .organizeByThread { "
                     + "self?.onOrganizeByThreadChanged?() } } stack.addArrangedSubview(mailOptions)",
                  "stack.addArrangedSubview(bringBackButton)"], in: settings)

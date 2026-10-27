@@ -22,7 +22,10 @@ import UIKit
 ///
 /// In the plain form Settings is drawn in, not a table: rows of the
 /// screen's 44 points (D-007), words at 17 points, values and lines in the
-/// secondary grey, ticks in the tint.
+/// secondary grey, ticks in the tint. At Large: the words, values, headings
+/// and lines go with the iPad's text size, as the rows of Mail's Settings
+/// page do, a row as tall as its words, and again when the size changes
+/// with the page open (`Theme.scaled`, `TextSizes`, B-166; int19).
 final class MailOptionsView: UIStackView {
 
     /// What the pages are pushed from: the controller whose navigation
@@ -33,18 +36,29 @@ final class MailOptionsView: UIStackView {
 
     /// Draws each row's value again from `MailOptions`.
     private var redraws: [() -> Void] = []
+    /// Sets each label's type again at the text size (B-166).
+    private let restyles = Restyles()
 
     init(sections: [MailOptions.Section]) {
         super.init(frame: .zero)
         axis = .vertical
         spacing = 0
         for section in sections { add(section) }
+        NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged),
+                                               name: TextSizes.didChange, object: nil)
     }
 
     required init(coder: NSCoder) { fatalError("not used") }
 
     /// Every row as `MailOptions` has it now: on coming back from a page.
     func redraw() { redraws.forEach { $0() } }
+
+    /// The iPad's text size or Bold Text has changed with the page open
+    /// (`TextSizes`, B-166): every word at the new size, the rows with it.
+    @objc private func textSizeChanged() {
+        restyles.again()
+        setNeedsLayout()
+    }
 
     // MARK: - Parts
 
@@ -76,6 +90,7 @@ final class MailOptionsView: UIStackView {
             note(option)
         case .page(let title, let sections):
             let control = OptionRow(title: title, value: nil, opens: true, live: true)
+            restyles.keep { [weak control] in control?.restyle() }
             control.addAction(UIAction { [weak self] _ in
                 self?.open(title, sections)
             }, for: .touchUpInside)
@@ -112,6 +127,7 @@ final class MailOptionsView: UIStackView {
         let live = MailOptions.built.contains(option)
         let control = OptionRow(title: option.title, value: option.value, opens: live, live: live)
         control.isEnabled = live
+        restyles.keep { [weak control] in control?.restyle() }
         control.addAction(UIAction { [weak self] _ in
             self?.open(option.title, MailOptions.valuesPage(of: option))
         }, for: .touchUpInside)
@@ -124,6 +140,7 @@ final class MailOptionsView: UIStackView {
     private func addValue(_ word: String, _ index: Int, of option: MailOptions.Option) {
         let live = MailOptions.built.contains(option)
         let control = OptionRow(title: word, value: nil, opens: false, live: live)
+        restyles.keep { [weak control] in control?.restyle() }
         control.ticked = option.chosen == index
         control.isEnabled = live
         control.addAction(UIAction { [weak self] _ in
@@ -160,7 +177,7 @@ final class MailOptionsView: UIStackView {
         let label = UILabel()
         label.text = text
         label.numberOfLines = 0
-        label.font = .systemFont(ofSize: size)
+        restyles.keep { [weak label] in label?.font = .systemFont(ofSize: Theme.scaled(size)) }
         label.textColor = size >= 17 && live ? Theme.primaryText : Theme.secondaryText
         return label
     }
@@ -181,6 +198,7 @@ private final class OptionRow: UIControl {
     private let titleLabel = UILabel()
     private let valueLabel = UILabel()
     private let mark = UIImageView()
+    private let symbol: String
 
     var value: String? {
         didSet {
@@ -197,16 +215,13 @@ private final class OptionRow: UIControl {
     }
 
     init(title: String, value: String?, opens: Bool, live: Bool) {
+        symbol = opens ? "chevron.right" : "checkmark"
         super.init(frame: .zero)
         titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 17)
         titleLabel.textColor = live ? Theme.primaryText : Theme.secondaryText
         titleLabel.numberOfLines = 0
-        valueLabel.font = .systemFont(ofSize: 17)
         valueLabel.textColor = Theme.secondaryText
         valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        // At a fixed size, as every symbol here is (B-071).
-        mark.image = Theme.symbol(opens ? "chevron.right" : "checkmark")
         mark.tintColor = opens ? Theme.secondaryText : Theme.tintBlue
         mark.contentMode = .scaleAspectFit
         mark.setContentHuggingPriority(.required, for: .horizontal)
@@ -234,6 +249,14 @@ private final class OptionRow: UIControl {
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// The title, the value and the chevron or tick at the text size, as
+    /// the rest of the app's words and their symbols (`Theme.symbol`, B-166).
+    func restyle() {
+        titleLabel.font = .systemFont(ofSize: Theme.scaled(17))
+        valueLabel.font = .systemFont(ofSize: Theme.scaled(17))
+        mark.image = Theme.symbol(symbol)
+    }
 
     override var isHighlighted: Bool {
         didSet { backgroundColor = isHighlighted ? Theme.selection : nil }

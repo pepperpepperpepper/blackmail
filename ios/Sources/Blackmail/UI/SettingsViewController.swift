@@ -54,6 +54,10 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     private let restoreButton = UIButton(type: .system)
     /// Mail's options, as Settings > Apps > Mail lays them out (B-167).
     private let mailOptions = MailOptionsView(sections: MailOptions.page)
+    /// Mail's part's heading and line, at the text size as its rows are
+    /// (B-166, B-167; int19). The rest of Settings keeps its sizes (B-166).
+    private let mailHeading = UILabel()
+    private let mailCaption = UILabel()
     private let bringBackButton = UIButton(type: .system)
     private let statusLabel = UILabel()
     /// His addresses, as Mail's account lists them under Email (B-076): a
@@ -240,13 +244,15 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         // the account, and a switch left visibly flipped with nothing
         // behind it changing until another button is pressed is its own
         // kind of trap. So Cancel does not undo them.
-        let mailHeading = UILabel()
         mailHeading.text = Self.mailTitle
-        mailHeading.font = .systemFont(ofSize: 18, weight: .semibold)
         mailHeading.textColor = Theme.primaryText
         mailHeading.accessibilityTraits = .header
         stack.addArrangedSubview(mailHeading)
-        stack.addArrangedSubview(caption(Self.mailCaption))
+        mailCaption.text = Self.mailCaption
+        mailCaption.numberOfLines = 0
+        mailCaption.textColor = Theme.secondaryText
+        stack.addArrangedSubview(mailCaption)
+        sizeMailWords()
         mailOptions.host = self
         mailOptions.onChange = { [weak self] option in
             if option == .organizeByThread { self?.onOrganizeByThreadChanged?() }
@@ -298,6 +304,16 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(keyboardChanged),
             name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(sizeMailWords),
+            name: TextSizes.didChange, object: nil)
+    }
+
+    /// Mail's heading and its line at the text size (`Theme.scaled`, B-166),
+    /// as Mail's Settings page draws its words; again when it changes.
+    @objc private func sizeMailWords() {
+        mailHeading.font = .systemFont(ofSize: Theme.scaled(18), weight: .semibold)
+        mailCaption.font = .systemFont(ofSize: Theme.scaled(14))
     }
 
     private func caption(_ text: String) -> UILabel {

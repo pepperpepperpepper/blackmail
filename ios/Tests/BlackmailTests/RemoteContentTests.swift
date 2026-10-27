@@ -215,6 +215,25 @@ final class RemoteContentTests: XCTestCase {
         XCTAssertTrue(page.contains("<a href=\"https://example.com/words\">https://example.com/words</a>"))
     }
 
+    /// Mail's line follows the text size as the pane's words do (B-166): the
+    /// head sizes it at the pane's body size, over a sender's own rule for
+    /// a `div`, a `span` or an `a`, on a page of its own and in the stack,
+    /// whose head is built again at a new size with the bodies put back as
+    /// they came (integration, int19).
+    func testMailsLineIsAtThePanesTextSize() throws {
+        let m = letter(html: "<style>div, span, a { font-size: 9px; }</style>" + newsletter,
+                       attachments: [logo])
+        XCTAssertTrue(RemoteContent.line(for: "7/3").hasPrefix("<div class=\"bm-unloaded\" "))
+        let large = PanePage.Style(inset: 16, bodyPointSize: 33, lineHeight: 1.41)
+        let page = try XCTUnwrap(PanePage.letter(m, style: large, heldBack: true))
+        XCTAssertTrue(page.contains("#bm .bm-unloaded, #bm .bm-unloaded * { font-size: 33px !important; "),
+                      page)
+        let stack = ConversationDocument.html(entries: [], inset: 16, bodyPointSize: 33, lineHeight: 1.41)
+        XCTAssertTrue(stack.contains("body .bm-unloaded, body .bm-unloaded * { font-size: 33px !important; "))
+        XCTAssertFalse(PanePage.stackBody(m, heldBack: "7/3").html.contains("33px"))
+        XCTAssertFalse(try XCTUnwrap(PanePage.letter(m, style: large)).contains("bm-unloaded"))
+    }
+
     /// Not held back, or held back with nothing from the web in it, a page
     /// is byte for byte the page it always was; so is a plain letter's,
     /// which never asks the web for anything.
