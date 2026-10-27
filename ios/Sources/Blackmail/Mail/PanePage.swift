@@ -148,7 +148,7 @@ enum PanePage {
         let html = BodyFiles.drawn(
             in: isHTML
                 ? Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m), flowed: false,
-                               heldBack: !held.isEmpty)
+                               heldBack: !held.isEmpty, scheme: drawn)
                 : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed),
             of: m, on: darkWords ? .dark : .light, cut: m.isShortened)
         let content = frame.map { inOwnColours(html, of: m, heldBack: !held.isEmpty, frame: $0) } ?? html
@@ -238,12 +238,15 @@ enum PanePage {
     /// body that comes back with it, `ownFrame`, counts too: a `url()` of
     /// the web there is held back as the markup's are, and Mail's line says
     /// so (int19). Given by the caller, which puts the letter in that frame
-    /// too, so the letter is read for it once.
+    /// too, so the letter is read for it once. And the picture its body's
+    /// tag names (`backgroundBox`), which the pane draws behind its words:
+    /// one of the web is held back with the rest, and the line says so.
     static func held(_ m: Message, as id: String,
                      ownFrame frame: (open: String, close: String)? = nil) -> String {
         guard let html = m.htmlBody else { return "" }
         let asks = RemoteContent.asksTheWeb(DocumentWrapper.stripped(from: html))
             || (frame.map { RemoteContent.asksTheWeb($0.open) } ?? false)
+            || (backgroundBox(of: html, light: false).map { RemoteContent.asksTheWeb($0.open) } ?? false)
         return asks ? RemoteContent.line(for: id) : ""
     }
 
@@ -277,16 +280,63 @@ enum PanePage {
     /// `heldBack`, the sender's markup with every reference to the web in it
     /// held back (`RemoteContent.blocked`, B-168), before its pictures by
     /// `cid:` are pointed at the loader, which it leaves as they are.
+    ///
+    /// The markup in the box its body's tag gives it (`backgroundBox`):
+    /// the tag goes with the wrapper, and with it the picture behind the
+    /// words, which a page whose markup was all inside it lost. Its colour
+    /// too where the letter is `scheme` light (`LetterScheme.light`).
     static func content(text: String?, html: String?, known: Set<String>, flowed: Bool,
-                        heldBack: Bool = false) -> String {
+                        heldBack: Bool = false, scheme: LetterScheme? = nil) -> String {
         if let html {
-            let page = DocumentWrapper.stripped(from: html)
+            var page = DocumentWrapper.stripped(from: html)
+            if let box = backgroundBox(of: html, light: scheme == .light) { page = box.open + page + box.close }
             return TextLinks.html(InlineImageRewriter.rewrite(heldBack ? RemoteContent.blocked(page) : page,
                                                               known: known))
         }
         return PlainQuotes.html((text ?? "").drop(while: { $0 == "\n" || $0 == "\r" }), flowed: flowed,
                                 escaping: .ampersandAndLessThan)
     }
+
+    /// The box a letter's markup goes in for what its body's tag gave its
+    /// page behind the words, which the wrapper's removal takes off with
+    /// the tag (`DocumentWrapper`): the picture its `background` names,
+    /// tiled as WebKit tiles a body's, and, `light`, for a letter drawn
+    /// light (`LetterScheme.light`), its `bgcolor`, read as WebKit reads
+    /// it (`LetterCSS.legacyColour`); nil for a letter whose body gave
+    /// neither. Mail draws both (B-169).
+    ///
+    /// The picture's address as the body's tag has it, in the box's
+    /// `style`, where the pane's rewriter points a `cid:` at the loader
+    /// (`InlineImageRewriter`), so its part is counted as drawn by the
+    /// letter and not drawn again after the words (`BodyFiles`), and
+    /// where Block All Remote Content holds back one of the web
+    /// (`RemoteContent.blocked`, which reads a `style`), as a picture in
+    /// the markup is (B-168). A `flow-root`, so a first or last margin of
+    /// the letter's stays inside it and the picture is behind all of it.
+    /// Inside the pane's margin, as a letter in its own colours has its
+    /// body's colour (`ownFrame`); a letter in its own colours has its
+    /// `bgcolor` there, so not here. Printed without it, as every
+    /// background is (`LetterPrint`).
+    static func backgroundBox(of html: String, light: Bool) -> (open: String, close: String)? {
+        var letter = LetterScheme.Markup(html)
+        letter.read()
+        var style: [String] = []
+        if light, let colour = letter.bodyColour.flatMap(LetterCSS.legacyColour) {
+            style.append("background-color: " + colour + ";")
+        }
+        if let picture = letter.bodyBackground.map(LetterScheme.urlTrimmed), !picture.isEmpty {
+            let quoted = picture.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+            style.append("background-image: url('" + quoted + "'); background-repeat: repeat;")
+        }
+        guard !style.isEmpty else { return nil }
+        return ("<div class=\"" + backgroundClass + "\" style=\""
+                    + QuotedMarkup.attributeEscaped("display: flow-root; " + style.joined(separator: " ")) + "\">",
+                "</div>")
+    }
+
+    /// The class of that box.
+    static let backgroundClass = "bm-body-bg"
 
     /// One letter's body for its section of a conversation's stack: the
     /// sender's markup without its wrapper, text escaped with its leading
@@ -320,7 +370,7 @@ enum PanePage {
             : BodyFiles.drawn(
                 in: isHTML
                     ? Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m), flowed: false,
-                                   heldBack: !held.isEmpty)
+                                   heldBack: !held.isEmpty, scheme: drawn)
                     : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                                        flowed: m.textIsFlowed, escaping: .ampersandAndBrackets),
                 of: m, on: !isHTML || drawn == .own ? .dark : .light, cut: m.isShortened)

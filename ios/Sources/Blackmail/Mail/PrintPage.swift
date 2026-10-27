@@ -19,7 +19,10 @@ import Foundation
 /// its own white, and one that declares the dark in its own colours, its
 /// style for the dark with it (`LetterScheme`). The page printed is as it
 /// was for all three: white paper, the sender's colours, no style brought
-/// back from the letter's head, as Mail prints.
+/// back from the letter's head, as Mail prints. A picture behind a light
+/// letter's words, its body's `background`, is in the box the pane draws
+/// it in (`PanePage.backgroundBox`), and prints as no background does: not
+/// at all, and not as a file after the words either.
 ///
 /// Pure string work, Foundation only, built away from the main thread as
 /// the pane's page is (`PanePage`), so the suite can test it; `LetterPrint`

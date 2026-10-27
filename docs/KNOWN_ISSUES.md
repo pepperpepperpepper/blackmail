@@ -35810,7 +35810,7 @@ the letters it archives are asked of after it (B-167's paragraph). In TODO, this
 entry's line of 2026-10-27 on his iPad's own settings follows B-167's
 words there and B-166's line, its own words as they were.
 
-## B-169 — FIXED 2026-10-27, not yet seen on the iPad. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
+## B-169 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 
 **Asked for** by the owner on 2026-10-27: "build the three Mail
 differences next: light colours in dark mode, …". The first of the gaps
@@ -36109,12 +36109,16 @@ The full suite, serially, on the branch: 2,961 tests, 16 of them new,
   hue back as well (B-146): an inverted letter's colours a shade apart, as
   before.
 - A light letter, and an inverted one, are drawn without the style sheets
-  of their head and without what their body's tag gave them, its
-  background, colour, picture, class or style, as since the wrapper came
-  off: Mail draws both. Only a letter in its own colours has its head's
-  rules back, and its body's `class`, `style`, `bgcolor` and `text`;
-  `<link>` sheets and `@import` are not loaded for it, and its body's
-  `id`, `background` picture, `link`, `vlink`, `alink` and other
+  of their head and without what their body's tag gave them, its text
+  colour, class or style, as since the wrapper came off: Mail draws both.
+  Their body's `background` picture is drawn behind their words, and a
+  light letter's `bgcolor` under them, since the fix after the test iPad
+  (below); a picture or a colour that a light letter's body has from its
+  `style` or from a rule of its head is not. Only a letter in its own
+  colours has its head's rules back, and its body's `class`, `style`,
+  `bgcolor` and `text`, and its `background` picture as every letter has
+  it; `<link>` sheets and `@import` are not loaded for it, and its body's
+  `id`, `link`, `vlink`, `alink` and other
   attributes, and its root's (`<html>`'s), are not brought, so a rule
   naming the body by its id, or the root by a class or an attribute,
   matches nothing. Letters that name no colour, in `bgcolor` or `text`,
@@ -36146,6 +36150,65 @@ its own colours, as on a plain letter, on its page and in the stack
 read for its style once, its frame (`ownFrame`) given both to Mail's line
 and to its box, so Block All Remote Content does not double the reading
 `testALetterMadeToBeSlowIsReadOnce` bounds.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-look, on the int19
+build, at the check's step 2, and reproduced by a second run on a new
+letter. (f), whose body's tag names a pale 64 by 64 picture of its own by
+`<body background="cid:…">`, was drawn light, as it should be, but white
+everywhere behind its words, between its paragraphs and beside its quote:
+the pale picture was not behind them. It was drawn once, at its size,
+under the quote, where the white ended. Every other letter of the step
+was drawn as the check says.
+
+*The cause.* The wrapper's removal (`DocumentWrapper.stripped`, B-169's
+own reason for the box of a letter in its own colours) takes the body's
+tag off, and its `background` with it. A light letter's page had only
+`#bm { background: #fff }`, and only a letter in its own colours got
+anything of its body's tag back (`ownFrame`), never its `background`.
+With no reference to the part left in the markup, `BodyFiles` did not
+count it as drawn by the letter, and drew it after the words as a
+picture file (B-170). `LetterScheme` reads the attribute from the
+letter as it came, which is why the letter was rightly light. "Not
+covered" said the background was lost; it did not say the picture came
+back as a file.
+
+*Changed.* `PanePage.backgroundBox`, new: what the body's tag gave the
+page behind the words, read from the letter as it came with
+`LetterScheme.Markup`, as the scheme is: the picture its `background`
+names, as the box's `background-image`, tiled as WebKit tiles a body's,
+and, for a letter drawn light, its `bgcolor`, read as WebKit reads it
+(`LetterCSS.legacyColour`), as the box's colour. A `div` of the class
+`bm-body-bg`, a `flow-root` so the letter's first and last margins stay
+inside it; nil, and the markup as it was, for a letter whose body gives
+neither. `PanePage.content` puts the letter's markup in it before the
+`cid:` rewrite and the hold-back, so the box's `cid:` is pointed at the
+loader (`InlineImageRewriter`), which makes `BodyFiles` count the part as
+drawn by the letter and draw no file for it; and one of the web is held
+back under Block All Remote Content as a picture of the markup is
+(`RemoteContent.blocked` reads a `style`, B-168), and `PanePage.held`
+counts it, so Mail's line goes over such a letter. `content` takes the
+letter's scheme, which `letter` and `stackBody` give it, so the box is
+the same on a letter's own page and in a conversation's stack. A letter
+in its own colours has the picture there too, inside its body's `div`,
+which keeps its `bgcolor` as before. Inside the pane's margin, as that
+`div` is. On paper (B-110) the picture is in the box and prints as no
+background prints (`LetterPrint`), and no longer as a file after the
+words; the paper has no `bgcolor` (`PrintPage` gives no scheme). An
+inverted letter has no box: a picture on its body would have made it
+light.
+
+*Tests.* `DarkLikeMailTests`, one new: (f)'s shape, its picture by `cid:`
+and a `bgcolor`, on its page, in a stack and on paper, the box with the
+picture pointed at the loader before the words and closed after them,
+no picture drawn as a file and no `cid:` left; the same in its own
+colours with the colour on its body's `div` alone; a light letter with
+a colour alone, and one with neither, as it was; a picture from the web,
+an apostrophe in its address escaped, held back with Mail's line, on its
+page and in a stack, and loaded with no line when not held back.
+`BoundedLetterTests`' page fingerprints: letter 33, drawn light in the
+stack, has its white `bgcolor` on its box, the one fingerprint changed.
+The box not put around the markup, 16 failures in the new test; the
+held-back count of the picture undone alone, 4. Both put back.
 
 ## B-170 — FIXED 2026-10-27, not yet seen on the iPad. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 

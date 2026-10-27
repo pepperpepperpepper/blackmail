@@ -525,7 +525,10 @@ final class BoundedLetterTests: XCTestCase {
     /// With that change undone, the pane drawing none of them and such a
     /// letter said to have no text, the fingerprints before it held, every
     /// one: they began 8ed1fd729c463093, and each of the six was
-    /// 355790a2dd2326b6.
+    /// 355790a2dd2326b6. Since B-169 was fixed again after the test iPad,
+    /// a letter drawn light has its body's `bgcolor` on the box its markup
+    /// goes in (`PanePage.backgroundBox`): letter 33, drawn light in the
+    /// stack, has its white there; it was 24658b232cc917e1.
     private static let pages = [
         "042fa1fba3b185eb", "ae371aff3808de9b", "f8a91ad417a307b3", "401046654ee323dd",
         "0b8add0a65c15e13", "841ef67cad831465", "e58f0a723fb0916b", "841ef67cad831465",
@@ -535,7 +538,7 @@ final class BoundedLetterTests: XCTestCase {
         "4a84965b55302199", "64b9974d62906d8f", "e0f3a0a09d1c20af", "717da7976e96efcd",
         "efd4b45365027c8f", "1eb97def8991a813", "7bcfbee5d7567967", "d85ad812bcf1efb5",
         "e5436cef6c144eab", "f162dd9786fbb47b", "6fb050b1e397548f", "afdf912c86864e77",
-        "994ee34f0e121715", "24658b232cc917e1", "f6f84d381aa2421d", "302073a1c68034a1",
+        "994ee34f0e121715", "c6d3af3990063aaf", "f6f84d381aa2421d", "302073a1c68034a1",
         "54af712b4e631e25", "2dff5da509a27623", "29eb0f5046845c05", "55cf2ee044c86ba3",
         "693674839c8c88ff", "8b51c9db185b820b", "2f2388b5e0ba091b", "a373e15015f7583b",
         "e7389efb5fcc3e27", "fbc2d41db3f24e17", "c3a4959b9b504d89", "3c33306c9fdde7fb",

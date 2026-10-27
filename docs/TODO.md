@@ -9154,8 +9154,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          (prefers-color-scheme: dark)` rules making the cards #1c1c1e and
          the words #f2f2f7, a link coloured for the dark; (f) "B-169
          background", (a) with `<body background="cid:…">` of a pale
-         picture; (g) "B-169 stack" with (b)'s body and (h) "Re: B-169
-         stack", a day later, (a)'s body, its In-Reply-To and References
+         picture 64 by 64 px; (k) "B-169 web colour", (b) with `<body
+         bgcolor="#fdf6e3">`; (g) "B-169 stack" with (b)'s body and (h)
+         "Re: B-169 stack", a day later, (a)'s body, its In-Reply-To and References
          naming (g), so the two are one conversation; (i) "B-169 own
          body", `<meta name="color-scheme" content="light dark">`, nothing
          in its head, `<body style="background-color:#ffffff">`, its words
@@ -9173,8 +9174,14 @@ checks below is left as not needed, not open, and none is worth a round.*
          with words #f2f2f7, on the pane's black, its link in its own
          colour; (i) white behind its words, which are #333333, the
          pane's margin black around the white; (j) #1c1c1e behind words
-         #f2f2f7, not white. In each, the header and the list black as
-         ever. Then two panes: the same.
+         #f2f2f7, not white; (f) the pale picture tiled behind all its
+         words, from under the header to the letter's end, between its
+         paragraphs and beside its quote, and not drawn once at its size
+         after the words (the step as first written said only "white",
+         and the round found the picture once after the quote); (k)
+         #fdf6e3 behind its words, a white edge the pane's margin wide
+         around it. In each, the header and the list black as ever. Then
+         two panes: the same.
       3. *The tap:* from (a) to (b) and back, recorded at 60 frames a
          second: black under the header from the tap until the letter, as
          B-149 has it, then the white of (b); no frame of (a)'s black under
@@ -9185,7 +9192,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          again.
       5. *Print:* on (b) and on (e), Reply, then Print: the preview's paper
          white with the letter's own light colours, as before B-169; (e)'s
-         cards white with dark words, not its dark ones. Cancel.
+         cards white with dark words, not its dark ones. On (f): its
+         words on white, no pale picture behind them and none after them.
+         Cancel.
       6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
          UIDs it noted, and only them, from "Notes" to the Trash (`UID
          MOVE`), and deletes in the Trash only the UIDs that move answered

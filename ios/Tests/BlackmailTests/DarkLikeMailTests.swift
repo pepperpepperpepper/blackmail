@@ -756,6 +756,74 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertEqual(PanePage.letter(own, style: style, heldBack: false), shown)
     }
 
+    // MARK: - The body's background
+
+    /// A light letter's body's background picture is behind its words, as
+    /// Mail draws it, where the wrapper's removal took it off with the
+    /// body's tag and the picture, a part of the letter's own by `cid:`,
+    /// was drawn once at its size after the words as a file (found on the
+    /// test iPad, 2026-10-27): its markup in a box with the picture, the
+    /// `cid:` pointed at the loader, the part counted as drawn by the
+    /// letter and no file drawn for it; on its page, in a stack and on
+    /// paper. Its `bgcolor` the box's colour where it is drawn light, and
+    /// not where it is in its own colours, whose body's `div` has it. One
+    /// of the web held back under Block All Remote Content, with Mail's
+    /// line; shown, loaded. A letter whose body gives neither is as it was.
+    func testABodysBackgroundPictureIsBehindItsWords() throws {
+        let html = "<html><body background=\"cid:pale@example.com\" bgcolor=\"#fdf6e3\">"
+            + "<p>Dear Ann,</p><blockquote type=\"cite\">Thanks.</blockquote></body></html>"
+        let m = letter(html, pictures: ["pale@example.com"])
+        XCTAssertEqual(scheme(html), .light)
+        let box = "<div class=\"bm-body-bg\" style=\"display: flow-root; background-color: #fdf6e3; "
+            + "background-image: url('bmcid://pale%40example.com'); background-repeat: repeat;\">"
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        let stack = PanePage.stackBody(m)
+        XCTAssertEqual(stack.kind, "bm-light")
+        for drawn in [page, stack.html] {
+            XCTAssertTrue(drawn.contains(box + "<p>Dear Ann,</p>"), drawn)
+            XCTAssertTrue(drawn.contains("</blockquote></div>"), drawn)
+            XCTAssertFalse(drawn.contains("<img"), drawn)
+            XCTAssertFalse(drawn.contains("bmfile-"), drawn)
+            XCTAssertFalse(drawn.contains("cid:pale"), drawn)
+        }
+        let paper = PrintPage.body(m).html
+        XCTAssertTrue(paper.contains("url('bmcid://pale%40example.com')"), paper)
+        XCTAssertFalse(paper.contains("bmfile-"), paper)
+        XCTAssertFalse(paper.contains("#fdf6e3"), paper)
+
+        // In its own colours: the picture, and the colour on its body's
+        // `div` alone.
+        let own = letter("<meta name=\"color-scheme\" content=\"light dark\">"
+                         + "<body background=\"cid:pale@example.com\" bgcolor=\"#fdf6e3\"><p>x</p></body>",
+                         pictures: ["pale@example.com"])
+        let ownBody = PanePage.stackBody(own).html
+        XCTAssertTrue(ownBody.contains("<div class=\"bm-body-bg\" style=\"display: flow-root; "
+                                       + "background-image: url('bmcid://pale%40example.com');"), ownBody)
+        XCTAssertEqual(ownBody.components(separatedBy: "#fdf6e3").count, 2, ownBody)
+        XCTAssertFalse(ownBody.contains("bmfile-"), ownBody)
+
+        // A colour alone on a light letter; and a light letter with neither,
+        // as it was.
+        let coloured = letter(Self.withAWebPicture.replacingOccurrences(of: "<body>", with: "<body bgcolor=\"eee\">"))
+        XCTAssertTrue(try XCTUnwrap(PanePage.letter(coloured, style: style))
+                        .contains("<div class=\"bm-body-bg\" style=\"display: flow-root; background-color: #0e0e0e;\">"))
+        XCTAssertFalse(try XCTUnwrap(PanePage.letter(letter(Self.withAWebPicture), style: style))
+                        .contains("bm-body-bg"))
+
+        // From the web, held back and then loaded; a quote in its address
+        // kept inside the `url()`.
+        let web = letter("<body background=\"https://example.com/it's.png\"><p>x</p></body>")
+        let held = try XCTUnwrap(PanePage.letter(web, style: style, heldBack: true))
+        let heldBody = PanePage.stackBody(web, heldBack: "7/3").html
+        for drawn in [held, heldBody] {
+            XCTAssertTrue(drawn.contains("url('bmoffhttps://example.com/it\\'s.png')"), drawn)
+            XCTAssertTrue(drawn.contains(RemoteContent.line(for: "7/3")), drawn)
+        }
+        let shown = try XCTUnwrap(PanePage.letter(web, style: style))
+        XCTAssertTrue(shown.contains("url('https://example.com/it\\'s.png')"), shown)
+        XCTAssertFalse(shown.contains(RemoteContent.unloaded))
+    }
+
     // MARK: - node
 
     private struct NoNode: Error {}
