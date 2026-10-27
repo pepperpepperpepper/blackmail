@@ -28,6 +28,12 @@ import UIKit
 /// No avatar. The reference has one at the right of the sender line; `BRIEF.md`
 /// bans sender photographs and that ban still holds. It costs horizontal room
 /// and tells him nothing the name beside it does not.
+///
+/// No files. Mail's header has no list of them: each is drawn in the
+/// letter's body, where it sits, a picture at its size and any other file
+/// as Mail's tile (`BodyFiles`, B-170). The header had a row per file under
+/// the date from B-101 until then, the files of a letter's row from the tap
+/// (B-042) and, from B-148, all but a file drawn among the words.
 final class MessageHeaderView: UIView {
 
     private let senderLabel = UILabel()
@@ -43,28 +49,6 @@ final class MessageHeaderView: UIView {
     /// date can be written again where it is (`drawDate`).
     private var date: Date?
     private var spoken = ""
-    /// One tappable row per file, not one blue label listing them all.
-    ///
-    /// The label was styled like a link and was not one — the single worst
-    /// state for a control to be in, and for a reader who cannot tell
-    /// "nothing happened" from "I missed" it is actively cruel. A row each
-    /// also gives every file its own `minHitTarget`-sized target instead of
-    /// one line of 13 pt text shared between them.
-    private let attachmentStack = UIStackView()
-    private var attachmentButtons: [String: UIButton] = [:]
-
-    /// Fired when a file is tapped. The header does not know how to open
-    /// one; it only knows which was chosen.
-    ///
-    /// The rows are greyed while there is none: the header lists a letter's
-    /// files from the tap, from its list row, and they can be opened once
-    /// the letter has come. Greyed rather than live and ignoring the tap,
-    /// which reads as a tap that missed.
-    var onSelectAttachment: ((Attachment) -> Void)? {
-        didSet {
-            for button in attachmentButtons.values { button.isEnabled = onSelectAttachment != nil }
-        }
-    }
     private let topRule = UIView()
     private let bottomRule = UIView()
 
@@ -83,15 +67,12 @@ final class MessageHeaderView: UIView {
         subjectLabel.numberOfLines = 0
         dateLabel.font = Theme.fontDetailMeta
         dateLabel.textColor = Theme.secondaryText
-        attachmentStack.axis = .vertical
-        attachmentStack.spacing = 0
-        attachmentStack.alignment = .fill
 
         topRule.backgroundColor = Theme.detailRule
         bottomRule.backgroundColor = Theme.detailRule
 
         for v in [senderLabel, toLabel, ccLabel, topRule, subjectLabel, dateLabel,
-                  attachmentStack, bottomRule] as [UIView] {
+                  bottomRule] as [UIView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -105,25 +86,6 @@ final class MessageHeaderView: UIView {
         // separate. Two passes independently located the left end at 22-23 pt,
         // and a solid line localises far better than a glyph does.
         let rule = Theme.detailRuleInsetLeft
-
-        // An empty `UIStackView` has no intrinsic height, and it sits in the
-        // middle of the chain that gives this header its own height — so
-        // with no files on the message, nothing decides how tall the header
-        // is and the layout is AMBIGUOUS. Auto Layout is then free to pick
-        // any value, and it picks a different one depending on what else is
-        // being laid out at the time: in a message with no attachments it
-        // settled on 0, and in the conversation pane it settled on 760 of
-        // an 834 pt pane, which left the web view pinned under it exactly 0
-        // points tall. The stack was fine, the letters were fine, the
-        // document was fine — there was simply nowhere to draw it.
-        //
-        // A zero-height preference at low priority resolves it: with files,
-        // the arranged subviews' own required constraints win and this
-        // breaks harmlessly; with none, the header collapses to its text
-        // the way it always appeared to.
-        let flat = attachmentStack.heightAnchor.constraint(equalToConstant: 0)
-        flat.priority = .defaultLow
-        flat.isActive = true
 
         ccGap = ccLabel.topAnchor.constraint(equalTo: toLabel.bottomAnchor, constant: 0)
 
@@ -158,13 +120,12 @@ final class MessageHeaderView: UIView {
             dateLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: left),
             dateLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -left),
 
-            attachmentStack.topAnchor.constraint(equalTo: dateLabel.bottomAnchor,
-                                                 constant: Theme.detailDateAttachmentGap),
-            attachmentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: left),
-            attachmentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -left),
-
-            bottomRule.topAnchor.constraint(equalTo: attachmentStack.bottomAnchor,
-                                            constant: Theme.detailAttachmentRuleGap),
+            // The two gaps the files' rows sat between, which a letter with
+            // no file had with nothing between them (B-170): the header is
+            // the height a letter with no file always had.
+            bottomRule.topAnchor.constraint(equalTo: dateLabel.bottomAnchor,
+                                            constant: Theme.detailDateAttachmentGap
+                                                + Theme.detailAttachmentRuleGap),
             bottomRule.leadingAnchor.constraint(equalTo: leadingAnchor, constant: rule),
             bottomRule.trailingAnchor.constraint(equalTo: trailingAnchor),
             bottomRule.heightAnchor.constraint(equalToConstant: 0.5),
@@ -187,23 +148,6 @@ final class MessageHeaderView: UIView {
         date = m.date
         spoken = "From \(MailFormat.displayName(m.sender)), \(m.subject)"
         drawDate()
-
-        // Inline pictures are not files: they are rendered inside the
-        // letter by the `cid:` resolver, and a row for each would list the
-        // signature's logo on every message. See Attachment.isShownInBody:
-        // any other part sent inline, as Apple Mail sends a PDF, is a file.
-        // But for a file drawn among the words, which has its row there
-        // and none here, as Mail lists it once (`BodyFiles.inHeader`,
-        // B-148).
-        let listed = BodyFiles.inHeader(m)
-        for row in attachmentStack.arrangedSubviews { row.removeFromSuperview() }
-        attachmentButtons.removeAll()
-        attachmentStack.isHidden = listed.isEmpty
-        for attachment in listed {
-            let button = makeAttachmentButton(attachment)
-            attachmentButtons[attachment.id] = button
-            attachmentStack.addArrangedSubview(button)
-        }
     }
 
     /// The date under the subject written from the letter's own, as the
@@ -218,55 +162,6 @@ final class MessageHeaderView: UIView {
         let when = MailFormat.detailTimestamp(date)
         dateLabel.text = when
         accessibilityLabel = "\(spoken), \(when)"
-    }
-
-    private func makeAttachmentButton(_ attachment: Attachment) -> UIButton {
-        let button = UIButton(type: .system)
-
-        var config = UIButton.Configuration.plain()
-        // At a fixed size (B-071). The button's own would follow the iPad's
-        // text size, and at the largest took the row from 44 pt to 86.
-        config.image = Theme.symbol("paperclip")
-        config.preferredSymbolConfigurationForImage = Theme.symbolSize
-        config.imagePadding = 8
-        config.baseForegroundColor = Theme.tintBlue
-        config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
-        // Middle, not tail. The extension lives at the end of the name and is
-        // the part that says what the thing IS — "Invoice-QX7T…-0001.pdf"
-        // is useful where "Invoice-QX7T2KDA-000…" is not.
-        config.titleLineBreakMode = .byTruncatingMiddle
-
-        let size = attachment.size.map {
-            " (" + ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) + ")"
-        } ?? ""
-        var title = AttributedString(attachment.filename + size)
-        title.font = Theme.fontDetailMeta
-        config.attributedTitle = title
-        button.configuration = config
-
-        button.contentHorizontalAlignment = .leading
-        button.isEnabled = onSelectAttachment != nil
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget).isActive = true
-        button.accessibilityLabel = "Attachment, \(attachment.filename)\(size)"
-        button.addAction(UIAction { [weak self] _ in
-            self?.onSelectAttachment?(attachment)
-        }, for: .touchUpInside)
-        return button
-    }
-
-    /// Shows that a particular file is being fetched.
-    ///
-    /// Per row rather than one spinner somewhere on the screen, so the
-    /// feedback lands on the thing that was touched. A download of a few
-    /// megabytes is several seconds of nothing otherwise, which reads as a
-    /// tap that missed — and the response to that is to tap again.
-    ///
-    /// Not busy is live only if a file can be opened: a row listed from the
-    /// list's row before the letter has come stays grey.
-    func setAttachment(_ id: String, busy: Bool) {
-        guard let button = attachmentButtons[id] else { return }
-        button.isEnabled = !busy && onSelectAttachment != nil
-        button.configuration?.showsActivityIndicator = busy
     }
 }
 

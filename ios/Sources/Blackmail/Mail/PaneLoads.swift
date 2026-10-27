@@ -240,10 +240,10 @@ extension Message {
     /// Cc line from the tap, where it used to gain it as the letter landed,
     /// and move a conversation's stack down a line under him (B-055). The
     /// files are the row's, from the letter's structure, and they are the
-    /// ones the landed letter lists: a row each, at least 44 pt tall, which
-    /// the header used to gain only when the body came, pushing the letter
-    /// or a conversation's stack down under him. `subject` is the thread's
-    /// when the pane is showing a conversation.
+    /// ones the landed letter lists. The header listed them, a row each, so
+    /// that it did not grow by them when the body came (B-042), until
+    /// B-170: it lists none now, and the body draws them. `subject` is the
+    /// thread's when the pane is showing a conversation.
     static func heading(for row: MessageSummary, subject: String? = nil) -> Message {
         Message(id: row.id, mailboxID: row.mailboxID,
                 sender: row.sender, senderAddress: MailFormat.bareAddress(row.sender),

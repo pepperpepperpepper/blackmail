@@ -52,7 +52,9 @@ enum PanePage {
     /// printed letter's (`LetterPrint`, B-110). A `Content-ID` only means
     /// anything inside the letter that declared it, and two letters can
     /// both have `cid:image001.png`; where they do, the later letter's is
-    /// served.
+    /// served. And each letter's picture files, which the body draws at
+    /// their size (`BodyFiles.picture`, B-170), by the address the page
+    /// asks for them by (`BodyFiles.pictureID`), which names the letter.
     static func pictures(of letters: [Message]) -> [String: Picture] {
         var parts: [String: Picture] = [:]
         for m in letters {
@@ -60,6 +62,10 @@ enum PanePage {
                 guard let cid = attachment.contentID else { continue }
                 parts[cid] = Picture(messageID: m.id, mailboxID: m.mailboxID,
                                      section: attachment.id, mimeType: attachment.mimeType)
+            }
+            for file in m.listedAttachments where BodyFiles.isPicture(file) {
+                parts[BodyFiles.pictureID(file.id, of: m.id)] = Picture(
+                    messageID: m.id, mailboxID: m.mailboxID, section: file.id, mimeType: file.mimeType)
             }
         }
         return parts
@@ -92,12 +98,14 @@ enum PanePage {
         // not reliably whitespace and the document may open with a layout
         // table.
         //
-        // A file sent among the words has its row where it sat, a link that
-        // opens it (`BodyFiles`, B-113); a letter with none is as it was.
-        let content = isHTML
-            ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
-                                              flowed: false), of: m)
-            : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed)
+        // Every file of the letter is drawn in it, where it sat or after
+        // the words, as Mail draws it (`BodyFiles`, B-170); a letter with
+        // none is as it was.
+        let content = BodyFiles.drawn(
+            in: isHTML
+                ? Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m), flowed: false)
+                : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed),
+            of: m, on: isHTML ? .light : .dark, cut: m.isShortened)
 
         // Every property lives on #bm, a container the inner document cannot
         // reach, rather than on `body` where a sender's inline style outranks
@@ -186,25 +194,32 @@ enum PanePage {
     /// sender's markup without its wrapper, text escaped with its leading
     /// blank lines dropped as a letter on its own drops them, or the words
     /// for a letter with nothing in it. Its links are made links, a plain
-    /// letter's quotes Mail's blockquotes (B-147), and a file sent among its
-    /// words has its row there, as a letter on its own has them.
+    /// letter's quotes Mail's blockquotes (B-147), and its files are drawn
+    /// in it, as a letter on its own has them (`BodyFiles`, B-170): each
+    /// letter's in its own body.
     static func stackBody(_ m: Message) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = isEmpty(m)
         let content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
-            : (isHTML
-               ? BodyFiles.rows(in: TextLinks.html(InlineImageRewriter.rewrite(
-                   DocumentWrapper.stripped(from: m.htmlBody!), known: contentIDs(of: m))), of: m)
-               : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
-                                  flowed: m.textIsFlowed, escaping: .ampersandAndBrackets))
+            : BodyFiles.drawn(
+                in: isHTML
+                    ? TextLinks.html(InlineImageRewriter.rewrite(
+                        DocumentWrapper.stripped(from: m.htmlBody!), known: contentIDs(of: m)))
+                    : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
+                                       flowed: m.textIsFlowed, escaping: .ampersandAndBrackets),
+                of: m, on: isHTML ? .light : .dark, cut: m.isShortened)
         return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)
     }
 
     /// Whether the pane says the letter has no text: nothing in it to draw,
-    /// and all of it there. A letter shown only in part is never said to
-    /// have none, but to be only the beginning (B-114).
+    /// no file either, and all of it there. A letter shown only in part is
+    /// never said to have none, but to be only the beginning (B-114). A
+    /// letter of files and no words is its files, as Mail draws it
+    /// (B-170), where the pane said it had no text and its files were in
+    /// the header.
     static func isEmpty(_ m: Message) -> Bool {
-        !m.isShortened && MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
+        !m.isShortened && m.listedAttachments.isEmpty
+            && MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
     }
 }

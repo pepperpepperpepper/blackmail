@@ -39,8 +39,12 @@ import Foundation
 /// on an element by its `id` (`down(_:on:)`), as WebKit sends a touch the
 /// element under it, and each picture's style set by the script is kept,
 /// as written, for the run's end (B-150). So is each link to a file the
-/// pane opens, with the words of what the script put in it, and the pane
-/// showing a file coming is a step of its own (`BodyFiles.Busy`, B-148).
+/// pane opens, its tile, with the words of its last line, and the pane
+/// showing a file coming is a step of its own (`BodyFiles.Busy`, B-148,
+/// B-170). An element keeps the words written in it, as its
+/// `textContent`. A click hands its listeners `preventDefault`, and the
+/// run keeps whether one called it, as WebKit then follows no link
+/// (B-170).
 ///
 /// The pane's word that the header over the stack changed height
 /// (`ConversationDocument.Shift`, B-128) is a step of its own. The move it
@@ -136,9 +140,15 @@ enum ModelPage {
         /// property and its value, `!important` after it when so (B-150).
         let styles: [String: [String: String]]
         /// Each link to a file the pane opens (`BodyFiles`) at the end: its
-        /// `href`, its style as the script set it, and the words of each
-        /// element the script put in it (B-148).
+        /// `href`, its style as the script set it, and the words of its
+        /// tile's last line, nil for a link with none (B-148, B-170).
         let files: [File]
+        /// What the script posted to `bmPicture` of a file's tile held
+        /// (B-170), as it posted it.
+        let tileHolds: [TileHold]
+        /// Each click, by the `id` it was given on, and whether a listener
+        /// stopped it (`preventDefault`), so that WebKit follows no link.
+        let clicks: [Click]
         let errors: [String]
         /// How many touch events the script stopped WebKit's own doing of
         /// (`preventDefault`).
@@ -206,7 +216,27 @@ enum ModelPage {
         struct File: Decodable, Equatable {
             let href: String
             let style: [String: String]
-            let marks: [String]
+            let status: String?
+        }
+
+        /// A file's tile held, as the script posts it to the pane.
+        struct TileHold: Decodable, Equatable {
+            let file: String
+            let section: String
+            let hold: Bool
+            let x: Double
+            let y: Double
+
+            /// As WebKit hands it to the pane.
+            var body: [String: Any] {
+                ["file": file, "section": section, "hold": NSNumber(value: hold),
+                 "x": NSNumber(value: x), "y": NSNumber(value: y)]
+            }
+        }
+
+        struct Click: Decodable, Equatable {
+            let id: String
+            let stopped: Bool
         }
 
         struct Call: Decodable {
@@ -344,6 +374,15 @@ enum ModelPage {
         };
       }
       get id() { return this.attrs.id || ''; }
+      get textContent() {
+        if (this.ownText !== undefined) return this.ownText;
+        return (this.text || '') + this.children.map(function (c) { return c.textContent; }).join('');
+      }
+      set textContent(v) {
+        for (const c of this.children) c.parentNode = null;
+        this.children = [];
+        this.ownText = String(v);
+      }
       get className() { return this.attrs['class'] || ''; }
       set className(v) { this.attrs['class'] = v; }
       get classList() {
@@ -452,6 +491,9 @@ enum ModelPage {
           const el = new Element(m[2], attrs);
           if (open.length) open[open.length - 1].appendChild(el); else top.push(el);
           if (!VOID.has(m[2].toLowerCase())) open.push(el);
+        } else if (m[4] && open.length) {
+          const into = open[open.length - 1];
+          into.text = (into.text || '') + m[4];
         }
       }
       return top;
@@ -528,9 +570,14 @@ enum ModelPage {
     };
     globalThis.getSelection = function () { return { isCollapsed: true, removeAllRanges: function () {} }; };
     const pictures = [];
+    const tileHolds = [];
     globalThis.webkit = { messageHandlers: { bmLetter: { postMessage: function (m) {
       posts.push({ id: m.id, open: m.open });
     } }, bmPicture: { postMessage: function (m) {
+      if (m.file !== undefined) {
+        tileHolds.push({ file: m.file, section: m.section, hold: m.hold, x: m.x, y: m.y });
+        return;
+      }
       pictures.push({ src: m.src, section: m.section, width: m.width, height: m.height,
                       drawnWidth: m.drawnWidth, drawnHeight: m.drawnHeight,
                       hold: m.hold === undefined ? null : m.hold,
@@ -605,7 +652,7 @@ enum ModelPage {
     }
 
     const out = { frames: [], posts: posts, pictures: pictures, errors: errors, stopped: 0, calls: [], styles: {},
-                  files: [] };
+                  files: [], tileHolds: tileHolds, clicks: [] };
     function frame() {
       if (coast) {
         const step = coast.v * FRAME;
@@ -664,11 +711,15 @@ enum ModelPage {
         case 'click': {
           const el = doc.getElementById(step.id);
           if (!el) { errors.push('click: no ' + step.id); return; }
+          const click = { id: step.id, stopped: false };
           for (let n = el; n instanceof Element; n = n.parentNode) {
             for (const fn of (n.listeners.click || []).slice()) {
-              try { fn({ currentTarget: n, target: el }); } catch (e) { errors.push('click: ' + e.message); }
+              try {
+                fn({ currentTarget: n, target: el, preventDefault: function () { click.stopped = true; } });
+              } catch (e) { errors.push('click: ' + e.message); }
             }
           }
+          out.clicks.push(click);
           return;
         }
         case 'clickLine': {
@@ -740,9 +791,8 @@ enum ModelPage {
       if (el.tagName === 'IMG' && el.id && Object.keys(el.style.props).length) out.styles[el.id] = el.style.props;
       const href = el.getAttribute('href');
       if (el.tagName === 'A' && href !== null && href.indexOf('bmfile:') === 0) {
-        out.files.push({ href: href, style: el.style.props,
-                         marks: el.children.filter(function (c) { return typeof c.textContent === 'string'; })
-                                           .map(function (c) { return c.textContent; }) });
+        const status = el.querySelector('.bm-file-status');
+        out.files.push({ href: href, style: el.style.props, status: status ? status.textContent : null });
       }
     }
     process.stdout.write(JSON.stringify(out));

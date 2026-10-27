@@ -171,7 +171,7 @@ final class StackHeaderAtTheTapTests: XCTestCase {
                               to: "private func focusLetter(")
         XCTAssertTrue(row.contains(
             "message = nil summary = row let before = header.frame.height "
-            + "header.configure(with: .heading(for: row)) header.onSelectAttachment = nil "
+            + "header.configure(with: .heading(for: row)) "
             + "keepPlace(headerWas: before) }"), row)
 
         let letter = try section(of: code, from: "private func focusLetter(_ m: Message) {",

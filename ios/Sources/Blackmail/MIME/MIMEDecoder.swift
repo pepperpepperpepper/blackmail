@@ -1144,27 +1144,18 @@ enum MIMEDecoder {
         body.textIsFlowed = plan.textIsFlowed
         var attachments: [Attachment] = []
         collectAttachments(part, skipping: plan.sections, depth: 0, into: &attachments)
-        // Each file the HTML draws among its words says so, from the
-        // structure alone, for a row as for the letter (B-148).
-        let among = filesAmongWords(plan)
-        if !among.isEmpty {
-            for i in attachments.indices where among.contains(attachments[i].id) {
-                attachments[i].isAmongWords = true
-            }
-        }
         body.attachments = attachments
         return body
     }
 
-    /// The files a letter carries, as the reading pane's header lists them,
-    /// from its structure alone: what `flatten` finds with no bodies to
-    /// hand, less the pictures the body shows by `cid:`
+    /// The files a letter carries, as the reading pane draws them in its
+    /// body (`BodyFiles`), from its structure alone: what `flatten` finds
+    /// with no bodies to hand, less the pictures the body shows by `cid:`
     /// (`Attachment.isShownInBody`, the rule `Message.listedAttachments`
     /// keeps too). Worked out from the BODYSTRUCTURE a list row is fetched
-    /// with, so the header can list the files before the letter is
-    /// downloaded, the same ones it will list once it has been: the
-    /// downloaded letter goes through `flatten` too, and IMAP numbers the
-    /// parts as `parse` does.
+    /// with, the same files the letter lists once it has been downloaded:
+    /// the downloaded letter goes through `flatten` too, and IMAP numbers
+    /// the parts as `parse` does.
     static func listedAttachments(in structure: MIMEPart) -> [Attachment] {
         flatten(structure) { _ in nil }.attachments.filter { !$0.isShownInBody }
     }
@@ -1227,8 +1218,9 @@ enum MIMEDecoder {
         /// as text.
         case words(MIMEPart)
         /// A file among the words. Drawn in an HTML letter where it sits,
-        /// with words before it and after it, as a row the pane makes of
-        /// its mark (`BodyFiles`); nothing in the plain words.
+        /// with words after it, as the tile or the picture the pane makes
+        /// of its mark (`BodyFiles`); nothing in the plain words, where the
+        /// pane draws it after them.
         case file(MIMEPart)
         /// A letter forwarded inline as message/rfc822, the part itself:
         /// the header lines drawn above its words, in Mail's form, when
@@ -1584,8 +1576,8 @@ enum MIMEDecoder {
     ///
     /// Joined, an HTML part goes in without its wrapper (`DocumentWrapper`,
     /// which the pane takes off anyway), plain words as escaped text that
-    /// keeps its lines, a file among the words as a mark the pane draws its
-    /// row at (`BodyFiles`), and a forwarded letter's header lines in Mail's
+    /// keeps its lines, a file among the words as a mark the pane draws it
+    /// at (`BodyFiles`), and a forwarded letter's header lines in Mail's
     /// form (`ForwardedFields`). In the plain words an HTML part is its text
     /// (`HTMLText`), as a reply would quote it, a file is nothing, and each
     /// part begins a line of its own.
@@ -1663,13 +1655,12 @@ enum MIMEDecoder {
     }
 
     /// The pieces a body draws: every part of words; a file only in the
-    /// HTML, and only with words before it and after it, where Mail draws
-    /// it among them, a file before or after all of them having its row in
-    /// the header alone, as every file always has; and a forwarded letter's
-    /// header lines only when there are words outside it, so a letter that
-    /// is nothing but the one it forwards reads as it always did.
+    /// HTML, and only with words after it, where Mail draws it among them
+    /// or above them, a file after all of them drawn by the pane after the
+    /// words (`BodyFiles`, B-170); and a forwarded letter's header lines
+    /// only when there are words outside it, so a letter that is nothing
+    /// but the one it forwards reads as it always did.
     private static func drawnPieces(_ pieces: [BodyPiece], asHTML: Bool) -> [BodyPiece] {
-        let first = pieces.firstIndex(where: isWords)
         let last = pieces.lastIndex(where: isWords)
         let allWords = pieces.reduce(0) { $0 + ($1.words == nil ? 0 : 1) }
         var out: [BodyPiece] = []
@@ -1678,7 +1669,7 @@ enum MIMEDecoder {
             case .words:
                 out.append(piece)
             case .file:
-                guard asHTML, let first, let last, first < i, i < last else { continue }
+                guard asHTML, let last, i < last else { continue }
                 out.append(piece)
             case .forwarded(let letter):
                 // Its own pieces come straight after it, every one a part
@@ -1694,54 +1685,6 @@ enum MIMEDecoder {
             }
         }
         return out
-    }
-
-    /// The files the HTML draws among its words, by section (B-148): each
-    /// one a row the pane makes of its mark where it sat (`BodyFiles`), so
-    /// the header lists it no more (`BodyFiles.inHeader`), as Mail lists a
-    /// file once. The pieces `joined` draws (`drawnPieces`), from the
-    /// letter's structure alone, so the header drawn at the tap leaves out
-    /// the files the body will draw and keeps its height when it comes.
-    ///
-    /// None where the HTML has no part of HTML, which `joined` makes
-    /// nothing of, and the pane draws the plain words, with no rows. And a
-    /// file whose mark could fall after a cut keeps its row in the header:
-    /// one with no words after it, whose mark goes in only at the end of a
-    /// body that came whole; and one whose words before it, or the first
-    /// after it, a letter too large to fetch whole would not have whole,
-    /// each part of the HTML given its share of `limit` as such a letter's
-    /// fetch gives it (`Allowance`), or of a size not known. Whether the
-    /// letter is that large is not in its structure, so every letter is
-    /// read as if it were: for Mail's shape, a few kilobytes of HTML on
-    /// each side of the file, it changes nothing.
-    static func filesAmongWords(_ plan: BodyPlan,
-                                limit: Int = IMAPMailRepository.largeLetterSectionBytes) -> Set<String> {
-        let drawn = drawnPieces(plan.html, asHTML: true)
-        guard drawn.contains(where: isHTML), drawn.contains(where: { !isWords($0) }) else { return [] }
-        let shares = Allowance(plan, limit: limit).html
-        func whole(_ part: MIMEPart) -> Bool {
-            guard let size = part.size, let share = shares[part.section] else { return false }
-            return share > 0 && size <= share
-        }
-        var among = Set<String>()
-        // Whether every part of words so far would come whole.
-        var wholeSoFar = true
-        var waiting: [String] = []
-        for piece in drawn {
-            switch piece {
-            case .words(let part):
-                // The marks waiting go in with these words, if any of them
-                // come: as `joined` puts them, before the words.
-                if wholeSoFar, (shares[part.section] ?? 0) > 0 { among.formUnion(waiting) }
-                waiting = []
-                if !whole(part) { wholeSoFar = false }
-            case .file(let part):
-                waiting.append(part.section)
-            case .forwarded:
-                continue
-            }
-        }
-        return among
     }
 
     private static func section(of piece: BodyPiece) -> String {

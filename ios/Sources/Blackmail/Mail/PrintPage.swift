@@ -2,7 +2,8 @@ import Foundation
 
 /// A letter made into the page that is printed (B-110): light, black on
 /// white, its header as the reading pane's header draws it, then its body as
-/// the pane shows it, in the sender's own colours, with its pictures.
+/// the pane shows it, in the sender's own colours, with its pictures and
+/// its files (B-170).
 ///
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
@@ -43,7 +44,9 @@ enum PrintPage {
     /// The header's lines, in the pane's order and words
     /// (`MessageHeaderView.configure`): the sender's name, "To: …" or "To:
     /// me", "Cc: …" only when there is one, the subject or "(no subject)",
-    /// the date, and a line per file the header lists. The date is written
+    /// and the date; and a line per file of the letter, which the page
+    /// draws in its body, as the pane does, and not in the header, and the
+    /// letter in words lists after its text (B-170). The date is written
     /// out in full (`MailFormat.fullTimestamp`), never "Today" or
     /// "Yesterday": the paper is read on another day.
     struct Head: Equatable {
@@ -55,9 +58,9 @@ enum PrintPage {
         let files: [String]
     }
 
-    /// `size` gives a file's size in words, as the pane's header writes it;
-    /// a file whose size is not known has its name alone. An inline picture
-    /// the body shows has no line, as it has no row in the pane.
+    /// `size` gives a file's size in words, as a file's tile writes it; a
+    /// file whose size is not known has its name alone. An inline picture
+    /// the body shows has no line, as it is no file in the pane.
     static func head(_ m: Message, size: (Int64) -> String,
                      locale: Locale = .current, timeZone: TimeZone = .current) -> Head {
         Head(sender: MailFormat.displayName(m.sender),
@@ -76,8 +79,13 @@ enum PrintPage {
     ///
     /// Light only: `color-scheme` says so, the page is white with black
     /// words, and nothing is inverted, so an HTML letter is in its own
-    /// colours and a plain one is black. A signature's white sheet prints
-    /// as written, its words black on the paper's white, its logo as drawn;
+    /// colours and a plain one is black. Its files are in its body, where
+    /// the pane draws them, its pictures at their size and every other
+    /// file as its tile in Mail's light colours with no "Tap to Download"
+    /// (`BodyFiles`, B-170): Mail prints a letter as its body's web view
+    /// draws it, files and all. The header lists none, as the pane's does
+    /// not. A signature's white sheet prints as written, its words black
+    /// on the paper's white, its logo as drawn;
     /// the pane, which had rules of its own for the sheet until B-146, now
     /// inverts it with the rest. Every value of the header is escaped, and
     /// only ever written as text, never in an attribute.
@@ -111,9 +119,7 @@ enum PrintPage {
         let rule = "<div class=\"bm-rule\"></div>"
         let lines = [line("bm-sender", head.sender), line("bm-meta", head.to)]
             + [head.cc].compactMap { $0 }.map { line("bm-meta", $0) }
-            + [rule, line("bm-subject", head.subject), line("bm-meta", head.date)]
-            + head.files.map { line("bm-meta", $0) }
-            + [rule]
+            + [rule, line("bm-subject", head.subject), line("bm-meta", head.date), rule]
         // Mail's bars beside quoted text (B-101), the pane's own string:
         // Mail's light colours, which on white are as Mail draws them. A
         // plain letter's too, its quotes Mail's blockquotes as in the pane
@@ -160,9 +166,12 @@ enum PrintPage {
     /// nothing in it, where the pane says them (`PanePage.isEmpty`). A
     /// letter shown only in part never has them, in the pane or on paper:
     /// its line is over whatever came, nothing included (B-114, B-131).
-    /// Whether it is the letter's HTML. An HTML letter's pictures decoded
-    /// as they are drawn (`decodedAtOnce`); a plain letter's body has none,
-    /// every `<` in it written `&lt;`.
+    /// Its files drawn in it as the pane draws them, on paper
+    /// (`BodyFiles.drawn`, B-170): where they sat, and the rest after the
+    /// words, or above them under the line for a letter cut. Whether it is
+    /// the letter's HTML. Its pictures decoded as they are drawn
+    /// (`decodedAtOnce`): an HTML letter's and its picture files; a plain
+    /// letter's words have none, every `<` in them written `&lt;`.
     static func body(_ m: Message) -> (html: String, isHTML: Bool) {
         body(m, isEmpty: PanePage.isEmpty(m))
     }
@@ -174,15 +183,19 @@ enum PrintPage {
         let known = PanePage.contentIDs(of: m)
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
-            return (notice(cut != nil || m.isShortened)
-                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known,
-                                                         flowed: false)), true)
+            let shown = cut != nil || m.isShortened
+            return (notice(shown)
+                        + decodedAtOnce(BodyFiles.drawn(
+                            in: PanePage.content(text: nil, html: cut ?? html, known: known, flowed: false),
+                            of: m, on: .paper, cut: shown)), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
-        return (notice(cut != nil || m.isShortened)
-                    + PanePage.content(text: cut ?? text, html: nil, known: known,
-                                       flowed: m.textIsFlowed), false)
+        let shown = cut != nil || m.isShortened
+        return (notice(shown)
+                    + decodedAtOnce(BodyFiles.drawn(
+                        in: PanePage.content(text: cut ?? text, html: nil, known: known, flowed: m.textIsFlowed),
+                        of: m, on: .paper, cut: shown)), false)
     }
 
     /// The pane's words for a letter with nothing in it, grey on paper too.
@@ -277,10 +290,11 @@ enum PrintPage {
     /// header's lines, a blank line, then its text (an HTML letter's made
     /// words, `HTMLText`), under the same limits and line as the page, or
     /// the pane's words for a letter with none, only where the pane says
-    /// them (`PanePage.isEmpty`, B-131). A letter shown only in part, or
-    /// cut here, with no words in what is printed is the header and the
-    /// line alone; a letter whose page shows no words but has something to
-    /// show, a picture, is the header alone.
+    /// them (`PanePage.isEmpty`, B-131), and a line per file after them,
+    /// where the page draws the files it has no mark for (B-170). A letter
+    /// shown only in part, or cut here, with no words in what is printed
+    /// is the header and the line alone; a letter whose page shows no words
+    /// but has something to show, a picture, is the header alone.
     static func words(_ m: Message, size: (Int64) -> String,
                       locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         words(m, isEmpty: PanePage.isEmpty(m), size: size, locale: locale, timeZone: timeZone)
@@ -290,8 +304,7 @@ enum PrintPage {
     private static func words(_ m: Message, isEmpty: Bool, size: (Int64) -> String,
                               locale: Locale, timeZone: TimeZone) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
-        let lines = [head.sender, head.to] + [head.cc].compactMap { $0 }
-            + [head.subject, head.date] + head.files
+        let lines = [head.sender, head.to] + [head.cc].compactMap { $0 } + [head.subject, head.date]
         // `quotableText`, but with an HTML letter's markup cut to the
         // page's limit before it is made words, as the page cuts it: a cut
         // there is a cut, said by the line, as on the page, even when what
@@ -313,7 +326,8 @@ enum PrintPage {
             said = [cutHere || cut != nil || m.isShortened ? MailText.shortenedNotice : "", words]
                 .filter { !$0.isEmpty }.joined(separator: "\n\n")
         }
-        return lines.joined(separator: "\n") + (said.isEmpty ? "" : "\n\n" + said)
+        let files = head.files.isEmpty ? "" : "\n\n" + head.files.joined(separator: "\n")
+        return lines.joined(separator: "\n") + (said.isEmpty ? "" : "\n\n" + said) + files
     }
 
     /// The print job's name, which the printer's queue shows: the subject,

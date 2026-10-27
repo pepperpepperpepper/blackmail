@@ -235,7 +235,8 @@ final class PanePageTests: XCTestCase {
 
     /// `MessageDetailViewController.prepareInlineImages`'s map as it was
     /// built there, before the pane and a printed letter both read it from
-    /// `PanePage.pictures`.
+    /// `PanePage.pictures`; and each letter's picture files, which the body
+    /// draws at their size since B-170, by their address.
     private func previousPictures(_ letters: [Message])
         -> [String: (letter: Message, section: String, mimeType: String)] {
         var parts: [String: (letter: Message, section: String, mimeType: String)] = [:]
@@ -243,6 +244,10 @@ final class PanePageTests: XCTestCase {
             for attachment in m.attachments {
                 guard let cid = attachment.contentID else { continue }
                 parts[cid] = (m, attachment.id, attachment.mimeType)
+            }
+            for file in m.listedAttachments where BodyFiles.isPicture(file) {
+                parts["bmfile-" + ConversationDocument.sectionID(for: m.id) + "-" + file.id]
+                    = (m, file.id, file.mimeType)
             }
         }
         return parts
@@ -280,7 +285,9 @@ final class PanePageTests: XCTestCase {
                              mimeType: "image/jpeg"))
         XCTAssertEqual(PanePage.pictures(of: [second, first])["shared"],
                        .init(messageID: "7/3", mailboxID: "INBOX", section: "3", mimeType: "image/gif"))
-        XCTAssertEqual(PanePage.pictures(of: [letters[12]]).count, 8)
+        // Its eight photos by `cid:`, and the same eight as files, sent
+        // with no word that they are inline (B-101, B-170).
+        XCTAssertEqual(PanePage.pictures(of: [letters[12]]).count, 16)
     }
 
     // MARK: - Mail's bars beside quoted text (B-101)

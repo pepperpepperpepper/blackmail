@@ -579,7 +579,7 @@ final class ExpiryWarningTests: XCTestCase {
                                     + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
                                     + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "
                                     + "Task { @MainActor in defer { filesOpening -= 1 fileTaps.ended(file) "
-                                    + "if message?.id == m.id {"), open)
+                                    + "if loads.stillShows(shown) {"), open)
         XCTAssertEqual(open.components(separatedBy: "filesOpening").count - 1, 2, open)
         XCTAssertEqual(pane.components(separatedBy: "filesOpening").count - 1, 4)
         // Nothing awaited between the file come and its preview put up, and

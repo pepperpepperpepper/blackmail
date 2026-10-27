@@ -111,10 +111,10 @@ final class PrintWiringTests: XCTestCase {
     }
 
     /// The printed header is the pane's: the same words from the same
-    /// letter, in `MessageHeaderView` and in `PrintPage`. But for a file
-    /// drawn among the words, which the pane's header leaves to its row
-    /// there (`BodyFiles.inHeader`, B-148), and a printed letter, whose
-    /// words draw no rows, still lists under its header.
+    /// letter, in `MessageHeaderView` and in `PrintPage`. Neither lists a
+    /// file: each is drawn in the body, on the pane and on paper, by
+    /// `BodyFiles` (B-170), and the letter in words lists them after its
+    /// text.
     func testThePrintedHeaderIsThePanes() throws {
         let header = try source("UI/MessageHeaderView.swift")
         let printed = try source("Mail/PrintPage.swift")
@@ -125,15 +125,19 @@ final class PrintWiringTests: XCTestCase {
             XCTAssertTrue(header.contains(words), words)
             XCTAssertTrue(printed.contains(words), words)
         }
-        XCTAssertTrue(header.contains("let listed = BodyFiles.inHeader(m)"))
+        for files in ["listedAttachments", "m.attachments", "UIStackView", "BodyFiles", "paperclip"] {
+            XCTAssertFalse(header.contains(files), files)
+        }
         XCTAssertTrue(printed.contains("files: m.listedAttachments.map"))
-        XCTAssertFalse(printed.contains("BodyFiles"))
+        XCTAssertEqual(printed.components(separatedBy: "BodyFiles.drawn(").count - 1, 2)
+        XCTAssertEqual(printed.components(separatedBy: "of: m, on: .paper, cut: shown)").count - 1, 2)
         XCTAssertTrue(header.contains("date = m.date"), "on screen, as it was")
         XCTAssertTrue(header.contains("MailFormat.detailTimestamp(date)"), "on screen, as it was")
         XCTAssertFalse(printed.contains("detailTimestamp"))
         XCTAssertTrue(printed.contains("MailFormat.fullTimestamp(m.date, locale: locale, timeZone: timeZone)"))
-        // The sizes as the header writes them.
-        XCTAssertTrue(header.contains("ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)"))
+        // The sizes as a file's tile writes them.
+        XCTAssertTrue(try source("Mail/BodyFiles.swift")
+                        .contains("ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)"))
         XCTAssertTrue(try job.contains("ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)"))
     }
 

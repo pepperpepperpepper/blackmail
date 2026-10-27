@@ -163,9 +163,11 @@ enum PanePictures {
     /// A hold has the menu for any picture of the letter's own, whatever
     /// its size (B-150): it is never made by chance, as a tap on a logo
     /// is, and WebKit's menu, which the script keeps off it, had it too.
+    /// And a picture file the pane draws in the body (`BodyFiles.picture`,
+    /// B-170) opens at a tap whatever its size, as a file's tile does: it
+    /// is a file, as a PDF is, and no logo.
     static func opening(_ tap: Tap, inStack: Bool, alone: Message?, stack: [String: Message],
                         his: (String) -> Message?) -> (letter: Message, part: Attachment)? {
-        guard tap.isHold || tap.opens else { return nil }
         let letter: Message?
         if inStack {
             letter = stack.first(where: { ConversationDocument.sectionID(for: $0.key) == tap.section })?.value
@@ -173,7 +175,9 @@ enum PanePictures {
         } else {
             letter = alone
         }
-        guard let m = letter, let part = part(tap.contentID, of: m) else { return nil }
+        guard let m = letter else { return nil }
+        if let file = file(tap.contentID, of: m) { return (m, file) }
+        guard tap.isHold || tap.opens, let part = part(tap.contentID, of: m) else { return nil }
         return (m, part)
     }
 
@@ -205,9 +209,32 @@ enum PanePictures {
     /// own, and Look Up, which is for the words in a picture.
     static let menu: [Item] = [.quickLook, .saveImage, .saveToFiles, .share, .copy]
 
-    /// The part of `m` with the `Content-ID` `contentID`: the last of them
-    /// where it has two, the one the loader drew (`PanePage.pictures`).
+    /// The menu for a file held on its tile (B-170): the picture's, less
+    /// Save Image, which is for a picture; Copy puts the file on the
+    /// pasteboard as the kind of file it is.
+    static let fileMenu: [Item] = [.quickLook, .saveToFiles, .share, .copy]
+
+    /// The menu for `file` held on its tile: a picture's, Save Image and
+    /// all, for a picture drawn as a tile, a HEIC from an iPhone say, and
+    /// `fileMenu` for any other file.
+    static func menu(for file: Attachment) -> [Item] {
+        file.mimeType.lowercased().hasPrefix("image/") ? menu : fileMenu
+    }
+
+    /// The part of `m` a picture's address names: the picture file the pane
+    /// draws by it (`file`), or the part with the `Content-ID` `contentID`,
+    /// the last of them where it has two, the one the loader drew
+    /// (`PanePage.pictures`).
     static func part(_ contentID: String, of m: Message) -> Attachment? {
-        m.attachments.last(where: { $0.contentID == contentID })
+        file(contentID, of: m) ?? m.attachments.last(where: { $0.contentID == contentID })
+    }
+
+    /// The picture file of `m` the pane draws in the body by the address
+    /// `contentID` (`BodyFiles.pictureID`, B-170), nil for any other.
+    static func file(_ contentID: String, of m: Message) -> Attachment? {
+        guard contentID.hasPrefix("bmfile-") else { return nil }
+        return m.listedAttachments.first {
+            BodyFiles.isPicture($0) && BodyFiles.pictureID($0.id, of: m.id) == contentID
+        }
     }
 }

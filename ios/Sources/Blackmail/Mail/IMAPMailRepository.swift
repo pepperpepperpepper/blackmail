@@ -1971,8 +1971,11 @@ actor IMAPMailRepository: MailRepository {
             }
             lastStructure = (id, structure)
         }
-        return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(fetched.header),
-                           decoded: decoded, named: named, shortened: shortened)
+        var letter = Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(fetched.header),
+                                 decoded: decoded, named: named, shortened: shortened)
+        // Its files stay on the server until he taps one (B-170).
+        letter.filesLeftOnServer = true
+        return letter
     }
 
     /// One body of a letter fetched in part, its parts joined as `flatten`

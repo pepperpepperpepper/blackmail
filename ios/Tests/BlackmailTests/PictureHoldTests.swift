@@ -302,16 +302,19 @@ final class PictureHoldTests: XCTestCase {
     func testThePanePutsUpTheMenuAndDoesWhatItSays() throws {
         let code = try source("Sources/Blackmail/UI/MessageDetailViewController.swift")
         XCTAssertTrue(code.contains("if let tap = PanePictures.Tap(scriptMessage.body) { "
-                                        + "if tap.isHold { holdPicture(tap) } else { openPicture(tap) } } return"))
+                                        + "if tap.isHold { holdPicture(tap) } else { openPicture(tap) } } "
+                                        + "else if let hold = BodyFiles.Hold(scriptMessage.body) { holdFile(hold) } "
+                                        + "return"))
         XCTAssertTrue(code.contains(
             "private func holdPicture(_ tap: PanePictures.Tap) { guard presentedViewController == nil, "
                 + "let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message, "
-                + "stack: loaded, his: { related.letter(inSection: $0) }) else { return }"))
-        XCTAssertTrue(code.contains("for item in PanePictures.menu { sheet.addAction(UIAlertAction(title: item.title, "
+                + "stack: loaded, his: { related.letter(inSection: $0) }) else { return } "
+                + "hold(PanePictures.menu, opening.part, of: opening.letter, x: tap.x, y: tap.y) }"))
+        XCTAssertTrue(code.contains("for item in items { sheet.addAction(UIAlertAction(title: item.title, "
                                         + "style: .default) { [weak self] _ in "
                                         + "guard let self, self.loads.stillShows(shown) else { return } "
                                         + "self.pictureSpot = spot "
-                                        + "self.openAttachment(opening.part, of: opening.letter, for: item) }) }"))
+                                        + "self.openAttachment(part, of: letter, for: item) }) }"))
         XCTAssertTrue(code.contains("sheet.popoverPresentationController?.sourceView = webView "
                                         + "sheet.popoverPresentationController?.sourceRect = spot"))
         XCTAssertTrue(code.contains("guard fileTaps.tapped(file, for: item) else { return }"))
@@ -343,8 +346,9 @@ final class PictureHoldTests: XCTestCase {
                 + "pictures[i].style.setProperty('-webkit-user-select', 'none', 'important');",
             "var bmPictureHold = 500;",
             "if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return; "
-                + "var img = event.target; "
-                + "if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) return;",
+                + "var img = event.target; var tile = null; "
+                + "if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) { "
+                + "tile = bmFileTile(event.target); if (!tile) return; img = null; }",
             "if (bmPictureHeld && event.touches.length === 0) event.preventDefault();",
             "if (bmPictureHeld === img) { bmPictureHeld = null; return; }",
             "drawnWidth: drawn.width, drawnHeight: drawn.height, hold: true,",

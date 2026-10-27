@@ -90,8 +90,9 @@ final class LinePressTests: XCTestCase {
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
         }
-        XCTAssertEqual(script.components(separatedBy: "preventDefault").count, 3,
-                       "one at the tap, and one at the lift of a picture held (B-150)")
+        XCTAssertEqual(script.components(separatedBy: "preventDefault").count, 4,
+                       "one at the tap, one at the lift of a picture held (B-150), "
+                       + "and one at the click on a file's tile held (B-170)")
         XCTAssertEqual(script.components(separatedBy: "bmToggle(").count, 4,
                        "defined, the click, the tap")
     }
