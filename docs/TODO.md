@@ -9167,8 +9167,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          (prefers-color-scheme: dark)` rules making the cards #1c1c1e and
          the words #f2f2f7, a link coloured for the dark; (f) "B-169
          background", (a) with `<body background="cid:…">` of a pale
-         picture 64 by 64 px; (k) "B-169 web colour", (b) with `<body
-         bgcolor="#fdf6e3">`; (g) "B-169 stack" with (b)'s body and (h)
+         picture 64 by 64 px; (k) "B-169 background taken away", (f)
+         with `<style>body { background: #ffffff; }</style>` in its head;
+         (g) "B-169 stack" with (b)'s body and (h)
          "Re: B-169 stack", a day later, (a)'s body, its In-Reply-To and References
          naming (g), so the two are one conversation; (i) "B-169 own
          body", `<meta name="color-scheme" content="light dark">`, nothing
@@ -9188,13 +9189,15 @@ checks below is left as not needed, not open, and none is worth a round.*
          colour; (i) white behind its words, which are #333333, the
          pane's margin black around the white; (j) #1c1c1e behind words
          #f2f2f7, not white; (f) the pale picture tiled behind all its
-         words, from under the header to the letter's end, between its
-         paragraphs and beside its quote, and not drawn once at its size
+         words, from under the header to the letter's end and across the
+         pane, where (b)'s white is, between its paragraphs and beside its
+         quote, its words where (a)'s are, and not drawn once at its size
          after the words (the step as first written said only "white",
-         and the round found the picture once after the quote); (k)
-         #fdf6e3 behind its words, a white edge the pane's margin wide
-         around it. In each, the header and the list black as ever. Then
-         two panes: the same.
+         and the round found the picture once after the quote); (k) as
+         (a), black with white words, no pale picture behind them, and the
+         pale picture once at its size after the words, as a picture of
+         the letter's its page does not show (B-170). In each, the header
+         and the list black as ever. Then two panes: the same.
       3. *The tap:* from (a) to (b) and back, recorded at 60 frames a
          second: black under the header from the tap until the letter, as
          B-149 has it, then the white of (b); no frame of (a)'s black under
@@ -9215,7 +9218,7 @@ checks below is left as not needed, not open, and none is worth a round.*
          or Message-ID: a UID not noted is left, and written down. Nothing
          else was written.
       If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
-      with iPadOS 18 and Mail is at hand: (a) to (f), (i) and (j) there,
+      with iPadOS 18 and Mail is at hand: (a) to (f), (i), (j) and (k) there,
       how each is drawn and where Mail's white ends around (b) and (i),
       written down beside 2's.
 
