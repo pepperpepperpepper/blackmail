@@ -7690,9 +7690,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *A conversation:* "Re: B-145 stack", (d)'s line opened if it is
       closed, its link tapped: Safari at once; back: the stack where it
       was, (d) open.
-      6. *Held:* a finger held on (a)'s first link: WebKit's menu and
-      preview, as before (decided 2026-10-01); a tap outside: the menu
-      goes, nothing opens.
+      6. *Held:* a finger held on (a)'s first link: WebKit's menu, Open
+      Link, Copy Link and Share…, under a card with "Tap to show preview",
+      the site and the link's address, as before (decided 2026-10-01); on
+      iPadOS 16.5.1 no page is drawn in the card until it is tapped (seen
+      2026-10-27, B-145); what Mail on 18 shows for a link held is not
+      known. A tap outside: the menu goes, nothing opens.
       7. *Put back:* the Safari tabs opened closed. "Notes" left, the
       Inbox at its top. The host moves the UIDs it noted, and only them,
       from "Notes" to the Trash (`UID MOVE`), and deletes in the Trash
@@ -8249,9 +8252,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. *Offered.* A new letter. In To type "quen": "Quentin Fill" offered.
       Delete it; type "oliv": "Olive Old" not among what is offered.
       Delete it; type the first four letters of the test account's own
-      address: the test account's own address on the first row and
-      "Prefix Fill" below it, every row offered written down in order.
-      Cancel, Delete Draft if asked.
+      address: the test account's own address on the first row, every row
+      offered written down in order. "Prefix Fill" need not be among them:
+      four rows are offered, ranked by how many letters he wrote to each,
+      and its one letter puts it below every address starting with the
+      same letters that he wrote to more often, as the test account's
+      `+tag` addresses of earlier rounds are (on 2026-10-27, nineteen of
+      them, and it came 21st of 21). Then delete it and type P and a "."
+      (P as in 1(e)), which only it matches: "Prefix Fill" offered. Cancel,
+      Delete Draft if asked.
       4. *Nothing marked.* The host reads (b)'s flags: still no `\Seen`.
       5. *Search* (B-123). In Sent Mail, Current Mailbox, type "Quen" with
       no space after it: (a) and (b) found. Cancel the search. Nothing
@@ -8344,7 +8353,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       and To A with `+b157`, "B-157 undo N", letters 1 to 6 read and
       letter 7 unread, noting each UID. A shake by hand, or
       AssistiveTouch's Shake; three fingers if they can be made. The app's
-      connection log read after each step.
+      connection log read after each step. First of all, before any Trash
+      or Move of the round, B-156's check's included when the two run
+      together, or straight after a relaunch: a shake with nothing to
+      undo puts up no alert. On 2026-10-27 the shake was made after
+      B-156's Trash, still on the undo stack, and "Undo Trash" came, so
+      it showed nothing of this.
       0. *Informative, not blocking*, on any iPadOS 18 device with Mail, if
       one is at hand (the test iPad has none, B-028): flag a letter, shake,
       and write down the alert's words; Cancel. Unflag it, shake, the same.

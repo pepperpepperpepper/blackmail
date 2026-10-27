@@ -30880,6 +30880,17 @@ build for the iPad links.
 - B-124's check, done, had a step "Open this link?" dark; it cannot be
   made again as written.
 
+**Found on the test iPad, 2026-10-27**, in round r6-h-pane, on the int18
+build: every tapped link opened at once with no question (the check's
+steps 1 to 5). At step 6, a finger held on the plain letter's first link,
+the round wrote "WebKit's menu with the page preview"; the round's audit
+read the shot: Open Link, Copy Link and Share…, under a card reading "Tap
+to show preview", the site and the link's address, and no page drawn. So
+on iPadOS 16.5.1 WebKit's menu for a link held draws no preview until the
+card is tapped; the check's step said "menu and preview". Nothing in the
+app changed; the step now says what 16.5.1 shows. What Mail on iPadOS 18
+shows for a link held is not known.
+
 ## B-146 — FIXED 2026-10-26, not yet seen on the iPad. His signature was drawn on a white sheet with black words in the reading pane, alone and in a conversation; it is drawn with the rest of its letter, as Mail draws it: its words white on the black, its logo as drawn, dark on it
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision
@@ -32612,6 +32623,21 @@ release build for the iPad links.
   at the next launch from cold, which on an iPad left running may be
   days away. Nothing asks again in between.
 
+**Found on the test iPad, 2026-10-27**, in round r6-h-compose, on the
+int18 build: "quen" offered Quentin Fill and "oliv" nothing, as the
+check has it; the first four letters of the test account's address
+offered his own two addresses first and then two of the account's
+`+tag` addresses, with no Prefix Fill among the four rows, though typing
+up to the "." after the prefix offered it. A second run ported the
+ranking to the host and ran it on the book pulled from the iPad after
+the fill: the four letters match 21 entries, his own two first as
+designed, then the `+tag` addresses earlier rounds wrote to, by their
+counts; Prefix Fill, with its one letter, came 21st. Working as designed
+(`AddressSuggestions.rank`, `RecipientBook.suggestionLimit`, four): the
+check's step 3 assumed nothing else starting with those letters had more
+letters than one. No change in the app; step 3 now checks his own
+address on the first row, and Prefix Fill by a prefix only it matches.
+
 ## B-156 — FIXED 2026-10-26, not yet seen on the iPad. A row of the list had no drag at all, by the brief's rule against swipes; it has Mail's: a slow drag to the left shows More, Flag and Trash, a full drag trashes at once with no question, and a drag to the right marks it read or unread, as iPadOS 18 Mail with its factory Swipe Options
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision tree
@@ -33079,6 +33105,13 @@ back first and in sight under its new id. Undone by hand, then put back
 and passing: the place not renamed, 7 failures in 3 tests, the iPad's
 symptom, the list one row down; `restore` telling `.putBack` again, 3 in
 1; the batch's place not renamed, 2 in 1.
+
+*The check's setup* (round r6-h-list, 2026-10-27, read by the round's
+audit): its one step, a shake with nothing to undo putting up no alert,
+was made after B-156's check, whose Trash was still on the undo stack, so
+"Undo Trash" came and the step showed nothing. The check now makes it
+first, before any Trash or Move of the round, or straight after a
+relaunch.
 
 ## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 
