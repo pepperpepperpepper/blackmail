@@ -34840,3 +34840,205 @@ source, `keptChanged` and `listOutbox` taking the move before the list
 changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
+
+## B-166 — FIXED 2026-10-27, not yet seen on the iPad. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
+
+**Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
+Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
+Text are ignored. *Owner decision* (D-007)" is this, the decision
+record's 271. D-024 had left it deferred, to be built to his iPad's
+values; it is built to Mail's behaviour, which takes his values by
+itself, whatever they are.
+
+**What Mail does.** "You can change the size of your font in Mail,
+Contacts, Calendar, Phone, Notes, and other apps that support Dynamic
+Type" (Apple's support article 102453). The size is Settings, Display &
+Brightness, Text Size, seven steps; Accessibility, Display & Text Size,
+Larger Text adds five larger ones; Bold Text is on the same screen (Apple
+111773). Accessibility, Per-App Settings sets a text size and Bold Text
+for one app alone (the iPadOS 18 guide, "Customize per-app visual
+settings"), and so does Control Center's Text Size for the app in front;
+iOS hands the app that size in place of the iPad's. Body text at the
+twelve steps is 14, 15, 16, 17 (Large, the factory one), 19, 21 and 23,
+then 28, 33, 40, 47 and 53 points (Apple's Human Interface Guidelines,
+Typography). UIKit's bars keep their size at every step, and a button
+held in one at the accessibility sizes is shown larger in the middle of
+the screen (seen on the simulator under B-071). Not published, and not
+seen: how Mail lays out its list at the five accessibility sizes, and
+whether a letter that sets its own type sizes grows in Mail.
+
+**What Blackmail did.** `Theme.textScale` was 1 and nothing set it
+(D-007: "Do NOT wire up free Dynamic Type"). The folders and the list
+were held at Large by a trait the container put on them (B-071), the
+symbols at a size of their own, and the composer's and the share sheet's
+type was fixed (B-069). Bold Text was not read.
+
+**Changed.**
+
+1. *The size* (`TextSize`, new, out of UIKit so the suite runs it): the
+   twelve steps with Apple's body sizes, and the scale of each, its body
+   over Large's 17, so exactly 1 at Large. `Theme.textSize` holds the
+   size now and `Theme.textScale` is its scale; every size of the app's
+   own type and rows went through `Theme.scaled` already, and goes
+   through it still.
+2. *Reading it* (`TextSizes`, new; `TextSizeReading.swift`): at launch,
+   before the first screen is made (`AppDelegate.start`), the size iOS
+   hands the app, `UIApplication.shared.preferredContentSizeCategory`,
+   which is the Per-App size where one is set, and
+   `UIAccessibility.isBoldTextEnabled`; read again at iOS's
+   `UIContentSizeCategory.didChangeNotification` and
+   `boldTextStatusDidChangeNotification`, and as the app comes back to
+   the front. On the main queue, after iOS's own call has returned; put
+   in `Theme`, and only then `TextSizes.didChange` said, once for words
+   that come together and not at all when nothing changed, as
+   `DisplayDates` says the clock's (B-139). The share extension has no
+   `UIApplication`: it reads its sheet's own traits, before anything of
+   the sheet is made, as they change and as it appears; until they say,
+   Large.
+3. *Bold Text*: nothing is drawn differently for it by the app. iOS makes
+   the system's font bolder for every app while it is on, and the app's
+   fonts are the system's; a change of Bold Text alone is a change of
+   the size (`TextSize.bold`), so the screens make their fonts again, as
+   for a new size.
+4. *The list's rows* (`RowLines`, new, and `MessageCell`): the names,
+   the date, the subject and the two preview lines at the size, and the
+   row's four baselines and its height scaled together, so the rhythm
+   holds; 96 points at Large, 130 at the largest of the seven steps. The
+   date's room on the top line is scaled as its type is, the 110 points
+   and the 45 per cent of the line alike (`RowTopLine`), so a date that
+   fits at Large fits at every one of the seven steps, "Wednesday" in
+   Edit mode in three panes too; the names give way, as they did before
+   the mark (B-080). At the five accessibility sizes the date and the
+   conversation's mark go on a line of their own under the names, at its
+   right end, and the rest of the row a line lower, the row 116 points
+   at Large's scale where it was 96, 362 at the largest: beside the names
+   the date took up to the whole line there and left them nothing. The
+   unread dot, the arrow and a paperclip in the gutter stay on the names'
+   line; a trailing paperclip and the flag grow with the subject. A cell
+   sets its type as it is made and again as it is next given a row after
+   a change (`restyle`), the mark drawn at the date's size with it. At
+   the change the list sets the rows' height and regroups, which holds
+   his place by the letters in sight, the highlight and Edit mode's ticks.
+5. *The Mailboxes*: the names and counts at the size, their icons with
+   them (`Theme.symbolSize`), the rows 44 scaled and never under 44.
+   B-071's trait holding the folders and the list at Large is gone
+   (`RootViewController`), so what UIKit draws beside the words is
+   UIKit's at the iPad's size, as in Mail: a folder's icon's room grows
+   with its name, at the accessibility sizes each name begins after its
+   own icon, and Edit mode's circles grow, to 49 points at the largest,
+   the row's words moving right with them, as B-071 measured them.
+6. *The reading pane*: the header's type at once
+   (`MessageHeaderView.restyle`), a file's row 44 points or taller with
+   its paperclip at the words' size. The letter's words: the page's own
+   size, set in its style as `Theme.scaled(17)` pixels, grows with the
+   size, so a plain letter does, and a letter in HTML wherever it sets no
+   size of its own; a conversation's stack the same. At a change the
+   letter or the stack is drawn again from what the pane holds, its page
+   built anew at the size, the bodies that had come put back by script
+   (`PaneDocument.restyled`); after WebKit lost the document that is the
+   loss's redraw itself. While the pane cannot be seen or the app is not
+   in front it is owed until they are, as `drawAgain` waits.
+7. *The composer and the share sheet*: the captions, the fields, the body
+   and the files' rows at the size; every line 44 points at Large and
+   under it and growing above it (`Theme.lineHeight`), a line of To's
+   bubbles too, each bubble with its name (`RecipientField`); the
+   captions' 72 points scaled, so "Subject:" is whole at every size; the
+   addresses offered at their 60 points scaled. Each is a step the sheet
+   keeps (`Restyles`) and runs again at the change while it is open, the
+   files' rows made again; nothing he typed is touched.
+8. *What keeps its size*, as UIKit's bars keep theirs: the bars' titles
+   and buttons in every pane and sheet, their symbols
+   (`Theme.barSymbolSize`: the reading pane's five buttons and the
+   calendar), the view button and "< Mailboxes", the line under the list
+   and the footer under its rows; and the controls of a fixed height
+   (`Theme.fontControl`): the search field, the word "Search" in it and
+   the Current Mailbox / All Mailboxes buttons, and Go to Date's two
+   buttons and its words, whose calendar is UIKit's own and followed the
+   size before. The recent searches under the field follow it.
+9. A printed letter takes the pane's sizes (`PrintPage`, B-110), so it
+   follows the size too.
+
+**What it reverses.** D-007's "Do NOT wire up free Dynamic Type — an
+accidental swipe in Control Centre must never rearrange his mail", and
+its admin-screen setting of two or three steps, never built; B-071's
+trait holding the folders and the list at the default size, and the
+type held fixed there and in the composer (B-069); D-024's "Deferred:
+Text size and Bold Text". B-071's other parts stand: the symbols at a
+size of the app's own, never UIKit's, and the highlights kept.
+`docs/LAYOUT_CONSTANTS.md`'s numbers are the layout at Large (its
+closing section says so).
+
+**Not changed.** Settings, the setup form and the connection log keep
+their sizes, as they are not among the ruling's screens. The unread
+dot's 12 points, the 29-point gutter, the insets and the panes' widths
+are as at Large. With Bold Text switched while the app is open, the bars
+keep the weight they were drawn with until the app next starts: their
+fonts are made once, with the bar. A letter's page being built at the
+moment of a change comes at the size of the tap, and the next one at the
+new size. The place he had scrolled to in a letter is not kept when it
+is drawn again at a new size: it starts where it opens, as after
+WebKit lost it. Pinch-zoom in the letter is as before.
+
+**Tests.** `TextSizeTests`, new, ten: Apple's twelve sizes and Large the
+factory one, its scale exactly 1, Bold Text alone a change; every number
+at Large as it was, the row's 24, 44, 64, 84 and 96 among them, read
+from `Theme`, and the top line's every width and date at Large the same
+as before; at each of the twelve sizes a row's lines one under the other
+with nothing of one over the next by SF's ascender and descender, the
+last inside the row, the row growing with the size, 96, 130 and 362; the
+date never cut at the seven steps, marked or not, in three panes and two,
+in Edit mode with UIKit's larger circles and inside a conversation, and
+on its own line at the accessibility sizes; a height a finger hits never
+under 44; the size applied and then said, once, on the main queue, also
+when iOS says it on another thread, nothing said with nothing changed;
+a sheet's steps run at once and again in order; the pane's document
+handed back to be drawn at the new size, and a lost one drawn once.
+`TextSizeWiringTests`, new, seven, read from the source: the launch reads
+the size before the first screen, UIKit's twelve names mapped in order;
+the share sheet reads its own traits and never the screen's; the bars'
+and the fixed controls' type at Large's sizes and the words' through
+`scaled`; and each screen named, the rows, the Mailboxes, the pane, the
+composer and the share sheet, setting its type and lines again at the
+change, no line of the sheets held at 44. `SteadyChromeTests`: B-071's
+test of the trait turned round (`testTheFoldersAndTheListFollowTheTextSize`),
+the symbols split into the bars' and the words'. The wiring lines of
+`SentRowLikeMailTests` (the date's line by `RowLines`) and
+`ReplyLikeMailTests` (To's line by `lineHeight`) follow the code; every
+other test, the row's and the top line's at Large among them, passes
+unchanged.
+
+Each part undone by hand, the new tests run, then put back and passing,
+in three rounds whose undos each fail only their own test: the date's
+room unscaled, `Restyles` not running a step as it is kept, the size said
+before it is applied, a lost document not redrawn at the new size,
+heights under 44 at the small sizes, the launch not reading the size,
+the share sheet not reading it as it appears, the bars' buttons scaled,
+a cell given a row without its type set again, the Mailboxes not hearing
+the change, the pane not drawing an owed letter as the app comes back,
+a line of the composer back at 44, B-071's trait put back, the pane's
+buttons at the words' size, and the bars' symbols scaled: 38 failures in
+15 tests, one test each. No date line of its own (`stacksRowDate`
+false) and the pane handing nothing back: 9 failures in 3 tests. Apple's
+seventh size 22 for 23, the row a line taller at every size, and no
+stacked top line: 16 failures in 4 tests,
+`testAppleSizesAndLargeIsTheFactory`, `testEveryNumberAtLargeIsAsItWas`
+and `testAtTheAccessibilitySizesTheDateHasALineOfItsOwn` each by its
+own, and the rows' lines by the first two.
+
+The full suite, serially: 2,962 tests, 17 of them new, 6 skipped, none
+failing. The release build for the iPad links. `check-theme-constants.sh`
+names `Theme.threadChildIndent` as never read, as it did on the base
+(26740c2); every constant this change adds is read.
+
+**Not covered.** UIKit, which the host has not: the screens' redraws are
+read from the source, not run. Not seen on the simulator or on an iPad:
+the TODO's B-166 check. Not known: how Mail lays out its list at the
+accessibility sizes, which is where the date's own line is the app's
+choice; whether the system's font made at a size of the app's
+(`systemFont(ofSize:weight:)`) takes Bold Text as iOS's text styles do,
+which is believed and not seen; whether WebKit's letter takes Bold Text;
+whether iOS says its word for a Per-App change, the return to the front
+reading it anyway; and which size the share extension's traits carry
+with a Per-App size set for Blackmail alone.
+
+**New words.** None.

@@ -150,3 +150,18 @@ At 0.4326 px/pt one pixel is 2.31 pt. **Type sizes, hairline widths and text
 greys are not recoverable** — a 15 pt stem is under half a pixel and the
 darkest text bottoms out around 81/255, so greys carry ±40 levels. No type or
 colour fault should ever be quoted from this reference.
+
+## Text size (B-166, 2026-10-27)
+
+Every number in this file is the layout at Large, the text size an iPad
+comes with. Since B-166 the app's type follows the iPad's text size and
+Bold Text, as Mail's does: the type, the message rows' height and their
+four baselines (24 / 44 / 64 / 84 in a row of 96), a folder's row, the
+composer's lines and the recent searches are multiplied by the size's
+body over Large's 17 (`TextSize.scale`), so at Large each is exactly the
+number here. At the five accessibility sizes a message row gives its date
+a line of its own under the names, and is one line taller. The panes'
+widths, the insets, the 29-point gutter and the unread dot stay as here at
+every size, and so do the bars and the controls of a fixed height, as
+UIKit's bars do. The scaling rule above, that nothing varies by the
+screen's size but the panes' widths, is unchanged.

@@ -121,6 +121,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Contacts, and he would meet the question alone in the middle of a
       letter, where a Don't Allow is for good and nothing in the app says
       so (B-162).
+- [ ] On the day, on his iPad: Settings, Accessibility, Per-App Settings.
+      If Mail is listed there with a text size or Bold Text of its own
+      (Control Center's Text Size used in Mail puts it there too), Add App,
+      Blackmail, and the same values for it; then Blackmail's list, a
+      letter and New Message (Cancel) looked at, nothing cut. Nothing else
+      to set: Blackmail takes the iPad's own Text Size and Bold Text as
+      Mail does (B-166).
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -275,8 +282,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       once with a connection or without; never a draft or a letter
       Complete Threads brings from Sent Mail; nothing of them sent. B-111,
       and its check under "Blocked on the iPad coming back".*
-- [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
+- [x] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-166.*
 - [ ] Replied and forwarded arrows on rows. *Shown 2026-10-22, seen on
       the iPad the same day: Mail's grey arrow in the gutter for a letter
       answered or forwarded, from the flags Gmail sends with the row.
@@ -8823,6 +8831,98 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
+- [ ] **B-166, the text size and Bold Text as the iPad sets them.** On the
+      test iPad, the test account only, from a build of the
+      `bm-cm-textsize` worktree (branch `copy-textsize`) or of the int it
+      is merged into. Nothing is typed, sent, saved, moved or deleted in
+      the app: every composer is opened untouched and closed with Cancel,
+      which asks nothing for an untouched letter (B-069). The iPad's own
+      settings are changed and put back. The host APPENDs, read
+      (`\Seen`), to the label "Notes", never the Inbox, four letters, each
+      from another address with a new Message-ID of its own and naming
+      none on the account, and notes each UID from its APPENDUID,
+      stopping if one has none: (a) "B-166 long", from "Bartholomew
+      Example-Longname", with one Cc, a small PDF, "B-166 plan.pdf", and a
+      text file, "B-166 notes.txt", and three paragraphs of plain text,
+      its Date and its arrival on the Wednesday of the last six days, so
+      that its row reads "Wednesday"; (b) "B-166 html", in HTML, a
+      paragraph with no size of its own and one in `font-size:13px`;
+      (c) "B-166 stack" and (d) "Re: B-166 stack", a day after it, naming
+      (c)'s Message-ID in In-Reply-To and References, one conversation.
+      Three panes and Organize by Thread on, unless a step says otherwise;
+      a full-size screenshot of each screen named.
+      1. *Large, as before.* Settings, Display & Brightness, Text Size at
+         its middle step (Large); Accessibility, Display & Text Size, Bold
+         Text off, and Larger Text with Larger Accessibility Sizes off. In
+         the app: "Notes" with (a) open, its row highlighted; New Message,
+         then Cancel; Reply All on (a), then Cancel. The same three
+         screens on the int18 build (26740c2), taken first: the same to
+         the pixel but for the clock.
+      2. *The largest of the seven, while the app is open.* With (a) open
+         and "Notes" scrolled so its row is in sight a few rows down,
+         leave the app; Text Size dragged to its right end; back in the
+         app: the rows taller, about 130 points, their words larger, the
+         same rows in sight where they were, (a)'s highlighted, its
+         "Wednesday" whole; long names cut with "…", never a date. The
+         Mailboxes: names and counts larger, rows taller, "Notes"
+         highlighted. The header's names, subject and date larger, its two
+         files' rows 44 points or taller; (a)'s words larger. The bars'
+         titles and buttons, the calendar, the search field, its two
+         buttons once tapped (then Cancel) and the line under the list
+         exactly as in 1. Nothing cut anywhere: no word clipped at its top
+         or its foot, nothing over anything.
+      3. *Two panes.* The view button: the list's bar with the view
+         button, "< Mailboxes", the calendar, "Notes" and Edit as in 1;
+         the rows as in 2. Back to three panes.
+      4. *Edit mode.* In "Notes", Edit: the circles larger than in 1, every
+         date whole, "Wednesday" too, the names giving way. Cancel. The
+         same in two panes, then three again.
+      5. *The letters.* (b): the paragraph with no size larger than in 1,
+         the 13-pixel one as in 1. (d)'s row: the conversation's stack,
+         its lines and its open letter larger.
+      6. *The composer.* New Message: "To:", "Cc/Bcc" and "Subject:"
+         whole, their lines taller than 44 points, Photo Library and Attach
+         File larger; Cancel. Reply All on (a): a bubble in To and one in
+         Cc, each as tall as its name, "Subject:" whole; Cancel. Reply All
+         again, left open; leave the app, Text Size one step down, back:
+         the open composer's lines and words at the new size, the bubbles
+         with them; Cancel. Text Size at its right end again.
+      7. *Bold Text, while the app is open.* With (a) open, Bold Text on,
+         back in the app: the rows' names, subjects and previews, the
+         Mailboxes, the header and (a)'s words bolder; the bars as they
+         were (B-166, Not changed). Bold Text off: as in 2.
+      8. *The largest accessibility size.* Larger Text, Larger
+         Accessibility Sizes on, the slider at its right end, back in the
+         app: each row's date, and on (d)'s row the blue chevron, on a line
+         of their own under the names, at its right end; nothing over
+         anything; about two rows to the pane. The Mailboxes as UIKit lays
+         them out at this size, each name after its own icon. The header
+         and (a)'s words larger again. The calendar: Go to Date's words
+         and its two buttons as in 1; Cancel. New Message: its lines as
+         tall as their words; Cancel. Two panes, then three.
+      9. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
+         at its middle step. Accessibility, Per-App Settings, Add App,
+         Blackmail, Larger Text for it at the right end of the seven:
+         Blackmail as in 2, Settings itself at Large. Blackmail's entry
+         then taken off the list.
+      10. *The share sheet.* Text Size at its right end. Safari, any page,
+         Share, Blackmail: "To:", "Cc/Bcc" and "Subject:" whole, the lines
+         taller, the link in the body larger; Cancel. Nothing is sent.
+      11. *His size.* Once his iPad's Display & Text Size and Per-App
+         Settings are read (the owner's "His iPad's own settings"), 2, 4,
+         6 and 8's screens at his size and Bold Text: nothing cut.
+      12. *Not on this iPad.* On any iPadOS 18 device with Mail and a
+         Gmail account, never his: Mail's list at the largest accessibility
+         size, where its date goes; whether Mail's bars keep their size at
+         the largest of the seven; whether (b)'s 13-pixel paragraph grows
+         in Mail; Mail with Bold Text on. The test iPad has no Mail (B-028).
+      13. *Put back:* Text Size at its middle step, Bold Text off, Larger
+         Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
+         left, the Inbox at its top. The host moves the UIDs it noted, and
+         only them, from "Notes" to the Trash (`UID MOVE`), and deletes in
+         the Trash only the UIDs that move answered (`COPYUID`); "Notes"
+         itself stays. Never anything found by subject or Message-ID.
+         Nothing was sent or saved.
 
 ## Blocked on the owner
 
