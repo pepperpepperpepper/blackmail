@@ -419,8 +419,9 @@ final class LastFileTappedTests: XCTestCase {
                 + "let shown = loads.shown "
                 + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
                 + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "
-                + "Task { @MainActor in defer { filesOpening -= 1 fileTaps.ended(file) "
-                + "if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) } }"),
+                + "Task { @MainActor in var handedOver = false defer { filesOpening -= 1 fileTaps.ended(file) "
+                + "if !handedOver && loads.stillShows(shown) { "
+                + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) } }"),
                       open)
         XCTAssertTrue(open.contains(
             "guard loads.stillShows(shown) else { return } guard fileTaps.opens(file) else { return } "

@@ -230,6 +230,29 @@ final class MarkupReplyTests: XCTestCase {
         XCTAssertEqual(markup.state, .closed(preview: second, since: date))
     }
 
+    /// Markup is the preview's the picture was last opened in for Markup
+    /// and Reply, while it is up, and no other's: a tap's Quick Look, or
+    /// the held menu's, has none (`marks`, which the pane's delegate
+    /// answers by). With no delegate, a tap's Quick Look showed its Markup
+    /// button on the test iPad (2026-10-27).
+    func testOnlyMarkupAndRepliesPreviewHasMarkup() {
+        var markup = MarkupReply()
+        XCTAssertFalse(markup.marks(in: first), "none under way")
+        _ = markup.begin(first)
+        XCTAssertTrue(markup.marks(in: first))
+        XCTAssertFalse(markup.marks(in: second), "a tap's Quick Look")
+        _ = markup.saved(copy(1), from: first, at: date)
+        XCTAssertTrue(markup.marks(in: first), "a copy saved, still up")
+        XCTAssertEqual(markup.closed(first, at: date + 1), copy(1))
+        XCTAssertFalse(markup.marks(in: first), "closed, replying")
+        markup.ended()
+        XCTAssertFalse(markup.marks(in: first))
+        _ = markup.begin(second)
+        XCTAssertNil(markup.closed(second, at: date + 2))
+        XCTAssertFalse(markup.marks(in: second), "closed with nothing drawn")
+        XCTAssertFalse(markup.marks(in: first))
+    }
+
     // MARK: - The copy
 
     /// The picture's own name, with the extension of the copy Quick Look
@@ -370,8 +393,9 @@ final class MarkupReplyTests: XCTestCase {
     // MARK: - The pane and the composer
 
     /// The pane, read: the item opens Quick Look full screen with the pane
-    /// as its delegate, this one preview alone, the marking up begun in it
-    /// and the letter and picture held; its editing makes a copy; each copy
+    /// as its delegate, as a tap's is, the marking up begun in it
+    /// and the letter and picture held; its editing makes a copy, and any
+    /// other preview's is off, so a tap's has no Markup button; each copy
     /// is staged with the kind its name says, a JPEG made at the share
     /// sheet's quality, and goes through `MarkupReply` with the Quick Look
     /// it came from; Quick Look closed, the reply. The reply is
@@ -385,11 +409,17 @@ final class MarkupReplyTests: XCTestCase {
             "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
                 + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
                 + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
-                + "present(preview, animated: true) case .quickLook, .saveImage, .copy:",
+                + "handedOver = true present(preview, animated: true, completion: ready) "
+                + "case .quickLook, .saveImage, .copy:",
             "case .quickLook, .markupAndReply, .saveToFiles, .share: break",
             "extension MessageDetailViewController: QLPreviewControllerDelegate { "
                 + "func previewController(_ controller: QLPreviewController, "
-                + "editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode { .createCopy }",
+                + "editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode { "
+                + "markup.marks(in: ObjectIdentifier(controller)) ? .createCopy : .disabled }",
+            // A tap's Quick Look has the pane as its delegate too, which
+            // gives it no Markup (found on the test iPad, 2026-10-27).
+            "case .quickLook, .saveImage, .copy: let preview = QLPreviewController() preview.dataSource = self "
+                + "preview.delegate = self preview.modalPresentationStyle = .fullScreen",
             "guard let picture = marking?.picture else { return } "
                 + "let made = MarkupReply.picture(original: picture.filename, originalType: picture.mimeType, "
                 + "copy: modifiedContentsURL, lookup: { UTType(filenameExtension: $0)?.preferredMIMEType })",
@@ -413,7 +443,9 @@ final class MarkupReplyTests: XCTestCase {
         ] {
             XCTAssertTrue(pane.contains(wiring), wiring)
         }
-        XCTAssertEqual(count("preview.delegate = self", in: pane), 1, "Markup and Reply's preview alone")
+        XCTAssertEqual(count("preview.delegate = self", in: pane), 2, "Markup and Reply's preview, and a tap's")
+        XCTAssertEqual(count(".createCopy", in: pane), 1, "Markup to Markup and Reply's preview alone")
+        XCTAssertEqual(count("QLPreviewController()", in: pane), 2)
         XCTAssertEqual(count("PanePictures.menu", in: pane), 2,
                        "a held picture's menu, and a held tile's (B-170; int19)")
         XCTAssertEqual(count("landing: [copy]", in: pane), 1)

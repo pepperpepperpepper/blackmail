@@ -71,21 +71,39 @@ final class DiscardQuestionTests: XCTestCase {
     }
 
     /// A full drag never asks, of a letter or a conversation, Trash or
-    /// Archive; a button tapped is told from it by its width, over three
-    /// fifths of the row being a full drag, so a tap is never taken for one.
+    /// Archive; a button tapped is told from it by the drag's own pan, not
+    /// the button's width: done as the pan ends, or within a third of a
+    /// second of its lift, a full drag; done with the pan not ended and no
+    /// lift that near, a tap, so a slow drag's button tapped still asks.
+    /// By the width, a full drag on the test iPad asked: its Trash was 53
+    /// to 56 per cent of the row as the finger lifted, under the three
+    /// fifths that counted (2026-10-27).
     func testAFullDragNeverAsks() {
         for verb: DiscardQuestion.Verb in [.trash, .archive] {
             for count in [1, 3] {
                 XCTAssertNil(DiscardQuestion.before(verb, letters: count, from: .fullDrag, asking: true))
             }
         }
-        XCTAssertFalse(DiscardQuestion.fullDrag(button: 90, row: 320))
-        XCTAssertFalse(DiscardQuestion.fullDrag(button: 150, row: 375))
-        XCTAssertFalse(DiscardQuestion.fullDrag(button: 191, row: 320))
-        XCTAssertTrue(DiscardQuestion.fullDrag(button: 200, row: 320))
-        XCTAssertTrue(DiscardQuestion.fullDrag(button: 320, row: 320))
-        XCTAssertTrue(DiscardQuestion.fullDrag(button: 700, row: 694))
-        XCTAssertFalse(DiscardQuestion.fullDrag(button: 90, row: 0))
+        XCTAssertEqual(DiscardQuestion.liftWindow, 0.3)
+        // A full drag: the pan ended as its button is done, or just before.
+        XCTAssertTrue(DiscardQuestion.fullDrag(panEnded: true, sinceLift: nil))
+        XCTAssertTrue(DiscardQuestion.fullDrag(panEnded: true, sinceLift: 12))
+        XCTAssertTrue(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 0))
+        XCTAssertTrue(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 0.05))
+        XCTAssertTrue(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 0.29))
+        // A tap: on a list never dragged, or after a slow drag's lift.
+        XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: nil))
+        XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 0.3))
+        XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 0.8))
+        XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 40))
+        XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: -1))
+        // And so the question: none for the full drag, Mail's for the tap.
+        for (ended, since, asks) in [(true, nil, false), (false, 0.1, false), (false, 1.5, true),
+                                     (false, nil, true)] as [(Bool, Double?, Bool)] {
+            let from: DiscardQuestion.From = DiscardQuestion.fullDrag(panEnded: ended, sinceLift: since)
+                ? .fullDrag : .rowButton
+            XCTAssertEqual(DiscardQuestion.before(.trash, letters: 1, from: from, asking: true) != nil, asks)
+        }
     }
 
     // MARK: - The wiring
@@ -180,9 +198,16 @@ final class DiscardQuestionTests: XCTestCase {
                 + "from: .editBar) else { self.delete(chosen) return } "
                 + "DiscardConfirmation.ask(asked, on: self, from: self.deleteItem) { [weak self] in "
                 + "self?.delete(chosen) } }",
-            "let whole = DiscardQuestion.fullDrag(button: Double(source.bounds.width), "
-                + "row: Double(self.tableView.bounds.width)) "
+            "let whole = DiscardQuestion.fullDrag( panEnded: self.swipePans.contains { $0.state == .ended }, "
+                + "sinceLift: self.swipeLift.map { CACurrentMediaTime() - $0 }) "
                 + "done(self.swiped(action, on: RowKey(thread), from: whole ? .fullDrag : .rowButton))",
+            "override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) { "
+                + "for case let pan as UIPanGestureRecognizer in t.gestureRecognizers ?? [] "
+                + "where pan !== t.panGestureRecognizer { "
+                + "pan.addTarget(self, action: #selector(swipePan(_:))) "
+                + "if !swipePans.contains(where: { $0 === pan }) { swipePans.append(pan) } } }",
+            "@objc private func swipePan(_ pan: UIPanGestureRecognizer) { "
+                + "if pan.state == .ended { swipeLift = CACurrentMediaTime() } }",
             "case .trash: return discard(.trash, chosen, on: key, from: from) { [weak self] in "
                 + "self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true) }",
             "case .archive: guard let all = archive(for: row.thread) else { return false } "

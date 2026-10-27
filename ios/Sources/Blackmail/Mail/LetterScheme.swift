@@ -62,6 +62,16 @@ enum LetterScheme: Equatable, Sendable {
     /// How the pane draws `html`, a letter's HTML as it came, wrapper and
     /// all, as Mail reads a letter's whole document.
     static func of(html: String) -> LetterScheme {
+        reading(html: html).scheme
+    }
+
+    /// How the pane draws `html` (`of`), and the picture its body's
+    /// `background` names where that is the picture WebKit draws behind
+    /// its words (`bodyPicture`), from one reading of the letter: the pane
+    /// draws the picture itself, the body's tag going with the wrapper
+    /// (`PanePage.backdrop`, B-169). Never a picture for a letter drawn
+    /// inverted, which a picture on its body would have made light.
+    static func reading(html: String) -> (scheme: LetterScheme, bodyPicture: String?) {
         var markup = Markup(html)
         markup.read()
         // Only a sheet that names a colour scheme or a background can
@@ -69,15 +79,17 @@ enum LetterScheme: Equatable, Sendable {
         let rules = markup.styles
             .filter { LetterCSS.mentions($0, "color-scheme") || LetterCSS.mentions($0, "background") }
             .flatMap(LetterCSS.rules(in:))
+        let background = bodyBackground(markup, rules)
+        let picture = background?.isTheAttribute == true ? bodyPicture(markup) : nil
         if let declared = declared(markup, rules) {
-            return (declared.contains("light") || declared.contains("only")) && !declared.contains("dark")
-                ? .light : .own
+            return ((declared.contains("light") || declared.contains("only")) && !declared.contains("dark")
+                        ? .light : .own, picture)
         }
         if markup.pictures.contains(where: { isFromTheWeb($0, base: markup.base) })
-            || hasBackgroundPicture(markup, rules) {
-            return .light
+            || background?.picture == true {
+            return (.light, picture)
         }
-        return .inverted
+        return (.inverted, nil)
     }
 
     /// The schemes the letter declares, as Mail's `_declaredColorSchemes`
@@ -180,15 +192,24 @@ enum LetterScheme: Equatable, Sendable {
     /// the `style`, and `!important` over all. A rule naming the body by a
     /// class, or `*`, is not read.
     static func hasBackgroundPicture(_ markup: Markup, _ rules: [LetterCSS.Rule]) -> Bool {
-        var best: (weight: Weight, picture: Bool)?
+        bodyBackground(markup, rules)?.picture ?? false
+    }
+
+    /// The body's background that wins, as `hasBackgroundPicture` weighs
+    /// it: whether it holds a picture, and whether it is the `background`
+    /// attribute's, no rule or `style` declaring a `background` or a
+    /// `background-image` over it; nil where none is declared.
+    private static func bodyBackground(_ markup: Markup, _ rules: [LetterCSS.Rule])
+        -> (picture: Bool, isTheAttribute: Bool)? {
+        var best: (weight: Weight, picture: Bool, attribute: Bool)?
         if let attribute = markup.bodyBackground?.trimmingCharacters(in: htmlSpaces), !attribute.isEmpty {
-            best = (Weight(important: false, inline: false, selector: [-1, -1, -1], order: -1), true)
+            best = (Weight(important: false, inline: false, selector: [-1, -1, -1], order: -1), true, true)
         }
         func consider(_ declarations: [LetterCSS.Declaration], weight: (Bool) -> Weight) {
             for d in declarations where d.name == "background-image" || d.name == "background" {
                 guard !d.value.lowercased().contains("var(") else { continue }
                 let w = weight(d.important)
-                if best.map({ w >= $0.weight }) ?? true { best = (w, isPicture(d.value)) }
+                if best.map({ w >= $0.weight }) ?? true { best = (w, isPicture(d.value), false) }
             }
         }
         for (order, rule) in rules.enumerated() where rule.matchesPane {
@@ -200,7 +221,14 @@ enum LetterScheme: Equatable, Sendable {
                 Weight(important: $0, inline: true, selector: [0, 0, 0], order: 0)
             }
         }
-        return best?.picture ?? false
+        return best.map { ($0.picture, $0.attribute) }
+    }
+
+    /// The address the body's `background` names, as WebKit takes it
+    /// (`urlTrimmed`); nil for none or an empty one.
+    private static func bodyPicture(_ markup: Markup) -> String? {
+        guard let picture = markup.bodyBackground.map(urlTrimmed), !picture.isEmpty else { return nil }
+        return picture
     }
 
     // MARK: - A letter in its own colours

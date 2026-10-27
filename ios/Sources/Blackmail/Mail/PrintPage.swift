@@ -19,7 +19,10 @@ import Foundation
 /// its own white, and one that declares the dark in its own colours, its
 /// style for the dark with it (`LetterScheme`). The page printed is as it
 /// was for all three: white paper, the sender's colours, no style brought
-/// back from the letter's head, as Mail prints.
+/// back from the letter's head, as Mail prints. A picture behind a
+/// letter's words, its body's `background`, is given to `#bm` by the rule
+/// the pane draws it with (`PanePage.backdrop`), and prints as no
+/// background does: not at all, and not as a file after the words either.
 ///
 /// Pure string work, Foundation only, built away from the main thread as
 /// the pane's page is (`PanePage`), so the suite can test it; `LetterPrint`
@@ -205,10 +208,14 @@ enum PrintPage {
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
             let shown = cut != nil || m.isShortened
+            // The picture behind its words where the pane draws it, on
+            // `#bm` as on a light letter's page, so it is not drawn after
+            // the words as a file; printed as no background is (B-169).
+            let backdrop = PanePage.backdrop(LetterScheme.reading(html: html).bodyPicture, on: "#bm")
             return (notice(shown)
                         + decodedAtOnce(BodyFiles.drawn(
                             in: PanePage.content(text: nil, html: cut ?? html, known: known, flowed: false,
-                                                 heldBack: heldBack),
+                                                 heldBack: heldBack, backdrop: backdrop),
                             of: m, on: .paper, cut: shown)), true)
         }
         let text = m.textBody ?? ""

@@ -703,11 +703,11 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertFalse(code[held.lowerBound..<after.lowerBound].contains("ownFrame(of:"),
                        "the line reads the frame it is given")
         for line in [
-            "let frame = drawn == .own ? ownFrame(of: m) : nil "
-                + "let held = heldBack ? Self.held(m, as: m.id, ownFrame: frame) : \"\"",
+            "let frame = drawn == .own ? ownFrame(of: m) : nil",
+            "let held = heldBack ? Self.held(m, as: m.id, ownFrame: frame, backdrop: backdrop) : \"\"",
             "let content = frame.map { inOwnColours(html, of: m, heldBack: !held.isEmpty, frame: $0) } ?? html",
-            "let frame = drawn == .own && !empty ? ownFrame(of: m) : nil "
-                + "let held = empty ? \"\" : heldBack.map { Self.held(m, as: $0, ownFrame: frame) } ?? \"\"",
+            "let frame = drawn == .own && !empty ? ownFrame(of: m) : nil",
+            "let held = empty ? \"\" : heldBack.map { Self.held(m, as: $0, ownFrame: frame, backdrop: backdrop) } ?? \"\"",
             "if let frame { content = inOwnColours(content, of: m, heldBack: !held.isEmpty, frame: frame) }",
             "let frame = frame ?? ownFrame(of: m)",
         ] {
@@ -754,6 +754,205 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertTrue(shown.contains("url(https://example.com/paper.png)"), shown)
         XCTAssertFalse(shown.contains(RemoteContent.unloaded))
         XCTAssertEqual(PanePage.letter(own, style: style, heldBack: false), shown)
+    }
+
+    // MARK: - The body's background
+
+    /// A light letter's body's background picture is behind its words, as
+    /// Mail draws it, where the wrapper's removal took it off with the
+    /// body's tag and the picture, a part of the letter's own by `cid:`,
+    /// was drawn once at its size after the words as a file (found on the
+    /// test iPad, 2026-10-27): a rule giving the picture to the page's
+    /// `#bm`, or the letter's body in a stack, in front of the markup, which
+    /// is as it was, in no box; the `cid:` pointed at the loader, the part
+    /// counted as drawn by the letter and no file drawn for it; on paper on
+    /// `#bm` too. Its `bgcolor` not drawn, as before the fix. In its own
+    /// colours, on its body's `div`, weighing nothing, its colour there as
+    /// before. One of the web held back under Block All Remote Content,
+    /// with Mail's line; shown, loaded; a byte that could end the string or
+    /// the `<style>` escaped. A letter whose body names none is as it was.
+    func testABodysBackgroundPictureIsBehindItsWords() throws {
+        let html = "<html><body background=\"cid:pale@example.com\" bgcolor=\"#fdf6e3\">"
+            + "<p>Dear Ann,</p><blockquote type=\"cite\">Thanks.</blockquote></body></html>"
+        let markup = "<p>Dear Ann,</p><blockquote type=\"cite\">Thanks.</blockquote>"
+        let m = letter(html, pictures: ["pale@example.com"])
+        XCTAssertEqual(scheme(html), .light)
+        func rule(_ selector: String, _ address: String = "bmcid://pale%40example.com") -> String {
+            "<style>" + selector + " { background-image: url('" + address + "'); background-repeat: repeat; }</style>"
+        }
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        XCTAssertTrue(page.contains("<div id=\"bm\">" + rule("#bm") + markup + "</div>"), page)
+        let stack = PanePage.stackBody(m)
+        XCTAssertEqual(stack.kind, "bm-light")
+        XCTAssertEqual(stack.html, rule("#m7_3 > .bm-body") + markup)
+        XCTAssertEqual(PanePage.stackBodySelector(of: m),
+                       "#" + ConversationDocument.sectionID(for: m.id) + " > .bm-body")
+        for drawn in [page, stack.html] {
+            XCTAssertFalse(drawn.contains("<img"), drawn)
+            XCTAssertFalse(drawn.contains("bmfile-"), drawn)
+            XCTAssertFalse(drawn.contains("cid:pale"), drawn)
+            XCTAssertFalse(drawn.contains("#fdf6e3"), drawn)
+            XCTAssertFalse(drawn.contains("flow-root"), drawn)
+        }
+        let paper = PrintPage.body(m).html
+        XCTAssertEqual(paper, rule("#bm") + markup)
+
+        // In its own colours: the picture on its body's `div`, weighing
+        // nothing, and its colour there alone, as before.
+        let own = letter("<meta name=\"color-scheme\" content=\"light dark\">"
+                         + "<body background=\"cid:pale@example.com\" bgcolor=\"#fdf6e3\"><p>x</p></body>",
+                         pictures: ["pale@example.com"])
+        let ownBody = PanePage.stackBody(own).html
+        XCTAssertTrue(ownBody.contains("<div class=\"bm-own-body\">" + rule(":where(#bm-own-7_3 > .bm-own-body)")),
+                      ownBody)
+        XCTAssertEqual(ownBody.components(separatedBy: "#fdf6e3").count, 2, ownBody)
+        XCTAssertFalse(ownBody.contains("bmfile-"), ownBody)
+        let ownPage = try XCTUnwrap(PanePage.letter(own, style: style))
+        XCTAssertTrue(ownPage.contains("<div class=\"bm-own-body\">" + rule(":where(#bm-own-7_3 > .bm-own-body)")),
+                      ownPage)
+
+        // A light letter whose body names no picture, its colours alone
+        // among them, as it was: no rule, no colour.
+        for body in ["<body>", "<body bgcolor=\"#000000\" text=\"#ffffff\">"] {
+            let plain = letter(Self.withAWebPicture.replacingOccurrences(of: "<body>", with: body))
+            let drawn = try XCTUnwrap(PanePage.letter(plain, style: style))
+            XCTAssertFalse(drawn.contains("background-image: url("), drawn)
+            XCTAssertFalse(drawn.contains("#000000"), drawn)
+            XCTAssertFalse(drawn.contains("#ffffff"), drawn)
+            XCTAssertTrue(drawn.contains("color: #000;"), drawn)
+        }
+
+        // From the web, held back and then loaded; an apostrophe in its
+        // address, and a `</style>`, escaped inside the `url()`.
+        let web = letter("<body background=\"https://example.com/it's.png\"><p>x</p></body>")
+        let held = try XCTUnwrap(PanePage.letter(web, style: style, heldBack: true))
+        let heldBody = PanePage.stackBody(web, heldBack: "7/3").html
+        for drawn in [held, heldBody] {
+            XCTAssertTrue(drawn.contains("url('bmoffhttps://example.com/it\\27 s.png')"), drawn)
+            XCTAssertTrue(drawn.contains(RemoteContent.line(for: "7/3")), drawn)
+        }
+        let shown = try XCTUnwrap(PanePage.letter(web, style: style))
+        XCTAssertTrue(shown.contains("url('https://example.com/it\\27 s.png')"), shown)
+        XCTAssertFalse(shown.contains(RemoteContent.unloaded))
+        let closing = letter("<body background=\"x</style\\c\"><p>x</p></body>")
+        let escaped = try XCTUnwrap(PanePage.letter(closing, style: style))
+        XCTAssertTrue(escaped.contains(rule("#bm", "x\\3c /style\\5c c") + "<p>x</p>"), escaped)
+    }
+
+    /// The body's picture only where it is the one WebKit draws: none where
+    /// a rule for the body under the dark pane's media, or the body's
+    /// `style`, declares a `background` or a `background-image` over the
+    /// attribute, which weighs least, as `hasBackgroundPicture` weighs
+    /// them; never for a letter drawn inverted. Found in the review of the
+    /// fix: such a letter, inverted, was wrapped in the picture's box, which
+    /// the invert's rule for a `background-image` turned back, so the whole
+    /// letter was drawn in its own colours on the inverted black, black
+    /// words where the picture did not come; and one in its own colours
+    /// had the pale picture behind its words for the dark, where its rule
+    /// for the dark takes it away. Neither asks the web for it, so Mail's
+    /// line is not over it for that; the part, named nowhere on the page,
+    /// is drawn after the words, as any picture the page does not show.
+    func testABodysPictureIsDrawnOnlyWhereWebKitDrawsIt() throws {
+        let cases: [(String, LetterScheme, String?)] = [
+            ("<body background=\"bg.jpg\"><p>x</p></body>", .light, "bg.jpg"),
+            ("<body background=\" cid:paper \"><p>x</p></body>", .light, "cid:paper"),
+            ("<body background=\"bg.jpg\" style=\"background-color: #fff\"><p>x</p></body>", .light, "bg.jpg"),
+            ("<style>@media (prefers-color-scheme: light) { body { background: #fff } }</style>"
+                + "<body background=\"bg.jpg\">", .light, "bg.jpg"),
+            ("<style>body { background: var(--paper) }</style><body background=\"bg.jpg\">", .light, "bg.jpg"),
+            ("<style>body.news { background: #fff }</style><body class=\"news\" background=\"bg.jpg\">",
+             .light, "bg.jpg"),
+            ("<body background=\"bg.jpg\" style=\"background: none\"><p>x</p></body>", .inverted, nil),
+            ("<style>body { background: #fff }</style><body background=\"bg.jpg\"><p>x</p></body>",
+             .inverted, nil),
+            ("<style>body { background: url(other.png) }</style><body background=\"bg.jpg\">", .light, nil),
+            ("<body background=\"bg.jpg\"><img src=\"https://example.com/a.png\">"
+                + "<style>body { background-image: none }</style>", .light, nil),
+            ("<meta name=\"color-scheme\" content=\"light dark\"><body background=\"b.png\">", .own, "b.png"),
+            ("<meta name=\"color-scheme\" content=\"light dark\"><style>@media (prefers-color-scheme: dark) "
+                + "{ body { background: #1c1c1e !important } }</style><body background=\"b.png\">", .own, nil),
+            ("<meta name=\"color-scheme\" content=\"light\"><body background=\"b.png\" style=\"background:#fff\">",
+             .light, nil),
+            ("<body background=\"\"><p>x</p></body>", .inverted, nil),
+            ("<p>x</p>", .inverted, nil),
+        ]
+        for (html, drawn, picture) in cases {
+            let read = LetterScheme.reading(html: html)
+            XCTAssertEqual(read.scheme, drawn, html)
+            XCTAssertEqual(read.bodyPicture, picture, html)
+            XCTAssertEqual(LetterScheme.of(html: html), drawn, html)
+        }
+
+        // The review's two letters. Inverted, with a picture from the web
+        // a sheet takes away, and one of its own its `style` takes away:
+        // no rule, nothing held back for it and no line, the invert as it
+        // was.
+        for html in ["<style>body{background:#fff}</style><body background=\"https://example.com/bg.png\">"
+                        + "<p>Hello</p>",
+                     "<body background=\"cid:x\" style=\"background:#ffffff\"><p>Hello</p>"] {
+            let m = letter(html, pictures: ["x"])
+            XCTAssertEqual(scheme(html), .inverted, html)
+            for page in [try XCTUnwrap(PanePage.letter(m, style: style)),
+                         try XCTUnwrap(PanePage.letter(m, style: style, heldBack: true)),
+                         PanePage.stackBody(m, heldBack: "7/3").html, PrintPage.body(m).html] {
+                XCTAssertFalse(page.contains("background-image: url("), page)
+                XCTAssertFalse(page.contains("bmoffhttps://example.com/bg.png"), page)
+                XCTAssertFalse(page.contains(RemoteContent.unloaded), page)
+            }
+            XCTAssertEqual(PanePage.stackBody(m).kind, "bm-html")
+        }
+        // In its own colours, its rule for the dark taking the picture away.
+        let dark = letter("<html><head><meta name=\"color-scheme\" content=\"light dark\"><style>"
+                          + "@media (prefers-color-scheme: dark) { body { background:#1c1c1e !important } }"
+                          + "</style></head><body background=\"cid:paper\"><p>x</p></body></html>",
+                          pictures: ["paper"])
+        XCTAssertEqual(scheme(dark.htmlBody!), .own)
+        for page in [try XCTUnwrap(PanePage.letter(dark, style: style)), PanePage.stackBody(dark).html] {
+            XCTAssertFalse(page.contains("background-image: url("), page)
+        }
+    }
+
+    /// The letter is read once for its scheme and its body's picture
+    /// (`LetterScheme.reading`), on its page and in a stack: the picture's
+    /// rule is given to Mail's line and to the markup, and neither reads
+    /// the letter again; the print reads it once. Found in the review of
+    /// the fix, which read it once more for the picture's box in every
+    /// page, and again for Mail's line.
+    func testTheBodysPictureIsReadWithTheScheme() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail/Mail/PanePage.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+            .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).joined(separator: " ")
+        XCTAssertEqual(code.components(separatedBy: "LetterScheme.reading(html:").count - 1, 2)
+        XCTAssertEqual(code.components(separatedBy: "LetterScheme.of(").count - 1, 0)
+        XCTAssertEqual(code.components(separatedBy: "LetterScheme.Markup(").count - 1, 1, "ownFrame's alone")
+        XCTAssertFalse(code.contains("backgroundBox"))
+        let held = try XCTUnwrap(code.range(of: "static func held("))
+        let shortened = try XCTUnwrap(code.range(of: "static func shortened(", range: held.upperBound..<code.endIndex))
+        let content = try XCTUnwrap(code.range(of: "static func content("))
+        let backdrop = try XCTUnwrap(code.range(of: "static func backdrop(", range: content.upperBound..<code.endIndex))
+        for body in [code[held.lowerBound..<shortened.lowerBound], code[content.lowerBound..<backdrop.lowerBound]] {
+            XCTAssertFalse(body.contains("LetterScheme"), String(body))
+            XCTAssertFalse(body.contains("Markup("), String(body))
+        }
+        for line in [
+            "let read = m.htmlBody.map(LetterScheme.reading(html:)) let drawn = read.map { scheme ?? $0.scheme }",
+            "let backdrop = Self.backdrop(drawn == .inverted ? nil : read?.bodyPicture, "
+                + "on: drawn == .own ? ownBodySelector(of: m) : \"#bm\")",
+            "let held = heldBack ? Self.held(m, as: m.id, ownFrame: frame, backdrop: backdrop) : \"\"",
+            "heldBack: !held.isEmpty, backdrop: backdrop)",
+            "let read = isHTML && !empty ? LetterScheme.reading(html: m.htmlBody!) : nil",
+            "let backdrop = Self.backdrop(read?.bodyPicture, "
+                + "on: drawn == .own ? ownBodySelector(of: m) : stackBodySelector(of: m))",
+            "let held = empty ? \"\" : heldBack.map { Self.held(m, as: $0, ownFrame: frame, backdrop: backdrop) } ?? \"\"",
+        ] {
+            XCTAssertTrue(code.contains(line), line)
+        }
+        XCTAssertEqual(code.components(separatedBy: "heldBack: !held.isEmpty, backdrop: backdrop)").count - 1, 2)
     }
 
     // MARK: - node

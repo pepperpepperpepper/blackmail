@@ -34841,7 +34841,7 @@ changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
 
-## B-166 — FIXED 2026-10-27, not yet seen on the iPad. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
+## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -35018,10 +35018,16 @@ closing section says so).
 **Not changed.** Settings, the setup form and the connection log keep
 their sizes, as they are not among the ruling's screens. The unread
 dot's 12 points, the 29-point gutter, the insets and the panes' widths
-are as at Large. With Bold Text switched while the app is open, the bars
-keep the weight they were drawn with until the app next starts: their
-fonts are made once, with the bar. A letter's page being built at the
-moment of a change comes at the size of the tap, and the next one at the
+are as at Large. The bars' titles, buttons and symbols turn bolder with
+Bold Text at once, while the app is open, as UIKit draws them and as
+Mail's do, and keep their size and their places: the app does nothing
+for it, and this said, until the test iPad showed it on 2026-10-27, that
+they kept the weight they were drawn with until the app next started.
+At the accessibility sizes the Mailboxes' names and New Message's
+"Attach File" are laid out as they were, UIKit's list breaking a name
+inside its words and the composer's row cutting "Attach File": seen on
+2026-10-27 and left so, the layout not to change (below). A letter's
+page being built at the moment of a change comes at the size of the tap, and the next one at the
 new size. The place he had scrolled to in a letter is not kept when it
 is drawn again at a new size: it starts where it opens, as after
 WebKit lost it. Pinch-zoom in the letter is as before.
@@ -35114,8 +35120,8 @@ names `Theme.threadChildIndent` as never read, as it did on the base
 **Not covered.** UIKit, which the host has not: the screens' redraws are
 read from the source, not run, nor the folders' rows sizing to their
 names and their measuring again after a count in place, nor the stack's
-rules in WebKit. Not seen on the simulator or on an iPad: the TODO's
-B-166 check. Every size is scaled by the body text's share. Apple's
+rules in WebKit. Not seen on the simulator; on the test iPad the TODO's
+B-166 check was run on 2026-10-27 (below). Every size is scaled by the body text's share. Apple's
 table for the subheadline, the text style of 15 points at Large, which
 Mail's subjects, previews and dates are believed to be set in, is a
 point or two larger at five sizes: 21 at the largest of the seven, where
@@ -35127,9 +35133,7 @@ the accessibility sizes, so the row's date at the right end of a line of
 its own, and the folders' names going on to more lines, are the app's
 choices, in line with Apple's picture of Mail's header and its
 guidelines; whether Mail's search field grows with the size, where the
-app's keeps 15 points; whether the system's font made at a size of the
-app's (`systemFont(ofSize:weight:)`) takes Bold Text as iOS's text
-styles do, which is believed and not seen; whether WebKit's letter takes
+app's keeps 15 points; whether WebKit's letter takes
 Bold Text; whether iOS says its word for a Per-App change, the return to
 the front reading it anyway; and which size the share extension's traits
 carry with a Per-App size set for Blackmail alone.
@@ -35169,6 +35173,41 @@ before the last build: a line of 2026-10-27 there names them built here, a size 
 Mail alone in Per-App Settings matched on the day. In TODO, this check's
 steps 1 and 2 read (a)'s files as B-170's tiles, and step 8 has (a)'s
 tiles within the pane.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-look, on the int19
+build, and reproduced by a second run. Step 7, Bold Text switched on
+with the app open: the rows, the Mailboxes, the header and the letter
+bolder, as the check says, and the bars bolder with them at once, their
+titles, Edit, the view button, Refresh, Settings and the toolbar's
+symbols, by 1.2 to 1.4 times their ink, where the check and "Not
+changed" said they kept their weight; Bold Text off, every one as
+before. iOS draws the system's font and its symbols bolder while Bold
+Text is on, in every app, Mail's bars among them, and the app never
+draws its bars again for it: the fault was this entry's, not the app's,
+and "Not changed" says now what the iPad showed. Step 8, the largest
+accessibility size: the list's rows, the tiles, the stack, the Move
+sheet and Go to Date as the check says, and two things not. The
+Mailboxes' names were broken inside their words, "In" and "box", "Draft"
+and "s", "S" and "ent", "Tr" and "ash", "I", "mpor-" and "tant", "Dele",
+"ted Mes-" and "sages", each line after the first beginning under the
+icon, in a column of 250 points: "In" beside the Inbox's icon at x 128
+to 160, the icon at 28 to 100, and "box" from x 23.5. UIKit's list
+configuration, which the Mailboxes give the name and the icon to, puts
+the icon beside the first line of a 53-point name and the next lines
+under it, and breaks a word too wide for the room beside the icon
+between its letters. And New Message's "Attach File", beside "Photo
+Library", was broken into "Atta", "ch" and "File", its third line cut by
+its row, 137 points high, one line's height at that size: the two
+buttons share one row held at that height, "Attach File" given what
+"Photo Library" leaves.
+
+*Left as they are.* The owner ruled on 2026-10-27: "I don't want to
+change the layout of blackmail. The layout is very important." A change
+made for the two, a folder's icon on a line of its own above its name
+and "Attach File" on a line of its own under "Photo Library", was taken
+out the same day for that rule, so both are laid out as on the int19
+build, and the TODO's check, steps 7 and 8, expects what the iPad
+showed.
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
@@ -35496,7 +35535,7 @@ Deleting's already was, and the still-open list in the item on his
 iPad's own settings leaves out the text size (B-166's integration
 paragraph).
 
-## B-168 — FIXED 2026-10-27, not yet seen on the iPad. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
+## B-168 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
 
 TODO items 7386 (pictures from the web in letters) and the Messages part
 of 7562 (his iPad's own settings), ruled 2026-10-26: copy Apple Mail,
@@ -35636,11 +35675,12 @@ existed.
      Message", or "Trash Messages" for a conversation of more, the row
      sliding back while he is asked and going if he taps it;
    - a full drag goes at once, as Mail's does. UIKit says the same to a
-     button tapped and a full drag; a full drag has stretched the button
-     across the row, and one wider than three fifths of the row is taken
-     for it (`DiscardQuestion.fullDrag`), so a tap is never taken for a
-     full drag, and if UIKit has not stretched it by then, a full drag
-     asks, erring toward the question.
+     button tapped and a full drag; the drag's own pan tells them apart,
+     ended as the button is done or lifted within a third of a second
+     before (`DiscardQuestion.fullDrag`), so a slow drag's button tapped
+     still asks. Built telling them by the button's width, over three
+     fifths of the row, which every full drag on the test iPad failed
+     (the fix after it, below).
    An action sheet, as Mail's, its red button the words and Cancel, which
    on the iPad is a tap anywhere else, as the Flag button's sheet is; not
    `EraseConfirmation`'s alert, since a letter trashed or archived can be
@@ -35751,8 +35791,11 @@ failing. The release build for the iPad links.
 - That WebKit applies a list taken off the controller to the page on
   screen before the body put back asks for its pictures, and one put on
   for the next letter to its first requests.
-- That UIKit has stretched a drag's button across the row when a full
-  drag calls it; if not, a full drag asks.
+- That UIKit's pan for a row's buttons is a pan of the table's and is
+  ended, or a third of a second or less from its end, when a full drag's
+  button is done; if not, a full drag asks. And that no button is tapped
+  within a third of a second of the lift of the drag that opened it,
+  which would go with no question.
 - Which of Mail's words Mail puts up where, read from the strings' names:
   "Trash 3 Messages" for a selection, "Trash Messages" for a
   conversation's row; and whether More's Trash Message asks in Mail. Here
@@ -35810,7 +35853,52 @@ the letters it archives are asked of after it (B-167's paragraph). In TODO, this
 entry's line of 2026-10-27 on his iPad's own settings follows B-167's
 words there and B-166's line, its own words as they were.
 
-## B-169 — FIXED 2026-10-27, not yet seen on the iPad. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
+**Found on the test iPad, 2026-10-27**, in round r6-i-options, on the
+int19 build, at the check's step 8, and reproduced by a second run on new
+letters. With Ask Before Deleting on, a full drag to the left on a letter
+in "Notes", the finger from the row's right end to near its left in a
+quarter of a second, put up "Trash Message" over the row, which slid
+back; nothing went, twice. Done in a second and a half, the same. With
+the option off, the same drag trashed the letter at once, so UIKit did
+the full drag's button; the app took it for a tap. Measured in the
+second run's shots, UIKit moves the row about six tenths of the finger's
+way, and as the finger lifted the stretched Trash covered 53 to 56 per
+cent of the row, More and Flag under it: "Not seen"'s risk, seen, on
+every full drag, slow or fast.
+
+*The cause.* The handler took a drag for a full one only when its
+button's view was wider than three fifths of the row
+(`DiscardQuestion.fullDrag(button:row:)`); UIKit never stretched it
+that far on this iPad.
+
+*Changed.* A full drag is told by the drag itself. The first time a drag
+opens a row's buttons (`willBeginEditingRowAt`, which did nothing), the
+list listens to every pan of the table's but its scrolling one, UIKit's
+pan for the buttons among them, and notes when one ends (`swipePan`,
+`swipeLift`). As a button is done, it was a full drag when one of those
+pans is just ended, or ended no more than a third of a second before
+(`DiscardQuestion.fullDrag(panEnded:sinceLift:)`, `liftWindow`); the
+button's width is no longer read. A slow drag that leaves the buttons
+open does nothing as it lifts, and a button tapped after it comes with a
+tap, later than that, so it asks as before.
+
+*Tests.* `DiscardQuestionTests`: a full drag by the pan ended or a lift
+up to 0.29 s before, a tap with no lift or one 0.3 s or more before, and
+the question for each; the wiring read from the source, the pans
+listened to and their lift noted. `RowSwipesTests`' pins of the handler
+and of `willBeginEditingRowAt` follow. The width test put back in the
+handler and the new rule made a tap always, 12 failures in 4 tests of
+the two; then restored.
+
+In TODO, this check's preamble counts its twelve letters, where it said
+eleven after a seventh "bin" was added, and step 8 has a slow drag
+whose Trash is tapped as soon as the row has stopped, which asks as any
+tap does: the third of a second after a drag's lift in which a Trash
+counts as the drag's (`liftWindow`) is kept, as UIKit's timing of a full
+drag's button against its pan was not seen, and the step looks for a
+tap that would fall inside it (the review of the fix, 2026-10-27).
+
+## B-169 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 
 **Asked for** by the owner on 2026-10-27: "build the three Mail
 differences next: light colours in dark mode, …". The first of the gaps
@@ -36109,12 +36197,22 @@ The full suite, serially, on the branch: 2,961 tests, 16 of them new,
   hue back as well (B-146): an inverted letter's colours a shade apart, as
   before.
 - A light letter, and an inverted one, are drawn without the style sheets
-  of their head and without what their body's tag gave them, its
-  background, colour, picture, class or style, as since the wrapper came
-  off: Mail draws both. Only a letter in its own colours has its head's
-  rules back, and its body's `class`, `style`, `bgcolor` and `text`;
-  `<link>` sheets and `@import` are not loaded for it, and its body's
-  `id`, `background` picture, `link`, `vlink`, `alink` and other
+  of their head and without what their body's tag gave them, its colour
+  (`bgcolor`), text colour, class or style, as since the wrapper came
+  off: Mail draws both. So a light letter whose `bgcolor` is dark and
+  `text` light is drawn black on white, as before. Their body's
+  `background` picture is drawn behind their words since the fix after
+  the test iPad (below), where it is the picture WebKit draws: no rule
+  for the body under the pane's media, nor its `style`, names a
+  `background` or a `background-image` over the attribute, as
+  `LetterScheme` weighs them. A rule naming the body by a class is not
+  read there, so the attribute's picture is drawn where such a rule
+  would take it away; and a picture a light letter's body has from its
+  `style` or from a rule of its head is not drawn. Only a letter in its
+  own colours has its head's rules back, and its body's `class`, `style`,
+  `bgcolor` and `text`, and its `background` picture as above, under its
+  own rules; `<link>` sheets and `@import` are not loaded for it, and its body's
+  `id`, `link`, `vlink`, `alink` and other
   attributes, and its root's (`<html>`'s), are not brought, so a rule
   naming the body by its id, or the root by a class or an attribute,
   matches nothing. Letters that name no colour, in `bgcolor` or `text`,
@@ -36130,6 +36228,12 @@ The full suite, serially, on the branch: 2,961 tests, 16 of them new,
 - A light letter's white is its `#bm` or its body in the stack, edge to
   edge across the pane and as tall as the letter; where Mail's white ends
   around a letter on the iPad was not seen.
+- The rule that draws a body's picture (`PanePage.backdrop`, the fix after
+  the test iPad, below) is a `<style>` in front of the letter's markup, in
+  `#bm`, in its body in a stack or in its body's `div`: on a letter with
+  such a picture alone, a rule of the letter's naming its first element
+  by `:first-child` or `:nth-child` finds the `<style>` there instead, as
+  one naming the first under Mail's line already found the line.
 - In a conversation Mail gives each letter a page of its own; here they
   share one, each with its own class and box.
 
@@ -36147,7 +36251,107 @@ read for its style once, its frame (`ownFrame`) given both to Mail's line
 and to its box, so Block All Remote Content does not double the reading
 `testALetterMadeToBeSlowIsReadOnce` bounds.
 
-## B-170 — FIXED 2026-10-27, not yet seen on the iPad. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
+**Found on the test iPad, 2026-10-27**, in round r6-i-look, on the int19
+build, at the check's step 2, and reproduced by a second run on a new
+letter. (f), whose body's tag names a pale 64 by 64 picture of its own by
+`<body background="cid:…">`, was drawn light, as it should be, but white
+everywhere behind its words, between its paragraphs and beside its quote:
+the pale picture was not behind them. It was drawn once, at its size,
+under the quote, where the white ended. Every other letter of the step
+was drawn as the check says.
+
+*The cause.* The wrapper's removal (`DocumentWrapper.stripped`, B-169's
+own reason for the box of a letter in its own colours) takes the body's
+tag off, and its `background` with it. A light letter's page had only
+`#bm { background: #fff }`, and only a letter in its own colours got
+anything of its body's tag back (`ownFrame`), never its `background`.
+With no reference to the part left in the markup, `BodyFiles` did not
+count it as drawn by the letter, and drew it after the words as a
+picture file (B-170). `LetterScheme` reads the attribute from the
+letter as it came, which is why the letter was rightly light. "Not
+covered" said the background was lost; it did not say the picture came
+back as a file.
+
+*Changed.* `PanePage.backdrop`, new: the picture the body's `background`
+names, as a style sheet of one rule in front of the letter's markup,
+giving the picture to what the letter's white or colour is on, tiled as
+WebKit tiles a body's: the page's `#bm`, which a light letter's white
+fills edge to edge; in a conversation's stack the letter's body, by its
+section's id (`stackBodySelector`), over the stack's white; for a letter
+in its own colours its body's `div`, by a rule that weighs nothing
+(`:where`, `ownBodySelector`), as its `bgcolor` there, so its own rules
+and its `style` weigh over it; on paper `#bm`. A rule and no box: the
+letter's markup, its margins, its floats and the pane's margin are as
+they were, and nothing of the page moves. The address is the one
+`LetterScheme.reading`, new, reads with the letter's scheme, in the same
+reading: the attribute's, only where no rule for the body under the
+pane's media, nor its `style`, names a `background` or a
+`background-image` over it, which is what `hasBackgroundPicture` weighs,
+and never for a letter drawn inverted; `LetterScheme.of` is its scheme
+alone. The pane reads the letter once for both, on its page and in a
+stack; the print once. In a CSS string, its `\`, its `'`, its `<` and
+its controls escaped, so nothing in it ends the string or the `<style>`.
+`PanePage.content` takes the rule (`backdrop:`) and puts it in front of
+the markup before the `cid:` rewrite and the hold-back, so its `cid:` is
+pointed at the loader (`InlineImageRewriter`), which makes `BodyFiles`
+count the part as drawn by the letter and draw no file for it, and one
+of the web is held back under Block All Remote Content as a picture of
+the markup is (`RemoteContent.blocked` reads a `<style>`, B-168);
+`PanePage.held` is given the same rule and counts it, so Mail's line goes
+over such a letter, and over none whose picture is not drawn. A light
+letter's `bgcolor` is not drawn, as before. On paper (B-110) the picture
+is on `#bm` and prints as no background prints (`LetterPrint`), and no
+longer as a file after the words. A picture the page does not draw, as
+WebKit would not, is named nowhere on the page, and is drawn after the
+words as any picture of the letter's the page does not show (B-170).
+
+First made, the same day and before any round, as a box around the
+letter's markup, a `div` of the class `bm-body-bg` and a `flow-root`,
+with a light letter's `bgcolor` as its colour. The review of it found
+three faults. The box moved the letter: its first margin no longer
+joined Mail's line's, so a letter under that line, or under "only the
+beginning", began about a line lower; in a stack a light letter's white
+began at its line; its last floats were held inside it; and a colour
+was a panel inside the pane's white margin, which Mail does not draw.
+The colour came without the body's `text`, so a letter with a dark
+`bgcolor` and a light `text`, drawn black on white before, was black on
+black. And the picture was taken from the attribute whatever the
+letter's rules said: a letter whose sheet or `style` takes it away,
+inverted for that, was wrapped in the box all the same, which the
+invert's rule for a `background-image` turned back, so the whole letter
+was drawn in its own colours on the inverted black, black words where
+the picture did not come; and a letter in its own colours had the pale
+picture behind its words for the dark, where its rule for the dark
+takes it away. The rule above replaces the box, and the colour is left
+as before.
+
+*Tests.* `DarkLikeMailTests`, three new. (f)'s shape, its picture by
+`cid:` and a `bgcolor`: on its page `#bm`'s rule in front of the markup,
+which is as it came, in no box, and the same on paper; in a stack the
+rule for its section's body; the picture pointed at the loader, no file
+drawn for it, no `cid:` left, no colour; in its own colours the rule on
+its body's `div`, weighing nothing, and the colour there alone; a light
+letter with no picture, with a dark `bgcolor` and a light `text` among
+them, as it was; a picture from the web, an apostrophe in its address
+escaped, held back with Mail's line, on its page and in a stack, and
+loaded with no line when not held back; a `</style>` and a backslash in
+an address escaped. The picture only where WebKit draws it: fifteen
+letters' scheme and picture from one reading, the attribute's picture
+taken away by a `style`, a sheet, a rule for the dark, a picture from a
+rule, and kept beside a colour, a rule for light media, a variable or a
+class; the review's two inverted letters with no rule on their page,
+held back or not, in a stack or on paper, and no line; and a letter in
+its own colours whose rule for the dark takes it away. And, read from
+the source, the letter read once for its scheme and its picture on its
+page and in a stack, `held` and `content` reading nothing of their own.
+`testAHeldBackLetterInItsOwnColoursIsReadOnce`'s pins name the rule
+given to `held`. `BoundedLetterTests`' page fingerprints as before the
+fix, no letter of them having a picture on its body. The rule's picture
+taken from the attribute whatever the letter's rules, inverted letters
+too, 21 failures in 2 of the new tests; no rule drawn at all, 16 in the
+first; both put back.
+
+## B-170 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 
 **Found** in the copy-Mail research of 2026-10-26, "New gaps found on the
 way", the second: "Mail puts every file in the letter's body, not in a
@@ -36268,9 +36472,11 @@ under its header.
    in Quick Look, as B-113's row did (`PaneNavigation`'s `openFile`,
    `openAttachment`).
 7. *Coming* (`BodyFiles.Busy`, the script's `bmFileBusy`): from the tap
-   until the file opens or is let go, the tile is dimmed to half and its
-   last line says "Loading…", the pane's word, as B-148's row said it
-   after its name; then the line says what it said again.
+   until the file is open, Quick Look or the sheet asked for on the
+   screen, or is let go, the tile is dimmed to half and its last line
+   says "Loading…", the pane's word, as B-148's row said it after its
+   name; then the line says what it said again (cleared as Quick Look
+   began to come up until the fix after the test iPad, below).
 8. *Held* (the script's `bmPictureDown` and `bmFileClicked`,
    `BodyFiles.Hold`, `holdFile`): a finger held half a second on a tile,
    anywhere on it, still, gives a menu at the finger, by the sheet a held
@@ -36557,7 +36763,9 @@ links.
 - Markup and Reply on a held file (B-171 builds it for a held photo),
   Save Video, Open in New Window and Print from the menu are not built.
 - A HEIC is a tile, which iPadOS 18 could draw as a photo, as could
-  iPadOS 17; the test iPad's 16.5.1 cannot.
+  iPadOS 17; the test iPad's 16.5.1 cannot. One the letter's HTML shows
+  among its words is not a tile: below iPadOS 17 the loader serves it as
+  a JPEG (B-171's fix after the test iPad).
 - The list row's files, from its structure, are carried and kept on the
   iPad and drawn nowhere at the tap (B-042): the header has no rows to
   draw from them.
@@ -36578,7 +36786,43 @@ a file that is no picture keeps `fileMenu`. In TODO, this check's step 2
 now has the tile grow with the text size, and step 3 has Markup and Reply
 in the photo's menu.
 
-## B-171 — FIXED 2026-10-27, not yet seen on the iPad. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
+**Found on the test iPad, 2026-10-27**, in round r6-i-look, on the int19
+build, at the check's step 2, and reproduced by a second run on a new
+letter. "B-170 pdf", kept on the iPad, its tile tapped while the screen
+was recorded at 60 frames a second: the tile was dimmed with "Loading…"
+in one frame only, then as it was for about 0.37 s until Quick Look came
+over it. The second run's bursts, 26 to 127 ms after the tap, never
+caught the dim at all.
+
+*The cause.* `openAttachment` cleared the tile in the `defer` of its
+task, which runs as soon as `present(_:animated:)` has been called, not
+once Quick Look is on the screen. A file kept on the iPad comes in
+milliseconds, so the dim and its clearing reached WebKit all but
+together, and the tile sat as it was through Quick Look's own third of a
+second of coming up: against the check's "until the PDF is in Quick
+Look" and item 7 of "Changed". Over the network the gap was about two
+frames. The app's doing, not the iPad's.
+
+*Changed.* The task notes when it hands the file over (`handedOver`),
+and each of the four presentations, Quick Look for a tap, Markup and
+Reply's (B-171), Save to Files' and Share's (B-150), is given the
+clearing as its completion (`ready`), which UIKit runs once its
+transition has ended, on the page the tile was dimmed on and not on one
+given since. The `defer` clears it only where nothing was handed over: a
+failure, a file let go for a later tap or a pane moved on, and Save
+Image and Copy, which put nothing over the pane; it still lets the
+download and its count go at once, as before.
+
+*Tests.* `FileListedOnceTests`, one new, read from the source: the four
+presentations each after `handedOver = true` with `completion: ready`,
+no presentation without it, `ready` clearing only on the page shown at
+the tap, and the `defer` clearing only when nothing was handed over.
+The pins of `openAttachment` in `FileListedOnceTests`,
+`LastFileTappedTests`, `ExpiryWarningTests`, `AttachmentStoreTests` and
+`MarkupReplyTests` follow. The function put back as it was, 10 failures
+in 2 tests of `FileListedOnceTests`; then restored.
+
+## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
 Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
 26740c2.
@@ -36639,9 +36883,11 @@ a composer of its own" (`PanePictures.menu`).
    it is opened for (`FileTaps`, B-141, B-150).
 2. *iOS's own Markup* (`openAttachment`): the picture full screen in
    Quick Look, as a tap opens it, with the pane as the preview's delegate,
-   the only preview that has one, whose editing mode is `createCopy`:
-   Quick Look's Markup button at its top, the picture left as it came. A
-   tap's Quick Look has no Markup, as before.
+   whose editing mode for it is `createCopy`: Quick Look's Markup button
+   at its top, the picture left as it came. A tap's Quick Look has no
+   Markup: built with no delegate for it, taken to mean none, which the
+   test iPad showed wrong; since the fix after it (below) the pane is its
+   delegate too, its editing mode `disabled`.
 3. *The copy* (`MarkupReply`, new). Each copy of what he drew that Quick
    Look hands over (`previewController(_:didSaveEditedCopyOf:at:)`) is
    staged at once where the composer's photos are (`AttachmentStore`), as
@@ -36708,7 +36954,8 @@ its Not covered line "Mail's Markup and Reply and Look Up are not built",
 for Markup and Reply; and the copy-Mail research's decision for B-122,
 "leave out Markup and Reply (L, separate)".
 
-**Not changed.** Look Up. A tap on a picture: Quick Look, no Markup. A
+**Not changed.** Look Up. A tap on a picture: Quick Look, no Markup
+(which, until the fix after the test iPad, it had: below). A
 file's row: a tap opens it, a hold does nothing. Reply All, New Message
 and Save to Files after Done, which iPadOS 17 and 18 Mail offer: Done
 goes to the Reply alone, as the menu's words say.
@@ -36817,3 +37064,84 @@ second; a picture drawn as a tile, a HEIC say, has it too
 (`menu(for:)`); a file that is no picture keeps B-150's menu as B-170
 gives it, with no Markup and Reply. `MarkupReplyTests` counts two uses
 of `PanePictures.menu` in the pane, a held picture's and a held tile's.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-options, on the
+int19 build, and reproduced by a second run on new letters. Two of the
+check's steps failed. Step 6: a plain tap on "B-171 photo"'s photo
+opened Quick Look with its Markup button between Share and Done; the
+held menu's Quick Look did too, and so did the int18 build of 2026-10-26
+(round r6-h-pane), so it is older than B-171, whose "as before" was not
+so. Step 8: in "B-171 heic" the HEIC photo, an iPhone's `image/heic`
+part of 2.2 MB shown among the words by `cid:`, was a small bordered box
+with WebKit's broken picture in it: no photo and no tile. Held, the box
+gave the picture menu, and its Quick Look showed the photo, so the part
+came; WebKit alone failed to draw it. The round's other "not possible"
+steps (no ink from a finger with Only Draw with Apple Pencil on) are the
+iPad's settings, not the app's.
+
+*The cause.* (a) A tap's Quick Look (`openAttachment`'s `.quickLook`)
+had no delegate, which this entry took to mean no Markup. On iPadOS
+16.5.1 Quick Look shows its Markup button for the writable file the
+pane writes when no delegate says otherwise; only Markup and Reply's
+preview had one, and its `editingModeFor` answered `createCopy` for any
+preview. (b) A picture the HTML shows by `cid:` is counted as drawn by
+the letter (`BodyFiles`, B-170), so it has no tile, and its `<img>` is
+fed by the loader with the part's own bytes and kind. WebKit on iPadOS
+16 draws no HEIC (`BodyFiles.pictureKinds`' own note), and B-170's rule
+that makes a HEIC a tile covers only one the HTML does not show. The app
+supports iOS 16, so on a supported iPad such a photo was a broken box;
+on iPadOS 17 and 18, his, WebKit draws it.
+
+*Changed.* (a) The pane is the delegate of a tap's Quick Look too (also
+of the held menu's Quick Look, the same branch; Save Image and Copy
+present nothing, as B-170 says),
+and `editingModeFor` answers by `MarkupReply.marks(in:)`, new: true for
+the preview a picture was last opened in for Markup and Reply, while it
+is up, and `createCopy` there; `disabled` for any other. The other two
+methods already took only that preview's copy and closing. (b)
+`HEICPicture`, new: a part `image/heic` or `image/heif`, or their
+sequences, in any case and with any parameter, is served by the loader
+(`InlineImageLoader`) on a system older than iOS 17
+(`HEICPicture.systemDrawsHEIC`, by `ProcessInfo`) as a JPEG made of it,
+away from the main thread in a detached task, by ImageIO's thumbnail of
+it, upright and drawn at most 2048 pixels on its longer side, at the
+shared photo's quality (`HEICPictureImageIO.swift`); where none can be
+made, as it came. From
+iOS 17, and for any other kind, as it came. The pane's page and the
+print's both take their pictures from the loader, so a printed letter has
+the photo too; the menu, Quick Look and Markup and Reply use the part as
+it came, which Quick Look draws.
+
+*Tests.* `MarkupReplyTests`, one new: Markup for the preview opened for
+Markup and Reply while it is up, and none for another, none under way,
+or one closed; its wiring pins the tap's delegate and the editing mode
+by `marks`, two delegates and one `createCopy`. `HEICPictureTests`, new,
+two: a HEIC by each name served as the JPEG made of it below 17 and as
+it came from 17, any other kind as it came with no JPEG made, one that
+makes none as it came; and, read from the source, the loader making it
+in a detached task before WebKit is answered, the system read at 17, and
+ImageIO's options. `AttachmentStoreTests` counts two delegates, and
+`ExpiryWarningTests`' pin of `openAttachment` has the tap's. Undone
+by hand, the pane as it was with `marks` true for any preview, 9
+failures in 2 tests of `MarkupReplyTests` and 1 in
+`AttachmentStoreTests`; the loader as it was with `served` giving the
+part as it came, 16 in 2 tests of `HEICPictureTests`; then restored.
+
+*After the review of the fix, 2026-10-27.* Each HEIC of a letter began
+its JPEG at once, all of them together on the threads Swift's tasks
+share, and one for a request WebKit had stopped, as he tapped past the
+letter or a print was let go, still made its JPEG to throw it away. The
+loader makes them one at a time (`HEICPicture.turns`, `atOnce` 1, a
+`Turns` of its own that serves those waiting in the order they came) and
+makes none for a request stopped while it waited for its turn
+(`Task.isCancelled`, which stopping the request sets); one already being
+made runs to its end, its answer dropped as before. How much of a
+12-megapixel photo ImageIO holds while it draws one at 2048 pixels was
+not measured: "never decoded whole" above said more than was known, and
+says "drawn at most 2048 pixels" now. The pane's delegate's comment
+names every Quick Look it opens, Markup only in Markup and Reply's.
+`HEICPictureTests`, one new: five asking at once never two at their
+turn together with one, nor three with two, each its turn once and the
+turns given back; and the loader's pin takes the turn, the stopped
+request and the turn given back. Every request let through at once, 2
+failures in the new test; then restored.

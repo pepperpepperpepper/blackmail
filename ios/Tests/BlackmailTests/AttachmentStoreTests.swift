@@ -293,8 +293,7 @@ final class AttachmentStoreTests: XCTestCase {
     /// last copy removed as the next is written, and there alone, then
     /// presented. Never as the preview closes: Print reads the file after
     /// its panel has closed. Nothing that hears a preview close touches the
-    /// file: the one preview with a delegate is Markup and Reply's (B-171),
-    /// whose delegate never names it. The item is never force-unwrapped.
+    /// file: the previews' delegate (B-171) never names it. The item is never force-unwrapped.
     /// The same one copy for Save to Files and Share from a held picture's
     /// menu (B-150).
     func testThePaneKeepsOneCopyOfAnOpenedFileAndRemovesItOnlyAsTheNextIsWritten() throws {
@@ -307,12 +306,12 @@ final class AttachmentStoreTests: XCTestCase {
                  "UIDocumentPickerViewController(forExporting: [url], asCopy: true)",
                  "UIActivityViewController(activityItems: [url], applicationActivities: nil)",
                  "preview.dataSource = self",
-                 "present(preview, animated: true)"], in: code)
+                 "present(preview, animated: true, completion: ready)"], in: code)
         XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "previewURL = nil").count - 1, 1)
         XCTAssertTrue(code.contains("extension MessageDetailViewController: QLPreviewControllerDataSource {"))
-        XCTAssertEqual(code.components(separatedBy: "preview.delegate = self").count - 1, 1)
+        XCTAssertEqual(code.components(separatedBy: "preview.delegate = self").count - 1, 2)
         XCTAssertTrue(code.contains("case .markupAndReply: let preview = QLPreviewController() "
                                         + "preview.dataSource = self preview.delegate = self"))
         let delegate = try XCTUnwrap(code.components(

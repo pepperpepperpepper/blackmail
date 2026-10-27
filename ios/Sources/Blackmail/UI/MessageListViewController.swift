@@ -2857,7 +2857,27 @@ final class MessageListViewController: UITableViewController {
     /// `isEditing` on for it, and UITableViewController's own answer here
     /// would put the whole controller into editing as well, which here is
     /// Edit mode's (`inEditMode`): not called.
-    override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) {}
+    ///
+    /// The drag's own pan, UIKit's for a row's buttons, every pan of the
+    /// table's but its scrolling one, is listened to from here on, so its
+    /// lift tells a full drag from a tap (`swipePan`; adding the same
+    /// target twice adds it once).
+    override func tableView(_ t: UITableView, willBeginEditingRowAt ip: IndexPath) {
+        for case let pan as UIPanGestureRecognizer in t.gestureRecognizers ?? []
+            where pan !== t.panGestureRecognizer {
+            pan.addTarget(self, action: #selector(swipePan(_:)))
+            if !swipePans.contains(where: { $0 === pan }) { swipePans.append(pan) }
+        }
+    }
+
+    /// The pans a drag on a row is made with (`willBeginEditingRowAt`).
+    private var swipePans: [UIPanGestureRecognizer] = []
+    /// When one of them last ended, a finger lifted from a drag.
+    private var swipeLift: CFTimeInterval?
+
+    @objc private func swipePan(_ pan: UIPanGestureRecognizer) {
+        if pan.state == .ended { swipeLift = CACurrentMediaTime() }
+    }
 
     /// The row's buttons have closed: UITableViewController's answer, the
     /// controller out of editing, not called either. The row of the letter
@@ -2877,9 +2897,11 @@ final class MessageListViewController: UITableViewController {
     /// which take the row off at the tap as Edit mode's Delete does.
     ///
     /// UIKit tells a button tapped and a full drag apart in no word of its
-    /// own: a full drag has stretched the button across the row, which is
-    /// what tells them apart here, for Ask Before Deleting, which a full
-    /// drag never waits for (`DiscardQuestion.fullDrag`, B-168).
+    /// own: the drag's pan, just ended as its button is done, is what
+    /// tells them apart here, for Ask Before Deleting, which a full drag
+    /// never waits for (`DiscardQuestion.fullDrag`, B-168). Its button's
+    /// width did until the test iPad showed a full drag's Trash never
+    /// stretched past 56 per cent of the row (2026-10-27).
     private func swipes(at ip: IndexPath,
                         _ side: KeyPath<RowSwipes.Sides, [RowSwipes.Action]>)
         -> UISwipeActionsConfiguration {
@@ -2888,10 +2910,11 @@ final class MessageListViewController: UITableViewController {
         let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)
         let actions = sides[keyPath: side].map { action -> UIContextualAction in
             let button = UIContextualAction(style: .normal, title: action.title) {
-                [weak self] _, source, done in
+                [weak self] _, _, done in
                 guard let self else { return done(false) }
-                let whole = DiscardQuestion.fullDrag(button: Double(source.bounds.width),
-                                                     row: Double(self.tableView.bounds.width))
+                let whole = DiscardQuestion.fullDrag(
+                    panEnded: self.swipePans.contains { $0.state == .ended },
+                    sinceLift: self.swipeLift.map { CACurrentMediaTime() - $0 })
                 done(self.swiped(action, on: RowKey(thread), from: whole ? .fullDrag : .rowButton))
             }
             // At a size of the app's own, as every symbol here is (B-071),

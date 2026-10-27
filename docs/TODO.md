@@ -8917,17 +8917,22 @@ checks below is left as not needed, not open, and none is worth a round.*
          with them; Cancel. Text Size at its right end again.
       7. *Bold Text, while the app is open.* With (a) open, Bold Text on,
          back in the app: the rows' names, subjects and previews, the
-         Mailboxes, the header and (a)'s words bolder; the bars as they
-         were (B-166, Not changed). Bold Text off: as in 2.
+         Mailboxes, the header and (a)'s words bolder; the bars bolder
+         with the rest, their size and places as before (UIKit's, as
+         Mail's; this step said "as they were" until the round of
+         2026-10-27 saw them bolder). Bold Text off: as in 2.
       8. *The largest accessibility size.* Larger Text, Larger Accessibility
          Sizes on, the slider at its right end, back in the app: each row's
          date, and on (d)'s row the blue chevron, on a line of their own
          under the names, at its right end; nothing over anything; about two
          rows to the pane. (e)'s row: its grey arrow whole in the gutter,
          inside the row's left edge and clear of the names. The Mailboxes as
-         UIKit lays them out at this size, each name after its own icon,
-         whole on as many lines as it takes, the Inbox's too, each row as
-         tall as its name, nothing cut and nothing over the next row. The
+         UIKit lays them out at this size: each name beginning after its
+         own icon and going on under it, a word too wide for its line
+         broken inside it, "In" and "box", each row as tall as its name,
+         nothing over the next row. So it was on 2026-10-27, and it is
+         left so, the layout not to change (B-166): not a failure, written
+         down only where it differs. The
          header and (a)'s words larger again, (a)'s tiles within the pane,
          each at most twice its size in 1 (B-170). (d)'s row: on the
          conversation's lines each name on a line of its own, its date on the
@@ -8936,8 +8941,12 @@ checks below is left as not needed, not open, and none is worth a round.*
          sideways. Back to (a): the pane's folder button, the Move sheet's
          folders as the Mailboxes', each whole; Cancel, nothing moved. The
          calendar: Go to Date's words and its two buttons as in 1; Cancel.
-         New Message: its lines as tall as their words; Cancel. Two panes,
-         then three.
+         New Message: its lines as tall as their words, but for the row of
+         Photo Library and Attach File, one line high, "Attach File"
+         beside "Photo Library" broken into lines and its last cut by the
+         row; so on 2026-10-27, and left so (B-166): not a failure,
+         written down only where it differs. Cancel. Two panes, then
+         three.
       9. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
          at its middle step. Accessibility, Per-App Settings, Add App,
          Blackmail, Larger Text for it at the right end of the seven:
@@ -8948,7 +8957,8 @@ checks below is left as not needed, not open, and none is worth a round.*
          taller, the link in the body larger; Cancel. Nothing is sent.
       11. *His size.* Once his iPad's Display & Text Size and Per-App
          Settings are read (the owner's "His iPad's own settings"), 2, 4,
-         6 and 8's screens at his size and Bold Text: nothing cut.
+         6 and 8's screens at his size and Bold Text: nothing cut but what 8
+         leaves as it is.
       12. *Not on this iPad.* On any iPadOS 18 device with Mail and a
          Gmail account, never his: Mail's list at the largest accessibility
          size, where its date goes; whether Mail's bars keep their size at
@@ -9049,7 +9059,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       with B-167's Settings rows, which set the two options; a build of
       this branch alone has no row for them, and the check waits for the
       int. Nothing is composed, sent or saved as a draft, and every Trash
-      goes onto the host's letters alone. The host makes eleven letters, each
+      goes onto the host's letters alone. The host makes twelve letters, each
       from another address, with a new Message-ID of its own and naming
       none on the account, and APPENDs them read (`\Seen`) to the label
       "Notes", never the Inbox, each with its Date as its internal date;
@@ -9060,8 +9070,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       a `style` `url()`: "B-168 news", which also carries a picture of its
       own by `cid:` and a link, and a conversation of two, "B-168 talk"
       (a) and (b), (b)'s References naming (a), each with its own two
-      paths, (b) with a picture of its own by `cid:` too. Then six plain
-      letters, "B-168 bin 1" to "B-168 bin 6", and a conversation of two
+      paths, (b) with a picture of its own by `cid:` too. Then seven plain
+      letters, "B-168 bin 1" to "B-168 bin 7", and a conversation of two
       plain ones, "B-168 pair" (a) and (b). The list goes by UID, the
       last APPENDed on top. Organize by Thread on, three panes. In
       Blackmail's Settings both options written down as found, then set
@@ -9108,8 +9118,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       8. *A drag.* A slow drag to the left on "B-168 bin 4": More, Flag
       and Trash. Trash tapped: the row slides back, and a sheet over
       the row, "Trash Message"; a tap outside: nothing goes. Then a full
-      drag to the left on it: it goes at once, no sheet. On "B-168 bin
-      5", a slow drag, More, "Trash Message": a sheet over the row,
+      drag to the left on it, from the row's right end to near its left,
+      once in a quarter of a second and, on "B-168 bin 7", once in a
+      second and a half: each goes at once, no sheet (the round of
+      2026-10-27 had a sheet for both, and nothing went). On "B-168 bin
+      6", a slow drag that leaves the buttons open, and Trash tapped as
+      soon as the row has stopped: a sheet over the row, "Trash Message",
+      as for any tap (a Trash within a third of a second of a drag's lift
+      counts as the drag's, `DiscardQuestion.liftWindow`); a tap outside:
+      nothing goes; if it went with no sheet, written down. On "B-168
+      bin 5", a slow drag, More, "Trash Message": a sheet over the row,
       "Trash Message"; tapped, it goes. On "B-168 pair", a slow drag,
       Trash: "Trash Messages"; tapped, both letters go. If a full drag
       in this step put up a sheet, written down (B-168's "Not seen").
@@ -9154,8 +9172,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          (prefers-color-scheme: dark)` rules making the cards #1c1c1e and
          the words #f2f2f7, a link coloured for the dark; (f) "B-169
          background", (a) with `<body background="cid:…">` of a pale
-         picture; (g) "B-169 stack" with (b)'s body and (h) "Re: B-169
-         stack", a day later, (a)'s body, its In-Reply-To and References
+         picture 64 by 64 px; (k) "B-169 background taken away", (f)
+         with `<style>body { background: #ffffff; }</style>` in its head;
+         (g) "B-169 stack" with (b)'s body and (h)
+         "Re: B-169 stack", a day later, (a)'s body, its In-Reply-To and References
          naming (g), so the two are one conversation; (i) "B-169 own
          body", `<meta name="color-scheme" content="light dark">`, nothing
          in its head, `<body style="background-color:#ffffff">`, its words
@@ -9173,8 +9193,16 @@ checks below is left as not needed, not open, and none is worth a round.*
          with words #f2f2f7, on the pane's black, its link in its own
          colour; (i) white behind its words, which are #333333, the
          pane's margin black around the white; (j) #1c1c1e behind words
-         #f2f2f7, not white. In each, the header and the list black as
-         ever. Then two panes: the same.
+         #f2f2f7, not white; (f) the pale picture tiled behind all its
+         words, from under the header to the letter's end and across the
+         pane, where (b)'s white is, between its paragraphs and beside its
+         quote, its words where (a)'s are, and not drawn once at its size
+         after the words (the step as first written said only "white",
+         and the round found the picture once after the quote); (k) as
+         (a), black with white words, no pale picture behind them, and the
+         pale picture once at its size after the words, as a picture of
+         the letter's its page does not show (B-170). In each, the header
+         and the list black as ever. Then two panes: the same.
       3. *The tap:* from (a) to (b) and back, recorded at 60 frames a
          second: black under the header from the tap until the letter, as
          B-149 has it, then the white of (b); no frame of (a)'s black under
@@ -9185,7 +9213,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          again.
       5. *Print:* on (b) and on (e), Reply, then Print: the preview's paper
          white with the letter's own light colours, as before B-169; (e)'s
-         cards white with dark words, not its dark ones. Cancel.
+         cards white with dark words, not its dark ones. On (f): its
+         words on white, no pale picture behind them and none after them.
+         Cancel.
       6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
          UIDs it noted, and only them, from "Notes" to the Trash (`UID
          MOVE`), and deletes in the Trash only the UIDs that move answered
@@ -9193,7 +9223,7 @@ checks below is left as not needed, not open, and none is worth a round.*
          or Message-ID: a UID not noted is left, and written down. Nothing
          else was written.
       If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
-      with iPadOS 18 and Mail is at hand: (a) to (f), (i) and (j) there,
+      with iPadOS 18 and Mail is at hand: (a) to (f), (i), (j) and (k) there,
       how each is drawn and where Mail's white ends around (b) and (i),
       written down beside 2's.
 
@@ -9239,7 +9269,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       together, its lines whole (B-166);
       the Text Size back to where it was. The tile
       tapped: it dims and its last line says "Loading…" until the PDF is in
-      Quick Look; Done: the tile as it was.
+      Quick Look, in every frame of a recording from the tap until Quick
+      Look covers it, a file kept on the iPad too (the round of 2026-10-27
+      saw it for one frame only, then the tile as it was for 0.37 s);
+      Done: the tile as it was.
       3. *Photo:* "B-170 photo": the photo under the words, as wide as the
       letter at most, and no tile for it; the PDF's tile under it. The
       photo tapped: Quick Look; Done. A finger held on the photo half a
@@ -9326,14 +9359,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       directory gone from `tmp/Attachments`.
       6. *The others:* the logo held: the menu with Markup and Reply. The
       picture from the web held: WebKit's menu, as before, no Markup and
-      Reply. A tap on the photo: Quick Look, written down whether it has
-      a Markup button (it should not).
+      Reply. A tap on the photo: Quick Look with no Markup button, Share
+      and Done alone at its top (the round of 2026-10-27 found one there);
+      Done. Held, Quick Look from the menu: no Markup button either.
       7. *A conversation:* "B-171 thread 2" listed, thread 1's line opened,
       its photo held, Markup and Reply, a line drawn, Done: the reply's To
       is thread 1's sender, its subject thread 1's. Cancel, Delete Draft.
-      8. *A HEIC:* "B-171 heic" opened; written down whether its photo
-      shows. Where it does: held, Markup and Reply, a line drawn, Done:
-      the row's name ends ".jpg", its kind a JPEG. Cancel, Delete Draft.
+      8. *A HEIC:* "B-171 heic" opened: its photo shows among the words,
+      upright, as wide as the letter at most, on iPadOS 16 as on 17 and
+      later (the round of 2026-10-27 found a broken box on 16.5.1; the
+      app makes a JPEG of it for WebKit below 17). Held, Markup and Reply, a line drawn, Done: the row's
+      name ends ".jpg", its kind a JPEG. Cancel, Delete Draft.
       9. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
