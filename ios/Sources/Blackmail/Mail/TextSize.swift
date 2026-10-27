@@ -91,47 +91,6 @@ struct TextSize: Equatable, Sendable {
     var stacksRowDate: Bool { step.isAccessibility }
 }
 
-/// A folder's name in the Mailboxes at the accessibility sizes (B-166):
-/// its icon on a line of its own above it, and its type no larger than
-/// lets each of its words fit the line it has.
-///
-/// UIKit's list puts a row's icon beside the first line of its words, and
-/// at these sizes the next lines under the icon; a word that did not fit
-/// the room left beside an icon 53 points wide was broken between its
-/// letters, "In" and "box", "Tr" and "ash", on the test iPad 2026-10-27,
-/// in a column of 250 points. With the icon on a line of its own the name
-/// has the whole width; a word still wider than that, "Important" at 53
-/// points in three panes, is drawn at the largest size at which it fits,
-/// as a word is never broken in Mail's lists. Below the accessibility
-/// sizes the row is UIKit's as it was, icon and name side by side.
-///
-/// Pure, out of the Mailboxes, so the suite can run it; the Mailboxes
-/// measure a word with the font they draw it in.
-enum FolderName {
-
-    /// Whether the icon has a line of its own at `size`: at the
-    /// accessibility sizes, where a row of the list puts its date on a line
-    /// of its own (`TextSize.stacksRowDate`).
-    static func iconAbove(at size: TextSize) -> Bool { size.stacksRowDate }
-
-    /// The size, in whole points, to draw `name` at: `points`, the names'
-    /// size at the text size, or the largest under it at which its widest
-    /// word, by `measure(word, size)`, fits `width`; never under `floor`,
-    /// the names' size at Large, where a word too long for any line is
-    /// left to break. Words are what lies between spaces.
-    static func pointSize(_ name: String, upTo points: CGFloat, floor: CGFloat, width: CGFloat,
-                          measure: (String, CGFloat) -> CGFloat) -> CGFloat {
-        let words = name.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        guard let widest = words.max(by: { measure($0, points) < measure($1, points) }),
-              measure(widest, points) > width, width > 0 else { return points }
-        var size = Swift.max(floor, (points * width / measure(widest, points)).rounded(.down))
-        // The width of a word is not quite in proportion to its size:
-        // checked, and a point less until it fits.
-        while size > floor, words.contains(where: { measure($0, size) > width }) { size -= 1 }
-        return size
-    }
-}
-
 /// Where a row of the message list puts its lines at a text size: the
 /// baselines of the names, the date, the subject and the first of the two
 /// preview lines, from the top of the row, the pitch between the preview

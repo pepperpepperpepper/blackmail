@@ -230,54 +230,6 @@ final class TextSizeTests: XCTestCase {
         XCTAssertEqual(plain.namesWidth, 256)
     }
 
-    /// A folder's name in the Mailboxes at the accessibility sizes: its
-    /// icon on a line of its own there and only there, and its type the
-    /// names' size, or the largest under it at which its widest word fits
-    /// the row, never under Large's 17. At the largest size, in a column
-    /// of 250 points, "Inbox" broke into "In" and "box" beside its icon
-    /// and "Important" into three on the test iPad (2026-10-27). Measured
-    /// here as a word of `n` letters `0.6 n` of its size wide, and again
-    /// with the width a little more than in proportion at the smaller
-    /// sizes, as the system's type is.
-    func testAFoldersNameIsNeverBrokenInsideAWord() {
-        for step in Step.allCases {
-            XCTAssertEqual(FolderName.iconAbove(at: TextSize(step: step, bold: false)), step.isAccessibility)
-            XCTAssertEqual(FolderName.iconAbove(at: TextSize(step: step, bold: true)), step.isAccessibility)
-        }
-        let even: (String, CGFloat) -> CGFloat = { CGFloat($0.count) * 0.6 * $1 }
-        let loose: (String, CGFloat) -> CGFloat = { CGFloat($0.count) * (0.6 + (60 - $1) / 1_000) * $1 }
-        let largest = TextSize(step: .accessibilityExtraExtraExtraLarge, bold: false).scaled(17)
-        XCTAssertEqual(largest, 53)
-        for measure in [even, loose] {
-            for (name, width) in [("Inbox", 190.0), ("Important", 190.0), ("Deleted Messages", 190.0),
-                                  ("Sent Mail", 150.0), ("Tax returns 2025", 120.0), ("Correspondence", 220.0)] as
-                    [(String, CGFloat)] {
-                let size = FolderName.pointSize(name, upTo: largest, floor: 17, width: width, measure: measure)
-                XCTAssertLessThanOrEqual(size, largest, name)
-                XCTAssertGreaterThanOrEqual(size, 17, name)
-                XCTAssertEqual(size, size.rounded(), name)
-                for word in name.split(separator: " ") {
-                    XCTAssertLessThanOrEqual(measure(String(word), size), width, "\(name) at \(size)")
-                }
-                // The largest that fits: a point more and a word does not.
-                if size < largest {
-                    XCTAssertTrue(name.split(separator: " ").contains { measure(String($0), size + 1) > width },
-                                  "\(name) at \(size)")
-                }
-            }
-        }
-        XCTAssertEqual(FolderName.pointSize("Inbox", upTo: 53, floor: 17, width: 190, measure: even), 53)
-        XCTAssertEqual(FolderName.pointSize("Important", upTo: 53, floor: 17, width: 190, measure: even), 35)
-        XCTAssertEqual(FolderName.pointSize("Deleted Messages", upTo: 53, floor: 17, width: 190, measure: even), 39)
-        // A word too long for any line is left to break at Large's size;
-        // a row with no room, or a name with no words, is as it was.
-        XCTAssertEqual(FolderName.pointSize(String(repeating: "x", count: 40), upTo: 53, floor: 17, width: 190,
-                                            measure: even), 17)
-        XCTAssertEqual(FolderName.pointSize("Important", upTo: 53, floor: 17, width: 0, measure: even), 53)
-        XCTAssertEqual(FolderName.pointSize("  ", upTo: 53, floor: 17, width: 190, measure: even), 53)
-        XCTAssertEqual(FolderName.pointSize("Inbox", upTo: 17, floor: 17, width: 190, measure: even), 17)
-    }
-
     /// A height a finger hits is never under 44, however small the size:
     /// a folder's row and a line of the composer at the three sizes under
     /// Large are 44, as at Large; above it they grow with the type.

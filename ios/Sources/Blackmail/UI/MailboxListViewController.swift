@@ -344,13 +344,6 @@ final class MailboxListViewController: UITableViewController {
         content.imageProperties.tintColor = Theme.tintBlue
         content.directionalLayoutMargins.leading =
             Theme.mailboxIconCenterX - 11 + CGFloat(mailbox.depth) * Theme.mailboxIndentStep
-        // At the accessibility sizes, the icon on a line of its own and the
-        // name under it, each word whole (`FolderName`, B-166).
-        if FolderName.iconAbove(at: Theme.textSize) {
-            content.attributedText = nameUnderIcon(mailbox, leading: content.directionalLayoutMargins.leading)
-            content.image = nil
-            content.textProperties.numberOfLines = 0
-        }
         cell.contentConfiguration = content
         (cell as? FolderCell)?.holdFloor()
 
@@ -372,62 +365,6 @@ final class MailboxListViewController: UITableViewController {
         cell.selectedBackgroundView = selected
 
         cell.accessibilityLabel = mailbox.accessibilityLabel
-    }
-
-    /// A folder's row at the accessibility sizes (`FolderName`, B-166): its
-    /// icon, in its blue at the icons' size, on a line of its own, and its
-    /// name under it across the row, broken only between its words and
-    /// never hyphenated, at the names' size or the largest under it at
-    /// which its widest word fits the row. Left to UIKit, the icon beside
-    /// the name's first line and its next lines under it, a word that did
-    /// not fit beside the icon was broken between its letters ("In" and
-    /// "box"), and Important's was cut in three with hyphens, on the test
-    /// iPad 2026-10-27.
-    ///
-    /// The row's room for the name: the table's width but the name's
-    /// margin before it, and after it the row's margin and, with a count,
-    /// the count and the room UIKit leaves before it, about 20 and 16
-    /// points as UIKit lays a row out; taken a few points over, never
-    /// under. Measured again when the table's width changes
-    /// (`viewDidLayoutSubviews`).
-    private func nameUnderIcon(_ mailbox: Mailbox, leading: CGFloat) -> NSAttributedString {
-        let count = mailbox.unreadCount > 0
-            ? ("\(mailbox.unreadCount)" as NSString).size(withAttributes: [.font: Theme.fontMailboxCount]).width
-            : 0
-        let width = tableView.bounds.width - leading - 24 - (count > 0 ? count + 24 : 0)
-        let points = FolderName.pointSize(mailbox.displayName, upTo: Theme.fontMailboxName.pointSize,
-                                          floor: 17, width: width) { word, size in
-            (word as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: size)]).width
-        }
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byWordWrapping
-        paragraph.hyphenationFactor = 0
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: points), .foregroundColor: Theme.primaryText,
-            .paragraphStyle: paragraph,
-        ]
-        let text = NSMutableAttributedString()
-        if let image = Theme.symbol(icon(for: mailbox.role))?
-            .withTintColor(Theme.tintBlue, renderingMode: .alwaysOriginal) {
-            text.append(NSAttributedString(attachment: NSTextAttachment(image: image)))
-            text.append(NSAttributedString(string: "\n"))
-        }
-        text.append(NSAttributedString(string: mailbox.displayName))
-        text.addAttributes(attributes, range: NSRange(location: 0, length: text.length))
-        return text
-    }
-
-    /// The width the names were fitted to at the accessibility sizes
-    /// (`nameUnderIcon`): the rows are drawn again at a new one, as the
-    /// columns change.
-    private var fittedWidth: CGFloat = 0
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        let width = tableView.bounds.width
-        guard width != fittedWidth else { return }
-        fittedWidth = width
-        if FolderName.iconAbove(at: Theme.textSize) { redraw() }
     }
 
     /// The selected folder STAYS selected. In the reference "Junk" is still

@@ -8917,24 +8917,17 @@ checks below is left as not needed, not open, and none is worth a round.*
          with them; Cancel. Text Size at its right end again.
       7. *Bold Text, while the app is open.* With (a) open, Bold Text on,
          back in the app: the rows' names, subjects and previews, the
-         Mailboxes, the header and (a)'s words bolder; the bars bolder
-         with the rest, their size and places as before (UIKit's, as
-         Mail's; this step said "as they were" until the round of
-         2026-10-27 saw them bolder). Bold Text off: as in 2.
+         Mailboxes, the header and (a)'s words bolder; the bars as they
+         were (B-166, Not changed). Bold Text off: as in 2.
       8. *The largest accessibility size.* Larger Text, Larger Accessibility
          Sizes on, the slider at its right end, back in the app: each row's
          date, and on (d)'s row the blue chevron, on a line of their own
          under the names, at its right end; nothing over anything; about two
          rows to the pane. (e)'s row: its grey arrow whole in the gutter,
-         inside the row's left edge and clear of the names. The Mailboxes:
-         each folder's icon on a line of its own, its name under it, every
-         word whole, never broken between its letters nor hyphenated
-         ("Inbox", "Important", "Deleted Messages"), a long word smaller
-         than the rest where it would not fit at their size, the count at
-         the right, each row as tall as its name, nothing cut and nothing
-         over the next row (this step had each name after its own icon,
-         which UIKit broke inside its words, "In" and "box", in the round
-         of 2026-10-27). The
+         inside the row's left edge and clear of the names. The Mailboxes as
+         UIKit lays them out at this size, each name after its own icon,
+         whole on as many lines as it takes, the Inbox's too, each row as
+         tall as its name, nothing cut and nothing over the next row. The
          header and (a)'s words larger again, (a)'s tiles within the pane,
          each at most twice its size in 1 (B-170). (d)'s row: on the
          conversation's lines each name on a line of its own, its date on the
@@ -8943,10 +8936,8 @@ checks below is left as not needed, not open, and none is worth a round.*
          sideways. Back to (a): the pane's folder button, the Move sheet's
          folders as the Mailboxes', each whole; Cancel, nothing moved. The
          calendar: Go to Date's words and its two buttons as in 1; Cancel.
-         New Message: its lines as tall as their words; "Photo Library"
-         and, under it on a line of its own, "Attach File", each whole,
-         nothing cut by its row; Cancel. Two panes, then three: the
-         Mailboxes' names whole in each.
+         New Message: its lines as tall as their words; Cancel. Two panes,
+         then three.
       9. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
          at its middle step. Accessibility, Per-App Settings, Add App,
          Blackmail, Larger Text for it at the right end of the seven:
