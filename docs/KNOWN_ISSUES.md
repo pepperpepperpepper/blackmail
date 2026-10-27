@@ -20314,6 +20314,31 @@ after Move to Inbox is the host's, read; the search's next result
 opening in step 4; the put-back by Edit mode's Trash, which opens no
 other letter.
 
+**Found on the test iPad, 2026-10-27**, in round r6-h-list, on the
+int18 build, step 2 of the check, contradicted by the round's audit:
+Flag, Move to Junk, and in the shot taken 0.3 s after the tap the popover
+was gone but "one" was still on the list, selected, and still open in the
+pane, with no "Moving…"; by the shot at 1.8 s its row was gone and "two",
+the row below, open and highlighted (B-158). The log: one `UID MOVE` to
+`"[Gmail]/Spam"` answered with its COPYUID, then the body of "two" from
+the iPad's copy, nothing else written. Not a regression of the merge:
+nothing in the path waits for the server. The item's action
+(`MessageDetailViewController.choose`, then `move`) empties the pane
+before anything else (`showEmpty`), and the container's `perform` takes
+the row off, puts "Moving…" under the list and opens the next letter
+(`PaneActions.refusal`: `start`, then B-158's `taken` hook) all before
+the first `await`, the MOVE. In the 0.3 s shot the pane still held
+"one", which `showEmpty` would have emptied in the same turn as the row
+went: the action had not run yet. UIKit runs a `UIAlertController`
+action's handler only once the sheet has been dismissed, and on the iPad
+the sheet is a popover that fades out first; the shot fell between the
+fade's end and the handler. So the row goes, and the next letter opens,
+when the popover has gone rather than in the frame of the tap, a fraction
+of a second later, as for every item of the Flag sheet; "Moving…" is up
+only while the MOVE is out, a third of a second on the test iPad, and was
+not caught in either shot. No change in the app; the check's step 2 now
+says when to look.
+
 ## B-107 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A reply to someone new went without the original's files, and Forward asked nothing; Mail carries them and asks
 
 Built in the `feat-replyfiles` worktree, off `feat-kept` (master at

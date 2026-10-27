@@ -7980,12 +7980,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       sheet under the Flag button reads Flag, Mark as Unread, Move to
       Junk, in that order, in the plain style, no Cancel in the popover. A
       tap outside closes it, and nothing is written in the log.
-      2. *Move to Junk.* Flag, Move to Junk: no question, the row goes at
-      the tap and, on a build with B-158, the int's, "two", the row below,
-      opens in the pane, highlighted; it is read, so no STORE (the pane
-      empties on a build without it); "Moving…" under the list until the
-      answer, and no alert. The log: one `UID MOVE n "[Gmail]/Spam"`
-      answered `OK [COPYUID …]`, and nothing else written. Mailboxes,
+      2. *Move to Junk.* Flag, Move to Junk: no question; the row goes as
+      the popover closes, not in the frame of the tap, since UIKit runs a
+      sheet's item only once the sheet is gone (B-106, Found on the test
+      iPad 2026-10-27): a shot about 0.3 s after the tap can still show
+      the popover's last frame or "one" open. In the same frame as the row
+      goes, on a build with B-158, the int's, "two", the row below, opens
+      in the pane, highlighted; it is read, so no STORE (the pane empties
+      on a build without it); never "one" off the list with the pane still
+      showing it. "Moving…" under the list until the answer, about a third
+      of a second, so caught only by shots every 0.1 s from the tap, or
+      written down as not caught; no alert. The log: one `UID MOVE n
+      "[Gmail]/Spam"` answered `OK [COPYUID …]`, and nothing else
+      written. Mailboxes,
       the Junk folder (named Spam in the sidebar until Mail's words are
       built, under "Blocked on the owner", "Mail's words in three
       places"; Junk after): the letter at its top, read. On Gmail's web,
