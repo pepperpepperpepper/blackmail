@@ -604,7 +604,7 @@ final class ExpiryWarningTests: XCTestCase {
                        + "share.popoverPresentationController?.sourceRect = pictureSpot present(share, animated: true) "
                        + "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
-                       + "MarkupReply.letGo(markup.begin()) marking = (m, attachment) "
+                       + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
                        + "present(preview, animated: true) "
                        + "case .quickLook, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "

@@ -68,25 +68,33 @@ final class MarkupReplyTests: XCTestCase {
 
     // MARK: - Where the marking up stands
 
+    /// Two Quick Looks, as the pane's `ObjectIdentifier`s of them, alive
+    /// while the test runs so that neither's can be the other's.
+    private let quickLooks = (NSObject(), NSObject())
+    private var first: ObjectIdentifier { ObjectIdentifier(quickLooks.0) }
+    private var second: ObjectIdentifier { ObjectIdentifier(quickLooks.1) }
+
     /// Each copy Quick Look saves while it is up replaces the one before,
     /// which is let go; as it closes, the last is the reply's, once. A copy
     /// after that, with nothing under way, is let go and makes nothing.
     func testTheLastCopySavedGoesInTheReplyAsQuickLookCloses() {
         var markup = MarkupReply()
         XCTAssertFalse(markup.isBusy(at: date))
-        XCTAssertNil(markup.begin())
+        XCTAssertNil(markup.begin(first))
         XCTAssertTrue(markup.isBusy(at: date))
-        var saved = markup.saved(copy(1), at: date)
+        var saved = markup.saved(copy(1), from: first, at: date)
         XCTAssertNil(saved.reply)
         XCTAssertNil(saved.unused)
-        saved = markup.saved(copy(2), at: date + 1)
+        saved = markup.saved(copy(2), from: first, at: date + 1)
         XCTAssertNil(saved.reply)
         XCTAssertEqual(saved.unused, copy(1), "the copy before is let go")
-        XCTAssertEqual(markup.closed(at: date + 2), copy(2))
+        XCTAssertEqual(markup.closed(first, at: date + 2), copy(2))
+        XCTAssertEqual(markup.state, .replying(since: date + 2))
+        markup.ended()
         XCTAssertEqual(markup.state, .idle)
         XCTAssertFalse(markup.isBusy(at: date + 2))
-        XCTAssertNil(markup.closed(at: date + 3), "once")
-        saved = markup.saved(copy(3), at: date + 3)
+        XCTAssertNil(markup.closed(first, at: date + 3), "once")
+        saved = markup.saved(copy(3), from: first, at: date + 3)
         XCTAssertNil(saved.reply)
         XCTAssertEqual(saved.unused, copy(3))
     }
@@ -98,27 +106,93 @@ final class MarkupReplyTests: XCTestCase {
     /// let go.
     func testNothingDrawnMakesNothingAndALateCopyStillMakesTheReply() {
         var markup = MarkupReply()
-        _ = markup.begin()
-        XCTAssertNil(markup.closed(at: date))
-        XCTAssertEqual(markup.state, .closed(since: date))
+        _ = markup.begin(first)
+        XCTAssertNil(markup.closed(first, at: date))
+        XCTAssertEqual(markup.state, .closed(preview: first, since: date))
         XCTAssertTrue(markup.isBusy(at: date + MarkupReply.late))
         XCTAssertFalse(markup.isBusy(at: date + MarkupReply.late + 1))
-        let late = markup.saved(copy(1), at: date + 2)
+        let late = markup.saved(copy(1), from: first, at: date + 2)
         XCTAssertEqual(late.reply, copy(1))
         XCTAssertNil(late.unused)
+        XCTAssertEqual(markup.state, .replying(since: date + 2))
+        markup.ended()
         XCTAssertEqual(markup.state, .idle)
 
-        _ = markup.begin()
-        XCTAssertNil(markup.closed(at: date))
-        let tooLate = markup.saved(copy(2), at: date + MarkupReply.late + 1)
+        _ = markup.begin(first)
+        XCTAssertNil(markup.closed(first, at: date))
+        let tooLate = markup.saved(copy(2), from: first, at: date + MarkupReply.late + 1)
         XCTAssertNil(tooLate.reply)
         XCTAssertEqual(tooLate.unused, copy(2))
 
-        _ = markup.begin()
-        _ = markup.saved(copy(3), at: date)
-        XCTAssertEqual(markup.begin(), copy(3), "a second picture opened lets the first's copy go")
-        XCTAssertEqual(markup.state, .marking(nil))
-        XCTAssertNil(markup.closed(at: date + 1))
+        _ = markup.begin(first)
+        _ = markup.saved(copy(3), from: first, at: date)
+        XCTAssertEqual(markup.begin(second), copy(3), "a second picture opened lets the first's copy go")
+        XCTAssertEqual(markup.state, .marking(preview: second, nil))
+        XCTAssertNil(markup.closed(second, at: date + 1))
+    }
+
+    /// The copy handed to the reply, the pane counts as opening a file
+    /// until the reply's composer has opened or the copy has been let go
+    /// (`ended`), while Quick Look may still be over it, and not after: so
+    /// the warning before the app stops opening cannot come up in between
+    /// and keep the reply off the screen. Never longer than `late`, should
+    /// the word never come. A picture opened for Markup since is left as
+    /// it is by the word.
+    func testThePaneIsBusyUntilTheReplyHasOpened() {
+        var markup = MarkupReply()
+        _ = markup.begin(first)
+        _ = markup.saved(copy(1), from: first, at: date)
+        XCTAssertEqual(markup.closed(first, at: date), copy(1))
+        XCTAssertTrue(markup.isBusy(at: date + 1), "Quick Look still going from over the pane")
+        XCTAssertTrue(markup.isBusy(at: date + MarkupReply.late))
+        XCTAssertFalse(markup.isBusy(at: date + MarkupReply.late + 1), "not for ever")
+        XCTAssertNil(markup.closed(first, at: date + 1))
+        XCTAssertEqual(markup.saved(copy(2), from: first, at: date + 1).unused, copy(2),
+                       "a copy after the reply's is let go")
+        markup.ended()
+        XCTAssertFalse(markup.isBusy(at: date + 1))
+
+        _ = markup.begin(first)
+        XCTAssertNil(markup.closed(first, at: date))
+        XCTAssertEqual(markup.saved(copy(3), from: first, at: date + 1).reply, copy(3))
+        XCTAssertTrue(markup.isBusy(at: date + 2), "a late copy's reply too")
+        markup.ended()
+        XCTAssertFalse(markup.isBusy(at: date + 2))
+
+        _ = markup.begin(second)
+        markup.ended()
+        XCTAssertEqual(markup.state, .marking(preview: second, nil), "a picture opened since is left")
+    }
+
+    /// What another Quick Look than the one the picture was last opened in
+    /// hands over is let go, and what it says changes nothing: the first
+    /// closed with nothing drawn and the second opened, the first's copy
+    /// coming late is not taken for the second's, named after its picture
+    /// and put in a reply to its letter. The second's own still is.
+    func testACopyFromAnotherQuickLookIsLetGo() {
+        var markup = MarkupReply()
+        _ = markup.begin(first)
+        XCTAssertNil(markup.closed(first, at: date))
+        _ = markup.begin(second)
+        var saved = markup.saved(copy(1), from: first, at: date + 1)
+        XCTAssertNil(saved.reply)
+        XCTAssertEqual(saved.unused, copy(1))
+        XCTAssertEqual(markup.state, .marking(preview: second, nil))
+        XCTAssertNil(markup.closed(first, at: date + 1))
+        XCTAssertEqual(markup.state, .marking(preview: second, nil))
+
+        saved = markup.saved(copy(2), from: second, at: date + 2)
+        XCTAssertNil(saved.unused)
+        XCTAssertNil(markup.closed(first, at: date + 2), "another's closing hands nothing over")
+        XCTAssertEqual(markup.state, .marking(preview: second, copy(2)))
+        XCTAssertEqual(markup.closed(second, at: date + 3), copy(2))
+
+        _ = markup.begin(second)
+        XCTAssertNil(markup.closed(second, at: date))
+        saved = markup.saved(copy(3), from: first, at: date + 1)
+        XCTAssertNil(saved.reply, "closed with none: another's copy is still not the reply's")
+        XCTAssertEqual(saved.unused, copy(3))
+        XCTAssertEqual(markup.state, .closed(preview: second, since: date))
     }
 
     // MARK: - The copy
@@ -261,21 +335,22 @@ final class MarkupReplyTests: XCTestCase {
     // MARK: - The pane and the composer
 
     /// The pane, read: the item opens Quick Look full screen with the pane
-    /// as its delegate, this one preview alone, the marking up begun and
-    /// the letter and picture held; its editing makes a copy; each copy is
-    /// staged with the kind its name says, a JPEG made at the share sheet's
-    /// quality, and goes through `MarkupReply`; Quick Look closed, the
-    /// reply. The reply is `openCompose`'s Reply to the letter, its one
-    /// file the copy, landing in the composer. The menu is reached by a
-    /// hold alone. Nothing in it sends, and nothing touches the file Quick
-    /// Look shows.
+    /// as its delegate, this one preview alone, the marking up begun in it
+    /// and the letter and picture held; its editing makes a copy; each copy
+    /// is staged with the kind its name says, a JPEG made at the share
+    /// sheet's quality, and goes through `MarkupReply` with the Quick Look
+    /// it came from; Quick Look closed, the reply. The reply is
+    /// `openCompose`'s Reply to the letter, its one file the copy, landing
+    /// in the composer, and the marking up ended on every way out of it.
+    /// The menu is reached by a hold alone. Nothing in it sends, and
+    /// nothing touches the file Quick Look shows.
     func testThePaneOpensMarkupAndHandsTheCopyToAReply() throws {
         let pane = try source("Sources/Blackmail/UI/MessageDetailViewController.swift")
         for wiring in [
             "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
                 + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
-                + "MarkupReply.letGo(markup.begin()) marking = (m, attachment) present(preview, animated: true) "
-                + "case .quickLook, .saveImage, .copy:",
+                + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
+                + "present(preview, animated: true) case .quickLook, .saveImage, .copy:",
             "case .quickLook, .markupAndReply, .saveToFiles, .share: break",
             "extension MessageDetailViewController: QLPreviewControllerDelegate { "
                 + "func previewController(_ controller: QLPreviewController, "
@@ -285,14 +360,16 @@ final class MarkupReplyTests: XCTestCase {
                 + "copy: modifiedContentsURL, lookup: { UTType(filenameExtension: $0)?.preferredMIMEType })",
             "copy = try MarkupReply.stage(modifiedContentsURL, as: made, jpeg: { "
                 + "UIImage(contentsOfFile: $0.path)?.jpegData(compressionQuality: SharedPhoto.quality) })",
-            "let saved = markup.saved(copy, at: Date()) MarkupReply.letGo(saved.unused) "
-                + "if let reply = saved.reply { replyWithMarkup(reply) } }",
+            "let saved = markup.saved(copy, from: ObjectIdentifier(controller), at: Date()) "
+                + "MarkupReply.letGo(saved.unused) if let reply = saved.reply { replyWithMarkup(reply) } }",
             "func previewControllerDidDismiss(_ controller: QLPreviewController) { "
-                + "if let copy = markup.closed(at: Date()) { replyWithMarkup(copy) } }",
+                + "if let copy = markup.closed(ObjectIdentifier(controller), at: Date()) { replyWithMarkup(copy) } }",
             "private func replyWithMarkup(_ copy: DraftAttachment, tries: Int = 0) { "
-                + "guard let letter = marking?.letter else { return MarkupReply.letGo(copy) } "
-                + "if let over = presentedViewController { guard over is QLPreviewController, tries < 10 else {",
-            "marking = nil openCompose(replyTo: letter, all: false, forward: false, landing: [copy]) }",
+                + "guard let letter = marking?.letter else { markup.ended() return MarkupReply.letGo(copy) } "
+                + "if let over = presentedViewController { guard over is QLPreviewController, tries < 10 else { "
+                + "marking = nil markup.ended() MarkupReply.letGo(copy)",
+            "marking = nil openCompose(replyTo: letter, all: false, forward: false, landing: [copy]) "
+                + "markup.ended() }",
             "private func openCompose(replyTo m: Message?, all: Bool, forward: Bool, "
                 + "included: Bool? = nil, landing: [DraftAttachment] = []) {",
             "let compose = ComposeViewController(repository: repository, draft: draft, "
@@ -305,6 +382,7 @@ final class MarkupReplyTests: XCTestCase {
         XCTAssertEqual(count("PanePictures.menu", in: pane), 1, "a hold's menu alone")
         XCTAssertEqual(count("landing: [copy]", in: pane), 1)
         XCTAssertEqual(count("compose.landing", in: pane), 1)
+        XCTAssertEqual(count("markup.ended()", in: pane), 3, "every way out of the reply's path")
 
         let delegate = try part(of: pane, from: "extension MessageDetailViewController: QLPreviewControllerDelegate {",
                                 to: "#endif")

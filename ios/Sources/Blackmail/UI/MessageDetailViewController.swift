@@ -107,9 +107,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// share sheet its menu's Share puts up there (B-150).
     private var pictureSpot = CGRect.zero
     /// Markup and Reply (B-171): where the picture's marking up stands, the
-    /// copy of what he drew among it (`MarkupReply`), and the letter and the
-    /// picture of it being marked up, the letter the reply answers. The
-    /// last picture opened for Markup, until its reply has opened.
+    /// copy of what he drew among it and the Quick Look it is drawn in
+    /// (`MarkupReply`), and the letter and the picture of it being marked
+    /// up, the letter the reply answers. The last picture opened for
+    /// Markup, until its reply has opened or its copy has been let go
+    /// (`replyWithMarkup`).
     private var markup = MarkupReply()
     private var marking: (letter: Message, picture: Attachment)?
 
@@ -1168,7 +1170,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     preview.dataSource = self
                     preview.delegate = self
                     preview.modalPresentationStyle = .fullScreen
-                    MarkupReply.letGo(markup.begin())
+                    MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
                     marking = (m, attachment)
                     present(preview, animated: true)
                 case .quickLook, .saveImage, .copy:
@@ -1434,12 +1436,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Opened once Quick Look has gone from over the pane, which can still
     /// be there as it says it has closed: looked for again a tenth of a
     /// second later, ten times at most. Anything else over the pane, and the
-    /// copy is let go, said in the log alone.
+    /// copy is let go, said in the log alone. Until the composer has opened
+    /// or the copy has been let go, the pane counts as opening a file
+    /// (`MarkupReply.ended`, `isOpeningFile`), so that the warning before
+    /// the app stops opening is not what covers it.
     private func replyWithMarkup(_ copy: DraftAttachment, tries: Int = 0) {
-        guard let letter = marking?.letter else { return MarkupReply.letGo(copy) }
+        guard let letter = marking?.letter else {
+            markup.ended()
+            return MarkupReply.letGo(copy)
+        }
         if let over = presentedViewController {
             guard over is QLPreviewController, tries < 10 else {
                 marking = nil
+                markup.ended()
                 MarkupReply.letGo(copy)
                 Diagnostics.log(.note, "markup: reply not opened, the pane covered")
                 return
@@ -1451,6 +1460,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
         marking = nil
         openCompose(replyTo: letter, all: false, forward: false, landing: [copy])
+        markup.ended()
     }
 
     /// A tapped link opens at once, in Safari or the app that claims it, as
@@ -1762,7 +1772,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// `openAttachment` for something already over the pane, and the
     /// preview was let go without a word; after OK nothing opened.
     /// And so does a picture being marked up for Markup and Reply, until
-    /// its reply has opened (`MarkupReply.isBusy`, B-171).
+    /// its reply has opened or its copy has been let go
+    /// (`MarkupReply.isBusy`, B-171).
     var isOpeningFile: Bool { filesOpening > 0 || markup.isBusy(at: Date()) }
 
     /// Prints `m`, the letter the sheet was opened for (B-110). Nothing
@@ -1967,7 +1978,8 @@ extension MessageDetailViewController: QLPreviewControllerDelegate {
     /// hands over is its own and temporary: kept for the reply while the
     /// preview is up, the copy before it let go, or put in the reply now if
     /// the preview has closed already. One that cannot be staged is said
-    /// in the log alone.
+    /// in the log alone. One from a Quick Look before the picture last
+    /// opened for Markup is let go (`MarkupReply.saved`).
     func previewController(_ controller: QLPreviewController, didSaveEditedCopyOf previewItem: QLPreviewItem,
                            at modifiedContentsURL: URL) {
         guard let picture = marking?.picture else { return }
@@ -1983,7 +1995,7 @@ extension MessageDetailViewController: QLPreviewControllerDelegate {
             Diagnostics.log(.note, "markup: copy not staged")
             return
         }
-        let saved = markup.saved(copy, at: Date())
+        let saved = markup.saved(copy, from: ObjectIdentifier(controller), at: Date())
         MarkupReply.letGo(saved.unused)
         if let reply = saved.reply { replyWithMarkup(reply) }
     }
@@ -1991,7 +2003,7 @@ extension MessageDetailViewController: QLPreviewControllerDelegate {
     /// Quick Look closed: the reply, with the last copy saved; with none,
     /// nothing drawn, he is back at the letter with nothing made.
     func previewControllerDidDismiss(_ controller: QLPreviewController) {
-        if let copy = markup.closed(at: Date()) { replyWithMarkup(copy) }
+        if let copy = markup.closed(ObjectIdentifier(controller), at: Date()) { replyWithMarkup(copy) }
     }
 }
 

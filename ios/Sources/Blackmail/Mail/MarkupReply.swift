@@ -30,16 +30,21 @@ import Foundation
 /// is: the controller is UIKit, and the suite runs where there is none.
 struct MarkupReply: Equatable {
 
-    /// Where a picture's marking up stands.
+    /// Where a picture's marking up stands. `preview` is the Quick Look it
+    /// was opened in (`ObjectIdentifier` of the `QLPreviewController`):
+    /// what another hands over or says is taken for nothing.
     enum State: Equatable {
         /// None under way.
         case idle
         /// Quick Look is up with Markup, holding the last copy saved of
         /// what he drew, nil before any.
-        case marking(DraftAttachment?)
+        case marking(preview: ObjectIdentifier, DraftAttachment?)
         /// Quick Look closed with no copy, at `since`: a copy saved within
         /// `late` of it still makes the reply.
-        case closed(since: Date)
+        case closed(preview: ObjectIdentifier, since: Date)
+        /// The copy handed to the reply, at `since`, whose composer is not
+        /// up yet: Quick Look may still be over the pane (`ended`).
+        case replying(since: Date)
     }
 
     private(set) var state = State.idle
@@ -48,57 +53,69 @@ struct MarkupReply: Equatable {
     /// taken for the reply. Quick Look gets what was drawn from its own
     /// process before it closes, by its name for that
     /// (`isObtainingEditsFromServiceBeforeDismissing`), so the copy comes
-    /// first; an order not seen on the iPad is not counted on.
+    /// first; an order not seen on the iPad is not counted on. And the
+    /// longest a reply is waited for without word that it has opened.
     static let late: TimeInterval = 5
 
-    /// A picture opened for Markup: what was under way ends, and a copy it
-    /// held, never put in a reply, is handed back to be let go.
-    mutating func begin() -> DraftAttachment? {
+    /// A picture opened for Markup in the Quick Look `preview`: what was
+    /// under way ends, and a copy it held, never put in a reply, is handed
+    /// back to be let go.
+    mutating func begin(_ preview: ObjectIdentifier) -> DraftAttachment? {
         let unused: DraftAttachment?
-        if case let .marking(copy) = state { unused = copy } else { unused = nil }
-        state = .marking(nil)
+        if case let .marking(_, copy) = state { unused = copy } else { unused = nil }
+        state = .marking(preview: preview, nil)
         return unused
     }
 
-    /// Quick Look saved a copy of what he drew. While it is up, the copy is
-    /// kept, and the one before it handed back to be let go. Once it has
-    /// closed with none, within `late`, it is the reply's. Anything else,
-    /// none under way or too late, is handed back to be let go.
-    mutating func saved(_ copy: DraftAttachment, at now: Date)
+    /// Quick Look `preview` saved a copy of what he drew. While it is up,
+    /// the copy is kept, and the one before it handed back to be let go.
+    /// Once it has closed with none, within `late`, it is the reply's.
+    /// Anything else, none under way, too late, or another Quick Look's,
+    /// is handed back to be let go.
+    mutating func saved(_ copy: DraftAttachment, from preview: ObjectIdentifier, at now: Date)
         -> (reply: DraftAttachment?, unused: DraftAttachment?) {
         switch state {
-        case let .marking(before):
-            state = .marking(copy)
+        case let .marking(open, before) where open == preview:
+            state = .marking(preview: open, copy)
             return (nil, before)
-        case let .closed(since) where now.timeIntervalSince(since) <= Self.late:
-            state = .idle
+        case let .closed(open, since) where open == preview && now.timeIntervalSince(since) <= Self.late:
+            state = .replying(since: now)
             return (copy, nil)
-        case .closed, .idle:
+        case .marking, .closed, .replying, .idle:
             return (nil, copy)
         }
     }
 
-    /// Quick Look has closed: the reply's copy, the last saved, or nil, for
-    /// nothing drawn, or nothing under way.
-    mutating func closed(at now: Date) -> DraftAttachment? {
-        guard case let .marking(copy) = state else { return nil }
+    /// Quick Look `preview` has closed: the reply's copy, the last saved,
+    /// or nil, for nothing drawn, nothing under way, or another Quick
+    /// Look's closing.
+    mutating func closed(_ preview: ObjectIdentifier, at now: Date) -> DraftAttachment? {
+        guard case let .marking(open, copy) = state, open == preview else { return nil }
         guard let copy else {
-            state = .closed(since: now)
+            state = .closed(preview: open, since: now)
             return nil
         }
-        state = .idle
+        state = .replying(since: now)
         return copy
     }
 
-    /// Whether a marking up is under way: Quick Look up, or closed with no
-    /// copy less than `late` ago. The warning before the app stops opening
-    /// waits for it (`isOpeningFile`, B-137), whose alert up would keep the
-    /// reply's composer off the screen.
+    /// The reply's composer has opened, or its copy has been let go:
+    /// nothing under way. A picture opened for Markup since is left.
+    mutating func ended() {
+        if case .replying = state { state = .idle }
+    }
+
+    /// Whether a marking up is under way: Quick Look up, closed with no
+    /// copy less than `late` ago, or its copy handed to a reply not yet
+    /// opened, for `late` at most. The warning before the app stops
+    /// opening waits for it (`isOpeningFile`, B-137), whose alert up would
+    /// keep the reply's composer off the screen, and his drawing with it.
     func isBusy(at now: Date) -> Bool {
         switch state {
         case .idle: return false
         case .marking: return true
-        case let .closed(since): return now.timeIntervalSince(since) <= Self.late
+        case let .closed(_, since), let .replying(since):
+            return now.timeIntervalSince(since) <= Self.late
         }
     }
 

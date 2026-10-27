@@ -34915,7 +34915,11 @@ a composer of its own" (`PanePictures.menu`).
    its name ending ".jpg", so that it goes in the letter too; one no
    picture can be read from, as it came, a file. The last copy is kept,
    the one before removed: Quick Look may hand over one each time he
-   saves.
+   saves. Only the Quick Look the picture was last opened in is
+   listened to (`ObjectIdentifier` of it, in `MarkupReply.State`): a
+   copy coming late from one before it, closed with nothing drawn, is
+   removed, not taken for the next picture's and put in a reply to its
+   letter under its name; and its closing hands nothing over.
 4. *The reply.* Quick Look closed with a copy: the app's own Reply to the
    letter the picture is in (`openCompose`, Reply and not Reply All, as
    the guide's "reply to the attachment sender"): whom it goes to
@@ -34941,7 +34945,14 @@ a composer of its own" (`PanePictures.menu`).
    at a time, ten times at most; anything else over the pane, and the
    copy is removed, a line in the log.
 6. *The warning before the app stops opening* waits while a picture is
-   being marked up, and for those five seconds (`isOpeningFile`, B-137).
+   being marked up, for those five seconds, and from the copy handed to
+   the reply until the reply has opened or the copy has been removed,
+   five seconds at most if neither is ever said
+   (`MarkupReply.State.replying`, `ended`; `isOpeningFile`, B-137).
+   Without that last, the warning's look every 30 seconds could land
+   between Quick Look gone and the tenth of a second's next look for
+   it, find the pane bare, put its alert up, and the reply would then
+   find the pane covered and remove his drawing.
 7. *Only the letter's own pictures,* as B-150's menu: a hold on a picture
    the pane's script wires, one of the letter's parts by `cid:`. A
    picture from the web, or in a link, keeps WebKit's menu, which has no
@@ -34978,13 +34989,19 @@ Cancel in the reply asks Save Draft or Delete Draft.
 **New words.** None of the app's own. "Markup and Reply" is Mail's
 (`MARKUP_DOCUMENT`); Quick Look's Markup button and tools are iOS's.
 
-**Tests.** `MarkupReplyTests`, eight, new. The menu, Mail's words second,
+**Tests.** `MarkupReplyTests`, ten, new. The menu, Mail's words second,
 putting something over the pane. Where the marking up stands: each copy
 while Quick Look is up replacing the one before, which is let go, the
 last the reply's as it closes, once; nothing drawn, nothing made; a copy
 within five seconds after still the reply's, one after it let go; the
 pane busy until then; a second picture opened for Markup letting the
-first's copy go. The copy's name and kind: as it came for a JPEG, PNG or
+first's copy go. The pane busy from the copy handed to the reply, as
+Quick Look closes or late, until the reply's word that it has opened or
+let the copy go, five seconds at most, a copy after it let go, and that
+word leaving a picture opened for Markup since as it is. A copy or a
+closing from another Quick Look than the one the picture was last opened
+in: let go, and nothing changed, while the next is up and after it has
+closed with none. The copy's name and kind: as it came for a JPEG, PNG or
 GIF, a ".jpg" made of a HEIC or a TIFF, the picture's own name and kind
 for a copy with no extension, a stranger's name made safe. The copy
 staged byte for byte in a directory of its own with its size, a row that
@@ -34998,7 +35015,9 @@ picture of his and no file, her photo not sent back. Read from the
 source: the item's Quick Look full screen with the pane its delegate, the
 one preview that is; `createCopy`; each copy staged with its kind and the
 JPEG's quality and handed to `MarkupReply`; the reply as Quick Look
-closes, through `openCompose` with the copy landing; the menu reached by
+closes, through `openCompose` with the copy landing; each copy and
+closing handed over with the Quick Look it came from; the marking up
+ended on all three ways out of the reply's path; the menu reached by
 a hold alone; no send, no repository and no `previewURL` in the delegate
 or the reply's path; the composer landing it after the letter is taken
 as it opened, through `landed`, and Cancel asking of it.
@@ -35019,8 +35038,14 @@ and `ExpiryWarningTests` among them; its editing mode `disabled`, 1 in 1;
 the copy not handed to the composer, 2 in 1; the reply a Reply All, 1 in
 1; the composer not landing it, 2 in 1; no reply as Quick Look closes, 1
 in 1; the warning not waiting for it, 2 in 2.
+Then, one at a time: the reply's copy not counted busy, the state left
+idle as it is handed over, 5 in 3; a copy and a closing taken from any
+Quick Look, 10 in 1; the word that the reply has opened ending a picture
+opened since, 1 in 1; the reply counted busy with no end, 1 in 1; the word
+not given as the composer opens, 2 in 1; a copy handed over without its
+Quick Look, 1 in 1.
 
-The full suite, serially: 2,953 tests, 8 of them this entry's, 6
+The full suite, serially: 2,955 tests, 10 of them this entry's, 6
 skipped, none failing. The release build for the iPad links.
 
 **Not covered.**
