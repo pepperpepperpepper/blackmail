@@ -8838,7 +8838,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       the app: every composer is opened untouched and closed with Cancel,
       which asks nothing for an untouched letter (B-069). The iPad's own
       settings are changed and put back. The host APPENDs, read
-      (`\Seen`), to the label "Notes", never the Inbox, four letters, each
+      (`\Seen`), to the label "Notes", never the Inbox, five letters, each
       from another address with a new Message-ID of its own and naming
       none on the account, and notes each UID from its APPENDUID,
       stopping if one has none: (a) "B-166 long", from "Bartholomew
@@ -8848,7 +8848,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       that its row reads "Wednesday"; (b) "B-166 html", in HTML, a
       paragraph with no size of its own and one in `font-size:13px`;
       (c) "B-166 stack" and (d) "Re: B-166 stack", a day after it, naming
-      (c)'s Message-ID in In-Reply-To and References, one conversation.
+      (c)'s Message-ID in In-Reply-To and References, one conversation;
+      (e) "B-166 answered", APPENDed with `\Seen \Answered`, so that its
+      row has the grey reply arrow in its gutter.
       Three panes and Organize by Thread on, unless a step says otherwise;
       a full-size screenshot of each screen named.
       1. *Large, as before.* Settings, Display & Brightness, Text Size at
@@ -8865,7 +8867,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          same rows in sight where they were, (a)'s highlighted, its
          "Wednesday" whole; long names cut with "…", never a date. The
          Mailboxes: names and counts larger, rows taller, "Notes"
-         highlighted. The header's names, subject and date larger, its two
+         highlighted; every folder's name whole, "Important" and the
+         account's longest label among them, on a second line where it
+         needs one, its row as tall as its two lines, nothing over the
+         next row. The header's names, subject and date larger, its two
          files' rows 44 points or taller; (a)'s words larger. The bars'
          titles and buttons, the calendar, the search field, its two
          buttons once tapped (then Cancel) and the line under the list
@@ -8891,15 +8896,24 @@ checks below is left as not needed, not open, and none is worth a round.*
          back in the app: the rows' names, subjects and previews, the
          Mailboxes, the header and (a)'s words bolder; the bars as they
          were (B-166, Not changed). Bold Text off: as in 2.
-      8. *The largest accessibility size.* Larger Text, Larger
-         Accessibility Sizes on, the slider at its right end, back in the
-         app: each row's date, and on (d)'s row the blue chevron, on a line
-         of their own under the names, at its right end; nothing over
-         anything; about two rows to the pane. The Mailboxes as UIKit lays
-         them out at this size, each name after its own icon. The header
-         and (a)'s words larger again. The calendar: Go to Date's words
-         and its two buttons as in 1; Cancel. New Message: its lines as
-         tall as their words; Cancel. Two panes, then three.
+      8. *The largest accessibility size.* Larger Text, Larger Accessibility
+         Sizes on, the slider at its right end, back in the app: each row's
+         date, and on (d)'s row the blue chevron, on a line of their own
+         under the names, at its right end; nothing over anything; about two
+         rows to the pane. (e)'s row: its grey arrow whole in the gutter,
+         inside the row's left edge and clear of the names. The Mailboxes as
+         UIKit lays them out at this size, each name after its own icon,
+         whole on as many lines as it takes, the Inbox's too, each row as
+         tall as its name, nothing cut and nothing over the next row. The
+         header and (a)'s words larger again. (d)'s row: on the
+         conversation's lines each name on a line of its own, its date on the
+         line under it at its left, a closed letter's first words under that;
+         nothing past the pane's right edge, and the pane not scrolling
+         sideways. Back to (a): the pane's folder button, the Move sheet's
+         folders as the Mailboxes', each whole; Cancel, nothing moved. The
+         calendar: Go to Date's words and its two buttons as in 1; Cancel.
+         New Message: its lines as tall as their words; Cancel. Two panes,
+         then three.
       9. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
          at its middle step. Accessibility, Per-App Settings, Add App,
          Blackmail, Larger Text for it at the right end of the seven:
@@ -8914,8 +8928,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       12. *Not on this iPad.* On any iPadOS 18 device with Mail and a
          Gmail account, never his: Mail's list at the largest accessibility
          size, where its date goes; whether Mail's bars keep their size at
-         the largest of the seven; whether (b)'s 13-pixel paragraph grows
-         in Mail; Mail with Bold Text on. The test iPad has no Mail (B-028).
+         the largest of the seven; whether Mail's search field, the word
+         "Search" in it and its scope buttons grow, at the largest of the
+         seven and the largest accessibility size; Mail's Mailboxes with a
+         long name at both; whether (b)'s 13-pixel paragraph grows in
+         Mail; Mail with Bold Text on. The test iPad has no Mail (B-028).
       13. *Put back:* Text Size at its middle step, Bold Text off, Larger
          Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and

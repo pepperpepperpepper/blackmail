@@ -376,10 +376,13 @@ extension Theme {
     /// bigger screen's.
     static var fontDetailSubject: UIFont { .boldSystemFont(ofSize: scaled(17)) }
     static var fontToolbarStatus: UIFont { .systemFont(ofSize: 11) }
-    /// The words in the app's controls of a fixed height, which UIKit's own
-    /// controls of the kind keep at their size as the bars do: the search
-    /// field and the word in it, the Current Mailbox / All Mailboxes
-    /// buttons, and Go to Date's. Each was 15 at Large, and stays 15.
+    /// The words in the app's controls of a fixed height, kept at their
+    /// size as the bars keep theirs: the search field and the word in it,
+    /// the Current Mailbox / All Mailboxes buttons, and Go to Date's. Each
+    /// was 15 at Large, and stays 15. The app's choice, not a copy: UIKit's
+    /// segmented buttons are believed to keep their size, but its own
+    /// search field, which Mail's is, is believed to grow with the text
+    /// size up to a cap, and whether Mail's does was not seen (B-166).
     static var fontControl: UIFont { .systemFont(ofSize: 15) }
 
     /// The size of the SF Symbols UIKit would otherwise size by itself among
