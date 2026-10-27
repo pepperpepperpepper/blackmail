@@ -35151,7 +35151,11 @@ together, by a rule in the head of the page, the stack and the print
 (`BodyFiles.sizeRule`, `zoom` of the body size over 17), never below
 Large, as WebKit scales its own element in Mail; not WebKit's
 caption and footnote keywords, which follow the iPad's size and not the
-app's restyle. The header's `restyle` lost its file rows with B-170.
+app's restyle. The header's `restyle` lost its file rows with B-170. In
+TODO, the item on his iPad's own settings no longer lists Display & Text
+Size, Larger Text and Bold Text as still to be read before the last
+build: a line of 2026-10-27 there names them built here, a size set for
+Mail alone in Per-App Settings matched on the day.
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
@@ -35467,7 +35471,11 @@ asked by `RowSwipes`. The Edit bar asks `EditBar.question` first, as here,
 then B-168's sheet. The install-day line in TODO no longer lists the two
 as greyed: they are set there with the rest; the item on his iPad's own
 settings names them built by B-168. The rows follow the text size
-(B-166's integration paragraph).
+(B-166's integration paragraph). In TODO, this check's step 1 has Block
+All Remote Content's row live on a build with B-168, as Ask Before
+Deleting's already was, and the still-open list in the item on his
+iPad's own settings leaves out the text size (B-166's integration
+paragraph).
 
 ## B-168 — FIXED 2026-10-27, not yet seen on the iPad. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
 
@@ -35774,7 +35782,9 @@ For a letter in its own colours, the style brought back from its head and
 its body's `style` is held back too (`PanePage.inOwnColours`'s
 `heldBack`, `ownFrame`), and a `url()` of the web there alone puts Mail's
 line over it (`PanePage.held`'s `drawn`). "Load All Images" in a stack
-points the loader with `inStack: true`, as B-170 asked.
+points the loader with `inStack: true`, as B-170 asked. In TODO, this
+entry's line of 2026-10-27 on his iPad's own settings follows B-167's
+words there and B-166's line, its own words as they were.
 
 ## B-169 — FIXED 2026-10-27, not yet seen on the iPad. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 

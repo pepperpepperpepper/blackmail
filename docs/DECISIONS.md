@@ -1598,3 +1598,64 @@ iPad:
   Per-App Settings, Smart Invert; whether he shares by his own circle at
   the top of the share sheet; whether the people he writes to are in his
   Contacts. Until they are read, the factory values stand.
+
+**Asked 2026-10-27 by the owner:** "build the three Mail differences
+next: light colours in dark mode, attachments shown inside the letter,
+and Markup and Reply". The three are the gaps found on the way in the
+copy-Mail research of 26 October, outside the items ruled that day. The
+same day the first two deferred items above were built under the ruling
+of 26 October, to Mail's behaviour rather than to his values, Mail's
+behaviour taking his values by itself, and Mail's two options under
+Messages with them.
+
+**Built under it**, all 2026-10-27, none yet seen on his iPad or the test
+iPad:
+
+- B-166, the text size and Bold Text: the list, the Mailboxes, the
+  reading pane, the composer, the share sheet and Mail's part of
+  Settings follow the iPad's Text Size and Bold Text, or a size set for
+  Blackmail alone in Per-App Settings, while the app is open, as Mail
+  does; at Large, the factory size, nothing has moved.
+- B-167, Mail's options in Blackmail's Settings: a part laid out as
+  Settings > Apps > Mail in its order and words, each row at Mail's
+  factory value, set from his Mail settings page on the install day
+  (Swipe Options, Delete or Move Message Action, Move Discarded Messages
+  Into, Complete Threads); Archive Mailbox archives from the Edit bar
+  and the pane's button as a drag already did. A row Blackmail does not
+  follow is grey.
+- B-168, Block All Remote Content, a letter's pictures from the web held
+  back under Mail's "Message contains unloaded images." and "Load All
+  Images", and Ask Before Deleting, Mail's question before a Trash or an
+  Archive; both off as from the factory, and rows of B-167's part.
+- B-169, light colours in dark mode: an HTML letter is drawn as Mail
+  draws it in Dark Mode, inverted only when it declares no colour scheme
+  and has no picture from the web and no background picture, light on
+  its own white with such a picture or a light scheme only, in its own
+  colours when it declares the dark; each letter of a conversation on
+  its own, the printed page as it was.
+- B-170, attachments inside the letter: every file is drawn in the
+  letter's body where it sits, a photo at its size and any other file as
+  Mail's tile, in Mail's light or dark colours as the letter is drawn
+  and at the pane's text size; the header lists none.
+- B-171, Markup and Reply: second in the menu of a photo held in a
+  letter, a picture file or a tile among them; it opens the photo in
+  iOS's own Markup, and what he draws goes in a Reply to the letter,
+  under his words.
+
+**What it reverses.** D-007's "Do NOT wire up free Dynamic Type", and
+the deferred text size above (B-166). The deferred "Mail's options in
+Blackmail's Settings" for Mail's own page, and "the Edit bar and the
+pane's Delete stay Trash until B-144's Archive is built" (B-167). D-010's
+"HTML mail is inverted in CSS", now for the letters Mail turns dark
+alone; the pane itself stays dark (B-169). The header's rows of files of
+B-101, B-113 and B-148 (B-170). B-150's menu without Markup and Reply
+(B-171).
+
+**The facts about him, as they stand.** Swipe Options, Move Discarded
+Messages Into, Delete or Move Message Action, Ask Before Deleting and
+Block All Remote Content are no longer read before the last build: they
+are set in Blackmail's Settings on the install day, from his Mail
+settings page. The text size and Bold Text are his iPad's own; one set
+for Mail alone in Per-App Settings is matched for Blackmail on the day.
+The rest of TODO's "His iPad's own settings" is still read before the
+last build, and until then the factory values stand.

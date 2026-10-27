@@ -145,8 +145,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       A greyed row whose value on his iPad differs from Blackmail's
       (Preview, Show To/Cc Labels, Collapse Read Messages, Most Recent
       Message on Top) written down for the owner: Blackmail does not have
-      his value. Then Blackmail's Settings closed with Cancel, which leaves them
-      set.
+      his value. Then Blackmail's Settings closed with Cancel, which leaves
+      them set.
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -8988,7 +8988,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       Top grey and off, and Apple's line under them. Screenshots of the
       part, in two panes and three; nothing cut. A tap on each grey row and
       its switch: nothing moves. Privacy Protection tapped: a page with
-      Block All Remote Content, grey and off, and its lines. Back.
+      Block All Remote Content, grey and off (live on a build with B-168),
+      and its lines. Back.
       2. *Swipe Options* (no write). Tapped: a page "Swipe Options", Swipe
       Left "Flag", Swipe Right "Mark as Read". Swipe Left: a page of None,
       Mark as Read, Flag, Move Message and Archive, Flag ticked; None
@@ -9586,12 +9587,15 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Mail's page, at Mail's factory values, set from his Mail settings page
       at the install (the install-day list above), no longer read before the
       last build; Archive Mailbox archives from the Edit bar and the pane
-      too. Still open, to be read off his iPad before the last build: Sounds
-      > Sent Mail (B-100), Composing > Include Attachments with Replies
-      (B-107), Display & Text Size, Larger Text and Bold Text, Per-App
-      Settings, Smart Invert, Blocked and its option, Notifications for Mail
-      and Fetch New Data, Undo Send Delay, a Home Screen Mail widget, the
-      Safari share watched, and Shake to Undo (B-157). *2026-10-27: Mail >
+      too. Still open, to be read off his iPad before the last build: Sounds >
+      Sent Mail (B-100), Composing > Include Attachments with Replies (B-107),
+      Smart Invert, also as Per-App Settings sets it for Mail, Blocked and its
+      option, Notifications for Mail and Fetch New Data, Undo Send Delay, a
+      Home Screen Mail widget, the Safari share watched, and Shake to Undo
+      (B-157). *2026-10-27: Display & Text Size, Larger Text and Bold Text are
+      built (B-166): Blackmail takes the iPad's own, as Mail does, and a size
+      set for Mail alone in Per-App Settings is matched on the day ("On the
+      day", at the top).* *2026-10-27: Mail >
       Ask Before Deleting and Privacy Protection's Block All Remote Content
       are built (B-168), off as from the factory, and matched in Blackmail's
       Settings on the day with no build (B-167's rows; "On the day", at the
