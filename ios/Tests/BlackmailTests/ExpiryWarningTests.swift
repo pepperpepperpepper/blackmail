@@ -572,7 +572,8 @@ final class ExpiryWarningTests: XCTestCase {
 
         let pane = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(pane.contains("private var filesOpening = 0"))
-        XCTAssertTrue(pane.contains("var isOpeningFile: Bool { filesOpening > 0 }"))
+        // And a picture being marked up for Markup and Reply (B-171).
+        XCTAssertTrue(pane.contains("var isOpeningFile: Bool { filesOpening > 0 || markup.isBusy(at: Date()) }"))
         let open = try part(of: pane, from: "private func openAttachment(",
                             to: "private func prepareInlineImages(")
         XCTAssertTrue(open.contains("let shown = loads.shown "
@@ -601,6 +602,10 @@ final class ExpiryWarningTests: XCTestCase {
                        + "case .share: let share = UIActivityViewController(activityItems: [url], "
                        + "applicationActivities: nil) share.popoverPresentationController?.sourceView = webView "
                        + "share.popoverPresentationController?.sourceRect = pictureSpot present(share, animated: true) "
+                       + "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
+                       + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
+                       + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
+                       + "present(preview, animated: true) "
                        + "case .quickLook, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.modalPresentationStyle = .fullScreen "

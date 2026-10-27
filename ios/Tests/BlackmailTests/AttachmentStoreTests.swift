@@ -292,9 +292,11 @@ final class AttachmentStoreTests: XCTestCase {
     /// The reading pane: no file written over a preview that is up; the
     /// last copy removed as the next is written, and there alone, then
     /// presented. Never as the preview closes: Print reads the file after
-    /// its panel has closed. Nothing hears the preview close, and the item
-    /// is never force-unwrapped. The same one copy for Save to Files and
-    /// Share from a held picture's menu (B-150).
+    /// its panel has closed. Nothing that hears a preview close touches the
+    /// file: the one preview with a delegate is Markup and Reply's (B-171),
+    /// whose delegate never names it. The item is never force-unwrapped.
+    /// The same one copy for Save to Files and Share from a held picture's
+    /// menu (B-150).
     func testThePaneKeepsOneCopyOfAnOpenedFileAndRemovesItOnlyAsTheNextIsWritten() throws {
         let code = try source("MessageDetailViewController.swift")
         inOrder(["guard presentedViewController == nil else { return }",
@@ -310,9 +312,13 @@ final class AttachmentStoreTests: XCTestCase {
         XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "previewURL = nil").count - 1, 1)
         XCTAssertTrue(code.contains("extension MessageDetailViewController: QLPreviewControllerDataSource {"))
-        XCTAssertFalse(code.contains("QLPreviewControllerDelegate"))
-        XCTAssertFalse(code.contains("preview.delegate"))
-        XCTAssertFalse(code.contains("previewControllerDidDismiss"))
+        XCTAssertEqual(code.components(separatedBy: "preview.delegate = self").count - 1, 1)
+        XCTAssertTrue(code.contains("case .markupAndReply: let preview = QLPreviewController() "
+                                        + "preview.dataSource = self preview.delegate = self"))
+        let delegate = try XCTUnwrap(code.components(
+            separatedBy: "extension MessageDetailViewController: QLPreviewControllerDelegate {").dropFirst().first)
+        XCTAssertTrue(delegate.contains("func previewControllerDidDismiss("))
+        XCTAssertFalse(delegate.contains("previewURL"))
         XCTAssertFalse(code.contains("previewControllerWillDismiss"))
         XCTAssertFalse(code.contains("previewURL!"))
     }

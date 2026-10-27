@@ -9274,6 +9274,64 @@ checks below is left as not needed, not open, and none is worth a round.*
       the UIDs it noted, and only them, from "Notes" to the Trash, and
       deletes in the Trash only the UIDs that move answered. Nothing else
       was written.
+- [ ] **B-171, Markup and Reply on a photo held.** On the test iPad, the
+      test account only, from a build of the `bm-cm-markup` worktree
+      (branch `copy-markup`) or of the int it is merged into. Nothing is
+      sent and nothing is saved to Drafts: no Send is tapped in any step,
+      and each reply begun is closed with Cancel and Delete Draft, which
+      keeps nothing. The host makes the letters, each from another
+      address, with a new Message-ID of its own and naming none on the
+      account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      never the Inbox, noting each UID from its APPENDUID; it stops if one
+      has none. Three panes; the connection log read after each step; the
+      app's files read over SSH as the rounds read them.
+      0. *The letters:* "B-171 photo", an HTML letter with words, a JPEG
+      photo of about 1 MB shown among them by `cid:` as an iPhone sends
+      one, a picture from the web, and the account's signature logo by
+      `cid:`; "B-171 heic", the same with a HEIC photo by `cid:` in place
+      of the JPEG; and "B-171 thread 1" and "B-171 thread 2", one
+      conversation from two made-up senders, the first with a photo by
+      `cid:`. "Notes" opened in the app.
+      1. *The menu:* "B-171 photo" opened, a finger held on the photo:
+      Quick Look, Markup and Reply, Save Image, Save to Files, Share,
+      Copy, in that order. Screenshot.
+      2. *Nothing drawn:* Markup and Reply: the photo full screen in Quick
+      Look. Written down: where its Markup button is, and whether Markup
+      is on before it is tapped. Done, with nothing drawn: back at the
+      letter, no composer, nothing asked; no new directory in
+      `tmp/Attachments` but the one copy of the file opened (B-063).
+      3. *Drawn:* held again, Markup and Reply, the Markup button, a line
+      drawn across the photo with a finger. Written down: what Quick Look
+      shows at its Done and how many Dones close it; any question it asks
+      photographed with its buttons, and which was tapped. Then: a reply
+      opens over the letter, the letter's sender in To, "Re: B-171
+      photo", the caret at its top and the keyboard up, the quote and the
+      signature as a Reply's; one row under Subject, its name, kind and
+      size written down. Screenshot.
+      4. *Kept on the iPad:* "B-171 look" typed in the body; after five
+      seconds, over SSH, `Local Drafts/<UUID>/letter.json` lists the row,
+      its name and kind as the row shows, and its file is in the letter's
+      own directory; that file pulled to the host and looked at: the
+      photo with the line drawn on it, its kind by `file` written down. In
+      `tmp/Attachments`, the copy's directory.
+      5. *Cancel:* Cancel: Save Draft and Delete Draft asked. Delete Draft:
+      the reply closes on the letter; the log has no `MAIL FROM`, `RCPT
+      TO`, `DATA` or `APPEND`; no `Local Drafts` letter for it; the copy's
+      directory gone from `tmp/Attachments`.
+      6. *The others:* the logo held: the menu with Markup and Reply. The
+      picture from the web held: WebKit's menu, as before, no Markup and
+      Reply. A tap on the photo: Quick Look, written down whether it has
+      a Markup button (it should not).
+      7. *A conversation:* "B-171 thread 2" listed, thread 1's line opened,
+      its photo held, Markup and Reply, a line drawn, Done: the reply's To
+      is thread 1's sender, its subject thread 1's. Cancel, Delete Draft.
+      8. *A HEIC:* "B-171 heic" opened; written down whether its photo
+      shows. Where it does: held, Markup and Reply, a line drawn, Done:
+      the row's name ends ".jpg", its kind a JPEG. Cancel, Delete Draft.
+      9. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash, and deletes
+      in the Trash only the UIDs that move answered (`COPYUID`). Nothing
+      was sent, and nothing else was written to the account.
 
 ## Blocked on the owner
 

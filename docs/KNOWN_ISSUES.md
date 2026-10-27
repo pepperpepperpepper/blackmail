@@ -36464,3 +36464,235 @@ links.
 - The list row's files, from its structure, are carried and kept on the
   iPad and drawn nowhere at the tap (B-042): the header has no rows to
   draw from them.
+
+## B-171 — FIXED 2026-10-27, not yet seen on the iPad. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
+
+Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
+26740c2.
+
+**Found** in the copy-Mail research of 2026-10-26, "New gaps found on the
+way", 3: "Mail has "Markup and Reply" on a held photo. Left out of B-122:
+it is a whole new feature." B-150 built Mail's menu without it, and said
+so under Not covered. The owner asked on 2026-10-27 for the three
+differences from Mail found on the way to be built; this is the third.
+
+**What Mail does.**
+
+- *Where it is.* A file of a letter touched and held: Quick Look, Markup
+  and Reply, Save Image, Save to Files, Share, Copy, in that order (an
+  iPhone on iOS 16, Apple Community thread 254539724, as B-150 read it).
+  Apple's iPadOS 13 guide, "Work with email attachments on iPad": "Touch
+  and hold the attachment, then tap Markup (if it's an attachment you're
+  sending) or "Markup and Reply" (if it's an attachment you've
+  received)."
+- *What it does.* Apple's iPadOS 17 and 18 guides, "Annotate email
+  attachments on iPad": "In the message, tap the attachment, then tap
+  [the Markup button]. Using the drawing tools, draw with your finger.
+  When you're finished, tap Done, then choose to reply to the attachment
+  sender, start a new message, save the annotated attachment to your
+  files, or discard your edited attachment." iPadOS 16's: "then choose
+  to save, send, or discard your edited attachment."
+- *How*, read only off the iOS 18.6 simulator runtime on the Mac.
+  MobileMailUI's `Main.strings` has `MARKUP_DOCUMENT` = "Markup and
+  Reply"; its binary names `markupDocumentActionForURL:messageObjectID:
+  mailboxObjectID:subject:senderDisplayName:shouldShowReplyAll:…` and
+  soft-links the private MarkupUI. Mail's composer, MessageUI, names
+  `QLPreviewController`, `previewController:editingModeForPreviewItem:`,
+  `previewController:didSaveEditedCopyOfPreviewItem:atURL:`,
+  `attachmentToMarkupContentID`, `originatingFromAttachmentMarkup` and
+  `markupReplyAttachmentLoadingProgress`: its Markup is Quick Look's, and
+  by those names a Markup and Reply's reply is made with the picture to
+  mark up in it. MessageUI also sets Quick Look's private
+  `appearanceActions` to 4 on its preview; in QuickLook on 18.6 that bit
+  is read by a video's preview, which it puts into its edit mode, and not
+  by a picture's, so it is not used here.
+- *Where the picture goes.* In the reply's body, under his words: where
+  every picture he put in a letter from Mail on his iPad went, after his
+  last typed line and before his signature (B-109, from his Sent mail).
+
+Medium confidence. Mail was not seen doing it on an iPad: the test iPad
+has no Mail app (B-028).
+
+**What it was.** B-150's menu: Quick Look, Save Image, Save to Files,
+Share and Copy, "Mail's for a file, less Markup and Reply, which would be
+a composer of its own" (`PanePictures.menu`).
+
+**Changed.**
+
+1. *The item* (`PanePictures.Item.markupAndReply`, Mail's words): second
+   in the menu of a picture held, after Quick Look, as Mail has it. Like
+   every item of the menu it downloads the picture as a tap does
+   (`openAttachment`), the last tap on a picture still coming saying what
+   it is opened for (`FileTaps`, B-141, B-150).
+2. *iOS's own Markup* (`openAttachment`): the picture full screen in
+   Quick Look, as a tap opens it, with the pane as the preview's delegate,
+   the only preview that has one, whose editing mode is `createCopy`:
+   Quick Look's Markup button at its top, the picture left as it came. A
+   tap's Quick Look has no Markup, as before.
+3. *The copy* (`MarkupReply`, new). Each copy of what he drew that Quick
+   Look hands over (`previewController(_:didSaveEditedCopyOf:at:)`) is
+   staged at once where the composer's photos are (`AttachmentStore`), as
+   Quick Look's own file is temporary: the picture's name with the copy's
+   extension, which Apple's documentation says may differ, and the kind
+   that names. A JPEG, PNG or GIF as it is; any other kind, a HEIC say,
+   made a JPEG of at the share sheet's quality (`SharedPhoto.quality`),
+   its name ending ".jpg", so that it goes in the letter too; one no
+   picture can be read from, as it came, a file. The last copy is kept,
+   the one before removed: Quick Look may hand over one each time he
+   saves. Only the Quick Look the picture was last opened in is
+   listened to (`ObjectIdentifier` of it, in `MarkupReply.State`): a
+   copy coming late from one before it, closed with nothing drawn, is
+   removed, not taken for the next picture's and put in a reply to its
+   letter under its name; and its closing hands nothing over.
+4. *The reply.* Quick Look closed with a copy: the app's own Reply to the
+   letter the picture is in (`openCompose`, Reply and not Reply All, as
+   the guide's "reply to the attachment sender"): whom it goes to
+   (`ReplyAddressing`), "Re:", the original's ids for its thread, the
+   quote, his signature, and the original marked answered once it has
+   gone (B-152). Mail's question about the original's files is not
+   asked: it is asked only under Ask (`ReplyFiles.asks`), which his Mail
+   is not taken to be, and under Ask none would go, as Don’t Include.
+   The copy lands in the composer as a photo he picks lands (`landing`,
+   new, through `landed`), after the letter is taken as it opened: a row
+   with its weight and its Remove; in the letter under his words and
+   above his signature and the quote (`AppleMailHTML.letter`, B-109);
+   Cancel asks Save Draft or Delete Draft of it; kept on the iPad as he
+   writes (`LocalDrafts`); its staged file removed as the composer goes
+   (B-063). Nothing goes unless he taps Send.
+5. *Nothing drawn.* Quick Look closed with no copy: no reply, and he is
+   back at the letter with nothing made. A copy that comes within five
+   seconds after that (`MarkupReply.late`) still makes the reply, for an
+   order not seen on the iPad; Quick Look's name for what it does first,
+   `isObtainingEditsFromServiceBeforeDismissing`, says the copy comes
+   before it closes. Later, it is removed. Quick Look still over the pane
+   as it says it has closed, the reply waits for it, a tenth of a second
+   at a time, ten times at most; anything else over the pane, and the
+   copy is removed, a line in the log.
+6. *The warning before the app stops opening* waits while a picture is
+   being marked up, for those five seconds, and from the copy handed to
+   the reply until the reply has opened or the copy has been removed,
+   five seconds at most if neither is ever said
+   (`MarkupReply.State.replying`, `ended`; `isOpeningFile`, B-137).
+   Without that last, the warning's look every 30 seconds could land
+   between Quick Look gone and the tenth of a second's next look for
+   it, find the pane bare, put its alert up, and the reply would then
+   find the pane covered and remove his drawing.
+7. *Only the letter's own pictures,* as B-150's menu: a hold on a picture
+   the pane's script wires, one of the letter's parts by `cid:`. A
+   picture from the web, or in a link, keeps WebKit's menu, which has no
+   Markup and Reply. A file of the letter's not drawn by `cid:` is a row
+   in the header or among the words here, whose hold does nothing
+   (B-150). The `bm-cm-inlinefiles` batch (B-170), built beside this one,
+   draws a letter's picture files in its body and holds them with
+   `PanePictures.menu`, which then gives them Markup and Reply too; it
+   edits `PanePictures.swift` and `PictureHoldTests` next to the lines
+   this entry edits, and `MessageDetailViewController` with the
+   `bm-cm-textsize`, `bm-cm-mailsettings` and `bm-cm-remoteask`
+   batches; `bm-cm-textsize` edits `ComposeViewController` too.
+
+**What it reverses.** B-150's "less Markup and Reply" in the menu, and
+its Not covered line "Mail's Markup and Reply and Look Up are not built",
+for Markup and Reply; and the copy-Mail research's decision for B-122,
+"leave out Markup and Reply (L, separate)".
+
+**Not changed.** Look Up. A tap on a picture: Quick Look, no Markup. A
+file's row: a tap opens it, a hold does nothing. Reply All, New Message
+and Save to Files after Done, which iPadOS 17 and 18 Mail offer: Done
+goes to the Reply alone, as the menu's words say.
+
+**What he sees.** His finger held on a photo in a letter: the small menu,
+now with "Markup and Reply" under "Quick Look". He taps it: the photo
+fills the screen, as when he taps it, with the Markup button (a pen tip
+in a circle) at the top. He taps that, draws with his finger, and taps
+Done: the photo closes and a reply to the letter opens, the person who
+sent it in To, "Re:" and the subject, the keyboard up, the photo he drew
+on as a row under Subject; sent, it is in the letter under his words. He
+taps Done without drawing: he is back at the letter, nothing opened.
+Cancel in the reply asks Save Draft or Delete Draft.
+
+**New words.** None of the app's own. "Markup and Reply" is Mail's
+(`MARKUP_DOCUMENT`); Quick Look's Markup button and tools are iOS's.
+
+**Tests.** `MarkupReplyTests`, ten, new. The menu, Mail's words second,
+putting something over the pane. Where the marking up stands: each copy
+while Quick Look is up replacing the one before, which is let go, the
+last the reply's as it closes, once; nothing drawn, nothing made; a copy
+within five seconds after still the reply's, one after it let go; the
+pane busy until then; a second picture opened for Markup letting the
+first's copy go. The pane busy from the copy handed to the reply, as
+Quick Look closes or late, until the reply's word that it has opened or
+let the copy go, five seconds at most, a copy after it let go, and that
+word leaving a picture opened for Markup since as it is. A copy or a
+closing from another Quick Look than the one the picture was last opened
+in: let go, and nothing changed, while the next is up and after it has
+closed with none. The copy's name and kind: as it came for a JPEG, PNG or
+GIF, a ".jpg" made of a HEIC or a TIFF, the picture's own name and kind
+for a copy with no extension, a stranger's name made safe. The copy
+staged byte for byte in a directory of its own with its size, a row that
+goes in the letter, the JPEG made where it says, a copy no JPEG can be
+made of going as a file; let go with its directory; a file not staged
+never touched. The reply as the pane makes it: to the sender alone, not
+her Cc, "Re:", In-Reply-To, the quote, his signature first, to be marked
+answered, none of her files; the copy, landed, in the letter's HTML under
+his words in Mail's markup and above his signature and the quote, a
+picture of his and no file, her photo not sent back. Read from the
+source: the item's Quick Look full screen with the pane its delegate, the
+one preview that is; `createCopy`; each copy staged with its kind and the
+JPEG's quality and handed to `MarkupReply`; the reply as Quick Look
+closes, through `openCompose` with the copy landing; each copy and
+closing handed over with the Quick Look it came from; the marking up
+ended on all three ways out of the reply's path; the menu reached by
+a hold alone; no send, no repository and no `previewURL` in the delegate
+or the reply's path; the composer landing it after the letter is taken
+as it opened, through `landed`, and Cancel asking of it.
+Changed, as the code they read changed: `PictureHoldTests` (the menu,
+Markup and Reply second), `ExpiryWarningTests` (`openAttachment`'s
+presenting, and `isOpeningFile`), `AttachmentStoreTests` (one preview
+with a delegate, Markup and Reply's, whose delegate never names the file
+Quick Look shows).
+
+Each part undone by hand, up to five at a time, each failure read back to
+its part by the assertion that failed, then put back and passing,
+counted as failures in tests: the item out of the menu, 4 in 2; the copy
+before not let go, 1 in 1; Quick Look closed with none not waiting for a
+late copy, 4 in 1; the copy's extension not taken, 4 in 2; no JPEG made
+of a HEIC, 5 in 1; the copy's kind lost, 8 in 2, the reply's HTML among
+them; the pane not the preview's delegate, 5 in 3, `AttachmentStoreTests`
+and `ExpiryWarningTests` among them; its editing mode `disabled`, 1 in 1;
+the copy not handed to the composer, 2 in 1; the reply a Reply All, 1 in
+1; the composer not landing it, 2 in 1; no reply as Quick Look closes, 1
+in 1; the warning not waiting for it, 2 in 2.
+Then, one at a time: the reply's copy not counted busy, the state left
+idle as it is handed over, 5 in 3; a copy and a closing taken from any
+Quick Look, 10 in 1; the word that the reply has opened ending a picture
+opened since, 1 in 1; the reply counted busy with no end, 1 in 1; the word
+not given as the composer opens, 2 in 1; a copy handed over without its
+Quick Look, 1 in 1.
+
+The full suite, serially: 2,955 tests, 10 of them this entry's, 6
+skipped, none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad (the TODO's B-171 check): Quick Look's Markup
+  button on 16.5.1 with `createCopy`; whether its Done hands over a copy
+  before it closes; whether it asks anything at Done, as the iPadOS 17
+  and 18 guides' list after Done may be Quick Look's; the copy's kind
+  for a JPEG; and whether there is a way out of Markup that keeps nothing
+  drawn other than Undo (Cancel in the reply, then Delete Draft, keeps
+  nothing).
+- One tap more than Mail: Markup is turned on by Quick Look's button, as
+  in Mail's guide for iPadOS 17 and 18, where iPadOS 13's Mail opened it
+  at once. No public way opens Quick Look in Markup.
+- Quick Look's Markup against Mail's MarkupUI: not compared on a device.
+- The composer shows the copy as a row, not drawn among his words as
+  Mail's composer draws it: the composer is plain text (D-013), as for
+  every photo he adds (B-109).
+- The copy's weight: Quick Look may keep the original picture and its
+  drawing inside the copy (MarkupUI names
+  `writeToURL:embeddingSourceImageAndEditModel:`); not measured.
+- A copy made while something else came over the pane is removed with a
+  line in the log alone, his drawing lost.
+- In a conversation the reply answers the letter the picture is in,
+  which need not be the one the header is on; his own from Sent Mail is
+  answered to whom it went (`ReplyAddressing`). Not tried.

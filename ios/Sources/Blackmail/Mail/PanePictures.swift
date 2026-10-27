@@ -29,13 +29,13 @@ import Foundation
 /// spacer, an icon, a logo in a signature (`Tap.opens`).
 ///
 /// A finger held on such a picture gives Mail's menu for a file of the
-/// letter's (B-150): Quick Look, Save Image, Save to Files, Share and Copy
-/// (`menu`), where it gave WebKit's, with Save to Photos and no Save to
-/// Files (B-067, B-122). The script tells the pane of the hold as of a tap
-/// (`Tap.isHold`), with where the finger is, and keeps WebKit's own menu
-/// off the picture; any picture of the letter's own has it, whatever its
-/// size, as a file has it in Mail. A picture from the web, or in a link,
-/// keeps WebKit's menu.
+/// letter's (B-150): Quick Look, Markup and Reply (B-171), Save Image, Save
+/// to Files, Share and Copy (`menu`), where it gave WebKit's, with Save to
+/// Photos and no Save to Files (B-067, B-122). The script tells the pane of
+/// the hold as of a tap (`Tap.isHold`), with where the finger is, and keeps
+/// WebKit's own menu off the picture; any picture of the letter's own has
+/// it, whatever its size, as a file has it in Mail. A picture from the web,
+/// or in a link, keeps WebKit's menu.
 enum PanePictures {
 
     /// The name the stack's script posts a tap under, in the app's content
@@ -187,6 +187,11 @@ enum PanePictures {
     enum Item: String, CaseIterable {
         /// Full screen in Quick Look, as a tap opens it.
         case quickLook = "Quick Look"
+        /// Full screen in Quick Look with its Markup, and what he draws on
+        /// it in a Reply to the letter, under his words (`MarkupReply`,
+        /// B-171). Mail's words, iOS 18.6's MobileMailUI's
+        /// `MARKUP_DOCUMENT`.
+        case markupAndReply = "Markup and Reply"
         /// Into Photos, as its own bytes, which the app asks to add to
         /// Photos for (`NSPhotoLibraryAddUsageDescription`, B-067).
         case saveImage = "Save Image"
@@ -205,18 +210,21 @@ enum PanePictures {
     }
 
     /// The menu, in Mail's order, for a picture of the letter's own: Mail's
-    /// for a file, less Markup and Reply, which would be a composer of its
-    /// own, and Look Up, which is for the words in a picture.
-    static let menu: [Item] = [.quickLook, .saveImage, .saveToFiles, .share, .copy]
+    /// for a file, Markup and Reply second (B-171), less Look Up, which is
+    /// for the words in a picture.
+    static let menu: [Item] = [.quickLook, .markupAndReply, .saveImage, .saveToFiles, .share, .copy]
 
-    /// The menu for a file held on its tile (B-170): the picture's, less
-    /// Save Image, which is for a picture; Copy puts the file on the
-    /// pasteboard as the kind of file it is.
+    /// The menu for a file held on its tile (B-170): B-150's for a file,
+    /// the picture's less Save Image, which is for a picture, and less
+    /// Markup and Reply, built for a photo (B-171); Copy puts the file on
+    /// the pasteboard as the kind of file it is.
     static let fileMenu: [Item] = [.quickLook, .saveToFiles, .share, .copy]
 
-    /// The menu for `file` held on its tile: a picture's, Save Image and
-    /// all, for a picture drawn as a tile, a HEIC from an iPhone say, and
-    /// `fileMenu` for any other file.
+    /// The menu for `file` held on its tile: a picture's, Markup and Reply
+    /// (B-171) and Save Image and all, for a picture drawn as a tile, a
+    /// HEIC from an iPhone say, and `fileMenu` for any other file. A picture
+    /// file drawn at its size in the body has the picture's too, held as
+    /// the letter's own pictures are (`opening`, `menu`; int19).
     static func menu(for file: Attachment) -> [Item] {
         file.mimeType.lowercased().hasPrefix("image/") ? menu : fileMenu
     }
