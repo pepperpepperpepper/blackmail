@@ -458,7 +458,7 @@ final class MailOptionsTests: XCTestCase {
             "@objc private func drawDiscardButton() { guard let item = actionItems[.delete] else { "
                 + "return } let archives = archiveTarget?(summary) != nil guard archives != "
                 + "discardArchives else { return } discardArchives = archives item.image = "
-                + "Theme.symbol(archives ? \"archivebox\" : \"trash\") item.accessibilityLabel = "
+                + "Theme.barSymbol(archives ? \"archivebox\" : \"trash\") item.accessibilityLabel = "
                 + "archives ? RowSwipes.Action.archive.title : \"Delete\" }",
             "let action = archiveTarget?(s).map { PaneAction.move(to: $0) } ?? .delete "
                 + "showEmpty() Task { @MainActor in let refused = await self.performed(action, on: s)",

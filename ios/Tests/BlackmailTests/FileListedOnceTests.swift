@@ -331,6 +331,14 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: 33), rule)
         XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: 17), "")
         XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: 14), "", "never below the default, as WebKit's")
+        // No wider than the letter at the larger accessibility sizes: twice
+        // Large at most, 356 points with its margin, within the 382 of two
+        // panes in portrait and the 540 of paper (int19).
+        XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: 34), "a.bm-tile { zoom: 2.0 !important; }")
+        XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: 40), "a.bm-tile { zoom: 2.0 !important; }")
+        XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: 53), "a.bm-tile { zoom: 2.0 !important; }")
+        let tileWidth = 178.0 // 160, its padding 2 × 3, its border 2 × 1, its margin 2 × 5
+        XCTAssertLessThanOrEqual(tileWidth * BodyFiles.maxTileZoom, 382)
         XCTAssertTrue(try XCTUnwrap(PanePage.letter(plainHTML, style: large)).contains(rule))
         let none = Message(id: "7/4", mailboxID: "INBOX", sender: "Jane <jane@example.com>",
                            senderAddress: "jane@example.com", to: [], cc: [], subject: "Rates",
@@ -496,7 +504,12 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertEqual(count("pictureMap = ", in: code), 2)
         // And B-168's "Load All Images" putting a body back (int19).
         XCTAssertTrue(code.contains("self.prepareInlineImages(for: [m], inStack: true) self.fill(id, body)"))
-        XCTAssertEqual(count("inStack: true)", in: code), 4)
+        // And the stack drawn again at a new text size (B-166; int19).
+        XCTAssertTrue(code.contains("let drawn = entries.compactMap { loaded[$0.id] } "
+                                    + "prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter } "
+                                    + "+ drawn.filter { $0.id == stackFocus.letter }, inStack: true) "
+                                    + "renderConversation(entries) for (id, body) in again.bodies { fill(id, body) }"))
+        XCTAssertEqual(count("inStack: true)", in: code), 5)
         XCTAssertTrue(code.contains(
             "private func draw(_ m: Message, page: String?) { prepareInlineImages(for: [m]) guard"))
     }

@@ -430,7 +430,11 @@ final class RemoteContentTests: XCTestCase {
         // Each page and body built remembers what it was built with; the
         // button reads that, and only the print reads the setting now.
         XCTAssertEqual(pane.components(separatedBy: "remote.hold(").count - 1, 4)
-        XCTAssertEqual(pane.components(separatedBy: "remote.waits(").count - 1, 1)
+        // And the letter drawn again at a new text size, held back as it
+        // was built (B-166; int19).
+        XCTAssertEqual(pane.components(separatedBy: "remote.waits(").count - 1, 2)
+        XCTAssertTrue(pane.contains("let style = pageStyle, held = remote.waits(m.id) loads.start({ m }, "
+                                    + "prepare: { m in (m, PanePage.letter(m, style: style, heldBack: held)) },"))
         XCTAssertEqual(pane.components(separatedBy: "remote.holdsBack(").count - 1, 1)
 
         let list = try source("UI/RemoteBlockList.swift")

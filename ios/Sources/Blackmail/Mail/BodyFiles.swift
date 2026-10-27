@@ -298,11 +298,22 @@ enum BodyFiles {
     /// is as it was there. In the head, not on the tile, so a stack drawn
     /// again at a new size, its bodies put back as they came, has its tiles
     /// at the new size (int19).
+    ///
+    /// No more than twice the size at Large, `maxTileZoom`: a tile is 178
+    /// points wide with its margin, and the letter's column, which keeps
+    /// its width at every size, is about 382 in two panes in portrait on
+    /// the 10.2-inch iPad. At the larger accessibility sizes, 2.353 at AX3
+    /// to 3.118 at AX5, a tile was wider than the letter, which then
+    /// scrolled sideways, and on paper, 540 wide, it was cut (int19).
     static func sizeRule(bodyPointSize: Int) -> String {
         guard bodyPointSize > 17 else { return "" }
-        let scale = (Double(bodyPointSize) / 17 * 1000).rounded() / 1000
+        let scale = (min(Double(bodyPointSize) / 17, maxTileZoom) * 1000).rounded() / 1000
         return "a.\(tileClass) { zoom: \(scale) !important; }"
     }
+
+    /// The most `sizeRule` scales a tile by: 356 points with its margin,
+    /// within the narrowest column a letter is drawn in.
+    static let maxTileZoom = 2.0
 
     /// The type of a tile's name and size: the caption's, at its size at
     /// the iPad's default text size.

@@ -348,16 +348,28 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             renderNotice(lines)
         case .letter(let m, _):
             // Built again at the size now: the page kept was built at the
-            // size before. On the main thread, as it is a change he made in
-            // Settings and not a tap from letter to letter.
-            draw(m, page: PanePage.letter(m, style: pageStyle))
+            // size before. Away from the main thread, as `loadImages` builds
+            // it, for the page is no longer cheap string work (B-169's
+            // reading of the letter's own style, B-170's files, B-168's
+            // hold), and drawn only if the pane still shows the letter.
+            // Held back as it was built (`RemotePictures.waits`), so Mail's
+            // line and its hold stay after he changes the size, and a letter
+            // he loaded stays loaded (B-168; int19).
+            let style = pageStyle, held = remote.waits(m.id)
+            loads.start({ m }, prepare: { m in (m, PanePage.letter(m, style: style, heldBack: held)) },
+                        settle: { [weak self] result in
+                            guard let self, case .success(let (m, page)) = result,
+                                  self.message?.id == m.id else { return }
+                            self.draw(m, page: page)
+                        })
         case .conversation(let entries):
             // As `drawAgain` draws it: the stack, then its bodies put in by
             // script once it has loaded, the letter in the header's
-            // pictures last.
+            // pictures last, added to the stack's map, which has his
+            // letters' from Sent Mail as well (B-170; int19).
             let drawn = entries.compactMap { loaded[$0.id] }
             prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter }
-                                    + drawn.filter { $0.id == stackFocus.letter })
+                                    + drawn.filter { $0.id == stackFocus.letter }, inStack: true)
             renderConversation(entries)
             for (id, body) in again.bodies { fill(id, body) }
         }
@@ -436,7 +448,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let archives = archiveTarget?(summary) != nil
         guard archives != discardArchives else { return }
         discardArchives = archives
-        item.image = Theme.symbol(archives ? "archivebox" : "trash")
+        item.image = Theme.barSymbol(archives ? "archivebox" : "trash")
         item.accessibilityLabel = archives ? RowSwipes.Action.archive.title : "Delete"
     }
 

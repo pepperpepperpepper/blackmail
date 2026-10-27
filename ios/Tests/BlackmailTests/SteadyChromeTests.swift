@@ -110,6 +110,11 @@ final class SteadyChromeTests: XCTestCase {
         let toolbar = try source("UI/MessageDetailViewController.swift")
         XCTAssertNotNil(place(of: "let item = UIBarButtonItem(image: Theme.barSymbol(name), style: .plain, "
                                   + "target: self, action: sel)", in: toolbar))
+        // Delete's button drawn again as an archive box, or back as the bin,
+        // the size of the bar's other four (B-167; int19).
+        XCTAssertNotNil(place(of: "item.image = Theme.barSymbol(archives ? \"archivebox\" : \"trash\")",
+                              in: toolbar))
+        XCTAssertFalse(toolbar.contains("Theme.symbol("), "no pane bar item that grows with the text size")
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertNotNil(place(of: "let jump = UIBarButtonItem(image: Theme.barSymbol(\"calendar\"), style: .plain,",
                               in: list))

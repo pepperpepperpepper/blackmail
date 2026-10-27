@@ -228,7 +228,11 @@ final class TextSizeWiringTests: XCTestCase {
                         + "viewIfLoaded?.window != nil else { return } restyleOwed = false "
                         + "guard let again = document.restyled() else { return }",
                        "case .letter(let m, _):",
-                       "draw(m, page: PanePage.letter(m, style: pageStyle))",
+                       "let style = pageStyle, held = remote.waits(m.id) loads.start({ m }, prepare: { m in "
+                        + "(m, PanePage.letter(m, style: style, heldBack: held)) }, settle: { [weak self] "
+                        + "result in guard let self, case .success(let (m, page)) = result, "
+                        + "self.message?.id == m.id else { return } self.draw(m, page: page) })",
+                       "+ drawn.filter { $0.id == stackFocus.letter }, inStack: true)",
                        "renderConversation(entries) for (id, body) in again.bodies { fill(id, body) }",
                        "case .notice(let lines): renderNotice(lines)"] {
             XCTAssertTrue(owed.contains(wiring), wiring)
