@@ -135,6 +135,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private var actionItems: [Theme.ToolbarAction: UIBarButtonItem] = [:]
     /// Answers the `cid:` images inside whatever message is on screen.
     private let inlineImages = InlineImageLoader()
+    /// WebKit's list that blocks every request to the web, on the web view
+    /// while Block All Remote Content holds back the pictures of what the
+    /// pane shows and none of its letters has been loaded (B-168).
+    private let remoteList: RemoteBlockList
+    /// The letters of what the pane shows built held back, and those whose
+    /// pictures from the web "Load All Images" has loaded; none as it shows
+    /// something else (`RemotePictures`, B-168).
+    private var remote = RemotePictures()
     /// The body fetches for what the pane shows, called off when it shows
     /// something else. See `PaneLoads`.
     private let loads = PaneLoads()
@@ -166,10 +174,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         self.repository = repository
 
         let config = WKWebViewConfiguration()
-        // Remote content is NOT blocked: a letter's pictures from the web
-        // load as they always have, and a tracking pixel among them tells
-        // its sender the letter was opened. Blocking them is the owner's
-        // decision, still open. What is locked down is below.
+        // A letter's pictures from the web load as they always have, as
+        // Mail's do under every Privacy Protection choice but one, and a
+        // tracking pixel among them tells its sender the letter was
+        // opened. Under that one, Block All Remote Content, they are held
+        // back until "Load All Images" (`RemoteContent`, B-168): WebKit's
+        // list on this configuration's controller (`remoteList`), and the
+        // letter's markup. What is locked down besides is below.
         config.suppressesIncrementalRendering = false
         // The letter is a stranger's HTML, and WebKit here may never be
         // updated again, so none of its script runs: not a `<script>`, not
@@ -195,6 +206,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             WKUserScript(source: ConversationDocument.script, injectionTime: .atDocumentEnd,
                          forMainFrameOnly: true, in: .defaultClient))
         self.webView = WKWebView(frame: .zero, configuration: config)
+        // Off until the pane shows something under Block All Remote
+        // Content (`holdBackTheWeb`).
+        self.remoteList = RemoteBlockList(on: config.userContentController)
         // What WebKit has painted, told to `renderingProgressDidChange`,
         // for the cover at a tap (B-149). Private, by its name, and only
         // where the web view has the setter; with none, the cover lifts at
@@ -435,6 +449,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     func showEmpty() {
         loads.supersede()
         liftCover()
+        holdBackTheWeb()
         summary = nil
         message = nil
         loaded = [:]
@@ -503,6 +518,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     func show(summary: MessageSummary) {
         coverPane()
+        holdBackTheWeb()
         self.summary = summary
         message = nil
         loaded = [:]
@@ -517,6 +533,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         setActionsEnabled(true)
 
         let repository = self.repository
+        let held = remote.hold(summary.id)
         loads.show(
             standIn: {
                 // The letter he tapped, from the row, before its body is
@@ -542,7 +559,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // The page is built away from the main thread, and drawn only
             // if he is still on this letter when it is ready; see
             // `PaneLoads`.
-            prepare: { [style = pageStyle] m in (m, PanePage.letter(m, style: style)) },
+            prepare: { [style = pageStyle] m in (m, PanePage.letter(m, style: style, heldBack: held)) },
             settle: { [weak self] result in
                 guard let self else { return }
                 switch result {
@@ -596,6 +613,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// opened at without them, one line below the top of the pane.
     func show(thread: MessageThread, completing: UInt64?) {
         coverPane()
+        holdBackTheWeb()
         summary = thread.newest
         message = nil
         loaded = [:]
@@ -633,6 +651,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // app is queuing on.
         let newest = thread.newest
         let repository = self.repository
+        let newestHeld = remote.hold(newest.id) ? newest.id : nil
         loads.show(
             standIn: {
                 // The header is given its content BEFORE the stack is
@@ -654,7 +673,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             fetch: {
                 try await repository.openLetter(newest)
             },
-            prepare: { m in (m, PanePage.stackBody(m)) },
+            prepare: { m in (m, PanePage.stackBody(m, heldBack: newestHeld)) },
             settle: { [weak self] result in
                 self?.settleBody(result, for: newest.id, focus: true)
                 self?.lookForHis(afterTheNewestCame: (try? result.get()) != nil, besides: besides)
@@ -710,8 +729,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func loadRelated(_ entryID: String) {
         guard let load = related.load(for: entryID) else { return }
         let repository = self.repository
+        let held = remote.hold(load.entryID) ? load.entryID : nil
         loads.start({ try await repository.openLetter(load.row) },
-                    prepare: { m in (m, PanePage.stackBody(m)) },
+                    prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) },
                     settle: { [weak self] result in self?.settleRelated(result, for: load) })
     }
 
@@ -838,8 +858,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         let repository = self.repository
+        let held = remote.hold(id) ? id : nil
         loads.start({ try await repository.openLetter(row) },
-                    prepare: { m in (m, PanePage.stackBody(m)) },
+                    prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) },
                     settle: { [weak self] result in
                         self?.settleBody(result, for: id, focus: focus)
                     })
@@ -1390,7 +1411,68 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         case .openFile(let letter, let section):
             decisionHandler(.cancel)
             openFile(section, of: letter)
+        case .loadImages(let letter):
+            decisionHandler(.cancel)
+            loadImages(of: letter)
         }
+    }
+
+    /// What the pane shows next begins with no letter's pictures from the
+    /// web loaded, and WebKit's list on its web view if Block All Remote
+    /// Content is, before anything of it is given to the web view
+    /// (`RemotePictures`, B-168). Off, it stays off, and nothing changes.
+    private func holdBackTheWeb() {
+        remote = RemotePictures()
+        remoteList.on = remote.listOn()
+    }
+
+    /// "Load All Images" on a letter's line (B-168): that letter's pictures
+    /// from the web, and nothing of any other letter's. The letter on its
+    /// own, its page drawn again without the line or anything held back,
+    /// from the top; in a conversation, its body put in its section again
+    /// so, where he is, the letters around it as they were, his from Sent
+    /// Mail among them. WebKit's list comes off the web view first, for
+    /// the requests the new markup makes, and stays off while the pane
+    /// shows this; a letter of the stack still held back is held back by
+    /// its markup alone (`RemoteContent.blocked`). The page or the body is
+    /// built away from the main thread, as at the tap, and drawn only if
+    /// the pane still shows the letter.
+    ///
+    /// Nothing for a letter whose page or body was not built held back, or
+    /// one not shown here: a link of the scheme in a letter's own markup
+    /// does no more than its own line. Decided by what the page was built
+    /// with (`RemotePictures.waits`), not by the setting now, so a line
+    /// still on screen after Block All Remote Content is turned off loads
+    /// its letter.
+    private func loadImages(of id: String) {
+        guard remote.waits(id) else { return }
+        if threadSummaries.isEmpty {
+            guard let m = message, m.id == id else { return }
+            remote.load(id)
+            remoteList.on = remote.listOn()
+            let style = pageStyle
+            loads.start({ m }, prepare: { m in (m, PanePage.letter(m, style: style)) },
+                        settle: { [weak self] result in
+                            guard let self, case .success(let (m, page)) = result,
+                                  self.message?.id == m.id else { return }
+                            self.draw(m, page: page)
+                        })
+            return
+        }
+        guard let m = loaded[id] ?? related.letter(inSection: ConversationDocument.sectionID(for: id))
+        else { return }
+        remote.load(id)
+        remoteList.on = remote.listOn()
+        loads.start({ m }, prepare: { m in PanePage.stackBody(m) },
+                    settle: { [weak self] result in
+                        guard let self, case .success(let body) = result else { return }
+                        // The loader pointed at this letter's own pictures,
+                        // for the body put back asks for them again, as
+                        // `drawBody` points it; it may have been another's
+                        // since, the one that came last.
+                        self.prepareInlineImages(for: [m])
+                        self.fill(id, body)
+                    })
     }
 
     /// A file's row among a letter's words, tapped (`BodyFiles`, B-113):
@@ -1707,12 +1789,30 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`NextLetter`, B-158), from the container once the row is off. A tap
     /// within half a second of the last Delete does nothing, so a double tap
     /// does not bin the letter the first one opened (`PaneWrites`).
+    ///
+    /// Anywhere else, under Ask Before Deleting, Mail's sheet from the
+    /// button first, "Trash Message" (`DiscardQuestion`, B-168), and the
+    /// pane empties only once he has tapped it; a tap outside leaves the
+    /// letter in the pane and on the list. Off, as it comes, nothing is
+    /// asked there.
     @objc private func deleteTapped() {
         guard let s = summary, writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else {
             return
         }
         guard let question = questionBeforeDeleting?(s) else {
-            delete(s)
+            // "Archive Message" where the button archives (B-167), as Mail
+            // asks before an Archive too.
+            let verb: DiscardQuestion.Verb = archiveTarget?(s) == nil ? .trash : .archive
+            guard let asked = DiscardQuestion.before(verb, letters: 1, from: .pane) else {
+                delete(s)
+                return
+            }
+            DiscardConfirmation.ask(asked, on: self, from: actionItems[.delete]) { [weak self] in
+                // The letter he was asked about, while it is still the one
+                // in the pane, as below.
+                guard let self, self.summary?.id == s.id else { return }
+                self.delete(s)
+            }
             return
         }
         EraseConfirmation.ask(question, on: self) { [weak self] in
@@ -1814,7 +1914,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func printLetter(_ m: Message) {
         guard printing?.isPreparing != true else { return }
         let job = LetterPrint(
-            letter: m, repository: repository, style: printStyle, pane: self,
+            letter: m, heldBack: remote.holdsBack(m.id), repository: repository, style: printStyle,
+            pane: self,
             anchor: actionItems[.reply],
             // The same letter: its id and its folder, since two folders can
             // hold the same "<uidvalidity>/<uid>".

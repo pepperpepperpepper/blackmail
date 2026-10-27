@@ -112,10 +112,15 @@ final class EraseQuestionTests: XCTestCase {
                     + "{ _ in delete() })",
             ]),
             ("UI/MessageDetailViewController.swift", [
+                // Anywhere but Trash, Ask Before Deleting's sheet, or none
+                // (`DiscardQuestionTests`, B-168).
                 "@objc private func deleteTapped() { guard let s = summary, "
                     + "writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else { "
                     + "return } guard let question = questionBeforeDeleting?(s) else { "
-                    + "delete(s) return } EraseConfirmation.ask(question, on: self) { [weak self] in "
+                    + "let verb: DiscardQuestion.Verb = archiveTarget?(s) == nil ? .trash : .archive "
+                    + "guard let asked = DiscardQuestion.before(verb, letters: 1, from: .pane) else { "
+                    + "delete(s) return } ",
+                "return } EraseConfirmation.ask(question, on: self) { [weak self] in "
                     + "guard let self, self.summary?.id == s.id else { return } self.delete(s) } }",
                 "private func delete(_ s: MessageSummary) { guard writes.startDelete(at: "
                     + "ProcessInfo.processInfo.systemUptime, untilAnswered: NextLetter.action == "
@@ -123,9 +128,14 @@ final class EraseQuestionTests: XCTestCase {
                     + "PaneAction.move(to: $0) } ?? .delete showEmpty()",
             ]),
             ("UI/MessageListViewController.swift", [
+                // Where the bar archives, of the letters it deletes alone
+                // (B-167), and anywhere but Trash, Ask Before Deleting's
+                // sheet in the bar's word, or none (B-168).
                 "guard let question = EditBar.question(before: chosen, role: { "
-                    + "self.role(of: $0) }, allMail: allMail) else { delete(chosen) return } "
-                    + "EraseConfirmation.ask(question, on: self) { [weak self] in "
+                    + "self.role(of: $0) }, allMail: allMail) else { guard let asked = "
+                    + "DiscardQuestion.before(EditBar.discardVerb(forTitle: discardWord), "
+                    + "letters: chosen.count, from: .editBar) else { delete(chosen) return } ",
+                "return } EraseConfirmation.ask(question, on: self) { [weak self] in "
                     + "self?.delete(chosen) }",
                 "private func role(of mailboxID: String) -> Mailbox.Role? { "
                     + "([mailbox] + folders()).role(of: mailboxID) }",

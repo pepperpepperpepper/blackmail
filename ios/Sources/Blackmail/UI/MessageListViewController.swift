@@ -2592,7 +2592,12 @@ final class MessageListViewController: UITableViewController {
     /// nothing, and nothing said Delete was working. Inside Trash, where
     /// Delete erases, he is asked first (`EraseQuestion`), and Cancel leaves
     /// his ticks as they were; where the bar archives, of the letters it
-    /// deletes alone (`EditBar.question`, B-167).
+    /// deletes alone (`EditBar.question`, B-167). Anywhere else, under Ask
+    /// Before Deleting, Mail's sheet from the Edit bar's Trash first, "Trash
+    /// 3 Messages", counted (`DiscardQuestion`, B-168), or from its Archive,
+    /// "Archive 3 Messages", as Mail asks before an Archive too
+    /// (`EditBar.discardVerb`), and a tap outside it leaves his ticks as
+    /// they were too.
     ///
     /// A letter kept on the iPad goes from the iPad, as Delete Draft in the
     /// composer takes it (`LocalDrafts.delete`). Handed to the repository
@@ -2604,7 +2609,12 @@ final class MessageListViewController: UITableViewController {
         guard !chosen.isEmpty else { return }
         guard let question = EditBar.question(before: chosen, role: { self.role(of: $0) },
                                               allMail: allMail) else {
-            delete(chosen)
+            guard let asked = DiscardQuestion.before(EditBar.discardVerb(forTitle: discardWord),
+                                                     letters: chosen.count, from: .editBar) else {
+                delete(chosen)
+                return
+            }
+            DiscardConfirmation.ask(asked, on: self, from: deleteItem) { [weak self] in self?.delete(chosen) }
             return
         }
         EraseConfirmation.ask(question, on: self) { [weak self] in self?.delete(chosen) }
@@ -2847,6 +2857,11 @@ final class MessageListViewController: UITableViewController {
     /// destructive one completed has the table take the row out itself,
     /// and the rows here are drawn again from the letters (`regroup`),
     /// which take the row off at the tap as Edit mode's Delete does.
+    ///
+    /// UIKit tells a button tapped and a full drag apart in no word of its
+    /// own: a full drag has stretched the button across the row, which is
+    /// what tells them apart here, for Ask Before Deleting, which a full
+    /// drag never waits for (`DiscardQuestion.fullDrag`, B-168).
     private func swipes(at ip: IndexPath,
                         _ side: KeyPath<RowSwipes.Sides, [RowSwipes.Action]>)
         -> UISwipeActionsConfiguration {
@@ -2855,8 +2870,11 @@ final class MessageListViewController: UITableViewController {
         let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)
         let actions = sides[keyPath: side].map { action -> UIContextualAction in
             let button = UIContextualAction(style: .normal, title: action.title) {
-                [weak self] _, _, done in
-                done(self?.swiped(action, on: RowKey(thread)) ?? false)
+                [weak self] _, source, done in
+                guard let self else { return done(false) }
+                let whole = DiscardQuestion.fullDrag(button: Double(source.bounds.width),
+                                                     row: Double(self.tableView.bounds.width))
+                done(self.swiped(action, on: RowKey(thread), from: whole ? .fullDrag : .rowButton))
             }
             // At a size of the app's own, as every symbol here is (B-071),
             // the row's type's (B-166).
@@ -2922,7 +2940,8 @@ final class MessageListViewController: UITableViewController {
     /// full drag. Returns whether it went ahead, for UIKit to close the row
     /// or let it slide back.
     ///
-    /// The Trash at once, with no question, as Mail's full drag; the rows
+    /// The Trash at once, with no question, as Mail's full drag, and a
+    /// button tapped while Ask Before Deleting is off, as it comes; the rows
     /// go at the tap, the reading pane empties if it shows one of the
     /// letters, and under View Next Message the row after opens there
     /// (`runBatch`'s `fromRow`, B-158), and a letter Gmail did not take
@@ -2933,15 +2952,22 @@ final class MessageListViewController: UITableViewController {
     /// Flag and the read mark change the row at the tap and go back if
     /// refused (`ListBatch`, `PaneActions`); not while one is on its way
     /// on any of the row's letters, as the pane waits for its own.
-    private func swiped(_ action: RowSwipes.Action, on key: RowKey) -> Bool {
+    ///
+    /// Under Ask Before Deleting, a Trash or an Archive tapped, a drag's
+    /// button or More's item (`from`), asks first, Mail's sheet over the
+    /// row, "Trash Message", or "Trash Messages" for a conversation of
+    /// more (`DiscardQuestion`, B-168): the row slides back while he is
+    /// asked, and goes if he taps it. A full drag does not ask.
+    private func swiped(_ action: RowSwipes.Action, on key: RowKey, from: DiscardQuestion.From) -> Bool {
         guard !inEditMode, let row = lettersOfRow(key), !row.letters.isEmpty else {
             return false
         }
         let chosen = row.letters
         switch action {
         case .trash:
-            runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true)
-            return true
+            return discard(.trash, chosen, on: key, from: from) { [weak self] in
+                self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true)
+            }
         case .delete:
             guard let question = EraseQuestion.before(deleting: chosen,
                                                       role: { self.role(of: $0) }) else {
@@ -2954,8 +2980,9 @@ final class MessageListViewController: UITableViewController {
             return false
         case .archive:
             guard let all = archive(for: row.thread) else { return false }
-            runBatch(.move(to: all), on: chosen, saying: StatusLine.moving, fromRow: true)
-            return true
+            return discard(.archive, chosen, on: key, from: from) { [weak self] in
+                self?.runBatch(.move(to: all), on: chosen, saying: StatusLine.moving, fromRow: true)
+            }
         case .move:
             moveRow(key)
             return true
@@ -2967,6 +2994,22 @@ final class MessageListViewController: UITableViewController {
             showMore(for: key)
             return true
         }
+    }
+
+    /// A Trash or an Archive of `letters`, the row `key`'s: `go` at once,
+    /// for UIKit to close the row, or, under Ask Before Deleting and not
+    /// from a full drag, Mail's sheet over the row first, and `go` only if
+    /// he taps its red button, the row sliding back meanwhile
+    /// (`DiscardQuestion`, B-168).
+    private func discard(_ verb: DiscardQuestion.Verb, _ letters: [MessageSummary], on key: RowKey,
+                         from: DiscardQuestion.From, _ go: @escaping () -> Void) -> Bool {
+        guard let asked = DiscardQuestion.before(verb, letters: letters.count, from: from) else {
+            go()
+            return true
+        }
+        let place = placeOfRow(key) ?? (view: tableView as UIView, rect: tableView.bounds)
+        DiscardConfirmation.ask(asked, on: self, over: place, go: go)
+        return false
     }
 
     /// A Flag or a read mark on every letter of the row that it changes, as
@@ -3063,9 +3106,9 @@ final class MessageListViewController: UITableViewController {
         case .reply, .replyAll, .forward:
             guard let place = placeOfRow(key) else { return }
             onAnswer?(row.thread.newest, item == .replyAll, item == .forward, place)
-        case .trashMessage: _ = swiped(.trash, on: key)
-        case .archiveMessage: _ = swiped(.archive, on: key)
-        case .deleteMessage: _ = swiped(.delete, on: key)
+        case .trashMessage: _ = swiped(.trash, on: key, from: .more)
+        case .archiveMessage: _ = swiped(.archive, on: key, from: .more)
+        case .deleteMessage: _ = swiped(.delete, on: key, from: .more)
         case .flag: _ = mark(.flag(true), on: key)
         case .unflag: _ = mark(.flag(false), on: key)
         case .markAsRead: _ = mark(.read(true), on: key)

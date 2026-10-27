@@ -223,9 +223,12 @@ final class PaneCoverTests: XCTestCase {
         for edge in ["top", "leading", "trailing", "bottom"] {
             XCTAssertTrue(code.contains("cover.\(edge)Anchor.constraint(equalTo: webView.\(edge)Anchor)"), edge)
         }
-        XCTAssertTrue(code.contains("func show(summary: MessageSummary) { coverPane() self.summary = summary"))
+        // Then the pictures from the web held back afresh (B-168), before
+        // anything else.
+        XCTAssertTrue(code.contains("func show(summary: MessageSummary) { coverPane() holdBackTheWeb() "
+                                        + "self.summary = summary"))
         XCTAssertTrue(code.contains("func show(thread: MessageThread, completing: UInt64?) { coverPane() "
-                                        + "summary = thread.newest"))
+                                        + "holdBackTheWeb() summary = thread.newest"))
         XCTAssertEqual(code.components(separatedBy: "coverPane()").count - 1, 3, "defined, and in each show")
         XCTAssertEqual(code.components(separatedBy: "paneCover.tapped()").count - 1, 1)
         XCTAssertTrue(code.contains("func showEmpty() { loads.supersede() liftCover()"))

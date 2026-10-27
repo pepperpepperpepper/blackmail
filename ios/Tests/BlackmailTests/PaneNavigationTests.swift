@@ -173,7 +173,9 @@ final class PaneNavigationTests: XCTestCase {
         XCTAssertNotNil(place(of: "case .allow: decisionHandler(.allow) case .cancel: decisionHandler(.cancel) "
                                   + "case .follow(let url): decisionHandler(.cancel) follow(url) "
                                   + "case .openFile(let letter, let section): decisionHandler(.cancel) "
-                                  + "openFile(section, of: letter) }", in: code))
+                                  + "openFile(section, of: letter) "
+                                  + "case .loadImages(let letter): decisionHandler(.cancel) "
+                                  + "loadImages(of: letter) }", in: code))
         XCTAssertFalse(code.contains("navigationType =="))
         for kind in ["linkActivated", "formSubmitted", "backForward", "reload", "formResubmitted", "other"] {
             XCTAssertNotNil(place(of: "case .\(kind): self = .\(kind)", in: code), kind)

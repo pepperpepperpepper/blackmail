@@ -81,9 +81,17 @@ enum PrintPage {
     /// the pane, which had rules of its own for the sheet until B-146, now
     /// inverts it with the rest. Every value of the header is escaped, and
     /// only ever written as text, never in an attribute.
+    ///
+    /// `heldBack` under Block All Remote Content, for a letter whose
+    /// pictures from the web the pane holds back (B-168): every reference to
+    /// the web in its markup held back on paper too (`RemoteContent`), and
+    /// WebKit's list on the print's web view (`LetterPrint`). No line over
+    /// it: the paper has no button.
     static func letter(_ m: Message, style: Style, size: (Int64) -> String,
-                       locale: Locale = .current, timeZone: TimeZone = .current) -> String {
-        letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone)
+                       locale: Locale = .current, timeZone: TimeZone = .current,
+                       heldBack: Bool = false) -> String {
+        letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone,
+               heldBack: heldBack)
     }
 
     /// The page and the words of one print, which `LetterPrint` makes
@@ -93,18 +101,20 @@ enum PrintPage {
     /// markup, up to the 5 MB of a letter fetched whole, against the
     /// print's time limit (`PrintSteps.timeLimit`).
     static func made(_ m: Message, style: Style, size: (Int64) -> String,
-                     locale: Locale = .current, timeZone: TimeZone = .current)
+                     locale: Locale = .current, timeZone: TimeZone = .current,
+                     heldBack: Bool = false)
         -> (page: String, words: String) {
         let isEmpty = PanePage.isEmpty(m)
-        return (letter(m, isEmpty: isEmpty, style: style, size: size, locale: locale, timeZone: timeZone),
+        return (letter(m, isEmpty: isEmpty, style: style, size: size, locale: locale, timeZone: timeZone,
+                       heldBack: heldBack),
                 words(m, isEmpty: isEmpty, size: size, locale: locale, timeZone: timeZone))
     }
 
     /// The page, given the pane's answer to `PanePage.isEmpty` for `m`.
     private static func letter(_ m: Message, isEmpty: Bool, style: Style, size: (Int64) -> String,
-                               locale: Locale, timeZone: TimeZone) -> String {
+                               locale: Locale, timeZone: TimeZone, heldBack: Bool) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
-        let (body, isHTML) = Self.body(m, isEmpty: isEmpty)
+        let (body, isHTML) = Self.body(m, isEmpty: isEmpty, heldBack: heldBack)
         func line(_ kind: String, _ text: String) -> String {
             "<div class=\"\(kind)\">\(ConversationDocument.escape(text))</div>"
         }
@@ -163,11 +173,11 @@ enum PrintPage {
     /// Whether it is the letter's HTML. An HTML letter's pictures decoded
     /// as they are drawn (`decodedAtOnce`); a plain letter's body has none,
     /// every `<` in it written `&lt;`.
-    static func body(_ m: Message) -> (html: String, isHTML: Bool) {
-        body(m, isEmpty: PanePage.isEmpty(m))
+    static func body(_ m: Message, heldBack: Bool = false) -> (html: String, isHTML: Bool) {
+        body(m, isEmpty: PanePage.isEmpty(m), heldBack: heldBack)
     }
 
-    private static func body(_ m: Message, isEmpty: Bool) -> (html: String, isHTML: Bool) {
+    private static func body(_ m: Message, isEmpty: Bool, heldBack: Bool) -> (html: String, isHTML: Bool) {
         guard !isEmpty else {
             return (empty, false)
         }
@@ -176,7 +186,7 @@ enum PrintPage {
             let cut = Self.cut(html, to: htmlLimit)
             return (notice(cut != nil || m.isShortened)
                         + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known,
-                                                         flowed: false)), true)
+                                                         flowed: false, heldBack: heldBack)), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)

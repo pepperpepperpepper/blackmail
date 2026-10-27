@@ -32,6 +32,11 @@ import WebKit
 final class LetterPrint: NSObject, WKNavigationDelegate {
 
     private let letter: Message
+    /// Its pictures from the web held back, as the pane holds them back
+    /// under Block All Remote Content until "Load All Images" (B-168): in
+    /// its markup (`PrintPage.letter`) and by WebKit's list on the print's
+    /// web view, when the pane's has had it made.
+    private let heldBack: Bool
     private let repository: MailRepository
     private let style: PrintPage.Style
     /// The reading pane, which the web view is put in while it draws, and
@@ -64,10 +69,11 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// The PDF, from the drawing until the panel has it.
     private var pdf: Data?
 
-    init(letter: Message, repository: MailRepository, style: PrintPage.Style,
+    init(letter: Message, heldBack: Bool, repository: MailRepository, style: PrintPage.Style,
          pane: UIViewController, anchor: UIBarButtonItem?,
          stillShown: @escaping () -> Bool, ended: @escaping (LetterPrint) -> Void) {
         self.letter = letter
+        self.heldBack = heldBack
         self.repository = repository
         self.style = style
         self.pane = pane
@@ -94,9 +100,9 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + PrintSteps.timeLimit, execute: limit)
         lookAgain()
 
-        let m = letter, style = style
+        let m = letter, style = style, heldBack = heldBack
         building = Task { @MainActor [weak self] in
-            let made = await Self.made(m, style: style)
+            let made = await Self.made(m, style: style, heldBack: heldBack)
             guard let self else { return }
             self.page = made.page
             self.words = made.words
@@ -107,10 +113,10 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// The page and the words, made on the cooperative pool rather than the
     /// main actor: an async function isolated to no actor runs away from its
     /// caller (SE-0338), as `PaneLoads.prepared` does.
-    private nonisolated static func made(_ m: Message, style: PrintPage.Style) async
+    private nonisolated static func made(_ m: Message, style: PrintPage.Style, heldBack: Bool) async
         -> (page: String, words: String) {
         let size: (Int64) -> String = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-        return PrintPage.made(m, style: style, size: size)
+        return PrintPage.made(m, style: style, size: size, heldBack: heldBack)
     }
 
     /// The page in a web view of its own, locked down as the pane's is, and
@@ -143,6 +149,8 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         }
         let loader = InlineImageLoader()
         config.setURLSchemeHandler(loader, forURLScheme: InlineImageRewriter.scheme)
+        // Nothing from the web on paper that the pane holds back (B-168).
+        if heldBack, let list = RemoteBlockList.list { config.userContentController.add(list) }
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: PrintPage.paperWidth - 2 * PrintPage.margin,
                                           height: PrintPage.paperHeight - 2 * PrintPage.margin),
                             configuration: config)
@@ -214,7 +222,7 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
                                      url: action.request.url) {
         case .allow:
             decisionHandler(.allow)
-        case .cancel, .follow, .openFile:
+        case .cancel, .follow, .openFile, .loadImages:
             decisionHandler(.cancel)
         }
     }

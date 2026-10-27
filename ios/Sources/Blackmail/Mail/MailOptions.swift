@@ -22,8 +22,9 @@ import Foundation
 /// drawn greyed, at their value, with what Blackmail does in their place
 /// (`Option.instead`), and set nothing. Ask Before Deleting and Privacy
 /// Protection's Block All Remote Content are built by B-168, under the keys
-/// its branch gives them: its merge reads them from here and adds them to
-/// `built`.
+/// its branch gave them, and kept here alone: `DiscardQuestion` reads the
+/// first at each tap, `RemoteContent` and `RemotePictures` the second at
+/// each thing the pane shows (int19; B-168's `MessagesOptions` folded in).
 ///
 /// Foundation only, so the values, their words and the page's order are
 /// tested on the Linux host; the rows are drawn by `MailOptionsView`.
@@ -73,7 +74,13 @@ enum MailOptions {
         set { defaults.set(newValue.rawValue, forKey: Option.deleteOrMoveMessageAction.key) }
     }
 
-    /// Messages > Ask Before Deleting. Off from the factory. Built by B-168.
+    /// Messages > Ask Before Deleting. Off from the factory. Built by B-168:
+    /// on, a Trash or an Archive of a letter asks first, with Mail's words,
+    /// but for a full drag on a row, which goes at once (`DiscardQuestion`).
+    /// Off by third-party guides; Apple's own guide, telling how to turn it
+    /// off, reads as if it were on, and his is matched on the day whichever
+    /// it is. The question before an erase inside Trash (`EraseQuestion`) is
+    /// asked whatever this says, as it always was.
     static var askBeforeDeleting: Bool {
         get { Option.askBeforeDeleting.isOn }
         set { Option.askBeforeDeleting.isOn = newValue }
@@ -85,7 +92,10 @@ enum MailOptions {
     /// was answered. Protect Mail Activity itself is not kept: Blackmail
     /// cannot load a picture through Apple whatever it says, and with it
     /// on, or with this off, pictures from the web show, in Mail as here
-    /// (the copy-Mail decisions, item 7386). Built by B-168.
+    /// (the copy-Mail decisions, item 7386). Built by B-168: on, a letter's
+    /// pictures and the rest of its content from the web are not loaded,
+    /// the line "Message contains unloaded images." over the letter and
+    /// "Load All Images" on it (`RemoteContent`).
     static var blockAllRemoteContent: Bool {
         get { Option.blockAllRemoteContent.isOn }
         set { Option.blockAllRemoteContent.isOn = newValue }
@@ -93,7 +103,7 @@ enum MailOptions {
 
     /// Whether a letter's pictures from the web load, as Mail's Load Remote
     /// Images said before iOS 15: unless Block All Remote Content is on
-    /// (item 7386's case D). For B-168, whose readers may ask either way.
+    /// (item 7386's case D), for a reader that asks the other way round.
     static var loadRemoteImages: Bool { !blockAllRemoteContent }
 
     /// Threading > Organize by Thread. On from the factory, under the key it
@@ -295,11 +305,11 @@ enum MailOptions {
     }
 
     /// The options Blackmail has every value of: their rows set them. The
-    /// rest are drawn greyed, at their value, and set nothing; B-168's merge
-    /// adds Ask Before Deleting and Block All Remote Content.
+    /// rest are drawn greyed, at their value, and set nothing. Ask Before
+    /// Deleting and Block All Remote Content are B-168's.
     static let built: Set<Option> = [
         .moveDiscardedMessagesInto, .swipeLeft, .swipeRight, .deleteOrMoveMessageAction,
-        .organizeByThread, .completeThreads,
+        .askBeforeDeleting, .blockAllRemoteContent, .organizeByThread, .completeThreads,
     ]
 
     /// Preview's word for `lines`, Mail's.

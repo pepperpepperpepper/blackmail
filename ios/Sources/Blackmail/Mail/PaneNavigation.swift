@@ -27,9 +27,14 @@ import Foundation
 /// pane's own, `bmfile:`, and a tap on it opens the file, as a tap on its row
 /// in the header does: nothing in Safari.
 ///
+/// "Load All Images" on the line over a letter whose pictures from the web
+/// are held back (B-168) is a link of the pane's own too, `bmimages:`, and a
+/// tap on it loads that letter's pictures (`RemoteContent.letter(of:)`).
+///
 /// Pictures are not navigations, and this does not touch them: a letter's
-/// remote pictures still load, as they always have. Whether they should is
-/// the owner's to decide. Nor is a tap on a picture of the letter's own,
+/// pictures from the web load as they always have, unless Block All Remote
+/// Content holds them back (`RemoteContent`, B-168). Nor is a tap on a
+/// picture of the letter's own,
 /// which opens it as a file's row does: the pane's script, in the app's
 /// content world, tells the pane of it (`PanePictures`, B-122). A picture
 /// inside a link is the link's, and comes here as any tapped link does.
@@ -49,6 +54,10 @@ enum PaneNavigation {
         /// Cancelled in the pane, and the file at `section` of the letter
         /// `letter` opened, as its row in the header opens it.
         case openFile(letter: String, section: String)
+        /// Cancelled in the pane, and the pictures from the web of the
+        /// letter `letter` loaded, by its id on a page of its own and its
+        /// entry's in a stack (B-168).
+        case loadImages(letter: String)
     }
 
     /// The URL `loadHTMLString` with no base URL loads under.
@@ -63,6 +72,9 @@ enum PaneNavigation {
             if url.scheme?.lowercased() == BodyFiles.scheme {
                 return BodyFiles.opening(url).map { .openFile(letter: $0.letter, section: $0.section) }
                     ?? .cancel
+            }
+            if url.scheme?.lowercased() == RemoteContent.scheme {
+                return RemoteContent.letter(of: url).map { .loadImages(letter: $0) } ?? .cancel
             }
             return .follow(url)
         }

@@ -221,12 +221,30 @@ final class MailOptionsTests: XCTestCase {
     // MARK: - What Blackmail has
 
     /// The rows Blackmail has every value of set what they say; the rest
-    /// are greyed, with what Blackmail does in their place, Ask Before
-    /// Deleting and Block All Remote Content until B-168 is merged.
+    /// are greyed, with what Blackmail does in their place. Ask Before
+    /// Deleting and Block All Remote Content live since B-168's merge, each
+    /// row setting the value its reader reads (int19).
     func testRowsBlackmailDoesNotHaveAreGreyedWithWhatItDoesInstead() {
         XCTAssertEqual(MailOptions.built, [.moveDiscardedMessagesInto, .swipeLeft, .swipeRight,
-                                           .deleteOrMoveMessageAction, .organizeByThread,
+                                           .deleteOrMoveMessageAction, .askBeforeDeleting,
+                                           .blockAllRemoteContent, .organizeByThread,
                                            .completeThreads])
+        XCTAssertNil(MailOptions.Option.askBeforeDeleting.instead)
+        XCTAssertNil(MailOptions.Option.blockAllRemoteContent.instead)
+        let ask = MailOptions.Option.askBeforeDeleting
+        let block = MailOptions.Option.blockAllRemoteContent
+        defer {
+            UserDefaults.standard.removeObject(forKey: ask.key)
+            UserDefaults.standard.removeObject(forKey: block.key)
+        }
+        ask.isOn = true
+        XCTAssertEqual(DiscardQuestion.before(.trash, letters: 1, from: .pane)?.button, "Trash Message")
+        ask.isOn = false
+        XCTAssertNil(DiscardQuestion.before(.trash, letters: 1, from: .pane))
+        block.isOn = true
+        XCTAssertTrue(RemotePictures().listOn())
+        block.isOn = false
+        XCTAssertFalse(RemotePictures().listOn())
         for option in MailOptions.Option.allCases {
             XCTAssertEqual(option.instead == nil, MailOptions.built.contains(option), "\(option)")
         }

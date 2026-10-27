@@ -82,6 +82,16 @@ enum EditBar {
                              role: role)
     }
 
+    /// What Ask Before Deleting's sheet says the third button does
+    /// (`DiscardQuestion`, B-168), by the button's word, `title`: "Archive 3
+    /// Messages" under "Archive", as Mail asks before an Archive with its
+    /// own words (`ARCHIVE_FORMAT`), and "Trash 3 Messages" otherwise. The
+    /// letters an All Mailboxes search's Archive sends to the Trash are
+    /// counted with the rest, as the button names them.
+    static func discardVerb(forTitle title: String) -> DiscardQuestion.Verb {
+        title == RowSwipes.Action.archive.title ? .archive : .trash
+    }
+
     /// The two words, here and nowhere else: the bar's, a drag's button on
     /// a row (`RowSwipes`) and the name of the step Undo takes back
     /// (`UndoableMove`) say them from here. The third, "Archive", is a

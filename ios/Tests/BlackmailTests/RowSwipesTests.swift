@@ -182,8 +182,13 @@ final class RowSwipesTests: XCTestCase {
             "guard threads.indices.contains(ip.row) else { return UISwipeActionsConfiguration(actions: "
                 + "[]) }",
             "let sides = RowSwipes.sides(for: swipeRow(thread), editing: inEditMode)",
-            "let button = UIContextualAction(style: .normal, title: action.title) { [weak self] _, _, "
-                + "done in done(self?.swiped(action, on: RowKey(thread)) ?? false) }",
+            // A full drag told from a tap by the button's width, for Ask
+            // Before Deleting (`DiscardQuestionTests`, B-168).
+            "let button = UIContextualAction(style: .normal, title: action.title) { [weak self] _, source, "
+                + "done in guard let self else { return done(false) } "
+                + "let whole = DiscardQuestion.fullDrag(button: Double(source.bounds.width), "
+                + "row: Double(self.tableView.bounds.width)) "
+                + "done(self.swiped(action, on: RowKey(thread), from: whole ? .fullDrag : .rowButton)) }",
             "configuration.performsFirstActionWithFullSwipe = true",
             "case .trash, .delete: return Theme.destructive case .flag, .unflag: return Theme.flagTint "
                 + "case .markRead, .markUnread: return Theme.tintBlue",
@@ -193,7 +198,8 @@ final class RowSwipesTests: XCTestCase {
             // By its id and its folder: two folders' letters can share an id.
             "init(_ thread: MessageThread) { id = thread.id folder = thread.newest.mailboxID }",
             "guard let row = threads.firstIndex(where: { RowKey($0) == key }) else { return nil }",
-            "case .trash: runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true) return true",
+            "case .trash: return discard(.trash, chosen, on: key, from: from) { [weak self] in "
+                + "self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true) }",
             "case .delete: guard let question = EraseQuestion.before(deleting: chosen, role: { "
                 + "self.role(of: $0) }) else { runBatch(.delete, on: chosen, saying: "
                 + "StatusLine.deleting, fromRow: true) return true } EraseConfirmation.ask(question, on: self) { "
@@ -214,8 +220,9 @@ final class RowSwipesTests: XCTestCase {
             // Edit mode's Move into that folder.
             "case .moveToJunk(let folder), .moveToInbox(let folder): "
                 + "runBatch(.move(to: folder), on: row.letters, saying: StatusLine.moving, fromRow: true)",
-            "case .trashMessage: _ = swiped(.trash, on: key) case .archiveMessage: _ = "
-                + "swiped(.archive, on: key) case .deleteMessage: _ = swiped(.delete, on: key)",
+            "case .trashMessage: _ = swiped(.trash, on: key, from: .more) case .archiveMessage: _ = "
+                + "swiped(.archive, on: key, from: .more) case .deleteMessage: _ = swiped(.delete, on: key, "
+                + "from: .more)",
             "self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving, "
                 + "fromRow: true)",
         ] {
