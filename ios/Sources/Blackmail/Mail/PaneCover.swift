@@ -45,18 +45,22 @@ struct PaneCover: Equatable {
     static let setter = "_setObservedRenderingProgressEvents:"
     static let key = "observedRenderingProgressEvents"
 
-    /// The milestones that say the document is on screen, each sent with
-    /// the layers that show it: its first layout with something to see in
-    /// it, which WebKit holds the painting back for; its first paint with a
-    /// good part of the view painted; its first paint; and its first paint
-    /// that means something. Any of them lifts the cover. The bits as
-    /// WebKit's source has them, not read from the iPad's own WebKit.
+    /// The milestones that say the document is on screen: the ones WebKit
+    /// sends with the layers that show it, its first paint with a good part
+    /// of the view painted and its first paint that means something,
+    /// reported in the turn that puts those layers on the screen. Either
+    /// lifts the cover. Not its first layout with something to see in it,
+    /// which WebKit sends at the layout, before anything is painted: lifted
+    /// on it, the cover showed the letter before under the new header for
+    /// one or two frames on the test iPad, 2026-10-27, the letter kept on
+    /// the iPad and its page given at once. Nor its first paint, which
+    /// WebKit on the iPad was not found to send. The bits as WebKit's
+    /// source has them, not read from the iPad's own WebKit.
     static let firstVisuallyNonEmptyLayout: UInt = 1 << 1
     static let firstPaintWithSignificantArea: UInt = 1 << 2
     static let firstPaint: UInt = 1 << 6
     static let firstMeaningfulPaint: UInt = 1 << 8
-    static let painted: UInt = firstVisuallyNonEmptyLayout | firstPaintWithSignificantArea
-        | firstPaint | firstMeaningfulPaint
+    static let painted: UInt = firstPaintWithSignificantArea | firstMeaningfulPaint
 
     /// Whether the cover is up.
     private(set) var isUp = false

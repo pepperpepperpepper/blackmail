@@ -31371,7 +31371,8 @@ frame of the letter before.
    something to see, the first paint with a good part of the view painted,
    the first paint, the first paint that means something (bits 1, 2, 6 and
    8 of `_WKRenderingProgressEvents`, as WebKit's source has them, not read
-   from the iPad's own). A paint of a document given before
+   from the iPad's own; bits 2 and 8 alone since 2026-10-27, below). A
+   paint of a document given before
    the tap, or before its commit, lifts nothing. WebKit tells these to its
    navigation delegate's private `_webView:renderingProgressDidChange:`
    once asked by its private `_setObservedRenderingProgressEvents:`, which
@@ -31446,6 +31447,60 @@ iPad links.
   goes up at `show`, so such a frame, if it still comes, is not covered.
 - A tap on the pane in the instant the cover is up lands on the cover and
   does nothing, half a second at most.
+
+**Found on the test iPad, 2026-10-27**, in round r6-h-pane, on the
+int18 build, and reproduced by a second run. The check's step 3, four
+colour letters tapped about 0.37 s apart, all four kept on the iPad from
+step 2: at the tap on colour 2 the header "colour 2" stood over colour
+1's block for two frames, and at the tap on colour 4 the header "colour 4"
+over colour 3's for two, with no "pane: cover lifted by its limit" in the
+log. The second run made eight letters: kept letters showed the letter
+before under the new header for one or two frames in 20 taps of 28, at
+0.4 s or 2.7 s apart alike; letters whose body came from Gmail, in 0 of
+11. So the trigger is a letter kept on the iPad (B-111), not the speed of
+the taps. Step 4 had it too, read again by the round's audit: at the tap
+on the conversation's row, one frame (f00009) had the conversation's
+header over colour 4's block, before the black; the round had filed it
+under the "Not covered" case, but in that frame the header had changed.
+
+*The cause*, read in WebKit's source for iOS 16.5 (7615.2.9.10.3): the
+first visually non-empty layout (bit 1) is sent to the app at the layout
+itself (`FrameView::fireLayoutRelatedMilestonesIfNeeded`, then
+`WebPageProxy::didReachLayoutMilestone`), while the pixels are painted at
+the end of the next rendering update and sent after the backing stores
+are flushed; until they come, the page transition keeps the old
+document's layers on the screen. The cover lifted on that bit, so it went
+a frame or two before the layers that show the letter. A kept letter's
+page is given within about 2 ms of "Loading…", so the bit that lifted it
+was the letter's own while the screen still held the letter before; a
+conversation's lines are given at the tap, the same way. Bits 2 (the
+first paint with a good part of the view painted) and 8 (the first paint
+that means something) travel inside the layer transaction and are told
+to the app only once its layers are applied. Bit 6, the first paint, was
+not found sent on iOS at all.
+
+*Changed again.* `PaneCover.painted` is bits 2 and 8 alone; the pane asks
+WebKit for the same events, by the same constant, so nothing else in the
+pane changed. WebKit marks the first meaningful paint as due at the first
+visually non-empty layout whether it was asked for it or not, and sends it
+at the next paint, so every document still lifts the cover, in the turn
+that puts its layers on the screen. The half-second limit stays the
+fallback, and lifts it, as before, where neither comes. The conversation's
+row needs nothing more: the cover and the new header change in the same
+turn (`show(thread:)` puts the cover up before the header is given the
+conversation), so the header over the old letter came only from the early
+lift, and holding the header back is not needed. Two races stay, both
+narrow: a "Loading…" transaction flushed after the letter's can lift the
+cover over "Loading…", which is harmless; and a tap within about a frame
+of the letter before's first paint could lift it on that letter's bit 8.
+
+*Tests.* `PaneCoverTests`, eight now: the milestones that lift it are bits
+2 and 8, alone or with others, and bits 1 and 6 alone or together lift
+nothing; new, a letter's page given at once after "Loading…" and
+committed: its first layout leaves the cover up, the paint with the layers
+lifts it and its limit then lifts nothing, and with only bits 1 and 6 the
+limit lifts it. The other tests lift on bit 8 where they lifted on bits 1
+or 6. Bit 1 put back in `painted`, 13 failures in 2 tests; then restored.
 
 ## B-150 — FIXED 2026-10-26, not yet seen on the iPad. A finger held on a photo in a letter gave WebKit's menu, with Save to Photos and no Save to Files; it gives Mail's: Quick Look, Save Image, Save to Files, Share and Copy
 

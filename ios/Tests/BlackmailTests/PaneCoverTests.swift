@@ -37,18 +37,18 @@ final class PaneCoverTests: XCTestCase {
         cover.committed(id(before))
         _ = cover.tapped()
         XCTAssertTrue(cover.isUp)
-        XCTAssertFalse(cover.rendered(PaneCover.firstPaint), "the letter before's paint")
+        XCTAssertFalse(cover.rendered(PaneCover.firstMeaningfulPaint), "the letter before's paint")
         cover.committed(id(before))
-        XCTAssertFalse(cover.rendered(PaneCover.firstPaint), "a document from before the tap")
+        XCTAssertFalse(cover.rendered(PaneCover.firstMeaningfulPaint), "a document from before the tap")
 
         cover.loaded(id(loading))
-        XCTAssertFalse(cover.rendered(PaneCover.firstVisuallyNonEmptyLayout), "not committed")
+        XCTAssertFalse(cover.rendered(PaneCover.firstMeaningfulPaint), "not committed")
         XCTAssertTrue(cover.isUp)
         cover.committed(id(loading))
         XCTAssertTrue(cover.isUp, "committed, not yet painted")
-        XCTAssertTrue(cover.rendered(PaneCover.firstVisuallyNonEmptyLayout))
+        XCTAssertTrue(cover.rendered(PaneCover.firstMeaningfulPaint))
         XCTAssertFalse(cover.isUp)
-        XCTAssertFalse(cover.rendered(PaneCover.firstPaint), "down once")
+        XCTAssertFalse(cover.rendered(PaneCover.firstMeaningfulPaint), "down once")
     }
 
     /// "Loading…" given, and the letter's page given before "Loading…" was
@@ -62,33 +62,34 @@ final class PaneCoverTests: XCTestCase {
         cover.committed(id(loading))
         XCTAssertFalse(cover.rendered(PaneCover.painted))
         cover.committed(id(page))
-        XCTAssertTrue(cover.rendered(PaneCover.firstPaint))
+        XCTAssertTrue(cover.rendered(PaneCover.firstMeaningfulPaint))
         XCTAssertFalse(cover.isUp)
     }
 
-    /// Any of the painting milestones lifts it, and nothing else WebKit
-    /// says: its first layout, which comes before anything is painted, and
-    /// the others. The bits as WebKit's `_WKRenderingProgressEvents` has
-    /// them, and the names reached.
+    /// The two painting milestones WebKit sends with the layers lift it,
+    /// alone or with others, and nothing else WebKit says: not its first
+    /// layout, which comes before anything is painted, nor its first
+    /// paint, nor the others. The bits as WebKit's `_WKRenderingProgressEvents`
+    /// has them, and the names reached.
     func testEachPaintingMilestoneLiftsItAndNothingElse() {
         XCTAssertEqual(PaneCover.firstVisuallyNonEmptyLayout, 2)
         XCTAssertEqual(PaneCover.firstPaintWithSignificantArea, 4)
         XCTAssertEqual(PaneCover.firstPaint, 64)
         XCTAssertEqual(PaneCover.firstMeaningfulPaint, 256)
-        XCTAssertEqual(PaneCover.painted, 2 | 4 | 64 | 256)
+        XCTAssertEqual(PaneCover.painted, 4 | 256)
         XCTAssertEqual(PaneCover.callback, "_webView:renderingProgressDidChange:")
         XCTAssertEqual(PaneCover.setter, "_setObservedRenderingProgressEvents:")
         XCTAssertEqual("_set" + PaneCover.key.prefix(1).uppercased() + PaneCover.key.dropFirst() + ":",
                        PaneCover.setter, "the key reaches the setter, `_set<Key>:`")
 
-        for events: UInt in [2, 4, 64, 256, 2 | 1, 64 | 128, 0xFFFF] {
+        for events: UInt in [4, 256, 4 | 2, 256 | 64, 0xFFFF] {
             var cover = PaneCover()
             _ = cover.tapped()
             cover.loaded(id(page))
             cover.committed(id(page))
             XCTAssertTrue(cover.rendered(events), "\(events)")
         }
-        for events: UInt in [0, 1, 8, 16, 32, 128, 1 | 8 | 16 | 32 | 128] {
+        for events: UInt in [0, 1, 2, 8, 16, 32, 64, 128, 2 | 64, 1 | 2 | 8 | 16 | 32 | 64 | 128] {
             var cover = PaneCover()
             _ = cover.tapped()
             cover.loaded(id(page))
@@ -96,6 +97,33 @@ final class PaneCoverTests: XCTestCase {
             XCTAssertFalse(cover.rendered(events), "\(events)")
             XCTAssertTrue(cover.isUp)
         }
+    }
+
+    /// The test iPad, 2026-10-27: a letter kept on the iPad, its page given
+    /// within milliseconds of "Loading…", and WebKit's word of its first
+    /// layout coming before its pixels; lifted on it, the letter before
+    /// showed under the new header for one or two frames. The cover stays
+    /// up through the layout and lifts at the paint WebKit sends with the
+    /// layers, or at the limit if none comes.
+    func testTheFirstLayoutAloneLeavesTheCoverUpUntilThePaintOrTheLimit() {
+        var cover = PaneCover()
+        let tap = cover.tapped()
+        cover.loaded(id(loading))
+        cover.loaded(id(page))
+        cover.committed(id(page))
+        XCTAssertFalse(cover.rendered(PaneCover.firstVisuallyNonEmptyLayout), "laid out, not painted")
+        XCTAssertTrue(cover.isUp)
+        XCTAssertTrue(cover.rendered(PaneCover.firstPaintWithSignificantArea | PaneCover.firstMeaningfulPaint))
+        XCTAssertFalse(cover.isUp)
+        XCTAssertFalse(cover.limitPassed(tap), "painted first")
+
+        let next = cover.tapped()
+        cover.loaded(id(page))
+        cover.committed(id(page))
+        XCTAssertFalse(cover.rendered(PaneCover.firstVisuallyNonEmptyLayout | PaneCover.firstPaint))
+        XCTAssertTrue(cover.isUp, "no paint with the layers")
+        XCTAssertTrue(cover.limitPassed(next), "the limit lifts it")
+        XCTAssertFalse(cover.isUp)
     }
 
     // MARK: - Never long
@@ -120,7 +148,7 @@ final class PaneCoverTests: XCTestCase {
         let third = cover.tapped()
         cover.loaded(id(page))
         cover.committed(id(page))
-        XCTAssertTrue(cover.rendered(PaneCover.firstPaint))
+        XCTAssertTrue(cover.rendered(PaneCover.firstMeaningfulPaint))
         XCTAssertFalse(cover.limitPassed(third))
     }
 

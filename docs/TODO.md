@@ -7875,13 +7875,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       Not covered). The log has no "pane: cover lifted by its limit"; any
       such line written down with its tap, as it means WebKit said nothing
       of its paint.
-      3. *Quick taps:* four colour letters tapped 0.2 s apart: no frame of
-      any letter but the last's under the header; the pane ends on the
-      last.
-      4. *A conversation:* "B-149 thread 2" tapped, its conversation in the
-      pane; then "B-149 thread 1"'s line tapped open: the stack stays on
-      the screen, no black over it, the letter's body coming into its
-      place as before.
+      3. *Quick taps:* four colour letters, each opened once already in 2
+      and so kept on the iPad (the log's `KEPT-LETTER shown` at each tap),
+      tapped 0.2 s apart, four times over, and then the same letters
+      tapped 2.5 s apart: no frame of any letter but the one tapped under
+      its header; the pane ends on the last. A kept letter is the case
+      that failed on 2026-10-27 (B-149, Found on the test iPad), in 20 taps
+      of 28, at either pace; letters fetched from Gmail did not.
+      4. *A conversation:* from a colour letter, "B-149 thread 2"'s row
+      tapped, its conversation in the pane: no frame with the
+      conversation's header over the colour letter's block (frames with
+      the selection moved and the old header still up are the "Not
+      covered" case, written down); then "B-149 thread 1"'s line tapped
+      open: the stack stays on the screen, no black over it, the letter's
+      body coming into its place as before.
       5. *After a launch:* the app ended from the app switcher and opened
       again, "Notes", the first colour letter tapped: black under its
       header, then "Loading…" or the letter, as in 2.
