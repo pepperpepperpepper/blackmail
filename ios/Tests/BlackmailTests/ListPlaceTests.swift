@@ -591,26 +591,30 @@ final class ListPlaceTests: XCTestCase {
         (181...200).reversed().map { letter($0, thread: "t\($0)") }
     }
 
-    /// What of the table is in sight scrolled to `offset`, with `count` rows.
-    private func sight(at offset: Double, rows count: Int) -> TableSight {
-        TableSight(offset: offset, height: Self.height, barTop: Self.barTop,
+    /// What of the table is in sight scrolled to `offset`, with `count` rows,
+    /// the table `height` tall: 810 as the iPad is held for the rounds, or
+    /// another, the iPad turned.
+    private func sight(at offset: Double, rows count: Int,
+                       height: Double = ListPlaceTests.height) -> TableSight {
+        TableSight(offset: offset, height: height, barTop: Self.barTop,
                    barBottom: Self.barBottom, band: Self.band,
                    content: Self.band + Double(count) * Self.row)
     }
 
     /// The rows the table has on screen scrolled to `offset`: every row in
     /// its bounds, the ones under its bars too.
-    private func onScreen(at offset: Double, rows count: Int)
+    private func onScreen(at offset: Double, rows count: Int, height: Double = ListPlaceTests.height)
         -> [(row: Int, top: Double, bottom: Double)] {
         (0..<count).map { ($0, rowTop($0), rowTop($0) + Self.row) }
-            .filter { $0.2 > offset && $0.1 < offset + Self.height }
+            .filter { $0.2 > offset && $0.1 < offset + height }
     }
 
     /// The place taken at `offset`, as `MessageListViewController.place()`
     /// takes it.
-    private func place(in rows: [MessageThread], at offset: Double) -> ListPlace {
-        ListPlace(rows: rows, onScreen: onScreen(at: offset, rows: rows.count),
-                  sight: sight(at: offset, rows: rows.count), selected: [])
+    private func place(in rows: [MessageThread], at offset: Double,
+                       height: Double = ListPlaceTests.height) -> ListPlace {
+        ListPlace(rows: rows, onScreen: onScreen(at: offset, rows: rows.count, height: height),
+                  sight: sight(at: offset, rows: rows.count, height: height), selected: [])
     }
 
     /// The place as it used to be taken: every row on screen.
@@ -628,17 +632,20 @@ final class ListPlaceTests: XCTestCase {
     /// The offset `place` puts the table at in `rows`, from `offset`, as
     /// `scroll(to:in:)` does: the row landed on where it was, within what
     /// the table can scroll to, or left alone.
-    private func offset(after place: ListPlace, in rows: [MessageThread], from offset: Double) throws -> Double {
+    private func offset(after place: ListPlace, in rows: [MessageThread], from offset: Double,
+                        height: Double = ListPlaceTests.height) throws -> Double {
         let landing = try XCTUnwrap(place.landing(in: rows))
         let content = Self.band + Double(rows.count) * Self.row
-        let range = -Self.barTop...max(-Self.barTop, content + Self.barBottom - Self.height)
+        let range = -Self.barTop...max(-Self.barTop, content + Self.barBottom - height)
         return ListPlace.contentOffset(rowTop: rowTop(landing.row), offset: landing.offset,
                                        range: range, current: offset) ?? offset
     }
 
     /// The rows he could see, at `offset` in `rows`: their letters.
-    private func inView(_ rows: [MessageThread], at offset: Double) -> [String] {
-        ListPlace.inSight(onScreen(at: offset, rows: rows.count), sight: sight(at: offset, rows: rows.count))
+    private func inView(_ rows: [MessageThread], at offset: Double,
+                        height: Double = ListPlaceTests.height) -> [String] {
+        ListPlace.inSight(onScreen(at: offset, rows: rows.count, height: height),
+                          sight: sight(at: offset, rows: rows.count, height: height))
             .map { rows[$0.row].id }
     }
 
@@ -977,17 +984,22 @@ final class ListPlaceTests: XCTestCase {
 
     /// The controller's redraw for a letter the pane changed
     /// (`regroup(for:)`): the table at `offset` in `rows`, the rows now
-    /// `next`. Where `taken` sends the list, at the offset that puts it
-    /// there as `scroll(to:in:)` does, and `taken` told where it was left.
+    /// `next`, no search, no tick and no finger on the list. Where `taken`
+    /// sends the list, at the offset that puts it there as `scroll(to:in:)`
+    /// does, or the top as `scrollToTop` sets it, and `taken` told where it
+    /// was left.
     private func redraw(_ change: ListChange, _ taken: inout TakenRows, in rows: [MessageThread],
                         at offset: Double, to next: [MessageThread]) throws -> Double {
         let here = place(in: rows, at: offset)
         let to: Double
-        switch taken.move(for: change, here: here) {
+        switch taken.move(for: change, here: here,
+                          atItsTop: ListPlaces.isAtTop(offset: offset, topInset: Self.barTop)) {
         case .putBack(let before) where before.landing(in: next) != nil:
             to = try self.offset(after: before, in: next, from: offset)
         case .putBack, .stay:
             to = try self.offset(after: here, in: next, from: offset)
+        case .top:
+            to = -Self.barTop
         case let move:
             XCTFail("\(move)")
             to = offset
@@ -1090,6 +1102,61 @@ final class ListPlaceTests: XCTestCase {
             XCTAssertEqual(Array(inView(listed(out: [], back: back), at: at).prefix(2)), ["7/301", "7/302"],
                            "\(order)")
         }
+    }
+
+    /// A row put back, by its Undo under its new id or refused under its
+    /// own, into a list at its top that has changed since the take, where
+    /// the watch's news goes on (`TakenRows.move(for:here:atItsTop:)`,
+    /// B-157): the list stays at its top, and the row put back first is
+    /// the first, in sight. Held where he was, the row he could see first
+    /// kept its place and the row went in above it, above the top of the
+    /// pane, out of sight, as the first row undone did on the test iPad,
+    /// 2026-10-27. Two ways the list changes at its top: the iPad turned,
+    /// the table 1080 tall and more rows in sight; and another row taken
+    /// out further down, the list scrolled there and back, both undone.
+    /// With a search, a tick or a finger on the list (`atItsTop` false),
+    /// and scrolled down, where he is, as before; and only a row put back
+    /// goes to the top.
+    func testARowPutBackIntoAListAtItsTopThatHasChangedComesBackInSight() throws {
+        let rows = grouped(twenty)
+        let without = grouped(twenty.filter { $0.id != "7/200" })
+        let undone = grouped(twenty.map { $0.id == "7/200" ? $0.renamed("7/301") : $0 })
+        let top = -Self.barTop
+
+        for (change, back, id) in [(ListChange.restored("7/200", as: "7/301"), undone, "7/301"),
+                                    (.putBack("7/200"), rows, "7/200")] {
+            let what = "\(change)"
+            var taken = TakenRows()
+            XCTAssertEqual(try redraw(.taken("7/200"), &taken, in: rows, at: top, to: without), top, what)
+            let turned = place(in: without, at: top, height: 1080)
+            XCTAssertGreaterThan(turned.seen.count, place(in: without, at: top).seen.count, what)
+            XCTAssertEqual(taken.move(for: change, here: turned), .stay, "\(what): not as the take left it")
+            let held = try offset(after: turned, in: back, from: top, height: 1080)
+            XCTAssertFalse(inView(back, at: held, height: 1080).contains(id), "\(what): held, above the top")
+            XCTAssertEqual(taken.move(for: change, here: turned, atItsTop: true), .top, what)
+            XCTAssertEqual(inView(back, at: top, height: 1080).first, id, "\(what): at the top, first")
+            XCTAssertEqual(taken.move(for: change, here: turned, atItsTop: false), .stay, what)
+        }
+
+        let both = grouped(twenty.filter { $0.id != "7/200" && $0.id != "7/190" })
+        let one = grouped(twenty.filter { $0.id != "7/200" }
+            .map { $0.id == "7/190" ? $0.renamed("7/302") : $0 })
+        let all = grouped(twenty.map { ["7/200": "7/301", "7/190": "7/302"][$0.id].map($0.renamed) ?? $0 })
+        var taken = TakenRows()
+        XCTAssertEqual(try redraw(.taken("7/200"), &taken, in: rows, at: top, to: without), top)
+        XCTAssertTrue(inView(without, at: 310).contains("7/190"))
+        XCTAssertEqual(try redraw(.taken("7/190"), &taken, in: without, at: 310, to: both), 310)
+        XCTAssertEqual(try redraw(.restored("7/190", as: "7/302"), &taken, in: both, at: top, to: one), top)
+        let at = try redraw(.restored("7/200", as: "7/301"), &taken, in: one, at: top, to: all)
+        XCTAssertEqual(at, top, "at its top")
+        XCTAssertEqual(Array(inView(all, at: at).prefix(2)), ["7/301", "7/199"], "back first, in sight")
+
+        let here = place(in: rows, at: top)
+        XCTAssertEqual(TakenRows().move(for: .taken("7/200"), here: here, atItsTop: true), .stay)
+        XCTAssertEqual(TakenRows().move(for: .marked, here: here, atItsTop: true), .stay)
+        XCTAssertEqual(TakenRows().move(for: .putBack("7/200"), here: here, atItsTop: true), .top)
+        XCTAssertEqual(TakenRows().move(for: .putBack("7/200"), here: place(in: rows, at: 310),
+                                        atItsTop: false), .stay, "scrolled down: where he is")
     }
 
     /// Put back once the list has moved since the tap. Scrolled: the rows he
@@ -1417,7 +1484,10 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertTrue(flat(list).contains("letters.changed = { [weak self] change in "
                                           + "self?.regroup(for: change) self?.updateEmptyState() }"))
         XCTAssertEqual(flat(body(after: "private func regroup(for change: ListChange)", in: list)),
-                       "{ let here = place() regroup(to: taken.move(for: change, here: here)) "
+                       "{ let here = place() let news = newsPlace "
+                       + "let atItsTop = ListPlaces.showsNews(atTop: news.atTop, searching: news.searching, "
+                       + "ticked: news.ticked, touching: news.touching) "
+                       + "regroup(to: taken.move(for: change, here: here, atItsTop: atItsTop)) "
                        + "tableView.layoutIfNeeded() taken.drawn(change, from: here, to: place()) }")
         XCTAssertTrue(flat(body(after: "private func regroup(highlighting", in: list)).contains(
             "case .putBack(let taken): if !scroll(to: taken, in: threads) { scroll(to: before, in: threads) }"))

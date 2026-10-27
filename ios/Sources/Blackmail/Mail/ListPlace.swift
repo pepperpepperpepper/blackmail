@@ -540,7 +540,9 @@ struct LandedLetter: Equatable {
 /// and the row still goes back where it was. Once what he sees has moved,
 /// the list scrolled or a row in view joined by newer mail, the rows he
 /// can see then are held instead, as for any other redraw, and the place
-/// is dropped.
+/// is dropped; at its top, where the watch's news goes on, the list stays
+/// at its top, and a row put back first is in sight
+/// (`move(for:here:atItsTop:)`).
 ///
 /// Edit mode's Delete or Move takes its rows out one after another at the
 /// tap and puts the refused ones back one after another (`ListBatch`): one
@@ -569,6 +571,25 @@ struct TakenRows {
         guard let (id, now) = Self.back(change), out.contains(id), let before, let left,
               here.showsTheSame(as: left) else { return .stay }
         return .putBack(now.map { before.renaming(id, to: $0) } ?? before)
+    }
+
+    /// Where the list goes as `change` is drawn, as `move(for:here:)` has
+    /// it, and for a row put back that it would leave where he is, to the
+    /// top when `atItsTop`: the list at its top, where the watch's news goes
+    /// on (`ListPlaces.showsNews`), with no search, no tick and no finger on
+    /// it. At its top there is nothing above to hold: the rows go where
+    /// they stand, the row put back among them, and a row put back first
+    /// is the first, in sight. Held where he is, the row he could see first
+    /// was kept in its place, and a row put back above it went above the
+    /// top of the pane, out of sight, as the first row undone did on the
+    /// test iPad, 2026-10-27 (B-157), when the list had changed since the
+    /// take: the iPad turned, more rows in sight, or another row taken out
+    /// further down and the list scrolled back up. Scrolled down, the rows
+    /// he can see are held as before (B-093).
+    func move(for change: ListChange, here: ListPlace, atItsTop: Bool) -> ListPlaces.Move {
+        let move = move(for: change, here: here)
+        guard move == .stay, atItsTop, Self.back(change) != nil else { return move }
+        return .top
     }
 
     /// The row a change puts back, by the id it was taken under, and its

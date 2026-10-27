@@ -50,15 +50,20 @@ final class ListOnScreen {
         self.offset = offset
     }
 
-    /// `regroup(for:)`.
+    /// `regroup(for:)`, with no tick and no finger on the list.
     private func draw(_ change: ListChange) {
         let here = place(rows, at: offset)
         let next = MessageThread.rows(for: letters.shown, grouped: true)
-        let move: ListPlaces.Move = byRowsInView ? .stay : taken.move(for: change, here: here)
+        let atItsTop = ListPlaces.showsNews(atTop: ListPlaces.isAtTop(offset: offset, topInset: Self.barTop),
+                                            searching: letters.isSearching, ticked: false, touching: false)
+        let move: ListPlaces.Move = byRowsInView ? .stay
+            : taken.move(for: change, here: here, atItsTop: atItsTop)
         var to = offset
         switch move {
         case .putBack(let before):
             to = landed(before, in: next) ?? landed(here, in: next) ?? offset
+        case .top:
+            to = Self.top
         default:
             to = landed(here, in: next) ?? offset
         }

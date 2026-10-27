@@ -409,6 +409,38 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(screen.onPane[back.id], ListOnScreen.band + ListOnScreen.barTop)
     }
 
+    /// The list at its top, its first row trashed; scrolled down, another
+    /// row trashed there; back at the top, both undone, the last first: the
+    /// first row back first, in sight, the list at its top. The place from
+    /// before the first Trash was dropped at the second, so the first comes
+    /// back by the list at its top (`TakenRows.move(for:here:atItsTop:)`),
+    /// not by the row first in sight, which put it above the top of the
+    /// pane, out of sight, as on the test iPad, 2026-10-27.
+    @MainActor
+    func testTheFirstRowUndoneAtTheTopAfterTheListHasChangedComesBackInSight() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, _) = makeList(folder: rows)
+        let screen = ListOnScreen(list)
+
+        let (_, first) = await remove(.delete, [rows[0]], list: list, repository: repository)
+        screen.scroll(to: 400)
+        XCTAssertTrue(screen.inView.contains(rows[9].id))
+        let (_, second) = await remove(.delete, [rows[9]], list: list, repository: repository)
+        screen.scroll(to: ListOnScreen.top)
+        XCTAssertEqual(screen.inView.first, rows[1].id)
+
+        for made in [second, first] {
+            let undone = await UndoMoves.run(try XCTUnwrap(made), repository: repository, list: list,
+                                             requestSweep: {})
+            XCTAssertEqual(undone.unplaced, [])
+        }
+        let back = try XCTUnwrap(list.shown.first)
+        XCTAssertEqual(back.gmailMessageID, rows[0].gmailMessageID)
+        XCTAssertEqual(screen.offset, ListOnScreen.top, "the list at its top")
+        XCTAssertEqual(screen.inView.prefix(2), [back.id, rows[1].id], "back first, in sight")
+    }
+
     /// Among a search's hits, a hit deleted and undone comes back where it
     /// stood among them. A list fetched afresh since the Delete no longer
     /// holds the row: the letter is moved back all the same, and is left to

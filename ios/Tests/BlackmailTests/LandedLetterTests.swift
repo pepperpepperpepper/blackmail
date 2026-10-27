@@ -508,7 +508,7 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertTrue(flat(list).contains(
             "settings.onOrganizeByThreadChanged = { [weak self] in self?.regroup() }"))
         XCTAssertTrue(flat(body(after: "private func regroup(for change: ListChange)", in: list))
-            .contains("regroup(to: taken.move(for: change, here: here))"))
+            .contains("regroup(to: taken.move(for: change, here: here, atItsTop: atItsTop))"))
     }
 
     /// He moves the list, and the letter is let go: a drag, the status bar,

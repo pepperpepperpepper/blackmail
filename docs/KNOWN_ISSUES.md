@@ -33070,7 +33070,9 @@ list showed letter 6 first and letter 7's row one row above the top of
 the pane, under the search band, out of sight until the list was dragged
 down. A full drag's Trash of the top row did the same. The first row in
 sight with a row on screen above it, and rows below the first in sight,
-came back in place (steps 1 to 7, and the second run's controls).
+came back in place (the check's steps 1, 2, 4 and 7, and the second
+run's controls; steps 3 and 6 did not look at the row's place, and step
+5 was not made).
 
 *The cause.* `ListLetters.restore` put the row back under its new UID and
 told the list only `.putBack` of the id it was taken under. `TakenRows`
@@ -33081,7 +33083,8 @@ above it, at the list's top, held the next row he could see at the first
 row's offset: the list one row down, the row put back above the top. With
 a row on screen above it, that row was held instead, and the row came
 back in place, which is why only the top row of a list at its top went
-wrong. An Edit-mode batch of such rows went the same way.
+wrong. An Edit-mode batch of such rows would go the same way, by the
+code; none was made.
 
 *Changed.* `ListChange.restored(_:as:)`, new, for a row put back by its
 Undo: the id it was taken under and the one it has now; `restore` tells
@@ -33090,9 +33093,9 @@ sends the list to its place from before the take with the row renamed
 there (`ListPlace.renaming`, new), the offsets as they were; for a batch,
 the place kept for the rest is renamed too, so each row undone after it
 is found under its new id. The row comes back first, in sight, the list
-at its top, as Mail puts it back. Not changed: a list moved since the
-take still holds the rows he can see then (B-093), and a refused row put
-back under its own id goes as before.
+at its top, as Mail puts it back. Not changed: a refused row put back
+under its own id, with the list as its take left it, goes as before; a
+list changed since the take, below.
 
 *Tests.* `ListPlaceTests`, two new: a row undone under a new id goes back
 where it stood, the list's first at its top, the first in sight with a
@@ -33105,6 +33108,42 @@ back first and in sight under its new id. Undone by hand, then put back
 and passing: the place not renamed, 7 failures in 3 tests, the iPad's
 symptom, the list one row down; `restore` telling `.putBack` again, 3 in
 1; the batch's place not renamed, 2 in 1.
+
+*A list at its top, changed since the take.* The place from before the
+take is used only while the list shows what the take left
+(`ListPlace.showsTheSame`); otherwise the rows he could see were held, and
+the first row undone went above the top of the pane as on the iPad: the
+iPad turned between the Trash and the Undo, more rows in sight, or
+another row trashed further down and the list scrolled back to its top,
+both undone; a refused row put back the same way went there too. Read in
+the code, not seen on the iPad. A list at its top has nothing above
+it to hold. `TakenRows.move(for:here:atItsTop:)`, new: a row put back, by
+its Undo or refused, that the place would leave where he is, sends a list
+at its top to its top, where the watch's news goes on
+(`ListPlaces.showsNews`: no search, no tick, no finger on the list), as
+B-165's drafts go (`ListPlaces.keptDrawn`); `regroup(for:)` asks it by
+`newsPlace`. The rows go where they stand, and a row put back first is
+the first, in sight. A list scrolled down holds the rows he can see, as
+B-093 has it, and so does one at its top with a search, a tick or a
+finger on it; nothing but a row put back goes to the top.
+
+*Tests* for it. `ListPlaceTests`, one new: the first row of a list at its
+top undone under a new id, or refused, the iPad turned since the take
+(the table 1080 tall, more rows in sight): held where he was it is above
+the top; at the top it is first, in sight; and a second row taken with
+the list scrolled down, the list back at its top, both undone: the first
+back first, in sight; with `atItsTop` false or scrolled down where he
+is, and a take or a mark never to the top. `UndoMovesTests`, one new,
+through the shipping repository and `ListOnScreen`: the Inbox's first row
+trashed at its top, a row trashed with the list scrolled down, back at
+the top, both undone: the first back first, in sight, the list at its
+top. The suite's two copies of `regroup(for:)`, `ListPlaceTests`'
+`redraw` and `ListOnScreen`, ask the same, and the source checks of
+`regroup(for:)` in `ListPlaceTests` and `LandedLetterTests` read the new
+call. Undone by hand, then put back and passing: the rule taken out of
+`move(for:here:atItsTop:)`, 7 failures in 2 tests, the list one row
+down; `regroup(for:)` back to `taken.move(for:here:)`, 2 in 2, the
+source checks.
 
 *The check's setup* (round r6-h-list, 2026-10-27, read by the round's
 audit): its one step, a shake with nothing to undo putting up no alert,

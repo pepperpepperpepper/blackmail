@@ -8395,7 +8395,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       the list still at its top (on 2026-10-27 it came back above the top
       of the pane, B-157, Found on the test iPad); the count as it was
       after the tap, not up by one; letter 7 tapped again: the count as it
-      was, nothing more taken off. A Refresh: the same.
+      was, nothing more taken off. A Refresh: the same. Again by a full
+      drag on letter 7's row, "Notes" at its top: a shake, Undo: back
+      first, in sight. Then with the list changed between the Trash and
+      the Undo: letter 7 by a full drag; the list dragged up until letter
+      1's row is near the top of the pane, still in sight, and letter 1 by
+      a full drag; the list back at its top (a tap on the status bar); a
+      shake, Undo: letter 1 back; a shake, Undo: letter 7 back, the first
+      row and in sight, the list at its top (before B-157's second change
+      of 2026-10-27 it would have gone above the top of the pane this way
+      too, read in the code, not seen).
       9. *Undo Flag:* a drag's Flag on letter 4. A shake: "Undo Flag", its
       words written down; Undo: the flag gone at once, one `UID STORE n
       -FLAGS.SILENT (\Flagged)`. Flag by a drag again, then Unflag by a

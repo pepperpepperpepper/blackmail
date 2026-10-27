@@ -348,13 +348,18 @@ final class MessageListViewController: UITableViewController {
     /// Regroups for a letter the reading pane or Edit mode changed, took
     /// out or put back (B-093): a row put back with the list as its take
     /// left it goes back where it stood, the rows below it down a row, as
-    /// before the tap; otherwise the rows he can see stay where they are.
-    /// The place the list is left in is taken once it is laid out there,
-    /// since `scroll(to:)` has only set the offset.
+    /// before the tap; one put back otherwise into a list at its top, where
+    /// the watch's news goes on, leaves the list at its top, the row in
+    /// sight if it is the first (B-157); otherwise the rows he can see stay
+    /// where they are. The place the list is left in is taken once it is
+    /// laid out there, since `scroll(to:)` has only set the offset.
     @MainActor
     private func regroup(for change: ListChange) {
         let here = place()
-        regroup(to: taken.move(for: change, here: here))
+        let news = newsPlace
+        let atItsTop = ListPlaces.showsNews(atTop: news.atTop, searching: news.searching,
+                                            ticked: news.ticked, touching: news.touching)
+        regroup(to: taken.move(for: change, here: here, atItsTop: atItsTop))
         tableView.layoutIfNeeded()
         taken.drawn(change, from: here, to: place())
     }
