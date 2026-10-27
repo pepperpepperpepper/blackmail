@@ -1699,8 +1699,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
            let draft = MailtoLink.draft(from: url,
                                         signature: CredentialStore.loadAccount()?.signature ?? "") {
             let compose = ComposeViewController(repository: repository, draft: draft)
-            let nav = UINavigationController(rootViewController: compose)
-            nav.modalPresentationStyle = .formSheet
+            let nav = UINavigationController.formSheet(compose)
             present(nav, animated: true)
             return
         }
@@ -1862,8 +1861,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                              excluding: s.mailboxID) { [weak self] destination in
             self?.move(s, to: destination)
         }
-        let nav = UINavigationController(rootViewController: move)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(move)
         present(nav, animated: true)
     }
 
@@ -2160,8 +2158,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let compose = ComposeViewController(repository: repository, draft: draft,
                                             replyFiles: replyFiles)
         compose.landing = landing
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         present(nav, animated: true)
     }
 }

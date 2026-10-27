@@ -51,7 +51,8 @@ final class TextSizeWiringTests: XCTestCase {
                                   + "UIApplication.didBecomeActiveNotification], "
                                   + "read: { TextSize(UIApplication.shared.preferredContentSizeCategory) }, "
                                   + "apply: { Theme.textSize = $0 })", in: reading))
-        XCTAssertNotNil(place(of: "self.init(step: Step(category), bold: UIAccessibility.isBoldTextEnabled)",
+        XCTAssertNotNil(place(of: "init(_ category: UIContentSizeCategory) { "
+                                  + "self = .drawn(at: Step(category), bold: UIAccessibility.isBoldTextEnabled) }",
                               in: reading))
         let mapping = try section(reading, from: "init(_ category: UIContentSizeCategory) { switch category {",
                                   to: "default: self = .large }")
@@ -80,6 +81,61 @@ final class TextSizeWiringTests: XCTestCase {
         XCTAssertNotNil(place(of: "if previous?.preferredContentSizeCategory != "
                                   + "traitCollection.preferredContentSizeCategory { sizes.look() }", in: share))
         XCTAssertNotNil(place(of: "presentationController?.delegate = self sizes.look() }", in: share))
+    }
+
+    // MARK: - Held at Large (Changed 2026-10-27)
+
+    /// Every screen is drawn at Large whatever the iPad's text size, UIKit's
+    /// own parts too: the size read is Large (`TextSize.drawn`, run in
+    /// `TextSizeTests`), and a trait of Large is put on the three panes
+    /// (`SteadyChromeTests`), on every sheet of the app's as it is made,
+    /// through its presentation, so with all pushed on it, Settings' pages
+    /// among them, and on the share sheet's form. Every sheet of the app's
+    /// is made by the one maker, and nothing else reads the text size.
+    func testEveryScreenIsHeldAtLarge() throws {
+        let reading = try source("Theme/TextSizeReading.swift")
+        XCTAssertNotNil(place(of: "static let heldTextSize = "
+                                  + "UITraitCollection(preferredContentSizeCategory: .large)", in: reading))
+        XCTAssertNotNil(place(of: "static func formSheet(_ root: UIViewController) -> UINavigationController { "
+                                  + "let nav = UINavigationController(rootViewController: root) "
+                                  + "nav.modalPresentationStyle = .formSheet "
+                                  + "nav.presentationController?.overrideTraitCollection = .heldTextSize "
+                                  + "return nav }", in: reading))
+
+        let share = try source("Share/ShareViewController.swift")
+        XCTAssertNotNil(place(of: "addChild(nav) setOverrideTraitCollection(.heldTextSize, forChild: nav) "
+                                  + "nav.view.frame = view.bounds", in: share))
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail")
+        let files = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
+            .compactMap { $0 as? String }.filter { $0.hasSuffix(".swift") }
+        XCTAssertGreaterThan(files.count, 50)
+        var sheets = 0
+        for file in files {
+            let code = try source(file)
+            let made = count("UINavigationController.formSheet(", in: code)
+            sheets += made
+            switch file {
+            case "Theme/TextSizeReading.swift":
+                XCTAssertEqual(count(".formSheet", in: code), 1, file)
+            case "UI/RootViewController.swift":
+                XCTAssertEqual(count("UINavigationController(rootViewController:", in: code), 3, file)
+            case "App/AppDelegate.swift":
+                // The setup form, the window's own first screen, not a sheet.
+                XCTAssertEqual(count("UINavigationController(rootViewController: setup)", in: code), 1, file)
+                XCTAssertEqual(count("UINavigationController(rootViewController:", in: code), 1, file)
+            default:
+                XCTAssertFalse(code.contains("UINavigationController(rootViewController:"), file)
+                XCTAssertFalse(code.contains("modalPresentationStyle = .formSheet"), file)
+            }
+            if !["Theme/TextSizeReading.swift", "Share/ShareViewController.swift"].contains(file) {
+                XCTAssertFalse(code.contains("preferredContentSizeCategory"), file)
+            }
+        }
+        XCTAssertEqual(sheets, 11, "the composer five times, Settings, Move three times, "
+                                   + "Go to Date and the connection log")
     }
 
     // MARK: - The type, and what keeps its size
@@ -185,7 +241,7 @@ final class TextSizeWiringTests: XCTestCase {
         }
         let adjust = try section(folders, from: "func adjustUnreadCounts(", to: "AppBadge.app.counted")
         XCTAssertTrue(adjust.contains("configure(cell, with: folder) patched = true }"), adjust)
-        XCTAssertTrue(adjust.contains("if patched, Theme.textSize != .factory { "
+        XCTAssertTrue(adjust.contains("if patched, Theme.textSize.step != .large { "
                                       + "tableView.beginUpdates() tableView.endUpdates() }"), adjust)
 
         let move = try source("UI/MoveMessageViewController.swift")
@@ -199,7 +255,7 @@ final class TextSizeWiringTests: XCTestCase {
 
         let cell = try source("UI/FolderCell.swift")
         XCTAssertNotNil(place(of: "static func size(_ table: UITableView) { "
-                                  + "if Theme.textSize == .factory { "
+                                  + "if Theme.textSize.step == .large { "
                                   + "table.rowHeight = Theme.mailboxRowHeightScaled "
                                   + "table.estimatedRowHeight = UITableView.automaticDimension } else { "
                                   + "table.rowHeight = UITableView.automaticDimension "
@@ -208,7 +264,7 @@ final class TextSizeWiringTests: XCTestCase {
                                   + "greaterThanOrEqualToConstant: 0) floor.priority = UILayoutPriority(999)",
                               in: cell))
         XCTAssertNotNil(place(of: "func holdFloor() { floor.constant = Theme.mailboxRowHeightScaled "
-                                  + "floor.isActive = Theme.textSize != .factory }", in: cell))
+                                  + "floor.isActive = Theme.textSize.step != .large }", in: cell))
         XCTAssertFalse(cell.contains("numberOfLines"), "the name on as many lines as it takes")
     }
 

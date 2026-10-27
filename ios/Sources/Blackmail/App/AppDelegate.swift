@@ -51,9 +51,9 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // correspondence is not a bound. Launch is the only instant at which
         // nothing can be open.
         AttachmentStore.purge()
-        // The iPad's text size and Bold Text in `Theme` before any screen
-        // is made, so the first frame is drawn at his size, and followed
-        // from now on, as Mail follows them (B-166).
+        // The size the app is drawn at, Large whatever the iPad's text
+        // size (B-166, Changed 2026-10-27), and Bold Text, in `Theme`
+        // before any screen is made, and Bold Text followed from now on.
         _ = TextSizes.app
 
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -195,8 +195,7 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         var top: UIViewController = root
         while let shown = top.presentedViewController, !shown.isBeingDismissed { top = shown }
         let compose = ComposeViewController(repository: root.repository, draft: draft)
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         top.present(nav, animated: true)
         return true
     }

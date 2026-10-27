@@ -229,7 +229,7 @@ final class MailboxListViewController: UITableViewController {
         // the row: the table measures the rows again, without reloading
         // them, which would drop the highlight. At Large the rows are of
         // one height, and nothing is asked.
-        if patched, Theme.textSize != .factory {
+        if patched, Theme.textSize.step != .large {
             tableView.beginUpdates()
             tableView.endUpdates()
         }

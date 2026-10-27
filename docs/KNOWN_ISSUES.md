@@ -34841,7 +34841,7 @@ changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
 
-## B-166 — FIXED 2026-10-27, not yet seen on the iPad. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
+## B-166 — FIXED 2026-10-27, not yet seen on the iPad. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -35169,6 +35169,88 @@ before the last build: a line of 2026-10-27 there names them built here, a size 
 Mail alone in Per-App Settings matched on the day. In TODO, this check's
 steps 1 and 2 read (a)'s files as B-170's tiles, and step 8 has (a)'s
 tiles within the pane.
+
+**Changed 2026-10-27.** The owner, the same day: "I don't want to change
+the layout of blackmail. The layout is very important."; and asked whether
+Blackmail should keep its exact layout at every text size or follow the
+iPad's text size: "Let's keep the exact layout for now". So Blackmail is
+drawn at Large, as before B-166, whatever the iPad's text size or a size
+set for it alone in Per-App Settings says: the list, the Mailboxes, the
+reading pane and its letter, a file's tiles, the conversation's stack,
+the composer, the share sheet and Settings, and what UIKit draws in them.
+
+1. *The size* (`TextSize.drawn(at:bold:)`, new): the size the app is drawn
+   at when iOS hands it a size, Large whatever the size. The app's reading
+   (`TextSizes.app`) and the share sheet's (its traits) both go through
+   it (`TextSize(_ category:)`), so `Theme.textSize` is Large from launch
+   and stays Large, and every size through `Theme.scaled` is the number it
+   was before B-166: the rows 96 points, the date on the names' line, the
+   folders' rows 44, the arrow 12, the letter 17, the tiles at Large's.
+2. *UIKit's own* (`UITraitCollection.heldTextSize`, new): B-071's trait
+   of Large is back on the folders' and the list's navigation controllers
+   and now on the reading pane's too (`RootViewController`), so a folder's
+   icon's room and Edit mode's circles stay as at Large; on every sheet of
+   the app's as it is made, through its presentation controller, so with
+   all pushed on it (`UINavigationController.formSheet`, new, the one maker
+   of the composer, Settings, the Move sheet, Go to Date and the
+   connection log, which each made their own); and on the share sheet's
+   form (`ShareViewController`). Before B-166 the sheets took UIKit's parts
+   at the iPad's size (B-071 held only the two panes); held now, Go to
+   Date's calendar among them, as the ruling asks the exact layout of every
+   screen.
+3. *Bold Text* is still followed: it moves nothing, as no size, line or
+   row is set by it, only the system font's weight, which iOS sets for
+   every app, Mail's included; not followed, the fonts made before a
+   switch would stay at the old weight beside new ones made after it. A
+   folder's row now asks the size's step and not the whole size whether it
+   is at Large (`FolderCell`, the Mailboxes' count in place): with Bold
+   Text on at Large the rows had become as tall as their names, not 44.
+4. *Kept, unused*: B-166's scaling, `RowLines` and `RowTopLine` at the
+   other sizes, the stacked date and the stacked conversation lines, the
+   restyle steps at a change: the smaller change, the tests of it still
+   run, for the day the owner rules otherwise.
+
+Not changed: the setup form, the window's first screen and not a sheet,
+whose type was fixed before B-166, takes UIKit's parts at the iPad's size,
+as before; so do UIKit's own alerts and menus, Quick Look, the document
+picker and the iPad's Share sheet. In TODO, B-166's check is rewritten to
+look for the layout the same at the largest of the seven sizes, the
+largest accessibility size, with Bold Text, for Blackmail alone in
+Per-App Settings and in the share sheet; B-170's check's step 2 has the
+tile as it was at the largest size; the gap review's text size item, the
+install-day Per-App line and "His iPad's own settings" say the ruling.
+`docs/LAYOUT_CONSTANTS.md`'s "Text size" says its numbers are the layout
+at every size.
+
+**Tests.** `TextSizeTests.testEverySizeIsDrawnAtLarge`, new: every one of
+the twelve sizes drawn as Large, with and without Bold Text; at the
+largest of the seven and the largest accessibility size, with Bold Text
+and without, the scale 1, every point size, a tappable height, the row's
+lines and height, the top line, the arrow's square, a file's tile rule
+and a conversation's stack exactly as at Large.
+`TextSizeWiringTests.testEveryScreenIsHeldAtLarge`, new: the trait of
+Large, the sheet maker setting it on the presentation, the share sheet's
+form held, every sheet of the app's made by the maker (eleven), and
+nothing else reading the text size. `SteadyChromeTests`' B-071 test turned
+round again (`testThePanesAreHeldAtLarge`), the three panes held after
+they are the container's children. The wiring lines of
+`TextSizeWiringTests` (the reading, the folders' step), `NewMailBannersTests`,
+`LinkAtOnceTests` and `ExpiryWarningTests` (the sheet maker) follow the
+code. The rest of B-166's tests, at Large and at the other sizes, pass
+unchanged. Undone by hand, then put back and passing: the drawn size the
+size iOS hands, the sheet maker without its trait, the reading pane left
+out of the panes' trait, and the share sheet's form unheld, run on
+`TextSizeTests`, `TextSizeWiringTests` and `SteadyChromeTests`: 118
+failures in 3 tests, the new and the turned-round ones, and no other. The full
+suite, serially: 3,037 tests, 2 of them new, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.** UIKit, which the host has not: the traits are read from
+the source, not run. That a presentation controller's trait reaches a form
+sheet, and a container's reaches its child, is UIKit's documented
+behaviour and B-071's trait was seen holding the two panes on the iOS 18.6
+simulator; the sheets and the share sheet held are not seen. The TODO's
+B-166 check.
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 

@@ -30,12 +30,13 @@ public final class ShareViewController: UIViewController,
 
     private let nav = UINavigationController()
     private var form: ShareComposeViewController?
-    /// The sheet's text size and Bold Text, as iOS hands them to it, in
-    /// `Theme` before the form is made and again when either changes
-    /// (B-166). The extension has no `UIApplication` of its own to ask, as
-    /// the app does (`TextSizes.app`): it reads its own traits. Until they
-    /// say, it is Large, the factory size, and read again as they come
-    /// (`traitCollectionDidChange`) and as the sheet appears.
+    /// The sheet's text size and Bold Text, in `Theme` before the form is
+    /// made and again when either changes (B-166): the size Large whatever
+    /// iOS hands the sheet (`TextSize.drawn`, Changed 2026-10-27), Bold
+    /// Text as iOS has it. The extension has no `UIApplication` of its own
+    /// to ask, as the app does (`TextSizes.app`): it reads its own traits,
+    /// again as they change (`traitCollectionDidChange`) and as the sheet
+    /// appears.
     private lazy var sizes = TextSizes(
         names: [UIContentSizeCategory.didChangeNotification,
                 UIAccessibility.boldTextStatusDidChangeNotification],
@@ -68,6 +69,9 @@ public final class ShareViewController: UIViewController,
         nav.view.tintAdjustmentMode = .normal
         nav.navigationBar.tintAdjustmentMode = .normal
         addChild(nav)
+        // The form laid out at Large, as the app's sheets are, whatever the
+        // text size the sharing app hands it (B-166, Changed 2026-10-27).
+        setOverrideTraitCollection(.heldTextSize, forChild: nav)
         nav.view.frame = view.bounds
         nav.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(nav.view)

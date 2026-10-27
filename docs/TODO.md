@@ -127,12 +127,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       letter, where a Don't Allow is for good and nothing in the app says
       so (B-162).
 - [ ] On the day, on his iPad: Settings, Accessibility, Per-App Settings.
-      If Mail is listed there with a text size or Bold Text of its own
-      (Control Center's Text Size used in Mail puts it there too), Add App,
-      Blackmail, and the same values for it; then Blackmail's list, a
+      If Mail is listed there with Bold Text of its own, Add App,
+      Blackmail, and the same Bold Text for it; then Blackmail's list, a
       letter and New Message (Cancel) looked at, nothing cut. Nothing else
-      to set: Blackmail takes the iPad's own Text Size and Bold Text as
-      Mail does (B-166).
+      to set: Blackmail is drawn at Large whatever text size the iPad, or
+      a Per-App entry, sets, and takes the iPad's own Bold Text (B-166,
+      Changed 2026-10-27).
 - [ ] On the day, his iPad's Settings > Apps > Mail open beside Blackmail's
       Settings, its part called Mail (B-167): each live row set as his
       Mail's page shows it, two minutes. Mail Accounts > Gmail > Account (or
@@ -304,6 +304,10 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [x] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
       *Ruled 2026-10-26: copy Apple Mail. Built as B-166.*
+      *Ruled 2026-10-27: the exact layout at every text size, for now
+      ("Let's keep the exact layout for now"). Blackmail is drawn at Large
+      whatever the iPad's text size or a Per-App size; Bold Text, which
+      moves nothing, is still followed (B-166, Changed 2026-10-27).*
 - [ ] Replied and forwarded arrows on rows. *Shown 2026-10-22, seen on
       the iPad the same day: Mail's grey arrow in the gutter for a letter
       answered or forwarded, from the flags Gmail sends with the row.
@@ -8852,13 +8856,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
-- [ ] **B-166, the text size and Bold Text as the iPad sets them.** On the
-      test iPad, the test account only, from a build of the
-      `bm-cm-textsize` worktree (branch `copy-textsize`) or of the int it
-      is merged into. Nothing is typed, sent, saved, moved or deleted in
-      the app: every composer is opened untouched and closed with Cancel,
-      which asks nothing for an untouched letter (B-069). The iPad's own
-      settings are changed and put back. The host APPENDs, read
+- [ ] **B-166, the exact layout at every text size.** Changed
+      2026-10-27 by the owner's ruling, "Let's keep the exact layout for
+      now": Blackmail is drawn at Large whatever the iPad's text size, and
+      this check, which looked for the size followed, now looks for the
+      layout the same at the largest sizes. On the test iPad, the test
+      account only, from a build of the `bm-textfixed` worktree (branch
+      `fix-textsize-fixed`) or of the int it is merged into. Nothing is
+      typed, sent, saved, moved or deleted in the app: every composer is
+      opened untouched and closed with Cancel, which asks nothing for an
+      untouched letter (B-069), and every sheet closed with Cancel or Done.
+      The iPad's own settings are changed and put back. The host APPENDs, read
       (`\Seen`), to the label "Notes", never the Inbox, five letters, each
       from another address with a new Message-ID of its own and naming
       none on the account, and notes each UID from its APPENDUID,
@@ -8874,90 +8882,55 @@ checks below is left as not needed, not open, and none is worth a round.*
       row has the grey reply arrow in its gutter.
       Three panes and Organize by Thread on, unless a step says otherwise;
       a full-size screenshot of each screen named.
-      1. *Large, as before.* Settings, Display & Brightness, Text Size at
-         its middle step (Large); Accessibility, Display & Text Size, Bold
-         Text off, and Larger Text with Larger Accessibility Sizes off. In
-         the app: "Notes" with (a) open, its row highlighted; New Message,
-         then Cancel; Reply All on (a), then Cancel. The same three
-         screens on the int18 build (26740c2), taken first: the same to
-         the pixel but for the clock; on a build with B-170, but for (a)'s
-         two files, tiles after its words and not rows in the header.
+      1. *Large, the reference.* Settings, Display & Brightness, Text Size
+         at its middle step (Large); Accessibility, Display & Text Size,
+         Bold Text off, and Larger Text with Larger Accessibility Sizes
+         off. In the app, each taken as the reference for the steps below:
+         "Notes" with (a) open, its row highlighted, (e)'s row in sight;
+         the same in Edit mode, then Cancel; (d)'s row, the conversation's
+         stack; New Message, then Cancel; Reply All on (a), then Cancel;
+         Settings, then closed; Go to Date (the calendar), then Cancel; the
+         pane's folder button, the Move sheet, then Cancel, nothing moved;
+         two panes, then three. The first three on the int18 build
+         (26740c2), taken first: the same to the pixel but for the clock,
+         and for (a)'s two files, tiles after its words on a build with
+         B-170 and not rows in the header.
       2. *The largest of the seven, while the app is open.* With (a) open
          and "Notes" scrolled so its row is in sight a few rows down,
          leave the app; Text Size dragged to its right end; back in the
-         app: the rows taller, about 130 points, their words larger, the
-         same rows in sight where they were, (a)'s highlighted, its
-         "Wednesday" whole; long names cut with "…", never a date. The
-         Mailboxes: names and counts larger, rows taller, "Notes"
-         highlighted; every folder's name whole, "Important" and the
-         account's longest label among them, on a second line where it
-         needs one, its row as tall as its two lines, nothing over the
-         next row. The header's names, subject and date larger; (a)'s
-         words larger, and (a)'s two files' tiles after its words larger
-         with them, box and lines together, their lines whole (B-170). The
-         bars' titles and buttons, the calendar, the search field, its two
-         buttons once tapped (then Cancel) and the line under the list
-         exactly as in 1. Nothing cut anywhere: no word clipped at its top
-         or its foot, nothing over anything.
-      3. *Two panes.* The view button: the list's bar with the view
-         button, "< Mailboxes", the calendar, "Notes" and Edit as in 1;
-         the rows as in 2. Back to three panes.
-      4. *Edit mode.* In "Notes", Edit: the circles larger than in 1, every
-         date whole, "Wednesday" too, the names giving way. Cancel. The
-         same in two panes, then three again.
-      5. *The letters.* (b): the paragraph with no size larger than in 1,
-         the 13-pixel one as in 1. (d)'s row: the conversation's stack,
-         its lines and its open letter larger.
-      6. *The composer.* New Message: "To:", "Cc/Bcc" and "Subject:"
-         whole, their lines taller than 44 points, Photo Library and Attach
-         File larger; Cancel. Reply All on (a): a bubble in To and one in
-         Cc, each as tall as its name, "Subject:" whole; Cancel. Reply All
-         again, left open; leave the app, Text Size one step down, back:
-         the open composer's lines and words at the new size, the bubbles
-         with them; Cancel. Text Size at its right end again.
-      7. *Bold Text, while the app is open.* With (a) open, Bold Text on,
+         app, at once: the same rows in sight where they were, (a)'s
+         highlighted, every row 96 points, nothing larger. Then every
+         screen of 1 again: each the same as in 1 to the pixel but for the
+         clock, the Mailboxes' names, icons and counts, Edit mode's
+         circles, the stack, the composer's lines, Settings' rows, the
+         calendar and the Move sheet's folders among them.
+      3. *The largest accessibility size.* Larger Text, Larger Accessibility
+         Sizes on, the slider at its right end, back in the app: every
+         screen of 1 again, each the same as in 1 to the pixel but for the
+         clock: each row's date on the names' line, never on a line of its
+         own; (e)'s grey arrow 12 points in the gutter; the Mailboxes'
+         icons in one column and their names on one line each, as in 1;
+         the conversation's lines as in 1; (a)'s words and tiles as in 1.
+      4. *Bold Text, while the app is open.* With (a) open, Bold Text on,
          back in the app: the rows' names, subjects and previews, the
-         Mailboxes, the header and (a)'s words bolder; the bars as they
-         were (B-166, Not changed). Bold Text off: as in 2.
-      8. *The largest accessibility size.* Larger Text, Larger Accessibility
-         Sizes on, the slider at its right end, back in the app: each row's
-         date, and on (d)'s row the blue chevron, on a line of their own
-         under the names, at its right end; nothing over anything; about two
-         rows to the pane. (e)'s row: its grey arrow whole in the gutter,
-         inside the row's left edge and clear of the names. The Mailboxes as
-         UIKit lays them out at this size, each name after its own icon,
-         whole on as many lines as it takes, the Inbox's too, each row as
-         tall as its name, nothing cut and nothing over the next row. The
-         header and (a)'s words larger again, (a)'s tiles within the pane,
-         each at most twice its size in 1 (B-170). (d)'s row: on the
-         conversation's lines each name on a line of its own, its date on the
-         line under it at its left, a closed letter's first words under that;
-         nothing past the pane's right edge, and the pane not scrolling
-         sideways. Back to (a): the pane's folder button, the Move sheet's
-         folders as the Mailboxes', each whole; Cancel, nothing moved. The
-         calendar: Go to Date's words and its two buttons as in 1; Cancel.
-         New Message: its lines as tall as their words; Cancel. Two panes,
-         then three.
-      9. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
+         Mailboxes, the header and (a)'s words bolder, and nothing moved:
+         every row where it was in 1, 96 points, the Mailboxes' rows 44, a
+         long name cut a little sooner with "…" and nothing else. Bold
+         Text off: as in 1.
+      5. *For Blackmail alone.* Larger Accessibility Sizes off, Text Size
          at its middle step. Accessibility, Per-App Settings, Add App,
          Blackmail, Larger Text for it at the right end of the seven:
-         Blackmail as in 2, Settings itself at Large. Blackmail's entry
+         Blackmail as in 1, Settings itself at Large. Blackmail's entry
          then taken off the list.
-      10. *The share sheet.* Text Size at its right end. Safari, any page,
-         Share, Blackmail: "To:", "Cc/Bcc" and "Subject:" whole, the lines
-         taller, the link in the body larger; Cancel. Nothing is sent.
-      11. *His size.* Once his iPad's Display & Text Size and Per-App
-         Settings are read (the owner's "His iPad's own settings"), 2, 4,
-         6 and 8's screens at his size and Bold Text: nothing cut.
-      12. *Not on this iPad.* On any iPadOS 18 device with Mail and a
-         Gmail account, never his: Mail's list at the largest accessibility
-         size, where its date goes; whether Mail's bars keep their size at
-         the largest of the seven; whether Mail's search field, the word
-         "Search" in it and its scope buttons grow, at the largest of the
-         seven and the largest accessibility size; Mail's Mailboxes with a
-         long name at both; whether (b)'s 13-pixel paragraph grows in
-         Mail; Mail with Bold Text on. The test iPad has no Mail (B-028).
-      13. *Put back:* Text Size at its middle step, Bold Text off, Larger
+      6. *The share sheet.* Text Size at its middle step: Safari, any
+         page, Share, Blackmail, the form taken; Cancel. Text Size at its
+         right end, and the same again: the form as at the middle step to
+         the pixel, "To:", "Cc/Bcc" and "Subject:" and the link in the
+         body as they were; Cancel. Nothing is sent.
+      7. *What stays UIKit's.* UIKit's own questions and menus, a file's
+         Quick Look and the iPad's own Share sheet are at the iPad's size,
+         as before B-166, and are not looked at here.
+      8. *Put back:* Text Size at its middle step, Bold Text off, Larger
          Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
          only them, from "Notes" to the Trash (`UID MOVE`), and deletes in
@@ -9235,8 +9208,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       the name and the size in small grey type, its last line empty.
       Written down: its colours on the dark pane, and whether its lines
       read. Settings, Display & Brightness, Text Size, at its largest, and
-      back to the app: the tile larger with the words, box and lines
-      together, its lines whole (B-166);
+      back to the app: the tile and the words exactly as they were, nothing
+      larger (B-166, Changed 2026-10-27);
       the Text Size back to where it was. The tile
       tapped: it dims and its last line says "Loading…" until the PDF is in
       Quick Look; Done: the tile as it was.
@@ -9595,10 +9568,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Smart Invert, also as Per-App Settings sets it for Mail, Blocked and its
       option, Notifications for Mail and Fetch New Data, Undo Send Delay, a
       Home Screen Mail widget, the Safari share watched, and Shake to Undo
-      (B-157). *2026-10-27: Display & Text Size, Larger Text and Bold Text are
-      built (B-166): Blackmail takes the iPad's own, as Mail does, and a size
-      set for Mail alone in Per-App Settings is matched on the day ("On the
-      day", at the top).* *2026-10-27: Mail >
+      (B-157). *2026-10-27: Display & Text Size, Larger Text and Bold Text
+      need not be read: ruled 2026-10-27, the exact layout at every text
+      size, for now, so Blackmail is drawn at Large whatever his text size,
+      and takes his iPad's own Bold Text, as Mail does; a Bold Text set for
+      Mail alone in Per-App Settings is matched on the day ("On the day", at
+      the top) (B-166, Changed 2026-10-27).* *2026-10-27: Mail >
       Ask Before Deleting and Privacy Protection's Block All Remote Content
       are built (B-168), off as from the factory, and matched in Blackmail's
       Settings on the day with no build (B-167's rows; "On the day", at the

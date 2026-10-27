@@ -1646,8 +1646,7 @@ final class MessageListViewController: UITableViewController {
                 self.jump(to: date)
             }
         }
-        let nav = UINavigationController(rootViewController: picker)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(picker)
         present(nav, animated: true)
     }
 
@@ -2826,8 +2825,7 @@ final class MessageListViewController: UITableViewController {
             if self.inEditMode { self.editTapped() }
             self.runBatch(.move(to: destination), on: chosen, saying: StatusLine.moving)
         }
-        let nav = UINavigationController(rootViewController: move)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(move)
         present(nav, animated: true)
     }
 
@@ -3079,8 +3077,7 @@ final class MessageListViewController: UITableViewController {
             self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving,
                           fromRow: true)
         }
-        let nav = UINavigationController(rootViewController: move)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(move)
         present(nav, animated: true)
     }
 
@@ -3245,8 +3242,7 @@ final class MessageListViewController: UITableViewController {
                 await self?.reload(keepingPlace: true)
             }
         }
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         present(nav, animated: true)
     }
 
@@ -3263,8 +3259,7 @@ final class MessageListViewController: UITableViewController {
         let signature = CredentialStore.loadAccount()?.signature ?? ""
         let compose = ComposeViewController(repository: repository,
                                             draft: .blank(signature: signature))
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         present(nav, animated: true)
     }
 
@@ -3552,8 +3547,7 @@ final class MessageListViewController: UITableViewController {
         // The grouping switch acts immediately, so the list behind the
         // sheet has to hear about it the moment it flips.
         settings.onOrganizeByThreadChanged = { [weak self] in self?.regroup() }
-        let nav = UINavigationController(rootViewController: settings)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(settings)
         present(nav, animated: true)
     }
 

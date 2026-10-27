@@ -337,15 +337,16 @@ extension Theme {
     static let detailDateAttachmentGap: CGFloat = 3
     static let detailAttachmentRuleGap: CGFloat = 14
 
-    // MARK: - Type (binding at Large; follows the iPad's text size, B-166)
+    // MARK: - Type (binding at Large, at every text size; B-166)
 
-    /// The iPad's text size and Bold Text, as iOS hands them to the app, set
-    /// by `TextSizes` before the first screen is made and again whenever
-    /// either changes, as Mail follows them (B-166). D-007's "do NOT wire up
-    /// free Dynamic Type" and B-071's hold on the panes are reversed by the
-    /// owner's ruling of 2026-10-26, copy Apple Mail. Large, the size an
-    /// iPad comes with, is the reference's scale, and at it every number
-    /// here is what it always was.
+    /// The size the app is drawn at, and Bold Text as iOS hands it, set by
+    /// `TextSizes` before the first screen is made and again whenever
+    /// either changes (B-166). The size is Large whatever the iPad's text
+    /// size or a Per-App size says (`TextSize.drawn`): the owner's ruling
+    /// of 2026-10-27, "Let's keep the exact layout for now", as D-007 and
+    /// B-071 had it. Large, the size an iPad comes with, is the
+    /// reference's scale, and at it every number here is what it always
+    /// was.
     static var textSize = TextSize.factory
 
     /// The reference's scale, drawn for 2016 eyesight, is 1: Large. Every

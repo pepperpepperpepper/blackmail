@@ -563,8 +563,7 @@ final class ExpiryWarningTests: XCTestCase {
                        + "self.presentComposer(draft, key: nil, from: summary) } } @MainActor ")
         let composer = try part(of: list, from: "private func presentComposer(",
                                 to: "private func showDraftSpinners(")
-        XCTAssertTrue(composer.hasSuffix("let nav = UINavigationController(rootViewController: compose) "
-                                         + "nav.modalPresentationStyle = .formSheet "
+        XCTAssertTrue(composer.hasSuffix("let nav = UINavigationController.formSheet(compose) "
                                          + "present(nav, animated: true) } @MainActor "), composer)
         for hop in ["await", "DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {
             XCTAssertFalse(landed.contains(hop), hop)

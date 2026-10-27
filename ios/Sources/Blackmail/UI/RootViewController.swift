@@ -219,17 +219,22 @@ final class RootViewController: UIViewController {
             view.addSubview(child.view)
             child.didMove(toParent: self)
         }
-        // The folders and the list follow the iPad's text size, as Mail's
-        // do (B-166): nothing holds them at the default any more. B-071 held
-        // them there with a trait for the two, as D-007 had the type fixed,
-        // and the owner's ruling of 2026-10-26 to copy Mail reverses both.
-        // What UIKit draws beside the words is UIKit's again, as in Mail: a
-        // folder's icon and its room grow with the names, and at the
-        // accessibility sizes UIKit lays a folder's row out its own way, the
-        // name after its own icon; in Edit mode the circle he ticks grows
-        // with the type, 49 pt at the largest size, and the row's words move
-        // right by as much. The words and the rows are the app's, at the
-        // size (`Theme.textSize`).
+        // The three panes laid out as at Large, the iPad's default text
+        // size, whatever it is set to (B-071; B-166, Changed 2026-10-27:
+        // the owner's "Let's keep the exact layout for now"). Their words
+        // are at Large (`TextSize.drawn`), but UIKit sizes some of what it
+        // draws beside them by the text size. A folder's icon and its room
+        // grew at the larger sizes and moved the names right; at the
+        // accessibility sizes each name began where its own icon ended, so
+        // a block's names were no longer on one line. In Edit mode the
+        // circle he ticks grew from 26 pt to 49 at the largest size and
+        // pushed every row's words 25 pt right. The reading pane too, so
+        // nothing of UIKit's in it moves either. The sheets these panes put
+        // up are held as they are presented
+        // (`UINavigationController.formSheet`).
+        for nav in [mailboxNav, listNav, detailNav] {
+            setOverrideTraitCollection(.heldTextSize, forChild: nav)
+        }
         for d in [divider1, divider2] {
             d.backgroundColor = Theme.paneDivider
             d.translatesAutoresizingMaskIntoConstraints = false

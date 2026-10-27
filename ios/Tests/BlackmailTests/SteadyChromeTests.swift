@@ -164,19 +164,25 @@ final class SteadyChromeTests: XCTestCase {
                                   + "icon.heightAnchor.constraint(equalToConstant: 15),", in: search))
     }
 
-    /// The folders and the list follow the iPad's text size, as Mail's do
-    /// (B-166): B-071's hold on them at the default, a trait put on their
-    /// two navigation controllers by the container, is gone, and nothing
-    /// else in the container holds any pane at a size. What UIKit draws
-    /// beside their words, a folder's icon's room and Edit mode's circles,
-    /// is UIKit's at the iPad's size, as in Mail.
-    func testTheFoldersAndTheListFollowTheTextSize() throws {
+    /// The three panes are held at Large, the iPad's default text size,
+    /// whatever it is set to, by a trait the container puts on their
+    /// navigation controllers, after they are its children: B-071's hold on
+    /// the folders and the list, taken off by B-166 and put back with the
+    /// reading pane when the owner ruled, on 2026-10-27, to keep the exact
+    /// layout at every text size. What UIKit draws beside their words, a
+    /// folder's icon's room and Edit mode's circles, stays as at Large. No
+    /// pane holds a size of its own beside it.
+    func testThePanesAreHeldAtLarge() throws {
         let code = try source("UI/RootViewController.swift")
-        XCTAssertNotNil(place(of: "for child in [mailboxNav, listNav, detailNav] { addChild(child) "
-                                  + "child.view.translatesAutoresizingMaskIntoConstraints = false "
-                                  + "view.addSubview(child.view) child.didMove(toParent: self) }",
-                              in: code))
-        XCTAssertEqual(count("setOverrideTraitCollection", in: code), 0)
+        let children = try XCTUnwrap(place(of: "for child in [mailboxNav, listNav, detailNav] { addChild(child) "
+                                               + "child.view.translatesAutoresizingMaskIntoConstraints = false "
+                                               + "view.addSubview(child.view) child.didMove(toParent: self) }",
+                                           in: code))
+        let held = try XCTUnwrap(place(of: "for nav in [mailboxNav, listNav, detailNav] { "
+                                           + "setOverrideTraitCollection(.heldTextSize, forChild: nav) }",
+                                       in: code))
+        XCTAssertLessThan(children, held, "put on them once they are its children")
+        XCTAssertEqual(count("setOverrideTraitCollection", in: code), 1)
         XCTAssertEqual(count("preferredContentSizeCategory", in: code), 0)
         for file in ["MailboxListViewController", "MessageListViewController", "MessageDetailViewController",
                      "MessageHeaderView", "MessageCell", "ComposeViewController"] {

@@ -8,11 +8,15 @@ import Foundation
 /// seven steps in Accessibility, Display & Text Size, Larger Text; or the
 /// one set for the app alone in Accessibility, Per-App Settings, which iOS
 /// hands the app the same way, as its `preferredContentSizeCategory`; and
-/// Bold Text. The app's type was fixed at the factory size (D-007, B-071),
-/// and is not now: every size its type and rows take goes through this
+/// Bold Text. Every size the app's type and rows take goes through this
 /// size's `scale` (`Theme.textScale`, `Theme.scaled`), which is exactly 1
 /// at Large, the size an iPad comes with, so that the app at Large is the
 /// app as it was.
+///
+/// Held at Large since 2026-10-27: the owner, "Let's keep the exact layout
+/// for now", so Blackmail is drawn at Large whatever size iOS hands it,
+/// as D-007 and B-071 had it (`drawn(at:bold:)`). The sizes and the rows
+/// at each stay here, run by the suite, for the day he says otherwise.
 ///
 /// Out of `Theme` and the screens, which are UIKit, so that the suite can
 /// run it: the sizes iOS has, by the body text Apple sets at each, and
@@ -68,6 +72,16 @@ struct TextSize: Equatable, Sendable {
 
     /// The iPad as it comes: Large, Bold Text off.
     static let factory = TextSize(step: .large, bold: false)
+
+    /// The size the app is drawn at when iOS hands it `step`: Large,
+    /// whatever `step` is, so that every screen keeps its exact layout at
+    /// every text size (the owner, 2026-10-27: "Let's keep the exact layout
+    /// for now"; B-166, Changed). Bold Text is followed, as it moves
+    /// nothing: no size, no line and no row changes with it, only the
+    /// weight of the system's font, which iOS sets for every app.
+    static func drawn(at step: Step, bold: Bool) -> TextSize {
+        TextSize(step: .large, bold: bold)
+    }
 
     /// What the app's sizes are multiplied by: this size's body over
     /// Large's, so exactly 1 at Large.
