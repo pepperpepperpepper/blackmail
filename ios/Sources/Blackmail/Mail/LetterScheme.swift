@@ -373,6 +373,11 @@ enum LetterScheme: Equatable, Sendable {
         /// The body's `background` and `style`, the same way.
         private(set) var bodyBackground: String?
         private(set) var bodyStyle: String?
+        /// Its `class`, `bgcolor` and `text`, the same way, which a letter
+        /// in its own colours keeps (`PanePage.inOwnColours`).
+        private(set) var bodyClass: String?
+        private(set) var bodyColour: String?
+        private(set) var bodyText: String?
         /// The content of the last `<meta name="color-scheme">`, nil when
         /// it has none or there is no such meta.
         private(set) var lastMeta: String?
@@ -430,6 +435,9 @@ enum LetterScheme: Equatable, Sendable {
                     if !bodySeen.contains("background"), let s = tag.attributes["background"] {
                         bodyBackground = s
                     }
+                    if !bodySeen.contains("class"), let s = tag.attributes["class"] { bodyClass = s }
+                    if !bodySeen.contains("bgcolor"), let s = tag.attributes["bgcolor"] { bodyColour = s }
+                    if !bodySeen.contains("text"), let s = tag.attributes["text"] { bodyText = s }
                     bodySeen.formUnion(tag.attributes.keys)
                 case "meta":
                     if tag.attributes["name"] == "color-scheme" { lastMeta = tag.attributes["content"] }

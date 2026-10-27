@@ -68,13 +68,14 @@ final class DarkLikeMailTests: XCTestCase {
         """
 
     /// The same newsletter's head rules, as the pane draws them inside the
-    /// letter's box, `#bm-own-7_3`.
+    /// letter's box, `#bm-own-7_3`, which stands for its root, and the
+    /// `div` in it that stands for its body.
     static let darkReadyScoped = """
-        #bm-own-7_3 { color-scheme: light dark; supported-color-schemes: light dark; }
-        #bm-own-7_3 { margin: 0 !important; padding: 0 !important; background: #f2f2f7; }
+        .bm-own-root:where(#bm-own-7_3) { color-scheme: light dark; supported-color-schemes: light dark; }
+        div:where(#bm-own-7_3 > .bm-own-body) { margin: 0 !important; padding: 0 !important; background: #f2f2f7; }
         :where(#bm-own-7_3) .card, :where(#bm-own-7_3) td { background: #ffffff; color: #222222; }
         @media (prefers-color-scheme: dark) {
-        #bm-own-7_3, :where(#bm-own-7_3) .card { background: #1c1c1e !important; color: #f2f2f7 !important; }
+        div:where(#bm-own-7_3 > .bm-own-body), :where(#bm-own-7_3) .card { background: #1c1c1e !important; color: #f2f2f7 !important; }
         }
         @font-face { font-family: Garden; src: url(https://fonts.example.com/g.woff2); }
         :where(#bm-own-7_3) a { color: #0b57d0; }
@@ -327,15 +328,91 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertTrue(sheet.hasSuffix("  a { color: #0A84FF; }\n  #bm { color-scheme: light dark; }\n"
                                       + QuoteBars.css(in: "#bm", palette: QuoteBars.dark) + "\n"), sheet)
         let markup = PanePage.content(text: nil, html: Self.darkReady, known: [], flowed: false)
-        let box = "<div id=\"bm-own-7_3\"><style>\n" + Self.darkReadyScoped + "</style>" + markup + "</div>"
+        let box = "<div id=\"bm-own-7_3\" class=\"bm-own-root\"><style>\n" + Self.darkReadyScoped + "</style>"
+            + "<div class=\"bm-own-body\" style=\"margin:0;\">" + markup + "</div></div>"
         XCTAssertTrue(page.hasSuffix("<div id=\"bm\">" + box + "</div></body></html>"), page)
         XCTAssertFalse(page.contains("@import"))
         XCTAssertFalse(page.contains("font-family: Arial"))
         XCTAssertEqual(PanePage.stackBody(m), .init(html: box, isHTML: true, scheme: .own))
-        // With no style in its head, the box alone.
+        // With no style in its head and nothing on its body, the two `div`s
+        // alone.
         let bare = letter("<meta name=\"color-scheme\" content=\"light dark\"><p>Hi</p>", id: "12/40")
         XCTAssertEqual(PanePage.stackBody(bare).html,
-                       "<div id=\"bm-own-12_40\"><meta name=\"color-scheme\" content=\"light dark\"><p>Hi</p></div>")
+                       "<div id=\"bm-own-12_40\" class=\"bm-own-root\"><div class=\"bm-own-body\">"
+                        + "<meta name=\"color-scheme\" content=\"light dark\"><p>Hi</p></div></div>")
+    }
+
+    /// A letter in its own colours keeps what its body had, which the
+    /// wrapper's removal takes off with the body's tag, on the `div` that
+    /// stands for its body: its `style`, so a white page that is its
+    /// body's is white under its dark words, not the pane's black; its
+    /// `class`, so its rules for the dark that name the body by it have
+    /// it, inside the box; its `bgcolor` and `text` as the `div`'s
+    /// background and colour, by a rule in front of the head's that weighs
+    /// nothing, as HTML weighs them below every rule. Each escaped where it
+    /// goes; a later body adding only what the first lacked; a colour that
+    /// is none, none.
+    func testALetterInItsOwnColoursKeepsWhatItsBodyHad() throws {
+        let white = letter("<meta name=\"color-scheme\" content=\"light dark\">"
+                           + "<body style=\"background-color:#ffffff\"><p style=\"color:#333333\">Hello</p></body>")
+        XCTAssertEqual(scheme(white.htmlBody ?? ""), .own)
+        let box = "<div id=\"bm-own-7_3\" class=\"bm-own-root\">"
+            + "<div class=\"bm-own-body\" style=\"background-color:#ffffff\">"
+            + "<meta name=\"color-scheme\" content=\"light dark\"><p style=\"color:#333333\">Hello</p></div></div>"
+        let page = try XCTUnwrap(PanePage.letter(white, style: style))
+        XCTAssertTrue(page.hasSuffix("<div id=\"bm\">" + box + "</div></body></html>"), page)
+        XCTAssertEqual(PanePage.stackBody(white).html, box)
+
+        let news = """
+            <html><head><meta name="color-scheme" content="light dark"><style>
+            body { background: #ffffff; }
+            @media (prefers-color-scheme: dark) { .body { background: #1c1c1e !important; } .body p { color: #ffffff !important; } }
+            </style></head><body class="body \tnews" bgcolor="ffffff" text="#333"><p>Hello</p></body></html>
+            """
+        XCTAssertEqual(scheme(news), .own)
+        XCTAssertEqual(PanePage.stackBody(letter(news, id: "9/5")).html, """
+            <div id="bm-own-9_5" class="bm-own-root"><style>
+            :where(#bm-own-9_5 > .bm-own-body) { background-color: #ffffff; color: #333333; }
+
+            div:where(#bm-own-9_5 > .bm-own-body) { background: #ffffff; }
+            @media (prefers-color-scheme: dark) {
+            :where(#bm-own-9_5) .body { background: #1c1c1e !important; }
+            :where(#bm-own-9_5) .body p { color: #ffffff !important; }
+            }
+            </style><div class="bm-own-body body news"><p>Hello</p></div></div>
+            """)
+
+        let marked = letter("""
+            <meta name="color-scheme" content="dark"><body class='a"b' style='font-family:"Garden", serif; \
+            background:url(x.png?a=1&amp;b=2)' bgcolor="transparent"><p>x</p>
+            <body class="later" text="" style="color:red" bgcolor="#fff"><p>y</p></body>
+            """, id: "4/8")
+        XCTAssertEqual(PanePage.stackBody(marked).html, """
+            <div id="bm-own-4_8" class="bm-own-root"><div class="bm-own-body a&quot;b" \
+            style="font-family:&quot;Garden&quot;, serif; background:url(x.png?a=1&amp;b=2)">\
+            <meta name="color-scheme" content="dark"><p>x</p>
+            <p>y</p></div></div>
+            """)
+    }
+
+    /// A body's `bgcolor` and `text` read as WebKit reads a legacy colour
+    /// value (`HTMLElement::parseLegacyColorValue`): none for an empty one
+    /// or `transparent`, black for white space alone, a name for CSS,
+    /// `#rgb` doubled, and any other by its hex digits, others made `0`,
+    /// in three parts cut to their last eight, their common leading zeros
+    /// dropped down to two, then cut to two; the first 128 after a `#`.
+    func testABodysColoursAreReadAsWebKitReadsThem() {
+        let cases: [(String, String?)] = [
+            ("#ffffff", "#ffffff"), ("ffffff", "#ffffff"), ("#FFF", "#ffffff"), ("  #EEE\n", "#eeeeee"),
+            ("fff", "#0f0f0f"), ("f", "#0f0000"), ("add", "#0a0d0d"), ("White", "white"),
+            ("transparent", nil), ("TRANSPARENT", nil), ("", nil), (" \t ", "#000000"), ("#", "#000000"),
+            ("#ffffff;", "#ffff00"), ("rgb(255,255,255)", "#005025"), ("#1a2b3c4d5e6f7", "#1ac46f"),
+            ("#0000ff0000ff0000ff", "#ffffff"), ("#" + String(repeating: "0", count: 127) + "f", "#0000f0"),
+            (String(repeating: "0", count: 128) + "f", "#000000"), ("1\u{1F600}", "#010000"),
+        ]
+        for (value, colour) in cases {
+            XCTAssertEqual(LetterCSS.legacyColour(value), colour, value)
+        }
     }
 
     // MARK: - A conversation
@@ -366,8 +443,10 @@ final class DarkLikeMailTests: XCTestCase {
             XCTAssertEqual(fill.arguments["scheme"] as? String, body.isHTML ? body.kind : "bm-html")
             XCTAssertEqual(fill.arguments["isHTML"] as? Bool, body.isHTML)
         }
-        XCTAssertTrue(bodies[2].html.hasPrefix("<div id=\"bm-own-9_3\"><style>\n#bm-own-9_3 {"))
-        XCTAssertTrue(bodies[4].html.hasPrefix("<div id=\"bm-own-9_5\"><style>\n#bm-own-9_5 {"))
+        XCTAssertTrue(bodies[2].html.hasPrefix(
+            "<div id=\"bm-own-9_3\" class=\"bm-own-root\"><style>\n.bm-own-root:where(#bm-own-9_3) {"))
+        XCTAssertTrue(bodies[4].html.hasPrefix(
+            "<div id=\"bm-own-9_5\" class=\"bm-own-root\"><style>\n.bm-own-root:where(#bm-own-9_5) {"))
         XCTAssertTrue(bodies[4].html.contains(":where(#bm-own-9_5) a { color: #1a73e8; }"))
         XCTAssertFalse(bodies[4].html.contains("bm-own-9_3"))
 
@@ -478,10 +557,15 @@ final class DarkLikeMailTests: XCTestCase {
     // MARK: - The head's style, scoped
 
     /// Each rule of a letter's head applies inside its box alone: a rule
-    /// for its root or body, or a run of them, the box's, a child of the
-    /// body the box's child; any other inside the box, by `:where`, which
-    /// weighs nothing. At-rules that name no element kept as they are,
-    /// `@media` and its kin gone through, `@import` and `@charset` left
+    /// for its root, its body, or a run of them, the box's or the body's
+    /// `div`'s, each named by a compound that weighs what it stood for
+    /// (`div` a type's, `.bm-own-root` a class's, the box by `:where`, which
+    /// weighs nothing), so `body td` weighs two types as in Mail, not an
+    /// id; the body's compound with more in it the body's `div` with it; a
+    /// child of the body the `div`'s child; any other inside the box, by
+    /// `:where`. At-rules that name no element kept as they are, `@media`
+    /// and its kin gone through, `@starting-style` too, any other with a
+    /// block, `@scope` among them, left out, `@import` and `@charset` left
     /// out, a rule no browser would read left out, comments gone, and the
     /// sheet unable to end its `<style>`.
     func testAHeadsRulesApplyInsideTheLetterAlone() {
@@ -490,19 +574,26 @@ final class DarkLikeMailTests: XCTestCase {
             @import url("https://example.com/a.css") screen;
             html, BODY, :root, html body, html > body { color: #222; }
             body > table, html body .x, .y body { margin: 0; }
+            body td, body.x p, BODY:hover, html:root, :root:root .y { color: #000; }
             * { box-sizing: border-box; } p, h1:hover::after { color: red; }
             @media screen and (max-width: 600px) { .wrap { width: 100% !important; } }
             @supports (display: grid) { @media (prefers-color-scheme: dark) { td { color: #eee; } } }
             @keyframes spin { from { transform: rotate(0); } to { transform: rotate(1turn); } }
+            @-webkit-keyframes fade { from { opacity: 0; } }
             @page { margin: 1cm; }
+            @scope (body) { p { color: red; } }
+            @starting-style { p { opacity: 0; } }
+            @-ms-viewport { width: device-width; }
             a[href*="{"] { content: "}"; } /* a comment with } in it */
             } .broken { color: blue; }
             .z { background: url(a</style>b.png); }
             .unclosed { color: green;
             """
+        let body = "div:where(#box > .bm-own-body)"
         XCTAssertEqual(LetterCSS.scoped(css, in: "#box"), """
-            #box, #box, #box, #box, #box { color: #222; }
-            #box > table, #box .x, :where(#box) .y body { margin: 0; }
+            div:where(#box), \(body), .bm-own-root:where(#box), div:where(#box) \(body), div:where(#box) > \(body) { color: #222; }
+            \(body) > table, div:where(#box) \(body) .x, :where(#box) .y body { margin: 0; }
+            \(body) td, \(body).x p, \(body):hover, div.bm-own-root:where(#box), .bm-own-root.bm-own-root:where(#box) .y { color: #000; }
             :where(#box) * { box-sizing: border-box; }
             :where(#box) p, :where(#box) h1:hover::after { color: red; }
             @media screen and (max-width: 600px) {
@@ -514,7 +605,11 @@ final class DarkLikeMailTests: XCTestCase {
             }
             }
             @keyframes spin { from { transform: rotate(0); } to { transform: rotate(1turn); } }
+            @-webkit-keyframes fade { from { opacity: 0; } }
             @page { margin: 1cm; }
+            @starting-style {
+            :where(#box) p { opacity: 0; }
+            }
             :where(#box) a[href*="{"] { content: "}"; }
             :where(#box) .z { background: url(a<\\/style>b.png); }
             :where(#box) .unclosed { color: green;}
@@ -542,13 +637,22 @@ final class DarkLikeMailTests: XCTestCase {
     // MARK: - Letters made to be slow
 
     /// Half a megabyte made to make the reading slow, each read once, in
-    /// well under a second where reading any of it twice for each piece
+    /// well under the bound where reading any of it twice for each piece
     /// would take minutes: a tag, a comment, a style and a quote never
     /// closed, braces never closed, at-rules by the ten thousand never
-    /// closed, rules, attributes and pictures by the ten thousand, and a
-    /// head of ten thousand styles brought back.
+    /// closed, rules and attributes by the ten thousand, pictures by the
+    /// forty thousand, and a head of ten thousand styles brought back.
+    ///
+    /// Each read is bounded at 3 s. The heaviest, a sheet of 83,333 rules
+    /// scoped, took 0.53 s in a debug build, then the 20,833 rules for the
+    /// root read, 0.41 s, the head of 17,857 styles brought back, 0.38 s,
+    /// and the 45,454 pictures read, 0.34 s: the bound is more than five
+    /// times the slowest. The pictures are many and small so that a list
+    /// of them copied for each picture, which reads it again for each, is
+    /// far over the bound: 42 s, where 9,615 larger ones took 2.2 s.
     func testALetterMadeToBeSlowIsReadOnce() {
         let size = 500_000
+        let bound: TimeInterval = 3
         let letters = [
             "<img src=\"" + String(repeating: "a", count: size),
             "<!--" + String(repeating: "-", count: size),
@@ -556,7 +660,7 @@ final class DarkLikeMailTests: XCTestCase {
             "<style>" + String(repeating: "@media (", count: size / 8),
             "<style>" + String(repeating: ":root{color-scheme:dark}", count: size / 24),
             String(repeating: "<a ", count: size / 3),
-            String(repeating: "<img src=https://example.com/x.png width=1 height=1>", count: size / 52),
+            String(repeating: "<img src=a>", count: size / 11),
             "<meta name=\"color-scheme\" content=\"dark\"><head>"
                 + String(repeating: "<style>.a{color:red}</style>", count: size / 28) + "</head><p>x</p>",
             "<meta name=\"color-scheme\" content=\"dark\"><head><style>"
@@ -570,12 +674,13 @@ final class DarkLikeMailTests: XCTestCase {
             started = Date()
             _ = PanePage.inOwnColours("", of: m)
             let brought = Date().timeIntervalSince(started)
-            XCTAssertLessThan(read, 1, "letter \(i) read: \(read) s")
-            XCTAssertLessThan(brought, 1, "letter \(i) its head's style: \(brought) s")
+            XCTAssertLessThan(read, bound, "letter \(i) read: \(read) s")
+            XCTAssertLessThan(brought, bound, "letter \(i) its head's style: \(brought) s")
         }
         let started = Date()
         _ = LetterCSS.scoped(String(repeating: "a{b:c}", count: size / 6), in: "#box")
-        XCTAssertLessThan(Date().timeIntervalSince(started), 1)
+        let scoped = Date().timeIntervalSince(started)
+        XCTAssertLessThan(scoped, bound, "scoped: \(scoped) s")
     }
 
     // MARK: - node

@@ -188,20 +188,29 @@ enum LetterCSS {
     /// `css` with each of its rules made to apply inside the element
     /// `scope` names, a selector such as `#bm-own-1_2`, and nowhere else.
     ///
-    /// A selector that begins at the letter's root or body, `:root`,
-    /// `html`, `body` or a run of them (`html body`, `html > body`), names
-    /// `scope` in their place, so the letter's rules for its root, the
-    /// colour scheme it declares there among them, are the box's; any
-    /// other has `:where(scope)` before it, which adds nothing to its
-    /// weight, so it weighs as it would in Mail against the letter's own
-    /// rules. Inside `@media`, `@supports`, `@layer`, `@container` and
-    /// `@document` the same, the at-rule kept; `@font-face`, `@keyframes`,
-    /// `@page` and the like kept as they are, as they name no element.
-    /// `@import`, `@charset` and `@namespace` are left out: an imported
-    /// sheet could not be scoped. A rule with a selector that cannot be
-    /// one, a brace or a semicolon in it, is left out, as CSS drops it.
-    /// Comments go. `</` is written `<\/`, which CSS reads as the same two
-    /// characters, so the sheet can never end the `<style>` it goes in.
+    /// That element stands for the letter's root, a `div` of the class
+    /// `rootClass`, and its child, a `div` of the class `bodyClass`, for its
+    /// body, the letter's markup inside it (`PanePage.inOwnColours`). A
+    /// selector that begins at the letter's root or body, `:root`, `html`,
+    /// `body` or a run of them (`html body`, `html > body`), the body's
+    /// compound with more in it too (`body.x`, `body:hover`), names those
+    /// two in their place, each by a compound that weighs what it stood
+    /// for: `div` for `html` and `body`, `.bm-own-root` for each `:root`,
+    /// the box by `:where`, which adds nothing; so `body td` weighs two
+    /// types, as in Mail. Written `#box td`, as it was, it weighed an id
+    /// and beat the letter's own `.dark td`. Any other has `:where(scope)`
+    /// before it, so it too weighs as in Mail against the letter's rules.
+    /// Inside `@media`, `@supports`, `@layer`, `@container`,
+    /// `@starting-style` and `@document` the same, the at-rule kept; the
+    /// at-rules that name no element (`namesNoElement`), `@font-face`,
+    /// `@keyframes`, `@page` among them, kept as they are; any other with a
+    /// block, `@scope` among them, left out, as what it names could not be
+    /// kept inside. `@import`, `@charset` and `@namespace` are left out: an
+    /// imported sheet could not be scoped. A rule with a selector that
+    /// cannot be one, a brace or a semicolon in it, is left out, as CSS
+    /// drops it. Comments go. `</` is written `<\/`, which CSS reads as the
+    /// same two characters, so the sheet can never end the `<style>` it
+    /// goes in.
     static func scoped(_ css: String, in scope: String) -> String {
         let b = Array(css.utf8)
         var out = ""
@@ -226,39 +235,72 @@ enum LetterCSS {
                     continue
                 }
                 switch name {
-                case "media", "supports", "layer", "container", "document", "-moz-document":
+                case "media", "supports", "layer", "container", "starting-style", "document", "-moz-document":
                     out += head + " {\n"
                     emit(b, block, scope: scope, into: &out)
                     out += "}\n"
-                default:
+                case _ where namesNoElement.contains(name):
                     out += head + " {" + withoutComments(String(decoding: b[block], as: UTF8.self)) + "}\n"
+                default:
+                    continue
                 }
             }
         }
     }
 
+    /// The at-rules with a block that name no element, kept as they are
+    /// (`scoped`): fonts, animations, the printed page, properties,
+    /// counters.
+    static let namesNoElement: Set<String> = [
+        "font-face", "keyframes", "-webkit-keyframes", "-moz-keyframes", "-o-keyframes", "page",
+        "property", "counter-style", "font-feature-values", "font-palette-values",
+    ]
+
+    /// The class of the `div` that stands for a letter's root in its box
+    /// (`scoped`), the box itself, which `:root` names.
+    static let rootClass = "bm-own-root"
+    /// The class of the `div` that stands for its body, the box's child.
+    static let bodyClass = "bm-own-body"
+
     /// One selector made to apply inside `scope` (`scoped`).
     static func scoped(selector: String, in scope: String) -> String {
         let b = Array(selector.utf8)
         var i = 0
-        var took = false
-        var child = false
-        while true {
+        var out = ""
+        var joint = ""
+        while i < b.count {
             var j = i
             while j < b.count, !isSpace(b[j]), b[j] != greater { j += 1 }
-            guard root(b[i..<j]) != nil || equalsLowered(b[i..<j], "body") else { break }
-            took = true
+            if let root = root(b[i..<j]) {
+                out += joint + (root.html ? "div" : "") + String(repeating: "." + rootClass, count: root.roots)
+                    + ":where(\(scope))"
+            } else if let rest = afterBody(b[i..<j]) {
+                out += joint + "div:where(\(scope) > .\(bodyClass))" + String(decoding: rest, as: UTF8.self)
+            } else {
+                break
+            }
             i = j
             while i < b.count, isSpace(b[i]) { i += 1 }
-            child = i < b.count && b[i] == greater
-            if child {
+            joint = " "
+            if i < b.count, b[i] == greater {
+                joint = " > "
                 i += 1
                 while i < b.count, isSpace(b[i]) { i += 1 }
             }
         }
-        guard took else { return ":where(\(scope)) " + selector }
-        if i == b.count { return scope }
-        return scope + (child ? " > " : " ") + String(decoding: b[i...], as: UTF8.self)
+        guard !out.isEmpty else { return ":where(\(scope)) " + selector }
+        return i == b.count ? out : out + joint + String(decoding: b[i...], as: UTF8.self)
+    }
+
+    /// What follows the type in a compound selector that names the body by
+    /// it, `body` in any case: nothing, or its classes, attributes and
+    /// pseudo-classes (`.x`, `[a]`, `:hover`, `#id`); nil for any other
+    /// compound.
+    static func afterBody(_ b: ArraySlice<UInt8>) -> ArraySlice<UInt8>? {
+        guard startsLowered(b, at: b.startIndex, "body") else { return nil }
+        let rest = b[(b.startIndex + 4)...]
+        guard let c = rest.first else { return rest }
+        return [UInt8(ascii: "."), UInt8(ascii: "#"), UInt8(ascii: "["), UInt8(ascii: ":")].contains(c) ? rest : nil
     }
 
     /// Whether `selector` can be one: no brace or semicolon in it outside
@@ -308,6 +350,54 @@ enum LetterCSS {
         let w = word.utf8Start
         for k in 0..<n where lowered(b[i + k]) != w[k] { return false }
         return true
+    }
+
+    // MARK: - HTML's colours
+
+    /// A colour attribute of HTML's, the body's `bgcolor` or `text`, as a
+    /// CSS colour, read as WebKit reads a legacy colour value: nil for
+    /// none, an empty one or `transparent`; a name, letters that are not
+    /// all hex digits, in lower case, for CSS to read; `#rgb` doubled; any
+    /// other, after a `#`, its first 128 characters, each that is not a hex
+    /// digit a `0`, made three equal parts, each cut to its last eight, the
+    /// zeros all three begin with dropped down to two, then cut to two
+    /// (`fff` is `#0f0f0f`, `#ffffff;` is `#ffff00`, white space alone
+    /// black), as `HTMLElement::parseLegacyColorValue` in WebKit's source
+    /// reads it. Letters that name no colour are dropped by CSS, where
+    /// WebKit would make a colour of them.
+    static func legacyColour(_ value: String) -> String? {
+        guard !value.isEmpty else { return nil }
+        var u = Array(value.utf16)
+        while let c = u.first, c < 0x80, isSpace(UInt8(c)) { u.removeFirst() }
+        while let c = u.last, c < 0x80, isSpace(UInt8(c)) { u.removeLast() }
+        let hex: (UInt16) -> Bool = { ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x46) || ($0 >= 0x61 && $0 <= 0x66) }
+        let letter: (UInt16) -> Bool = { ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x61 && $0 <= 0x7A) }
+        // Only ever given an ASCII letter or digit.
+        let low: (UInt16) -> UInt8 = { lowered(UInt8($0)) }
+        if !u.isEmpty, u.allSatisfy(letter) {
+            let name = String(decoding: u.map(low), as: UTF8.self)
+            if name == "transparent" { return nil }
+            if !u.allSatisfy(hex) { return name }
+        }
+        if u.count == 4, u[0] == 0x23, u.dropFirst().allSatisfy(hex) {
+            return "#" + String(decoding: u.dropFirst().flatMap { [low($0), low($0)] }, as: UTF8.self)
+        }
+        var digits: [UInt8] = []
+        var i = u.first == 0x23 ? 1 : 0
+        while i < u.count, digits.count < 128 {
+            digits.append(hex(u[i]) ? low(u[i]) : UInt8(ascii: "0"))
+            i += 1
+        }
+        while digits.isEmpty || digits.count % 3 != 0 { digits.append(UInt8(ascii: "0")) }
+        let third = digits.count / 3
+        var parts = (0..<3).map { digits[($0 * third)..<(($0 + 1) * third)].suffix(8) }
+        while parts[0].count > 2, parts.allSatisfy({ $0.first == UInt8(ascii: "0") }) {
+            parts = parts.map { $0.dropFirst() }
+        }
+        return "#" + parts.map { part -> String in
+            let n = String(Int(String(decoding: part.prefix(2), as: UTF8.self), radix: 16) ?? 0, radix: 16)
+            return n.count == 1 ? "0" + n : n
+        }.joined()
     }
 
     // MARK: - Pieces

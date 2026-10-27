@@ -242,16 +242,40 @@ enum PanePage {
     /// (`LetterCSS.scoped`). Taking off the letter's wrapper takes its head
     /// off, and its rules for the dark, `@media (prefers-color-scheme:
     /// dark)`, are in it all but always; without them its words, written
-    /// dark for a white page, would be dark on the pane's black. Its rules
-    /// for its root or its body are the box's, inside the pane's margin,
-    /// which they cannot take away. A letter with no style in its head has
-    /// the box alone.
+    /// dark for a white page, would be dark on the pane's black.
+    ///
+    /// The box stands for its root, a `div` of the class
+    /// `LetterCSS.rootClass`, and a `div` in it of the class
+    /// `LetterCSS.bodyClass` for its body, the markup inside that. Its
+    /// rules for its root or its body are theirs, inside the pane's margin,
+    /// which they cannot take away. Its body's tag goes with the wrapper,
+    /// and with it what a letter can give its body; so the `div` for the
+    /// body has its body's `class`, for its rules that name the body by it,
+    /// and its `style`, and its `bgcolor` and `text` are the `div`'s
+    /// background and colour by a rule in front of the head's that weighs
+    /// nothing, as HTML weighs them below every rule of a sheet
+    /// (`LetterCSS.legacyColour`). Without them a letter whose white page
+    /// is its body's had its dark words on the pane's black, and its rules
+    /// for the dark by its body's class matched nothing. A letter with no
+    /// style in its head and nothing on its body has the two `div`s alone.
     static func inOwnColours(_ markup: String, of m: Message) -> String {
+        let html = m.htmlBody ?? ""
         let box = ownBox(of: m)
-        let sheets = LetterScheme.headStyles(of: m.htmlBody ?? "").map { LetterCSS.scoped($0, in: "#" + box) }
+        var letter = LetterScheme.Markup(html)
+        letter.read()
+        let hints = [("background-color", letter.bodyColour), ("color", letter.bodyText)]
+            .compactMap { name, value in value.flatMap(LetterCSS.legacyColour).map { "\(name): \($0);" } }
+        var sheets = hints.isEmpty
+            ? [] : [":where(#\(box) > .\(LetterCSS.bodyClass)) { " + hints.joined(separator: " ") + " }\n"]
+        sheets += LetterScheme.headStyles(of: html).map { LetterCSS.scoped($0, in: "#" + box) }
             .filter { !$0.isEmpty }
         let style = sheets.isEmpty ? "" : "<style>\n" + sheets.joined(separator: "\n") + "</style>"
-        return "<div id=\"\(box)\">" + style + markup + "</div>"
+        let classes = [LetterCSS.bodyClass]
+            + (letter.bodyClass ?? "").components(separatedBy: LetterScheme.htmlSpaces).filter { !$0.isEmpty }
+        let own = letter.bodyStyle.map { " style=\"" + QuotedMarkup.attributeEscaped($0) + "\"" } ?? ""
+        return "<div id=\"\(box)\" class=\"\(LetterCSS.rootClass)\">" + style
+            + "<div class=\"" + QuotedMarkup.attributeEscaped(classes.joined(separator: " ")) + "\"" + own + ">"
+            + markup + "</div></div>"
     }
 
     /// The id of that box: from the letter's own, `"<uidvalidity>/<uid>"`,
