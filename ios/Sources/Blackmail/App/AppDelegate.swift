@@ -51,6 +51,10 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // correspondence is not a bound. Launch is the only instant at which
         // nothing can be open.
         AttachmentStore.purge()
+        // The iPad's text size and Bold Text in `Theme` before any screen
+        // is made, so the first frame is drawn at his size, and followed
+        // from now on, as Mail follows them (B-166).
+        _ = TextSizes.app
 
         let window = UIWindow(frame: UIScreen.main.bounds)
         // Dark, always, never following the system. The owner's iPad ran

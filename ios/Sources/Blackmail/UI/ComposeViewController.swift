@@ -84,6 +84,10 @@ final class ComposeViewController: UIViewController,
     /// its "Cc/Bcc, From:" row while its fields show (B-134). It stayed,
     /// under Bcc, and a second tap on it hid Cc and Bcc again.
     private let ccToggleRow = UIView()
+    /// The type and the lines set from the text size, set again when it
+    /// changes while the letter is open, as Mail's composer follows it
+    /// (B-166).
+    private let restyles = Restyles()
 
     /// Addresses offered under the field he is typing in.
     ///
@@ -100,7 +104,8 @@ final class ComposeViewController: UIViewController,
     /// What last happened in an address field, for the list to be offered
     /// again as it was when his Contacts come in at his yes (B-162).
     private var lastAddressEvent: ComposeForm.FieldEvent = .entered
-    private static let suggestionRowHeight: CGFloat = Theme.suggestionRowHeight
+    /// Two lines of the type at the text size (B-166).
+    private static var suggestionRowHeight: CGFloat { Theme.scaled(Theme.suggestionRowHeight) }
 
     /// Send and Save Draft, in the order each has to happen, what the sheet
     /// shows while a letter goes, and the letter kept on the iPad meanwhile.
@@ -290,12 +295,17 @@ final class ComposeViewController: UIViewController,
         let toggleRow = ccToggleRow
         ccToggle.translatesAutoresizingMaskIntoConstraints = false
         toggleRow.addSubview(ccToggle)
+        let toggleHeight = ccToggle.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
         NSLayoutConstraint.activate([
             ccToggle.leadingAnchor.constraint(equalTo: toggleRow.leadingAnchor, constant: Theme.detailContentInsetLeft),
             ccToggle.topAnchor.constraint(equalTo: toggleRow.topAnchor),
             ccToggle.bottomAnchor.constraint(equalTo: toggleRow.bottomAnchor),
-            ccToggle.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            toggleHeight,
         ])
+        restyles.keep { [ccToggle] in
+            ccToggle.titleLabel?.font = Theme.fontDetailMeta
+            toggleHeight.constant = Theme.lineHeight
+        }
         stack.addArrangedSubview(toggleRow)
         toggleRow.isHidden = ccVisible
         stack.addArrangedSubview(row(label: "Subject:", field: subjectField, text: draft.subject))
@@ -316,7 +326,7 @@ final class ComposeViewController: UIViewController,
         stack.addArrangedSubview(attachRow())
         rebuildAttachments()
 
-        bodyView.font = .systemFont(ofSize: Theme.scaled(17))
+        restyles.keep { [bodyView] in bodyView.font = .systemFont(ofSize: Theme.scaled(17)) }
         bodyView.text = draft.body
         // The caret starts at the top, above his signature and above a
         // quoted original, where Tab and Return from Subject put it in
@@ -399,6 +409,25 @@ final class ComposeViewController: UIViewController,
                            name: UIApplication.didEnterBackgroundNotification, object: nil)
         centre.addObserver(self, selector: #selector(backInTheApp),
                            name: UIApplication.willEnterForegroundNotification, object: nil)
+        // The letter at the iPad's text size, again when it changes while
+        // it is open (B-166).
+        centre.addObserver(self, selector: #selector(textSizeChanged),
+                           name: TextSizes.didChange, object: nil)
+    }
+
+    /// The iPad's text size or Bold Text has changed while the letter is
+    /// open (`TextSizes`, B-166): every caption, field, line and the body at
+    /// the new size, the files' rows made again, and the addresses offered
+    /// at their new height; nothing he typed is touched, and the caret
+    /// stays where it was. The bar's Cancel and Send keep theirs, as a
+    /// bar's do.
+    @objc private func textSizeChanged() {
+        restyles.again()
+        rebuildAttachments()
+        suggestionsView.rowHeight = Self.suggestionRowHeight
+        suggestionsView.reloadData()
+        if let field = activeAddressField { layoutSuggestions(under: field) }
+        view.setNeedsLayout()
     }
 
     /// The letter as the fields have it now, for what keeps it.
@@ -595,13 +624,22 @@ final class ComposeViewController: UIViewController,
             files.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
             files.topAnchor.constraint(equalTo: container.topAnchor),
             files.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             rule.heightAnchor.constraint(equalToConstant: 0.5),
         ])
+        let height = container.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
+        height.isActive = true
+        restyles.keep {
+            for button in [photos, files] {
+                button.configuration?.preferredSymbolConfigurationForImage =
+                    UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
+                button.configuration?.attributedTitle?.font = Theme.fontDetailMeta
+            }
+            height.constant = Theme.lineHeight
+        }
         return container
     }
 
@@ -610,9 +648,9 @@ final class ComposeViewController: UIViewController,
         let button = UIButton(type: .system)
         var config = UIButton.Configuration.plain()
         config.image = UIImage(systemName: choice.symbol)
-        // The size of the words beside it, fixed (D-007). Left to the
-        // button, the symbol grew with the iPad's text size and the words
-        // did not.
+        // The size of the words beside it, which follow the text size
+        // (B-166). Left to the button, the symbol grew with the iPad's text
+        // size whatever the words did.
         config.preferredSymbolConfigurationForImage =
             UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
         config.imagePadding = 6
@@ -678,8 +716,8 @@ final class ComposeViewController: UIViewController,
             icon.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 14),
-            icon.heightAnchor.constraint(equalToConstant: 14),
+            icon.widthAnchor.constraint(equalToConstant: Theme.scaled(14)),
+            icon.heightAnchor.constraint(equalToConstant: Theme.scaled(14)),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             spinner.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor,
@@ -687,7 +725,7 @@ final class ComposeViewController: UIViewController,
             spinner.trailingAnchor.constraint(equalTo: container.trailingAnchor,
                                               constant: -Theme.detailContentInsetLeft),
             spinner.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            container.heightAnchor.constraint(equalToConstant: Theme.lineHeight),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -741,8 +779,8 @@ final class ComposeViewController: UIViewController,
             icon.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 14),
-            icon.heightAnchor.constraint(equalToConstant: 14),
+            icon.widthAnchor.constraint(equalToConstant: Theme.scaled(14)),
+            icon.heightAnchor.constraint(equalToConstant: Theme.scaled(14)),
             label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             remove.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor,
@@ -751,7 +789,7 @@ final class ComposeViewController: UIViewController,
                                              constant: -Theme.detailContentInsetLeft),
             remove.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             remove.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget),
-            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            container.heightAnchor.constraint(equalToConstant: Theme.lineHeight),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -978,10 +1016,8 @@ final class ComposeViewController: UIViewController,
         let container = UIView()
         let label = UILabel()
         label.text = text
-        label.font = Theme.fontDetailMeta
         label.textColor = Theme.secondaryText
         field.text = value
-        field.font = .systemFont(ofSize: Theme.scaled(17))
         field.textColor = Theme.primaryText
         // The caption is a label of its own, which VoiceOver does not read
         // with the field: "To", not "To:".
@@ -1006,33 +1042,41 @@ final class ComposeViewController: UIViewController,
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
+        let captionWidth = label.widthAnchor.constraint(equalToConstant: Theme.scaled(72))
+        let height = container.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Theme.detailContentInsetLeft),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            label.widthAnchor.constraint(equalToConstant: 72),
+            captionWidth,
             field.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
             field.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Theme.detailContentInsetLeft),
             field.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            height,
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             rule.heightAnchor.constraint(equalToConstant: 0.5),
         ])
+        // The caption's room grows with its words, "Subject:" whole at any
+        // size, and the line with the field's (B-166).
+        restyles.keep {
+            label.font = Theme.fontDetailMeta
+            field.font = .systemFont(ofSize: Theme.scaled(17))
+            captionWidth.constant = Theme.scaled(72)
+            height.constant = Theme.lineHeight
+        }
         return container
     }
 
     /// To, Cc or Bcc: the caption, then the field of bubbles, one line of
-    /// `minHitTarget` for each line of them, as Mail's field grows with a
+    /// `lineHeight` for each line of them, as Mail's field grows with a
     /// Reply All's people (B-076). The caption stays by the first line.
     private func addressRow(label text: String, field: RecipientField, entries: [String]) -> UIView {
         let container = UIView()
         let label = UILabel()
         label.text = text
-        label.font = Theme.fontDetailMeta
         label.textColor = Theme.secondaryText
         field.show(entries)
-        field.font = .systemFont(ofSize: Theme.scaled(17))
         field.textColor = Theme.primaryText
         // The caption is a label of its own, which VoiceOver does not read
         // with the field: "To", not "To:".
@@ -1050,10 +1094,19 @@ final class ComposeViewController: UIViewController,
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
+        let captionY = label.centerYAnchor.constraint(equalTo: container.topAnchor,
+                                                      constant: Theme.lineHeight / 2)
+        let captionWidth = label.widthAnchor.constraint(equalToConstant: Theme.scaled(72))
+        restyles.keep {
+            label.font = Theme.fontDetailMeta
+            field.font = .systemFont(ofSize: Theme.scaled(17))
+            captionY.constant = Theme.lineHeight / 2
+            captionWidth.constant = Theme.scaled(72)
+        }
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Theme.detailContentInsetLeft),
-            label.centerYAnchor.constraint(equalTo: container.topAnchor, constant: Theme.minHitTarget / 2),
-            label.widthAnchor.constraint(equalToConstant: 72),
+            captionY,
+            captionWidth,
             field.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
             field.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Theme.detailContentInsetLeft),
             field.topAnchor.constraint(equalTo: container.topAnchor),

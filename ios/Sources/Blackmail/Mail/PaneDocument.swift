@@ -323,6 +323,32 @@ struct PaneDocument {
         guard lost else { return nil }
         lost = false
         redrawing = true
+        return Self.again(content)
+    }
+
+    /// What the pane shows, to be drawn again at a new text size (B-166):
+    /// the letter, its page to be built anew at the size, or the stack
+    /// without its bodies and the bodies that had come, to go back in by
+    /// `fill` once it has loaded, as `redraw` hands them back; the grey
+    /// words as they were. Nil when the pane holds nothing of a letter's.
+    /// Nothing here is changed by it: the draw that follows is a new
+    /// document, its `loaded` like any other.
+    ///
+    /// When WebKit has lost the document, it is the redraw itself
+    /// (`redraw`), drawn now and at the new size rather than from the page
+    /// kept, which was built at the size before; the redraw that would
+    /// have followed has nothing left to do.
+    mutating func restyled() -> Redraw? {
+        if lost { return redraw() }
+        switch content {
+        case .nothing, .blank: return nil
+        case .notice, .letter, .conversation: return Self.again(content)
+        }
+    }
+
+    /// `content` as it is drawn again: a stack without its bodies, and the
+    /// bodies in the stack's order; anything else as it is.
+    private static func again(_ content: Content) -> Redraw {
         guard case .conversation(let entries) = content else {
             return Redraw(content: content, bodies: [])
         }

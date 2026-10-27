@@ -219,25 +219,17 @@ final class RootViewController: UIViewController {
             view.addSubview(child.view)
             child.didMove(toParent: self)
         }
-        // The folders and the list laid out as at the iPad's default text
-        // size, whatever it is set to (B-071), as D-007 has the type. Their
-        // words are in fixed fonts, but UIKit sizes some of what it draws
-        // beside them by the text size. A folder's icon and its room grew
-        // at the larger sizes and moved the names right; at the
-        // accessibility sizes the icons shrank to the name's height and
-        // each name began where its own icon ended, so a block's names were
-        // no longer on one line. A fixed symbol size and a fixed room did
-        // not hold there: that layout is UIKit's own. In Edit mode the
-        // circle he ticks grew from 26 pt to 49 at the largest size and
-        // pushed every row's words 25 pt right; it takes no size at all.
-        // Not the reading pane: once its symbols had a size of their own
-        // (`Theme.symbolSize`) nothing in it moved with the text size. Nor
-        // what these panes put up, since a sheet or an alert is presented
-        // over the whole screen and follows the iPad's setting as before.
-        for nav in [mailboxNav, listNav] {
-            setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: .large),
-                                       forChild: nav)
-        }
+        // The folders and the list follow the iPad's text size, as Mail's
+        // do (B-166): nothing holds them at the default any more. B-071 held
+        // them there with a trait for the two, as D-007 had the type fixed,
+        // and the owner's ruling of 2026-10-26 to copy Mail reverses both.
+        // What UIKit draws beside the words is UIKit's again, as in Mail: a
+        // folder's icon and its room grow with the names, and at the
+        // accessibility sizes UIKit lays a folder's row out its own way, the
+        // name after its own icon; in Edit mode the circle he ticks grows
+        // with the type, 49 pt at the largest size, and the row's words move
+        // right by as much. The words and the rows are the app's, at the
+        // size (`Theme.textSize`).
         for d in [divider1, divider2] {
             d.backgroundColor = Theme.paneDivider
             d.translatesAutoresizingMaskIntoConstraints = false

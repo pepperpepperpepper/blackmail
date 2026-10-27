@@ -144,6 +144,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// letter, so launch does not start WebKit's content process for an
     /// empty page. See `PaneDocument`.
     private var document = PaneDocument()
+    /// The text size changed while the pane could not be seen, or the app
+    /// was not in front: the letter is drawn at the new size once they are
+    /// (`restyleOwed`, B-166).
+    private var restyleOwed = false
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -260,11 +264,60 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             NotificationCenter.default.addObserver(self, selector: #selector(datesChanged),
                                                    name: name, object: nil)
         }
+        // The header and the letter at the iPad's text size, again when it
+        // changes (B-166).
+        NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged),
+                                               name: TextSizes.didChange, object: nil)
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         drawAgain()
+        restyleIfOwed()
+    }
+
+    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166),
+    /// and the pane follows it as Mail's does while it is open: the header's
+    /// type at once, and the letter, or the conversation, drawn again at the
+    /// new size, from what the pane holds, with nothing fetched
+    /// (`PaneDocument.restyled`). Drawn again, it starts where a letter
+    /// starts as it opens, at its top, or a conversation at its first open
+    /// letter (B-074), as after WebKit lost it: the place he had scrolled
+    /// to is not kept. While the pane cannot be seen, or the app is not in
+    /// front, the letter waits to be drawn until they are, as `drawAgain`
+    /// waits.
+    @objc private func textSizeChanged() {
+        header.restyle()
+        placeholder.font = Theme.fontDetailMeta
+        restyleOwed = true
+        restyleIfOwed()
+    }
+
+    private func restyleIfOwed() {
+        guard restyleOwed, UIApplication.shared.applicationState == .active,
+              viewIfLoaded?.window != nil else { return }
+        restyleOwed = false
+        guard let again = document.restyled() else { return }
+        switch again.content {
+        case .nothing, .blank:
+            break
+        case .notice(let lines):
+            renderNotice(lines)
+        case .letter(let m, _):
+            // Built again at the size now: the page kept was built at the
+            // size before. On the main thread, as it is a change he made in
+            // Settings and not a tap from letter to letter.
+            draw(m, page: PanePage.letter(m, style: pageStyle))
+        case .conversation(let entries):
+            // As `drawAgain` draws it: the stack, then its bodies put in by
+            // script once it has loaded, the letter in the header's
+            // pictures last.
+            let drawn = entries.compactMap { loaded[$0.id] }
+            prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter }
+                                    + drawn.filter { $0.id == stackFocus.letter })
+            renderConversation(entries)
+            for (id, body) in again.bodies { fill(id, body) }
+        }
     }
 
     /// The iPad's 24-Hour Time switch, its time zone or its region has
@@ -315,9 +368,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         var items: [UIBarButtonItem] = []
         for action in Theme.ToolbarAction.allCases {
             guard let (name, sel) = spec[action] else { continue }
-            // At a fixed size, as the type is, so the buttons keep their
-            // places at any text size (B-071).
-            let item = UIBarButtonItem(image: Theme.symbol(name),
+            // At a fixed size, as the bar's type is, so the buttons keep
+            // their places at any text size (B-071, B-166).
+            let item = UIBarButtonItem(image: Theme.barSymbol(name),
                                        style: .plain, target: self, action: sel)
             item.tintColor = Theme.tintBlue
             item.width = Theme.minHitTarget      // 44 pt even where the glyph is smaller
@@ -1271,7 +1324,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
-    @objc private func appBecameActive() { drawAgain() }
+    @objc private func appBecameActive() {
+        drawAgain()
+        restyleIfOwed()
+    }
 
     func webView(_ w: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {

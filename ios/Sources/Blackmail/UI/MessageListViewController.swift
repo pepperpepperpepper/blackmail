@@ -590,8 +590,8 @@ final class MessageListViewController: UITableViewController {
         // and this is the whole of it. In two panes (D-015) the view button
         // and "< Mailboxes" come before it in the same slot, and it stays
         // the one beside the title.
-        // At a fixed size, as the type is (B-071).
-        let jump = UIBarButtonItem(image: Theme.symbol("calendar"),
+        // At a fixed size, as the bar's type is (B-071, B-166).
+        let jump = UIBarButtonItem(image: Theme.barSymbol("calendar"),
                                    style: .plain, target: self,
                                    action: #selector(jumpToDateTapped))
         jump.accessibilityLabel = "Go to a date"
@@ -653,6 +653,9 @@ final class MessageListViewController: UITableViewController {
             NotificationCenter.default.addObserver(self, selector: #selector(datesChanged),
                                                    name: name, object: nil)
         }
+        // The rows at the iPad's text size, again when it changes (B-166).
+        NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged),
+                                               name: TextSizes.didChange, object: nil)
 
         // The folder's page kept on the iPad, before anything is sent
         // (D-016): at launch the Inbox is in the first frame, and so is
@@ -1386,6 +1389,22 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func showAge() {
         if showingAge { sayAge() }
+    }
+
+    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166),
+    /// as Mail's list follows them while it is open: the rows at their new
+    /// height (`RowLines`), every row drawn again with its type at the new
+    /// size (`MessageCell.restyle`), as a regroup draws them, which holds
+    /// his place by the letters he can see, the highlight and Edit mode's
+    /// ticks by their letters, and VoiceOver's row; the recent searches
+    /// under the field and "No messages" at the new size. Nothing is
+    /// fetched. The bars and the line under the list keep theirs, as
+    /// UIKit's bars do.
+    @objc private func textSizeChanged() {
+        tableView.rowHeight = Theme.messageRowHeightScaled
+        emptyLabel.font = Theme.fontListSubject
+        searchBar.restyle()
+        regroup()
     }
 
     /// The iPad's 24-Hour Time switch, its time zone or its region has
@@ -2792,7 +2811,8 @@ final class MessageListViewController: UITableViewController {
                 [weak self] _, _, done in
                 done(self?.swiped(action, on: RowKey(thread)) ?? false)
             }
-            // At a fixed size, as every symbol here is (B-071).
+            // At a size of the app's own, as every symbol here is (B-071),
+            // the row's type's (B-166).
             button.image = Theme.symbol(action.symbol)
             button.backgroundColor = Self.colour(of: action)
             return button

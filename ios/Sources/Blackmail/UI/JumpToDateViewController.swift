@@ -94,10 +94,12 @@ final class JumpToDateViewController: UIViewController {
         scopeControl.selectedSegmentIndex =
             MailSearchScope.allCases.firstIndex(of: Self.lastScope) ?? 0
         scopeControl.selectedSegmentTintColor = Theme.tintBlue
+        // The sheet's words at their size whatever the text size (B-166):
+        // the buttons are of a fixed height, and the sheet of its own.
         scopeControl.setTitleTextAttributes(
-            [.foregroundColor: Theme.secondaryText, .font: Theme.fontDetailMeta], for: .normal)
+            [.foregroundColor: Theme.secondaryText, .font: Theme.fontControl], for: .normal)
         scopeControl.setTitleTextAttributes(
-            [.foregroundColor: UIColor.white, .font: Theme.fontDetailMeta], for: .selected)
+            [.foregroundColor: UIColor.white, .font: Theme.fontControl], for: .selected)
         scopeControl.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scopeControl)
 
@@ -105,7 +107,7 @@ final class JumpToDateViewController: UIViewController {
             + "Scroll up for later messages, down for earlier ones."
         explain.numberOfLines = 0
         explain.textAlignment = .center
-        explain.font = Theme.fontDetailMeta
+        explain.font = Theme.fontControl
         explain.textColor = Theme.secondaryText
         explain.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(explain)

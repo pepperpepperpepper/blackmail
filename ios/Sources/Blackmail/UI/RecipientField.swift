@@ -38,8 +38,9 @@ final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerD
     /// The line he types on, after the bubbles.
     let input = TypingLine()
     private var buttons: [UIButton] = []
-    /// One line of `minHitTarget` for each line of bubbles.
-    private lazy var height = heightAnchor.constraint(equalToConstant: Theme.minHitTarget)
+    /// One line of `lineHeight` for each line of bubbles: `minHitTarget`
+    /// at Large, and taller with the type at the larger text sizes (B-166).
+    private lazy var height = heightAnchor.constraint(equalToConstant: Theme.lineHeight)
 
     var font: UIFont = .systemFont(ofSize: Theme.scaled(17)) {
         didSet {
@@ -351,7 +352,7 @@ final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerD
         look.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: Theme.recipientBubblePadding,
                                                      bottom: 0, trailing: Theme.recipientBubblePadding)
         look.background.backgroundColor = selected ? Theme.tintBlue : Theme.recipientBubbleFill
-        look.background.cornerRadius = Theme.recipientBubbleHeight / 2
+        look.background.cornerRadius = Theme.scaled(Theme.recipientBubbleHeight) / 2
         button.configuration = look
         button.accessibilityLabel = words
         button.accessibilityValue = address == words ? nil : address
@@ -365,13 +366,15 @@ final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerD
     override func layoutSubviews() {
         super.layoutSubviews()
         let lines = place(in: bounds.width)
-        let tall = CGFloat(lines) * Theme.minHitTarget
+        let tall = CGFloat(lines) * Theme.lineHeight
         if height.constant != tall { height.constant = tall }
     }
 
-    /// The bubbles in lines of `minHitTarget`, as many to a line as fit,
+    /// The bubbles in lines of `lineHeight`, as many to a line as fit,
     /// and the line he types on after the last of them, on a line of its
     /// own when what is left is too short to type in. The number of lines.
+    /// At Large a line is `minHitTarget` and a bubble 30 points; at another
+    /// text size both are scaled with the names in them (B-166).
     ///
     /// A bubble is drawn `recipientBubbleHeight` tall, and at least
     /// `minHitTarget` wide, a short name centred in it; it takes a tap on
@@ -381,8 +384,8 @@ final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerD
     /// tap a few points above or below it raised the keyboard instead.
     private func place(in width: CGFloat) -> Int {
         guard width > 0 else { return 1 }
-        let line = Theme.minHitTarget
-        let tall = Theme.recipientBubbleHeight
+        let line = Theme.lineHeight
+        let tall = Theme.scaled(Theme.recipientBubbleHeight)
         var x: CGFloat = 0
         var row = 0
         for b in buttons {

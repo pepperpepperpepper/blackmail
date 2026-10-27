@@ -73,6 +73,9 @@ final class MailboxListViewController: UITableViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(outboxChanged),
                                                name: LocalDrafts.changed,
                                                object: LocalDrafts.shared)
+        // The rows at the iPad's text size, again when it changes (B-166).
+        NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged),
+                                               name: TextSizes.didChange, object: nil)
         // The folders as the last sweep counted them, kept on the iPad
         // (D-016), in the first frame and with no connection. They stand
         // until a sweep lands; the names alone never go over them
@@ -247,6 +250,15 @@ final class MailboxListViewController: UITableViewController {
         redraw()
     }
 
+    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166):
+    /// the rows at their new height, each drawn again with its name, count
+    /// and icon at the new size, and the highlight put back, as a sweep
+    /// puts it back. As Mail's folders follow it, while the app is open.
+    @objc private func textSizeChanged() {
+        tableView.rowHeight = Theme.mailboxRowHeightScaled
+        redraw()
+    }
+
     /// The folder playing a given role, for callers that need to open one
     /// without the user having picked it — the date jump asking for "all
     /// mailboxes", which on Gmail means All Mail.
@@ -310,8 +322,9 @@ final class MailboxListViewController: UITableViewController {
         content.text = mailbox.displayName
         content.textProperties.font = Theme.fontMailboxName
         content.textProperties.color = Theme.primaryText
-        // At a fixed size (B-071). The room UIKit gives it, and the gap to
-        // the name, are held by the container (`RootViewController`).
+        // At a size of the app's own, the names' (B-071, B-166). The room
+        // UIKit gives it, and the gap to the name, are UIKit's at the
+        // iPad's text size, as in Mail.
         content.image = Theme.symbol(icon(for: mailbox.role))
         content.imageProperties.preferredSymbolConfiguration = Theme.symbolSize
         content.imageProperties.tintColor = Theme.tintBlue

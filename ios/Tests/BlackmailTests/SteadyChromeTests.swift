@@ -78,11 +78,13 @@ final class SteadyChromeTests: XCTestCase {
 
     // MARK: - Symbols at a fixed size
 
-    /// One size for every symbol UIKit would size itself: 17 pt, the large
-    /// scale, regular, which is what UIKit drew each at with the iPad's
-    /// text size at its default, measured on the simulator. A point size,
-    /// which no text size changes, and not a text style, which every text
-    /// size does. It moves with `textScale` alone.
+    /// One size for every symbol UIKit would size itself among the words:
+    /// 17 pt, the large scale, regular, which is what UIKit drew each at
+    /// with the iPad's text size at its default, measured on the simulator.
+    /// A point size of the app's, not a text style of UIKit's. It moves
+    /// with `textScale` alone, which follows the iPad's text size (B-166).
+    /// The bars' symbols are the same at Large and never move: 17, as the
+    /// bars' type is.
     func testTheSymbolSizeIsAPointSize() throws {
         let code = try source("Theme/Theme.swift")
         XCTAssertNotNil(place(of: "static var symbolSize: UIImage.SymbolConfiguration { "
@@ -90,20 +92,25 @@ final class SteadyChromeTests: XCTestCase {
                                   + "scale: .large) }", in: code))
         XCTAssertNotNil(place(of: "static func symbol(_ name: String) -> UIImage? { "
                                   + "UIImage(systemName: name, withConfiguration: symbolSize) }", in: code))
+        XCTAssertNotNil(place(of: "static var barSymbolSize: UIImage.SymbolConfiguration { "
+                                  + "UIImage.SymbolConfiguration(pointSize: 17, weight: .regular, "
+                                  + "scale: .large) }", in: code))
+        XCTAssertNotNil(place(of: "static func barSymbol(_ name: String) -> UIImage? { "
+                                  + "UIImage(systemName: name, withConfiguration: barSymbolSize) }", in: code))
         XCTAssertFalse(code.contains("textStyle"))
     }
 
-    /// The reading pane's five buttons and the calendar, the folders'
-    /// icons, and a file's paperclip in a letter's header, each at
-    /// `Theme.symbolSize`. The paperclip and the icons say so to their
-    /// button and their row as well, which otherwise put a size of their
-    /// own on the image.
+    /// The reading pane's five buttons and the calendar at
+    /// `Theme.barSymbolSize`, the folders' icons and a file's paperclip in
+    /// a letter's header at `Theme.symbolSize`. The paperclip and the icons
+    /// say so to their button and their row as well, which otherwise put a
+    /// size of their own on the image.
     func testTheSymbolsUIKitSizedAreFixed() throws {
         let toolbar = try source("UI/MessageDetailViewController.swift")
-        XCTAssertNotNil(place(of: "let item = UIBarButtonItem(image: Theme.symbol(name), style: .plain, "
+        XCTAssertNotNil(place(of: "let item = UIBarButtonItem(image: Theme.barSymbol(name), style: .plain, "
                                   + "target: self, action: sel)", in: toolbar))
         let list = try source("UI/MessageListViewController.swift")
-        XCTAssertNotNil(place(of: "let jump = UIBarButtonItem(image: Theme.symbol(\"calendar\"), style: .plain,",
+        XCTAssertNotNil(place(of: "let jump = UIBarButtonItem(image: Theme.barSymbol(\"calendar\"), style: .plain,",
                               in: list))
         let header = try source("UI/MessageHeaderView.swift")
         XCTAssertNotNil(place(of: "config.image = Theme.symbol(\"paperclip\") "
@@ -152,25 +159,24 @@ final class SteadyChromeTests: XCTestCase {
                                   + "icon.heightAnchor.constraint(equalToConstant: 15),", in: search))
     }
 
-    /// The folders and the list are laid out as at the default text size,
-    /// whatever the iPad's is: at the accessibility sizes UIKit lays a
-    /// folder's icon out in a way of its own, which a fixed symbol and room
-    /// did not hold, and Edit mode's circles take no size at all. Said by
-    /// the container once its panes are its children, for those two panes
-    /// and not the reading pane, whose symbols have a size of their own.
-    func testTheFoldersAndTheListAreLaidOutAtTheDefaultTextSize() throws {
+    /// The folders and the list follow the iPad's text size, as Mail's do
+    /// (B-166): B-071's hold on them at the default, a trait put on their
+    /// two navigation controllers by the container, is gone, and nothing
+    /// else in the container holds any pane at a size. What UIKit draws
+    /// beside their words, a folder's icon's room and Edit mode's circles,
+    /// is UIKit's at the iPad's size, as in Mail.
+    func testTheFoldersAndTheListFollowTheTextSize() throws {
         let code = try source("UI/RootViewController.swift")
-        let children = try XCTUnwrap(place(of: "for child in [mailboxNav, listNav, detailNav] { addChild(child) "
-                                               + "child.view.translatesAutoresizingMaskIntoConstraints = false "
-                                               + "view.addSubview(child.view) child.didMove(toParent: self) }",
-                                           in: code))
-        let held = try XCTUnwrap(place(of: "for nav in [mailboxNav, listNav] { setOverrideTraitCollection("
-                                           + "UITraitCollection(preferredContentSizeCategory: .large), "
-                                           + "forChild: nav) }",
-                                       in: code))
-        XCTAssertLessThan(children, held)
-        XCTAssertEqual(count("setOverrideTraitCollection", in: code), 1)
-        XCTAssertEqual(count("preferredContentSizeCategory", in: code), 1)
+        XCTAssertNotNil(place(of: "for child in [mailboxNav, listNav, detailNav] { addChild(child) "
+                                  + "child.view.translatesAutoresizingMaskIntoConstraints = false "
+                                  + "view.addSubview(child.view) child.didMove(toParent: self) }",
+                              in: code))
+        XCTAssertEqual(count("setOverrideTraitCollection", in: code), 0)
+        XCTAssertEqual(count("preferredContentSizeCategory", in: code), 0)
+        for file in ["MailboxListViewController", "MessageListViewController", "MessageDetailViewController",
+                     "MessageHeaderView", "MessageCell", "ComposeViewController"] {
+            XCTAssertFalse(try source("UI/\(file).swift").contains("setOverrideTraitCollection"), file)
+        }
     }
 
     // MARK: - Names for VoiceOver
