@@ -140,15 +140,18 @@ enum PanePage {
         // letter is drawn on (B-169): the light ones on a letter drawn
         // light or inverted, which the invert turns with the letter's own,
         // and the dark ones on a letter in its own colours or plain, on
-        // the pane's black (int19).
-        let held = heldBack ? Self.held(m, as: m.id, drawn: drawn) : ""
+        // the pane's black (int19). The style a letter in its own colours
+        // brings back is read once, for Mail's line and for its box: the
+        // reading is the costly part of B-169 (int19).
+        let frame = drawn == .own ? ownFrame(of: m) : nil
+        let held = heldBack ? Self.held(m, as: m.id, ownFrame: frame) : ""
         let html = BodyFiles.drawn(
             in: isHTML
                 ? Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m), flowed: false,
                                heldBack: !held.isEmpty)
                 : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed),
             of: m, on: darkWords ? .dark : .light, cut: m.isShortened)
-        let content = drawn == .own ? inOwnColours(html, of: m, heldBack: !held.isEmpty) : html
+        let content = frame.map { inOwnColours(html, of: m, heldBack: !held.isEmpty, frame: $0) } ?? html
 
         // Every property lives on #bm, a container the inner document cannot
         // reach, rather than on `body` where a sender's inline style outranks
@@ -231,14 +234,16 @@ enum PanePage {
     /// Mail's line for `m`, its button naming `id`, when its markup asks the
     /// web for anything (`RemoteContent.line`, B-168); "" when it asks for
     /// nothing, a plain letter's never does, and nothing is held back. For a
-    /// letter drawn in its own colours (`drawn`, B-169), the style of its
-    /// head and body that comes back with it counts too: a `url()` of the
-    /// web there is held back as the markup's are, and Mail's line says so
-    /// (int19).
-    static func held(_ m: Message, as id: String, drawn: LetterScheme? = nil) -> String {
+    /// letter drawn in its own colours (B-169), the style of its head and
+    /// body that comes back with it, `ownFrame`, counts too: a `url()` of
+    /// the web there is held back as the markup's are, and Mail's line says
+    /// so (int19). Given by the caller, which puts the letter in that frame
+    /// too, so the letter is read for it once.
+    static func held(_ m: Message, as id: String,
+                     ownFrame frame: (open: String, close: String)? = nil) -> String {
         guard let html = m.htmlBody else { return "" }
         let asks = RemoteContent.asksTheWeb(DocumentWrapper.stripped(from: html))
-            || (drawn == .own && RemoteContent.asksTheWeb(ownFrame(of: m).open))
+            || (frame.map { RemoteContent.asksTheWeb($0.open) } ?? false)
         return asks ? RemoteContent.line(for: id) : ""
     }
 
@@ -308,7 +313,8 @@ enum PanePage {
         let isHTML = m.htmlBody != nil
         let empty = isEmpty(m)
         let drawn = isHTML && !empty ? LetterScheme.of(html: m.htmlBody!) : .inverted
-        let held = empty ? "" : heldBack.map { Self.held(m, as: $0, drawn: drawn) } ?? ""
+        let frame = drawn == .own && !empty ? ownFrame(of: m) : nil
+        let held = empty ? "" : heldBack.map { Self.held(m, as: $0, ownFrame: frame) } ?? ""
         var content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : BodyFiles.drawn(
@@ -318,7 +324,7 @@ enum PanePage {
                     : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                                        flowed: m.textIsFlowed, escaping: .ampersandAndBrackets),
                 of: m, on: !isHTML || drawn == .own ? .dark : .light, cut: m.isShortened)
-        if drawn == .own { content = inOwnColours(content, of: m, heldBack: !held.isEmpty) }
+        if let frame { content = inOwnColours(content, of: m, heldBack: !held.isEmpty, frame: frame) }
         return .init(html: empty ? content : held + shortened(m) + content, isHTML: isHTML && !empty,
                      scheme: drawn)
     }
@@ -350,8 +356,11 @@ enum PanePage {
     /// back with it has every reference to the web in it held back, as the
     /// markup's are (`RemoteContent.blocked`), so a `url()` in its head or
     /// on its body loads nothing until "Load All Images" (int19).
-    static func inOwnColours(_ markup: String, of m: Message, heldBack: Bool = false) -> String {
-        let frame = ownFrame(of: m)
+    ///
+    /// `frame`, its `ownFrame` where the caller has it already.
+    static func inOwnColours(_ markup: String, of m: Message, heldBack: Bool = false,
+                             frame: (open: String, close: String)? = nil) -> String {
+        let frame = frame ?? ownFrame(of: m)
         return (heldBack ? RemoteContent.blocked(frame.open) : frame.open) + markup + frame.close
     }
 

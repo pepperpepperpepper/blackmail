@@ -683,6 +683,39 @@ final class DarkLikeMailTests: XCTestCase {
         XCTAssertLessThan(scoped, bound, "scoped: \(scoped) s")
     }
 
+    /// Held back, a letter in its own colours is read for its style once,
+    /// as one not held back is: Mail's line and its box are given the same
+    /// frame (`PanePage.ownFrame`), on its page and in a stack, and
+    /// `PanePage.held` reads nothing of its own. The reading is what
+    /// `testALetterMadeToBeSlowIsReadOnce` bounds; done twice, Block All
+    /// Remote Content doubled it (int19).
+    func testAHeldBackLetterInItsOwnColoursIsReadOnce() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail/Mail/PanePage.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+            .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).joined(separator: " ")
+        let held = try XCTUnwrap(code.range(of: "static func held("))
+        let after = try XCTUnwrap(code.range(of: "static func shortened(", range: held.upperBound..<code.endIndex))
+        XCTAssertFalse(code[held.lowerBound..<after.lowerBound].contains("ownFrame(of:"),
+                       "the line reads the frame it is given")
+        for line in [
+            "let frame = drawn == .own ? ownFrame(of: m) : nil "
+                + "let held = heldBack ? Self.held(m, as: m.id, ownFrame: frame) : \"\"",
+            "let content = frame.map { inOwnColours(html, of: m, heldBack: !held.isEmpty, frame: $0) } ?? html",
+            "let frame = drawn == .own && !empty ? ownFrame(of: m) : nil "
+                + "let held = empty ? \"\" : heldBack.map { Self.held(m, as: $0, ownFrame: frame) } ?? \"\"",
+            "if let frame { content = inOwnColours(content, of: m, heldBack: !held.isEmpty, frame: frame) }",
+            "let frame = frame ?? ownFrame(of: m)",
+        ] {
+            XCTAssertTrue(code.contains(line), line)
+        }
+        XCTAssertEqual(code.components(separatedBy: "ownFrame(of: m)").count - 1, 3)
+    }
+
     // MARK: - With Block All Remote Content (B-168)
 
     /// Held back, a letter is judged by its markup as it came: one with a
