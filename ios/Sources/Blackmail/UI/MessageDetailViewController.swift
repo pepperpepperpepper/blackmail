@@ -59,6 +59,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// an empty pane, by the list's folder. From the container, which lists
     /// the folders (`SwipeOptions.archive(fromFolderWithRole:into:)`).
     var archiveTarget: ((MessageSummary?) -> Mailbox?)?
+    /// Whether Delete's button is drawn as Archive now: false as
+    /// `buildToolbar` draws it, the bin (`drawDiscardButton`).
+    private var discardArchives = false
 
     private let repository: MailRepository
     /// The letter the toolbar acts on. Delete's button is drawn again for
@@ -346,10 +349,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Delete's button as Mail's: an archive box called Archive where the
     /// letter, or with none the list's folder, discards into All Mail
     /// (`archiveTarget`, B-167), the bin called Delete otherwise. Its place
-    /// in the bar and its tap are the same.
+    /// in the bar and its tap are the same. Drawn only when that changes
+    /// (`discardArchives`): the bar keeps the bin `buildToolbar` gave it
+    /// from letter to letter, as before B-167, while nothing archives.
     @objc private func drawDiscardButton() {
         guard let item = actionItems[.delete] else { return }
         let archives = archiveTarget?(summary) != nil
+        guard archives != discardArchives else { return }
+        discardArchives = archives
         item.image = Theme.symbol(archives ? "archivebox" : "trash")
         item.accessibilityLabel = archives ? RowSwipes.Action.archive.title : "Delete"
     }

@@ -2556,7 +2556,8 @@ final class MessageListViewController: UITableViewController {
     /// and the list was fetched again after all of them: a refusal said
     /// nothing, and nothing said Delete was working. Inside Trash, where
     /// Delete erases, he is asked first (`EraseQuestion`), and Cancel leaves
-    /// his ticks as they were.
+    /// his ticks as they were; where the bar archives, of the letters it
+    /// deletes alone (`EditBar.question`, B-167).
     ///
     /// A letter kept on the iPad goes from the iPad, as Delete Draft in the
     /// composer takes it (`LocalDrafts.delete`). Handed to the repository
@@ -2566,8 +2567,8 @@ final class MessageListViewController: UITableViewController {
     @objc private func deleteSelected() {
         let chosen = selectedMessages
         guard !chosen.isEmpty else { return }
-        guard let question = EraseQuestion.before(deleting: chosen,
-                                                  role: { self.role(of: $0) }) else {
+        guard let question = EditBar.question(before: chosen, role: { self.role(of: $0) },
+                                              allMail: allMail) else {
             delete(chosen)
             return
         }

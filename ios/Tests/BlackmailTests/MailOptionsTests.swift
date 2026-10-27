@@ -86,7 +86,7 @@ final class MailOptionsTests: XCTestCase {
     /// Protection pages of their own; every option on the page once.
     func testThePageIsMailsInItsOrderAndWords() throws {
         let page = MailOptions.page
-        XCTAssertEqual(page.map(\.heading), ["Move Discarded Messages Into", "Message List",
+        XCTAssertEqual(page.map(\.heading), ["Move Discarded Messages Into:", "Message List",
                                              "Messages", "Threading"])
         XCTAssertEqual(page[0].rows, [.values(.moveDiscardedMessagesInto)])
         XCTAssertEqual(page[0].footer, "In Mail: Mail Accounts > Gmail > Account > Advanced.")
@@ -297,6 +297,66 @@ final class MailOptionsTests: XCTestCase {
         XCTAssertEqual(none.deleted, [inbox, spam])
     }
 
+    /// A Swipe Left or Swipe Right set to Archive goes by the discard's rule
+    /// (`SwipeOptions.archives`): no Archive on a row in Drafts or Trash,
+    /// whichever Move Discarded Messages Into says, so a drag there neither
+    /// files a draft in All Mail nor takes a letter out of Trash; in the
+    /// Inbox, Junk or a folder of his own, Archive on both sides.
+    func testASwipeSetToArchiveGoesByTheDiscardsRule() {
+        func row(_ role: Mailbox.Role?) -> RowSwipes.Row {
+            RowSwipes.Row(read: true, flagged: false, role: role, onThisIPadOnly: false,
+                          canArchive: true)
+        }
+        for discard in SwipeOptions.Discard.allCases {
+            let options = SwipeOptions(swipeLeft: .archive, swipeRight: .archive,
+                                       discardInto: discard)
+            XCTAssertEqual(RowSwipes.sides(for: row(.drafts), editing: false, options: options),
+                           RowSwipes.Sides(left: [.trash, .more], right: []), "\(discard)")
+            XCTAssertEqual(RowSwipes.sides(for: row(.trash), editing: false, options: options),
+                           RowSwipes.Sides(left: [.delete, .more], right: []), "\(discard)")
+            for role: Mailbox.Role? in [.inbox, .junk, nil] {
+                let sides = RowSwipes.sides(for: row(role), editing: false, options: options)
+                XCTAssertEqual(sides.right, [.archive], "\(discard) \(String(describing: role))")
+                XCTAssertTrue(sides.left.contains(.archive))
+            }
+        }
+        for role: Mailbox.Role in [.drafts, .outbox, .trash] {
+            XCTAssertFalse(SwipeOptions.archives(role: role, canArchive: true))
+            XCTAssertNil(RowSwipes.action(for: .archive, on: row(role)))
+        }
+        XCTAssertFalse(SwipeOptions.archives(role: .inbox, canArchive: false))
+        XCTAssertTrue(SwipeOptions.archives(role: .inbox, canArchive: true))
+    }
+
+    /// Under "Archive", what the Edit bar asks before its tap counts only
+    /// the letters it deletes: an All Mailboxes search with four hits from
+    /// the Inbox and one from Trash archives the four and asks of the one
+    /// alone; with a hit from All Mail too, which goes to the Trash, of
+    /// both. With Deleted Mailbox, of all five, as before B-167.
+    func testTheEditBarsQuestionCountsOnlyTheLettersItDeletes() {
+        let folders: [String: Mailbox.Role] = ["INBOX": .inbox, "[Gmail]/All Mail": .archive,
+                                               "[Gmail]/Trash": .trash]
+        let mixed = (1...4).map { letter("1/\($0)", in: "INBOX") }
+            + [letter("2/1", in: "[Gmail]/Trash")]
+        let archived = EditBar.question(before: mixed, role: { folders[$0] }, allMail: allMail,
+                                        options: archiving)
+        XCTAssertEqual(archived?.title, "Delete Message?")
+        XCTAssertEqual(archived?.message,
+                       "This message will be deleted immediately. You can't undo this action.")
+        let withAllMail = EditBar.question(before: mixed + [letter("3/1", in: "[Gmail]/All Mail")],
+                                           role: { folders[$0] }, allMail: allMail,
+                                           options: archiving)
+        XCTAssertEqual(withAllMail?.title, "Delete 2 Messages?")
+        XCTAssertEqual(withAllMail?.message, "1 of them is in the Trash and will be deleted "
+                           + "immediately. You can't undo this action.")
+        let trashed = EditBar.question(before: mixed, role: { folders[$0] }, allMail: allMail,
+                                       options: .factory)
+        XCTAssertEqual(trashed, EraseQuestion.before(deleting: mixed, role: { folders[$0] }))
+        XCTAssertEqual(trashed?.title, "Delete 5 Messages?")
+        XCTAssertNil(EditBar.question(before: Array(mixed.prefix(4)), role: { folders[$0] },
+                                      allMail: allMail, options: archiving))
+    }
+
     // MARK: - The wiring, read from the source
 
     /// Settings draws Mail's page under its password, before Bring Back,
@@ -311,6 +371,9 @@ final class MailOptionsTests: XCTestCase {
                  "stack.addArrangedSubview(bringBackButton)"], in: settings)
         XCTAssertTrue(settings.contains("override func viewWillAppear(_ animated: Bool) { "
                                         + "super.viewWillAppear(animated) mailOptions.redraw() }"))
+        XCTAssertTrue(settings.contains("private static let mailCaption = \"As in Settings > "
+                                        + "Apps > Mail. \" + \"Set them as they are set for Mail "
+                                        + "on this iPad.\""))
         XCTAssertFalse(settings.contains("organizeSwitch"))
         XCTAssertFalse(settings.contains("completeSwitch"))
 
@@ -343,8 +406,10 @@ final class MailOptionsTests: XCTestCase {
             "private var summary: MessageSummary? { didSet { drawDiscardButton() } }",
             "NotificationCenter.default.addObserver(self, selector: #selector(drawDiscardButton), "
                 + "name: MailOptions.changed, object: nil)",
+            "private var discardArchives = false",
             "@objc private func drawDiscardButton() { guard let item = actionItems[.delete] else { "
-                + "return } let archives = archiveTarget?(summary) != nil item.image = "
+                + "return } let archives = archiveTarget?(summary) != nil guard archives != "
+                + "discardArchives else { return } discardArchives = archives item.image = "
                 + "Theme.symbol(archives ? \"archivebox\" : \"trash\") item.accessibilityLabel = "
                 + "archives ? RowSwipes.Action.archive.title : \"Delete\" }",
             "let action = archiveTarget?(s).map { PaneAction.move(to: $0) } ?? .delete "

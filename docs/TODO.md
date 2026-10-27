@@ -121,20 +121,20 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Contacts, and he would meet the question alone in the middle of a
       letter, where a Don't Allow is for good and nothing in the app says
       so (B-162).
-- [ ] On the day, his iPad's Settings > Apps > Mail open beside
-      Blackmail's Settings, its part called Mail (B-167): each live row
-      set as his Mail's page shows it, two minutes. Mail Accounts > Gmail
-      > Account > Advanced > Move Discarded Messages Into (Deleted Mailbox
-      or Archive Mailbox); Message List > Swipe Options > Swipe Left and
-      Swipe Right, and Delete or Move Message Action (if his iPad has no
+- [ ] On the day, his iPad's Settings > Apps > Mail open beside Blackmail's
+      Settings, its part called Mail (B-167): each live row set as his
+      Mail's page shows it, two minutes. Mail Accounts > Gmail > Account (or
+      Account Settings) > Advanced > Move Discarded Messages Into (Deleted
+      Mailbox or Archive Mailbox); Message List > Swipe Options > Swipe Left
+      and Swipe Right, and Delete or Move Message Action (if his iPad has no
       such row, View Next Message, as Mail before 18.4); Threading >
-      Organize by Thread and Complete Threads. A greyed row whose value
-      on his iPad differs from Blackmail's (Preview, Show To/Cc Labels,
-      Collapse Read Messages, Most Recent Message on Top, and until B-168
-      is merged Ask Before Deleting and Privacy Protection's Block All
-      Remote Content) written down for the owner: Blackmail does not have
-      his value. Then Blackmail's Settings closed with Cancel, which leaves
-      them set.
+      Organize by Thread and Complete Threads. A greyed row whose value on
+      his iPad differs from Blackmail's (Preview, Show To/Cc Labels,
+      Collapse Read Messages, Most Recent Message on Top, and until B-168 is
+      merged Ask Before Deleting and Privacy Protection's Block All Remote
+      Content) written down for the owner: Blackmail does not have his
+      value. Then Blackmail's Settings closed with Cancel, which leaves them
+      set.
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -8851,20 +8851,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       opened: five rows, "five" at the top. Settings' Mail part as the
       factory has it (step 1); if not, written down and set so first.
       1. *The page* (no write). Settings, scrolled to its foot: under the
-      password's lines, "Mail" and its line; MOVE DISCARDED MESSAGES INTO,
-      Deleted Mailbox ticked, Archive Mailbox, and "In Mail: Mail Accounts
-      > Gmail > Account > Advanced."; MESSAGE LIST: Preview "2 Lines" in
-      grey with "Blackmail always shows 2 lines." under it, Show To/Cc
-      Labels grey and off, Swipe Options with a chevron, Delete or Move
-      Message Action "View Next Message" with a chevron; MESSAGES: Ask
+      password's lines, "Mail" and "As in Settings > Apps > Mail. Set them
+      as they are set for Mail on this iPad."; MOVE DISCARDED MESSAGES
+      INTO:, Deleted Mailbox ticked, Archive Mailbox, and "In Mail: Mail
+      Accounts > Gmail > Account > Advanced."; MESSAGE LIST: Preview "2
+      Lines" in grey with "Blackmail always shows 2 lines." under it, Show
+      To/Cc Labels grey and off, Swipe Options with a chevron, Delete or
+      Move Message Action "View Next Message" with a chevron; MESSAGES: Ask
       Before Deleting grey and off (live on a build with B-168), Privacy
-      Protection with a chevron; THREADING: Organize by Thread and
-      Complete Threads on, Collapse Read Messages grey and on, Most Recent
-      Message on Top grey and off, and Apple's line under them.
-      Screenshots of the part, in two panes and three; nothing cut. A tap
-      on each grey row and its switch: nothing moves. Privacy Protection
-      tapped: a page with Block All Remote Content, grey and off, and its
-      lines. Back.
+      Protection with a chevron; THREADING: Organize by Thread and Complete
+      Threads on, Collapse Read Messages grey and on, Most Recent Message on
+      Top grey and off, and Apple's line under them. Screenshots of the
+      part, in two panes and three; nothing cut. A tap on each grey row and
+      its switch: nothing moves. Privacy Protection tapped: a page with
+      Block All Remote Content, grey and off, and its lines. Back.
       2. *Swipe Options* (no write). Tapped: a page "Swipe Options", Swipe
       Left "Flag", Swipe Right "Mark as Read". Swipe Left: a page of None,
       Mark as Read, Flag, Move Message and Archive, Flag ticked; None
@@ -8892,7 +8892,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       All Mail. A slow drag to the left on "B-167 two": Archive in purple
       at the edge, Flag, More; a tap elsewhere. Drafts: Edit reads
       "Trash"; Cancel. Trash: Edit reads "Delete", the pane's button a
-      bin on a letter there; Cancel. Shake: "Undo Move", Cancel.
+      bin on a letter there; Cancel. Shake: "Undo Move", Cancel. Settings,
+      Swipe Right set to Archive, Cancel: in the Trash a slow drag to the
+      right on "B-167 four" shows nothing, and to the left Delete, Flag,
+      More, no Archive; in Notes a drag to the right on "B-167 two" shows
+      Archive; a tap elsewhere each time. From Notes, All Mailboxes,
+      "B-167" searched for, Edit: the bar reads "Archive". "B-167 four",
+      the Trash's hit, and a hit of "B-167 two" ticked, Archive: "Delete
+      Message?", "This message will be deleted immediately. ..." if the
+      second hit is the one from Notes, "Delete 2 Messages?" and "1 of
+      them is in the Trash ..." if it is the one from All Mail, written
+      down which; Cancel, nothing moves, no write in the log. Swipe Right
+      set back to Mark as Read.
       5. *Organize by Thread.* Settings, Organize by Thread off: the list
       behind the sheet drawn again at once, a conversation of the Inbox's
       in rows of its own; on again, grouped again.
@@ -9127,7 +9138,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [x] **"Open this link?"** (set by the spec, never asked of him): Mail opens
       a tapped link at once. As built (the default), or Mail's way.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-145.*
-- [x] **His iPad's own settings**, read before the install-day build so
+- [ ] **His iPad's own settings**, read before the install-day build so
       its defaults follow them: Settings > Sounds > Sent Mail (B-100: None
       takes the sound out), Mail > Threading > Complete Threads (B-104: off
       takes it out), Mail > Composing > Include Attachments with Replies
@@ -9148,12 +9159,19 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Messages Into (`SwipeOptions.his.discardInto`; Archive there also
       needs the Edit bar's and the pane's Archive, B-144's "not built");
       Accessibility > Touch > Shake to Undo (B-157).*
-      *Ruled 2026-10-26: copy Apple Mail. Built as B-167.* Mail's options
-      among these are a part of Blackmail's Settings laid out as Mail's
-      page, at Mail's factory values, to be set from his Mail settings page
-      at the install (the install-day list above); Archive Mailbox archives
-      from the Edit bar and the pane too. The rest of this list, outside
-      Mail's page, is still to be read off his iPad before the last build.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-167 for Mail's own page
+      only:* Swipe Options, Delete or Move Message Action, Ask Before
+      Deleting (live once B-168 is merged), Complete Threads and Move
+      Discarded Messages Into are a part of Blackmail's Settings laid out as
+      Mail's page, at Mail's factory values, set from his Mail settings page
+      at the install (the install-day list above), no longer read before the
+      last build; Archive Mailbox archives from the Edit bar and the pane
+      too. Still open, to be read off his iPad before the last build: Sounds
+      > Sent Mail (B-100), Composing > Include Attachments with Replies
+      (B-107), Display & Text Size, Larger Text and Bold Text, Per-App
+      Settings, Smart Invert, Blocked and its option, Notifications for Mail
+      and Fetch New Data, Undo Send Delay, a Home Screen Mail widget, the
+      Safari share watched, and Shake to Undo (B-157).
 - [x] **His signature's white sheet** (B-130): Mail draws his signature
       with the rest of the letter, black with white words and the logo
       dark on it in Dark Mode or under Smart Invert (read in its code, not

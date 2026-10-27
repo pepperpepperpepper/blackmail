@@ -34850,7 +34850,9 @@ Mail's options that no app can read made settings in Blackmail's own
 Settings, laid out like Mail's settings page and set to Mail's factory
 values, so whoever installs it can match them from his Mail settings page
 in two minutes. The TODO's "His iPad's own settings" under "Blocked on the
-owner" is ticked, and the install-day list has the line for setting them.
+owner" says which of it is built here, Mail's own page, and stays open for
+the rest, read off his iPad before the last build; the install-day list
+has the line for setting Mail's page.
 
 **What Mail does.** iPadOS 18, Settings > Apps > Mail (Apple's guide
 "Change your Mail settings on iPad"; the copy-Mail decisions of
@@ -34911,11 +34913,13 @@ More archived and the Edit bar and the pane's Delete still trashed (B-144,
    of 0 to 5, read as the factory's.
 2. *The page* (`MailOptions.page`; drawn by `UI/MailOptionsView.swift`,
    new). Settings has, under the password and before Bring Back Set-Aside
-   Letters, a heading "Mail" and the line "As in Settings > Apps > Mail,
-   each as Mail comes. Set them as they are set for Mail on this iPad.",
-   then Mail's parts in Mail's order, each heading in capitals as Mail's:
-   MOVE DISCARDED MESSAGES INTO first, as Mail Accounts is above Message
-   List, its two values ticked as on the account's Advanced page, with "In
+   Letters, a heading "Mail" and the line "As in Settings > Apps > Mail.
+   Set them as they are set for Mail on this iPad.", which does not say
+   the values are Mail's from the factory, as Move Discarded Messages Into
+   is not (item 1), then Mail's parts in Mail's order, each heading in
+   capitals as Mail's: MOVE DISCARDED MESSAGES INTO: first, as Mail
+   Accounts is above Message List, with the colon of the Advanced page's
+   heading as its users quote it, its two values ticked as there, with "In
    Mail: Mail Accounts > Gmail > Account > Advanced." under it; MESSAGE
    LIST: Preview, Show To/Cc Labels, Swipe Options, Delete or Move Message
    Action; MESSAGES: Ask Before Deleting, Privacy Protection; THREADING:
@@ -34953,29 +34957,42 @@ More archived and the Edit bar and the pane's Delete still trashed (B-144,
    does, so greyed rows mislead only where his differ, which the
    install-day line says to write down.
 4. *Archive in the Trash's place everywhere* (`SwipeOptions.discard`,
-   `archive(fromFolderWithRole:into:)`, new, one rule for every way a
-   letter is discarded). With Archive Mailbox set: Edit mode's third
-   button says "Archive" in a folder whose letters can be archived, there
-   being an All Mail and the list not being it, titled again as Edit mode
-   begins so a change in Settings counts (`discardWord`); its tap moves
-   those letters into All Mail, "Moving…" on the line, as a drag's Archive
-   does, and the rest go by Delete, each by the folder it was listed from
-   (`EditBar.discarding`): in an All Mailboxes search under "Archive", a
-   hit from All Mail goes to the Trash, as its row's drag does, and one
-   from Trash is erased after the question. The pane's Delete is an
-   archive box called Archive where the letter would be archived, drawn
+   `archive(fromFolderWithRole:into:)`, new, and `SwipeOptions.archives`,
+   new, one rule for every Archive, the discard's and a Swipe Left or
+   Swipe Right set to Archive alike). With Archive Mailbox set: Edit
+   mode's third button says "Archive" in a folder whose letters can be
+   archived, there being an All Mail and the list not being it, titled
+   again as Edit mode begins so a change in Settings counts
+   (`discardWord`); its tap moves those letters into All Mail, "Moving…"
+   on the line, as a drag's Archive does, and the rest go by Delete, each
+   by the folder it was listed from (`EditBar.discarding`): in an All
+   Mailboxes search under "Archive", a hit from All Mail goes to the
+   Trash, as its row's drag does, and one from Trash is erased after the
+   question, which counts only the letters going to the Trash or erased
+   (`EditBar.question`): four ticked hits from the Inbox and one from
+   Trash ask "Delete Message?" of the one, where they asked "Delete 5
+   Messages? 1 of them is in the Trash" of all five. The pane's Delete is
+   an archive box called Archive where the letter would be archived, drawn
    again for each letter and when Settings changes it, with no letter by
    the list's folder (`drawDiscardButton`, `archiveTarget` from the
-   container); its tap is a Move into All Mail with Delete's guards, the
-   half-second double-tap guard and Don't Select a Message's grey (B-158),
-   and the letter after it opens as after any Move from the pane. Inside
-   Trash Delete still erases, asked first; in All Mail, and with no All
-   Mail, Delete still trashes.
-5. *Never Archive in Drafts or the Outbox.* A draft is not filed, and the
-   Edit bar there takes the iPad's own letters off the iPad with no copy
-   anywhere (B-144), which the word "Archive" would hide. So the bar says
-   "Trash" there, and a drag on a server draft's row in Drafts shows the
-   Trash, where with Archive Mailbox set it showed Archive (B-156).
+   container), its image and name set only when that changes, so at the
+   factory's values the bin `buildToolbar` drew is left alone from letter
+   to letter, as in int18; its tap is a Move into All Mail with Delete's
+   guards, the half-second double-tap guard and Don't Select a Message's
+   grey (B-158), and the letter after it opens as after any Move from the
+   pane. Inside Trash Delete still erases, asked first; in All Mail, and
+   with no All Mail, Delete still trashes.
+5. *Never Archive in Drafts, the Outbox or Trash* (`SwipeOptions.archives`).
+   A draft is not filed, and the Edit bar there takes the iPad's own
+   letters off the iPad with no copy anywhere (B-144), which the word
+   "Archive" would hide. So the bar says "Trash" there, and a drag on a
+   server draft's row in Drafts shows the Trash, where with Archive
+   Mailbox set it showed Archive (B-156). A Swipe Left or Swipe Right set
+   to Archive goes by the same rule (`RowSwipes.action(for:on:)`), where
+   it went by `canArchive` alone: in Drafts and Trash it offers nothing,
+   where Swipe Right Archive would have filed a server draft in All Mail
+   at a full drag, and Swipe Left Archive put Archive beside Delete
+   inside Trash, which the Edit bar and the pane never do there.
 6. *Words.* `SwipeOptions` and `NextLetter` say the values are set in
    Settings; `EditBar` and `RowSwipes` that the Edit bar and the pane
    archive; the D-024 comment lines of "not built" now say what is.
@@ -34984,11 +35001,13 @@ More archived and the Edit bar and the pane's Delete still trashed (B-144,
 Settings: none of the Mail settings these follow is offered", and its "the
 Edit bar and the pane's Delete stay Trash until B-144's Archive is built";
 B-144's "Not built" Archive; B-156's Archive on a draft's row with Archive
-Mailbox set (no change with the factory's Deleted Mailbox); B-104's
-Complete Threads line, which is now the line under Threading, as in Mail;
-and Organize by Thread's own line under its switch, "Group a conversation
-and its replies into one row. Turn off to show every message separately.",
-which Mail does not have, dropped.
+Mailbox set (no change with the factory's Deleted Mailbox), and its Swipe
+Left or Swipe Right Archive on a row in Drafts or Trash, never reached
+before B-167, as the choices were constants (Flag and Mark as Read);
+B-104's Complete Threads line, which is now the line under Threading, as
+in Mail; and Organize by Thread's own line under its switch, "Group a
+conversation and its replies into one row. Turn off to show every message
+separately.", which Mail does not have, dropped.
 
 **Not changed.** With every value at the factory's, the app does what
 int18 did: the same drags, the Trash for Delete, the next letter after a
@@ -35028,7 +35047,7 @@ Mailbox, perhaps before an Archive: what Mail asks then was not looked
 into here, and B-168 decides it for the Edit bar's and the pane's `delete`
 both.
 
-**Tests.** `MailOptionsTests`, seven, new: every value Mail's from the
+**Tests.** `MailOptionsTests`, nine, new: every value Mail's from the
 factory and the app reading what it did before (`SwipeOptions.his`,
 `NextLetter.action`, `ConversationSettings`, the Edit bar's "Trash", no
 Archive); the page's parts, rows, pages, words and values in Mail's order,
@@ -35038,18 +35057,24 @@ three old keys kept, what a row sets read by a drag, More, the Edit bar,
 the factory's; the greyed rows and their lines, exactly those not built;
 the Archive in the Trash's place for every role, never in Drafts, the
 Outbox, Trash or All Mail, nor with no All Mail, and the Edit bar's tap
-letter by letter across an All Mailboxes search; and read from the source,
-Settings' part in its place and redrawn on coming back, a row setting its
-value at once and posting it, a greyed row not live; the pane's Delete
-archiving, drawn as Archive and again on the post, the container's
-`archiveTarget`, and `his` read from `MailOptions`. The pins that read the
-old lines read the new: `CompleteThreadsTests` (the switch under Organize
-by Thread in Threading, the read in `MailOptions`), `SteadyChromeTests`
-(Mail's switches called by their titles, and the new file among those
-whose symbols are sized), `SignInTests` (the password's line before Mail's
-part), `EditBarTests` (the bar titled by `discardWord` and again as Edit
-mode begins), `EraseQuestionTests`, `NextLetterTests` and `ListBatchTests`
-(the pane's and Edit mode's Delete going as Archive or Delete).
+letter by letter across an All Mailboxes search; a Swipe Left and Swipe
+Right set to Archive offering nothing in Drafts and Trash, with either
+discard target, and Archive on both sides in the Inbox, Junk and a folder
+of his own; the Edit bar's question under "Archive" counting only the
+letters it deletes, and every one with Deleted Mailbox; and read from the
+source, Settings' part in its place and redrawn on coming back, a row
+setting its value at once and posting it, a greyed row not live; the
+pane's Delete archiving, drawn as Archive and again on the post, only when
+that changes, the container's `archiveTarget`, and `his` read from
+`MailOptions`. The pins that read the old lines read the new:
+`CompleteThreadsTests` (the switch under Organize by Thread in Threading,
+the read in `MailOptions`), `SteadyChromeTests` (Mail's switches called by
+their titles, and the new file among those whose symbols are sized),
+`SignInTests` (the password's line before Mail's part), `EditBarTests`
+(the bar titled by `discardWord` and again as Edit mode begins),
+`EraseQuestionTests`, `NextLetterTests` and `ListBatchTests` (the pane's
+and Edit mode's Delete going as Archive or Delete, and Edit mode's
+question asked by `EditBar.question`).
 
 Each part undone by hand, the tests run, then put back and passing,
 counted as failures in tests, `MailOptionsTests` unless said: Move
@@ -35064,9 +35089,15 @@ B-168's, 3 in 1; Privacy Protection's page without its line, 1 in 1; the
 pane's Delete always a Delete, with `EraseQuestionTests` and
 `NextLetterTests`, 4 in 3; the Edit bar not titled again as Edit mode
 begins, `EditBarTests`, 2 in 1; Edit mode's Delete not split,
-`ListBatchTests` and `NextLetterTests`, 2 in 2.
+`ListBatchTests` and `NextLetterTests`, 2 in 2. Then, after review:
+`RowSwipes.action(for:on:)` back to `row.canArchive` alone, 7 in 1;
+`SwipeOptions.archives` without Trash, 4 in 1; the Edit bar's question
+asked of every ticked letter again, 3 in 1, and the list asking
+`EraseQuestion` itself again, `EraseQuestionTests`, 1 in 1; the pane's
+button drawn at every letter again, 1 in 1; the caption saying "each as
+Mail comes" again, 1 in 1; the heading without its colon, 1 in 1.
 
-The full suite, serially: 2,952 tests, 7 of them new, 6 skipped, none
+The full suite, serially: 2,954 tests, 9 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -35084,16 +35115,27 @@ failing. The release build for the iPad links.
   is medium (B-158).
 - Mail's own discard target for his Gmail account is not known; Deleted
   Mailbox stands until it is read off his iPad.
+- The way to Move Discarded Messages Into, "Mail Accounts > Gmail >
+  Account > Advanced", is not verified: Apple's guide and its article
+  102428 are said to have "Account Settings > Advanced", and users on iOS
+  17 to see a row called "Account"; either may be the newer word. The colon
+  on MOVE DISCARDED MESSAGES INTO: is as users and guides quote the
+  Advanced page, not read off an iPadOS 18 screen. The install-day line
+  names both words for the row.
 - What Mail does with Archive Mailbox in Drafts, the Outbox and Junk was
   not found: here Drafts and the Outbox trash, and Junk archives into All
-  Mail, as B-156's drag did.
+  Mail, as B-156's drag did. Nor what a Swipe Left or Swipe Right set to
+  Archive offers in Drafts or Trash in Mail: here nothing, by the
+  discard's rule, and the Edit bar and the pane never archive there
+  either.
 
 **New words.** On his screen, in Settings: "Mail", "As in Settings >
-Apps > Mail, each as Mail comes. Set them as they are set for Mail on this
-iPad.", "In Mail: Mail Accounts > Gmail > Account > Advanced.", and the
-six grey lines above and "In Mail, shown when Protect Mail Activity is
+Apps > Mail. Set them as they are set for Mail on this iPad.", "In
+Mail: Mail Accounts > Gmail > Account > Advanced.", and the six grey
+lines above and "In Mail, shown when Protect Mail Activity is
 off. Blackmail never loads pictures through Apple.", Blackmail's own.
-Mail's words, each as Mail's page has them: the four headings, the twelve
+Mail's words, each as Mail's page has them: the four headings, the first
+with its colon, "MOVE DISCARDED MESSAGES INTO:", the twelve
 titles, the values, and "Swipe Options" and "Privacy Protection".
 "Archive" on the Edit bar and as the pane's button's name, Mail's, only
 with Archive Mailbox set.

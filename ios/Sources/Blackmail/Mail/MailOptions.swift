@@ -335,14 +335,16 @@ enum MailOptions {
 
     /// Settings > Apps > Mail as Blackmail lays it out, in the order of
     /// Mail's page, the account first as Mail Accounts is above Message
-    /// List, and in its words: the parts of it Blackmail follows. Mail's
-    /// other rows (Flag Style, Follow Up Suggestions, Blocked Sender
-    /// Options, Muted Thread Action, Composing, Undo Send Delay) are not
-    /// here; nor Privacy Protection's Protect Mail Activity and Hide IP
-    /// Address, which Blackmail cannot do (`blockAllRemoteContent`): the
-    /// line under Block All Remote Content says where Mail shows it.
+    /// List, and in its words: the parts of it Blackmail follows. The
+    /// account's part has the heading of its Advanced page, colon and all,
+    /// as its users quote it. Mail's other rows (Flag Style, Follow Up
+    /// Suggestions, Blocked Sender Options, Muted Thread Action, Composing,
+    /// Undo Send Delay) are not here; nor Privacy Protection's Protect Mail
+    /// Activity and Hide IP Address, which Blackmail cannot do
+    /// (`blockAllRemoteContent`): the line under Block All Remote Content
+    /// says where Mail shows it.
     static let page: [Section] = [
-        Section(heading: Option.moveDiscardedMessagesInto.title,
+        Section(heading: Option.moveDiscardedMessagesInto.title + ":",
                 rows: [.values(.moveDiscardedMessagesInto)],
                 footer: "In Mail: Mail Accounts > Gmail > Account > Advanced."),
         Section(heading: "Message List",

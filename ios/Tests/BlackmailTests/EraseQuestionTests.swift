@@ -123,8 +123,8 @@ final class EraseQuestionTests: XCTestCase {
                     + "PaneAction.move(to: $0) } ?? .delete showEmpty()",
             ]),
             ("UI/MessageListViewController.swift", [
-                "guard let question = EraseQuestion.before(deleting: chosen, role: { "
-                    + "self.role(of: $0) }) else { delete(chosen) return } "
+                "guard let question = EditBar.question(before: chosen, role: { "
+                    + "self.role(of: $0) }, allMail: allMail) else { delete(chosen) return } "
                     + "EraseConfirmation.ask(question, on: self) { [weak self] in "
                     + "self?.delete(chosen) }",
                 "private func role(of mailboxID: String) -> Mailbox.Role? { "

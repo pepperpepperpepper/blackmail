@@ -67,18 +67,28 @@ struct SwipeOptions: Equatable {
     /// What discards a letter listed from a folder with `role`, wherever it
     /// is discarded from, a drag, More, the Edit bar or the reading pane:
     /// Delete inside Trash, where it erases; the Archive where the account
-    /// discards into it and the letter can be archived, `canArchive`, there
-    /// being an All Mail to file it in and the letter not listed from it;
-    /// the Trash otherwise. Never the Archive in Drafts or the Outbox
-    /// (B-167): a draft is not filed, and the Outbox's letters, and the
-    /// drafts kept on the iPad at the top of Drafts, are taken off the
-    /// iPad by the Edit bar's tap, with no copy anywhere.
+    /// discards into it and the letter can be archived (`archives`); the
+    /// Trash otherwise.
     func discard(fromFolderWithRole role: Mailbox.Role?, canArchive: Bool) -> RowSwipes.Action {
         if EraseQuestion.erases(fromFolderWithRole: role) { return .delete }
-        if discardInto == .archive, canArchive, role != .drafts, role != .outbox {
+        if discardInto == .archive, Self.archives(role: role, canArchive: canArchive) {
             return .archive
         }
         return .trash
+    }
+
+    /// Whether a letter listed from a folder with `role` can be archived,
+    /// one rule for every Archive (B-167): the discard where the account
+    /// discards into the Archive, and a Swipe Left or Swipe Right set to
+    /// Archive (`RowSwipes.action(for:on:)`). `canArchive`, there being an
+    /// All Mail to file it in and the letter not listed from it, and never
+    /// in Drafts, the Outbox or Trash: a draft is not filed, and the
+    /// Outbox's letters, and the drafts kept on the iPad at the top of
+    /// Drafts, are taken off the iPad by the Edit bar's tap, with no copy
+    /// anywhere; and Trash's discard is Delete, which erases, so neither a
+    /// drag nor the Edit bar there files a letter anywhere.
+    static func archives(role: Mailbox.Role?, canArchive: Bool) -> Bool {
+        canArchive && role != .drafts && role != .outbox && role != .trash
     }
 
     /// All Mail, `allMail`, where a discard of a letter listed from a folder
@@ -198,22 +208,25 @@ enum RowSwipes {
 
     /// What discards the row, at the edge of a drag to the left and in
     /// More's sheet: Delete inside Trash, where it erases; the Archive where
-    /// the account discards into it and there is an All Mail to archive
-    /// into, but in Drafts; the Trash otherwise
+    /// the account discards into it and the row can be archived
+    /// (`SwipeOptions.archives`); the Trash otherwise
     /// (`SwipeOptions.discard(fromFolderWithRole:canArchive:)`).
     static func discard(for row: Row, options: SwipeOptions = .his) -> Action {
         options.discard(fromFolderWithRole: row.role, canArchive: row.canArchive)
     }
 
     /// A Swipe Left or Swipe Right choice, as the row is; nil for None, and
-    /// for Archive where there is nothing to archive into.
+    /// for Archive where the row cannot be archived, by the discard's rule
+    /// (`SwipeOptions.archives`): no All Mail to archive into, the row in
+    /// it, or in Drafts or Trash (B-167).
     static func action(for choice: SwipeOptions.Choice, on row: Row) -> Action? {
         switch choice {
         case .none: return nil
         case .mark: return row.read ? .markUnread : .markRead
         case .flag: return row.flagged ? .unflag : .flag
         case .move: return .move
-        case .archive: return row.canArchive ? .archive : nil
+        case .archive:
+            return SwipeOptions.archives(role: row.role, canArchive: row.canArchive) ? .archive : nil
         }
     }
 }

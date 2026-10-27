@@ -443,9 +443,11 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     }
 
     /// Over Mail's options, and the line under it: where they come from,
-    /// and what to set them to.
+    /// and what to set them to. Not that they come as Mail's do: Move
+    /// Discarded Messages Into comes as the Trash, where Mail's for a Gmail
+    /// account is said to be the Archive (`MailOptions`).
     private static let mailTitle = "Mail"
-    private static let mailCaption = "As in Settings > Apps > Mail, each as Mail comes. "
+    private static let mailCaption = "As in Settings > Apps > Mail. "
         + "Set them as they are set for Mail on this iPad."
 
     /// Mail's options drawn again as they are, on coming back from one of

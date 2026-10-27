@@ -68,6 +68,20 @@ enum EditBar {
         return (archived, deleted)
     }
 
+    /// What the third button asks before its tap, if it erases any of
+    /// `letters` (`EraseQuestion`), of the letters it deletes alone: those
+    /// it archives (`discarding`) are neither counted nor called deleted.
+    /// Under "Archive" in an All Mailboxes search whose ticked hits include
+    /// one from Trash, the question counts the letters going to the Trash
+    /// or erased, not the ones going to All Mail. With the factory's
+    /// Deleted Mailbox, or no All Mail, every letter, as before.
+    static func question(before letters: [MessageSummary], role: (String) -> Mailbox.Role?,
+                         allMail: Mailbox?, options: SwipeOptions = .his) -> EraseQuestion? {
+        EraseQuestion.before(deleting: discarding(letters, role: role, allMail: allMail,
+                                                  options: options).deleted,
+                             role: role)
+    }
+
     /// The two words, here and nowhere else: the bar's, a drag's button on
     /// a row (`RowSwipes`) and the name of the step Undo takes back
     /// (`UndoableMove`) say them from here. The third, "Archive", is a
