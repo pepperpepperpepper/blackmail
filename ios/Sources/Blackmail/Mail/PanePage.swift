@@ -71,6 +71,21 @@ enum PanePage {
         return parts
     }
 
+    /// The loader's map once the bodies of `letters` go into a stack whose
+    /// loader has `kept`, the map of the bodies gone in before them
+    /// (`MessageDetailViewController.prepareInlineImages`, B-170): `kept`
+    /// with theirs added. Every body that comes before the stack's page has
+    /// loaded waits for it, and they go in together (`PaneDocument`), so
+    /// WebKit asks for the pictures of all of them at once: the map of the
+    /// last body alone, as it was, missed every picture of the bodies before
+    /// it, and WebKit drew them as nothing. A picture file's address names
+    /// its letter, so none takes another letter's place; where two letters
+    /// use the same `Content-ID`, the later letter's is served, as in
+    /// `pictures(of:)`.
+    static func pictures(of letters: [Message], adding kept: [String: Picture]) -> [String: Picture] {
+        kept.merging(pictures(of: letters)) { _, later in later }
+    }
+
     /// The page for one letter, or nil when there is nothing in it to draw,
     /// and the pane says so in words instead (`MailText.hasNoVisibleContent`,
     /// B-026).

@@ -330,6 +330,55 @@ final class FileListedOnceTests: XCTestCase {
         }
     }
 
+    /// In a stack the loader answers for every body gone in, not the last
+    /// alone: two letters' bodies, each with a photo file that is part 2,
+    /// put in before the page has loaded and asked for together, are each
+    /// answered with its own, and a `Content-ID` the two share is the later
+    /// letter's, as when the stack is drawn again. The pane, read: a body
+    /// put into a stack, his letter's from Sent Mail and the stack drawn
+    /// again add to the map, which a conversation shown starts empty, and a
+    /// letter on its own has a map of its own.
+    func testEveryBodyOfAStackKeepsItsPicturesInTheLoader() throws {
+        func letter(_ id: String) -> Message {
+            Message(id: id, mailboxID: "INBOX", sender: "Jane <jane@example.com>",
+                    senderAddress: "jane@example.com", to: [], cc: [], subject: "Garden",
+                    date: Date(timeIntervalSince1970: 1_792_679_717), textBody: nil,
+                    htmlBody: "<p>Our garden.</p><img src=\"cid:logo\">",
+                    attachments: [Attachment(id: "2", filename: "garden.jpg", mimeType: "image/jpeg", size: 2_400_000),
+                                  Attachment(id: "3", filename: "logo.png", mimeType: "image/png", size: 900,
+                                             contentID: "logo", isInline: true)])
+        }
+        let first = letter("7/3"), second = letter("7/9")
+        var map: [String: PanePage.Picture] = [:]
+        map = PanePage.pictures(of: [first], adding: map)
+        map = PanePage.pictures(of: [second], adding: map)
+        XCTAssertEqual(map["bmfile-m7_3-2"],
+                       PanePage.Picture(messageID: "7/3", mailboxID: "INBOX", section: "2", mimeType: "image/jpeg"))
+        XCTAssertEqual(map["bmfile-m7_9-2"],
+                       PanePage.Picture(messageID: "7/9", mailboxID: "INBOX", section: "2", mimeType: "image/jpeg"))
+        XCTAssertEqual(map["logo"]?.messageID, "7/9")
+        XCTAssertEqual(map, PanePage.pictures(of: [first, second]))
+        XCTAssertEqual(PanePage.pictures(of: [first], adding: map)["logo"]?.messageID, "7/3")
+        XCTAssertNotNil(PanePage.pictures(of: [first], adding: map)["bmfile-m7_9-2"])
+
+        let code = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(code.contains(
+            "private func drawBody(_ m: Message, _ body: ConversationDocument.Entry.Rendered, focus: Bool) { "
+                + "prepareInlineImages(for: [m], inStack: true)"))
+        XCTAssertTrue(code.contains(
+            "case .success(let (m, body)): prepareInlineImages(for: [m], inStack: true) related.keep(m, for: load)"))
+        XCTAssertTrue(code.contains("+ drawn.filter { $0.id == stackFocus.letter }, inStack: true)"))
+        XCTAssertTrue(code.contains(
+            "let parts = inStack ? PanePage.pictures(of: letters, adding: pictureMap) "
+                + ": PanePage.pictures(of: letters) pictureMap = parts"))
+        XCTAssertTrue(code.contains("loaded = [:] pictureMap = [:] markedUnreadHere = nil "
+                                    + "stackFocus = StackFocus(opening: thread.newest.id)"))
+        XCTAssertEqual(count("pictureMap = ", in: code), 2)
+        XCTAssertEqual(count("inStack: true)", in: code), 3)
+        XCTAssertTrue(code.contains(
+            "private func draw(_ m: Message, page: String?) { prepareInlineImages(for: [m]) guard"))
+    }
+
     // MARK: - A cut
 
     /// A letter shown or printed only in part: a file with no mark in what

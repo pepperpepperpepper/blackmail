@@ -103,8 +103,9 @@ final class PrintWiringTests: XCTestCase {
     /// The pane's pictures and a printed letter's come from one map.
     func testThePanesPicturesAreThePrintsMap() throws {
         let pane = try self.pane
-        XCTAssertNotNil(place(of: "private func prepareInlineImages(for letters: [Message]) { "
-                                  + "let parts = PanePage.pictures(of: letters)", in: pane))
+        XCTAssertNotNil(place(of: "private func prepareInlineImages(for letters: [Message], inStack: Bool = false) { "
+                                  + "let parts = inStack ? PanePage.pictures(of: letters, adding: pictureMap) "
+                                  + ": PanePage.pictures(of: letters)", in: pane))
         XCTAssertNotNil(place(of: "part.section, of: part.messageID, mailboxID: part.mailboxID)", in: pane))
         XCTAssertFalse(pane.contains("parts[cid] ="))
         XCTAssertNotNil(place(of: "let pictures = PanePage.pictures(of: [letter])", in: try job))

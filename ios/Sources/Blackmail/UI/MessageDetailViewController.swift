@@ -122,6 +122,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private var actionItems: [Theme.ToolbarAction: UIBarButtonItem] = [:]
     /// Answers the `cid:` images inside whatever message is on screen.
     private let inlineImages = InlineImageLoader()
+    /// What the loader answers from (`prepareInlineImages`): in a stack,
+    /// the pictures of every body gone into it since the conversation was
+    /// shown (B-170).
+    private var pictureMap: [String: PanePage.Picture] = [:]
     /// The body fetches for what the pane shows, called off when it shows
     /// something else. See `PaneLoads`.
     private let loads = PaneLoads()
@@ -512,6 +516,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         summary = thread.newest
         message = nil
         loaded = [:]
+        pictureMap = [:]
         markedUnreadHere = nil
         stackFocus = StackFocus(opening: thread.newest.id)
         threadSummaries = Dictionary(uniqueKeysWithValues:
@@ -637,7 +642,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                for load: PaneRelated.Load) {
         switch result {
         case .success(let (m, body)):
-            prepareInlineImages(for: [m])
+            prepareInlineImages(for: [m], inStack: true)
             related.keep(m, for: load)
             fill(related.bodyCame(for: load), body)
         case .failure:
@@ -775,7 +780,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Puts a letter's body, built by `PanePage.stackBody`, in its section,
     /// with the loader pointed at the letter's pictures.
     private func drawBody(_ m: Message, _ body: ConversationDocument.Entry.Rendered, focus: Bool) {
-        prepareInlineImages(for: [m])
+        prepareInlineImages(for: [m], inStack: true)
         fill(m.id, body)
         if focus { focusLetter(m) }
     }
@@ -1165,12 +1170,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// only means anything inside the message that declared it — two letters
     /// can both contain `cid:image001.png` and mean different pictures.
     ///
-    /// Several letters at once only for a conversation drawn again after
-    /// WebKit lost it, when every picture in it is asked for anew. Where two
-    /// use the same id, the later letter's is served.
-    private func prepareInlineImages(for letters: [Message]) {
+    /// `inStack` for a body put into a conversation's stack, or the stack
+    /// drawn again: the letters' parts are added to those of the bodies gone
+    /// in before them, which the page can still ask for, and asks for all
+    /// together when they went in before it had loaded (B-170). Several
+    /// letters at once only for a conversation drawn again after WebKit lost
+    /// it, when every picture in it is asked for anew. Where two use the
+    /// same id, the later letter's is served.
+    private func prepareInlineImages(for letters: [Message], inStack: Bool = false) {
         // The map a printed letter's loader reads too (`LetterPrint`).
-        let parts = PanePage.pictures(of: letters)
+        let parts = inStack ? PanePage.pictures(of: letters, adding: pictureMap) : PanePage.pictures(of: letters)
+        pictureMap = parts
 
         inlineImages.fetch = { [weak self] contentID in
             // Never surfaced to him: the loader turns a throw into an empty
@@ -1248,10 +1258,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             draw(m, page: page)
         case .conversation(let entries):
             // The letter in the header last, so its pictures win a clash of
-            // ids; see `prepareInlineImages`.
+            // ids; see `prepareInlineImages`. Added to the stack's map, which
+            // has his letters' from Sent Mail as well (B-170).
             let drawn = entries.compactMap { loaded[$0.id] }
             prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter }
-                                    + drawn.filter { $0.id == stackFocus.letter })
+                                    + drawn.filter { $0.id == stackFocus.letter }, inStack: true)
             // The stack as it was first drawn, and the bodies put back into
             // it by script once it has loaded, as they first went in; see
             // `PaneDocument`.
