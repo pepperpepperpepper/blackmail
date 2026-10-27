@@ -1116,10 +1116,10 @@ enum ConversationDocument {
         static func arguments(_ moving: Bool) -> [String: Any] { ["moving": moving] }
     }
 
-    /// What the pane tells the stack's script when the header over the
-    /// stack has changed height (B-128, `keepPlace`). The stack hangs from
-    /// the header, so the whole of it moves on the glass then, by a Cc line
-    /// about 20 pt, a file's row 44 pt, or both and more, at the tap on a
+    /// What the pane tells the stack's script when the header over the stack
+    /// has changed height (B-128, `keepPlace`). The stack hangs from the
+    /// header, so the whole of it moves on the glass then, by a Cc line about
+    /// 20 pt, or more, and by a file's row 44 pt until B-170, at the tap on a
     /// line since B-129. A second tap made at once where the first was, a
     /// double tap or a tap to close a letter opened by mistake, lands that
     /// far off the line it was meant for, on the line above or below, and

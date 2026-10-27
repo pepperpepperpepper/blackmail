@@ -297,8 +297,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                     in: nil, in: .defaultClient)
     }
 
-    /// A file's row among the words shown coming, or as it was, by script,
-    /// in the app's content world (`BodyFiles.Busy`, B-148).
+    /// A file's tile in the body shown coming, or as it was, by script, in
+    /// the app's content world (`BodyFiles.Busy`, B-148, B-170).
     private func run(_ busy: BodyFiles.Busy) {
         webView.callAsyncJavaScript(BodyFiles.Busy.script, arguments: busy.arguments,
                                     in: nil, in: .defaultClient)
@@ -802,8 +802,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// The header and the toolbar made whole for a letter of the stack
     /// whose body has come, if he has not opened another since
-    /// (`StackFocus.takes`, B-129): its own To and Cc, and Reply its own. The stack hangs from the header if it changes height
-    /// with it (`StackPlace`, B-128).
+    /// (`StackFocus.takes`, B-129): its own To and Cc, and Reply its own.
+    /// The stack hangs from the header if it changes height with it
+    /// (`StackPlace`, B-128).
     private func focusLetter(_ m: Message) {
         guard stackFocus.takes(m.id) else { return }
         message = m
@@ -824,11 +825,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// the pane went under the header: half the line at the top, the line
     /// he had just tapped as often as not, until he scrolled.
     ///
-    /// The whole stack moves on the glass then, by the header's change, a
-    /// Cc line about 20 pt (a file's row 44 pt until B-170), and a second tap made at
-    /// once where the first was lands that far off the line it was meant
-    /// for, on the line above or below. So the stack's script is told,
-    /// and a line pressed in the second after does nothing
+    /// The whole stack moves on the glass then, by the header's change, a Cc
+    /// line about 20 pt (a file's row 44 pt until B-170), and a second tap made
+    /// at once where the first was lands that far off the line it was meant
+    /// for, on the line above or below. So the stack's script is told, and a
+    /// line pressed in the second after does nothing
     /// (`ConversationDocument.Shift`). The page cannot see the move itself:
     /// the web view moves on the glass, and nothing in the page does.
     private func keepPlace(headerWas before: CGFloat) {
@@ -1683,9 +1684,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Reply / Reply All / Forward / Print as a sheet, which is what old
     /// Mail did. Labelled choices beat one button that guesses.
     ///
-    /// Forward of a letter with files the header lists asks Mail's question
-    /// first (B-107). So do Reply and Reply All, only if his iPad's Mail is
-    /// set to Ask (`ReplyFiles.mode`), which it is not taken to be.
+    /// Forward of a letter with files (`Message.listedAttachments`) asks Mail's
+    /// question first (B-107). So do Reply and Reply All, only if his iPad's
+    /// Mail is set to Ask (`ReplyFiles.mode`), which it is not taken to be.
     ///
     /// Print is the fourth, as Mail's Reply button had it from iOS 4.2 to
     /// 12 (B-110): the letter the header shows, the one Reply answers,

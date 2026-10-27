@@ -1248,8 +1248,8 @@ enum MIMEDecoder {
         var htmlGoesOn = false
         var textGoesOn = false
 
-        /// Every part either body shows as words: what the header lists no
-        /// row for (`collectAttachments`), and a paperclip leaves out
+        /// Every part either body shows as words: what the pane draws no
+        /// file for (`collectAttachments`), and a paperclip leaves out
         /// (`IMAPMailRepository.hasAttachment`), and what a letter too large
         /// to fetch whole fetches of itself (`Allowance`).
         var sections: Set<String> {
@@ -1819,8 +1819,8 @@ enum MIMEDecoder {
     /// of a share sheet.
     ///
     /// Also whether a text part sent inline is named, for its paperclip
-    /// (`MIMEPart.isListedFile`), so that the paperclip and the header's row
-    /// ask the same question of it.
+    /// (`MIMEPart.isListedFile`), so that the paperclip and the file drawn
+    /// in the body ask the same question of it.
     static func decodedFilename(_ part: MIMEPart) -> String? {
         let raw = parameter("filename", in: part.dispositionParameters)
             ?? parameter("name", in: part.parameters)

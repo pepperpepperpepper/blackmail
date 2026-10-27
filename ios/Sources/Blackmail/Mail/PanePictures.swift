@@ -8,7 +8,7 @@ import Foundation
 /// full screen in Quick Look when he taps it, with the share button that
 /// gives Save Image and Save to Files. It does not for a picture from the
 /// web. So the pane opens a picture of the letter's own parts the way a
-/// tap on a file's row in the header opens the file (`openAttachment`),
+/// tap on a file's tile in the body opens the file (`openAttachment`),
 /// and nothing else: a picture from the web stays as it was.
 ///
 /// What says a picture was tapped is the stack's script, in the app's
@@ -149,7 +149,7 @@ enum PanePictures {
     }
 
     /// The letter whose section the tap was in and its part the picture
-    /// is, for the pane to open as a file's row opens a file; nil for a
+    /// is, for the pane to open as a file's tile opens a file; nil for a
     /// picture too small (`Tap.opens`), one the letter has no part for, or
     /// a section of no letter the pane holds.
     ///
@@ -183,7 +183,7 @@ enum PanePictures {
 
     /// An item of the menu a finger held on a picture gives (B-150), and
     /// what is done with the picture's bytes when he chooses it; and Quick
-    /// Look, what a tap on a picture or a file's row does.
+    /// Look, what a tap on a picture or a file's tile does.
     enum Item: String, CaseIterable {
         /// Full screen in Quick Look, as a tap opens it.
         case quickLook = "Quick Look"

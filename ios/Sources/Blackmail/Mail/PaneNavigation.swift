@@ -23,9 +23,9 @@ import Foundation
 /// this link?" first. That includes a link whose target is a new window or
 /// a frame: none opens here.
 ///
-/// A file's row among a letter's words (`BodyFiles`, B-113) is a link of the
-/// pane's own, `bmfile:`, and a tap on it opens the file, as a tap on its row
-/// in the header does: nothing in Safari.
+/// A file's tile in a letter's body (`BodyFiles`, B-113, B-170) is a link of
+/// the pane's own, `bmfile:`, and a tap on it opens the file in Quick Look:
+/// nothing in Safari.
 ///
 /// Pictures are not navigations, and this does not touch them: a letter's
 /// remote pictures still load, as they always have. Whether they should is
@@ -47,7 +47,7 @@ enum PaneNavigation {
         /// Cancelled in the pane, and taken where a tapped link goes.
         case follow(URL)
         /// Cancelled in the pane, and the file at `section` of the letter
-        /// `letter` opened, as its row in the header opens it.
+        /// `letter` opened, as a tap on its tile in the body opens it.
         case openFile(letter: String, section: String)
     }
 

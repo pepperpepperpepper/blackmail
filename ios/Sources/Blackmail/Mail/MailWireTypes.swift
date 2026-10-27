@@ -334,7 +334,7 @@ struct MIMEPart {
     /// previews were asked for with a lone forward's had none. Everything
     /// else goes by `section`, the app's own numbering, which a letter
     /// fetched whole and decoded on the iPad numbers the same: reply,
-    /// forward, a file's row and a part a kept copy names (B-114).
+    /// forward, a file's tile and a part a kept copy names (B-114).
     var fetchSection: String {
         guard isMessageText else { return section }
         guard let dot = section.lastIndex(of: ".") else { return "TEXT" }
@@ -388,16 +388,17 @@ struct MIMEPart {
         return !isMultipart && type != "text" && filename != nil
     }
 
-    /// Whether this part is a file the reading pane's header lists, for the
-    /// paperclip on the list's row (`IMAPMailRepository.hasAttachment`),
-    /// from the BODYSTRUCTURE alone (B-101).
+    /// Whether this part is a file of the letter's, one the reading pane
+    /// draws in the body as a file (B-170), for the paperclip on the list's
+    /// row (`IMAPMailRepository.hasAttachment`), from the BODYSTRUCTURE
+    /// alone (B-101).
     ///
     /// `isAttachment` with one change: a part sent inline is a file too,
     /// unless it is a picture the body shows by `cid:`, or the words of a
     /// text part with no name. That is the PDF Apple Mail on an iPhone or
     /// an iPad sends, inline, with no `Content-ID`: it had a row in neither
-    /// the header nor the list, and Mail lists it. The same parts the
-    /// header lists (`MIMEDecoder.listedAttachments(in:)`): a picture with
+    /// the header nor the list, and Mail lists it. The same parts as
+    /// `MIMEDecoder.listedAttachments(in:)`: a picture with
     /// a `Content-ID` as `Attachment.isShownInBody` has one, and a text
     /// part named as `collectAttachments` names it.
     ///

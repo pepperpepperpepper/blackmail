@@ -55,7 +55,7 @@ struct ReplyFiles: Equatable {
         /// not go to. Mail's factory default.
         case whenAddingRecipients
         /// Reply and Reply All ask Mail's question first, as Forward does,
-        /// when the original has files the header lists.
+        /// when the original has files (`Message.listedAttachments`).
         case ask
         /// Every reply carries them.
         case always
@@ -121,7 +121,7 @@ struct ReplyFiles: Equatable {
     }
 
     /// Whether Forward asks Mail's question: when the original has a file
-    /// the header lists (`Message.listedAttachments`). A signature's logo,
+    /// (`Message.listedAttachments`). A signature's logo,
     /// or any picture the body shows, alone asks nothing.
     static func forwardAsks(_ m: Message) -> Bool {
         !m.listedAttachments.isEmpty
