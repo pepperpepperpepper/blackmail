@@ -7985,10 +7985,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       tap outside closes it, and nothing is written in the log.
       2. *Move to Junk.* Flag, Move to Junk: no question; the row goes as
       the popover closes, not in the frame of the tap, since UIKit runs a
-      sheet's item only once the sheet is gone (B-106, Found on the test
-      iPad 2026-10-27): a shot about 0.3 s after the tap can still show
-      the popover's last frame or "one" open. In the same frame as the row
-      goes, on a build with B-158, the int's, "two", the row below, opens
+      sheet's item only once the sheet is gone, 0.5 to 0.65 s after the
+      tap on the test iPad (B-106, Found on the test iPad 2026-10-27): a
+      shot about 0.3 s after the tap can still show the popover's last
+      frame or "one" open, and the shot that counts is taken at least 1 s
+      after the tap. In the same frame as the row goes, on a build with
+      B-158, the int's, "two", the row below, opens
       in the pane, highlighted; it is read, so no STORE (the pane empties
       on a build without it); never "one" off the list with the pane still
       showing it. "Moving…" under the list until the answer, about a third
