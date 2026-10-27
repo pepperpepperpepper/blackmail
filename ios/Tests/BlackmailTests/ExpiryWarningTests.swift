@@ -611,7 +611,7 @@ final class ExpiryWarningTests: XCTestCase {
                        + "handedOver = true present(preview, animated: true, completion: ready) "
                        + "case .quickLook, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
-                       + "preview.modalPresentationStyle = .fullScreen "
+                       + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
                        + "handedOver = true present(preview, animated: true, completion: ready) } ")
         XCTAssertEqual(shown.components(separatedBy: "await").count - 1, 1, shown)
         for hop in ["DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {

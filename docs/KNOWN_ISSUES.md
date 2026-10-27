@@ -36729,7 +36729,9 @@ links.
 - Markup and Reply on a held file (B-171 builds it for a held photo),
   Save Video, Open in New Window and Print from the menu are not built.
 - A HEIC is a tile, which iPadOS 18 could draw as a photo, as could
-  iPadOS 17; the test iPad's 16.5.1 cannot.
+  iPadOS 17; the test iPad's 16.5.1 cannot. One the letter's HTML shows
+  among its words is not a tile: below iPadOS 17 the loader serves it as
+  a JPEG (B-171's fix after the test iPad).
 - The list row's files, from its structure, are carried and kept on the
   iPad and drawn nowhere at the tap (B-042): the header has no rows to
   draw from them.
@@ -36786,7 +36788,7 @@ The pins of `openAttachment` in `FileListedOnceTests`,
 `MarkupReplyTests` follow. The function put back as it was, 10 failures
 in 2 tests of `FileListedOnceTests`; then restored.
 
-## B-171 — FIXED 2026-10-27, not yet seen on the iPad. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
+## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
 Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
 26740c2.
@@ -36847,9 +36849,11 @@ a composer of its own" (`PanePictures.menu`).
    it is opened for (`FileTaps`, B-141, B-150).
 2. *iOS's own Markup* (`openAttachment`): the picture full screen in
    Quick Look, as a tap opens it, with the pane as the preview's delegate,
-   the only preview that has one, whose editing mode is `createCopy`:
-   Quick Look's Markup button at its top, the picture left as it came. A
-   tap's Quick Look has no Markup, as before.
+   whose editing mode for it is `createCopy`: Quick Look's Markup button
+   at its top, the picture left as it came. A tap's Quick Look has no
+   Markup: built with no delegate for it, taken to mean none, which the
+   test iPad showed wrong; since the fix after it (below) the pane is its
+   delegate too, its editing mode `disabled`.
 3. *The copy* (`MarkupReply`, new). Each copy of what he drew that Quick
    Look hands over (`previewController(_:didSaveEditedCopyOf:at:)`) is
    staged at once where the composer's photos are (`AttachmentStore`), as
@@ -36916,7 +36920,8 @@ its Not covered line "Mail's Markup and Reply and Look Up are not built",
 for Markup and Reply; and the copy-Mail research's decision for B-122,
 "leave out Markup and Reply (L, separate)".
 
-**Not changed.** Look Up. A tap on a picture: Quick Look, no Markup. A
+**Not changed.** Look Up. A tap on a picture: Quick Look, no Markup
+(which, until the fix after the test iPad, it had: below). A
 file's row: a tap opens it, a hold does nothing. Reply All, New Message
 and Save to Files after Done, which iPadOS 17 and 18 Mail offer: Done
 goes to the Reply alone, as the menu's words say.
@@ -37025,3 +37030,64 @@ second; a picture drawn as a tile, a HEIC say, has it too
 (`menu(for:)`); a file that is no picture keeps B-150's menu as B-170
 gives it, with no Markup and Reply. `MarkupReplyTests` counts two uses
 of `PanePictures.menu` in the pane, a held picture's and a held tile's.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-options, on the
+int19 build, and reproduced by a second run on new letters. Two of the
+check's steps failed. Step 6: a plain tap on "B-171 photo"'s photo
+opened Quick Look with its Markup button between Share and Done; the
+held menu's Quick Look did too, and so did the int18 build of 2026-10-26
+(round r6-h-pane), so it is older than B-171, whose "as before" was not
+so. Step 8: in "B-171 heic" the HEIC photo, an iPhone's `image/heic`
+part of 2.2 MB shown among the words by `cid:`, was a small bordered box
+with WebKit's broken picture in it: no photo and no tile. Held, the box
+gave the picture menu, and its Quick Look showed the photo, so the part
+came; WebKit alone failed to draw it. The round's other "not possible"
+steps (no ink from a finger with Only Draw with Apple Pencil on) are the
+iPad's settings, not the app's.
+
+*The cause.* (a) A tap's Quick Look (`openAttachment`'s `.quickLook`)
+had no delegate, which this entry took to mean no Markup. On iPadOS
+16.5.1 Quick Look shows its Markup button for the writable file the
+pane writes when no delegate says otherwise; only Markup and Reply's
+preview had one, and its `editingModeFor` answered `createCopy` for any
+preview. (b) A picture the HTML shows by `cid:` is counted as drawn by
+the letter (`BodyFiles`, B-170), so it has no tile, and its `<img>` is
+fed by the loader with the part's own bytes and kind. WebKit on iPadOS
+16 draws no HEIC (`BodyFiles.pictureKinds`' own note), and B-170's rule
+that makes a HEIC a tile covers only one the HTML does not show. The app
+supports iOS 16, so on a supported iPad such a photo was a broken box;
+on iPadOS 17 and 18, his, WebKit draws it.
+
+*Changed.* (a) The pane is the delegate of a tap's Quick Look too (also
+of the held menu's Quick Look, Save Image and Copy's, the same branch),
+and `editingModeFor` answers by `MarkupReply.marks(in:)`, new: true for
+the preview a picture was last opened in for Markup and Reply, while it
+is up, and `createCopy` there; `disabled` for any other. The other two
+methods already took only that preview's copy and closing. (b)
+`HEICPicture`, new: a part `image/heic` or `image/heif`, or their
+sequences, in any case and with any parameter, is served by the loader
+(`InlineImageLoader`) on a system older than iOS 17
+(`HEICPicture.systemDrawsHEIC`, by `ProcessInfo`) as a JPEG made of it,
+away from the main thread in a detached task, by ImageIO's thumbnail of
+it, upright and at most 2048 pixels on its longer side, so a 12-megapixel
+photo is never decoded whole, at the shared photo's quality
+(`HEICPictureImageIO.swift`); where none can be made, as it came. From
+iOS 17, and for any other kind, as it came. The pane's page and the
+print's both take their pictures from the loader, so a printed letter has
+the photo too; the menu, Quick Look and Markup and Reply use the part as
+it came, which Quick Look draws.
+
+*Tests.* `MarkupReplyTests`, one new: Markup for the preview opened for
+Markup and Reply while it is up, and none for another, none under way,
+or one closed; its wiring pins the tap's delegate and the editing mode
+by `marks`, two delegates and one `createCopy`. `HEICPictureTests`, new,
+two: a HEIC by each name served as the JPEG made of it below 17 and as
+it came from 17, any other kind as it came with no JPEG made, one that
+makes none as it came; and, read from the source, the loader making it
+in a detached task before WebKit is answered, the system read at 17, and
+ImageIO's options. `AttachmentStoreTests` counts two delegates, and
+`ExpiryWarningTests`' pin of `openAttachment` has the tap's. Undone
+by hand, the pane as it was with `marks` true for any preview, 9
+failures in 2 tests of `MarkupReplyTests` and 1 in
+`AttachmentStoreTests`; the loader as it was with `served` giving the
+part as it came, 16 in 2 tests of `HEICPictureTests`; then restored.

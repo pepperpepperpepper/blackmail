@@ -67,6 +67,15 @@ struct MarkupReply: Equatable {
         return unused
     }
 
+    /// Whether Quick Look `preview` has Markup: the one a picture was
+    /// opened in for Markup and Reply (`begin`), while it is up. Any other,
+    /// a tap's or the held menu's Quick Look, has none, as Mail's Quick
+    /// Look of a picture in a letter has none (B-171).
+    func marks(in preview: ObjectIdentifier) -> Bool {
+        if case let .marking(open, _) = state { return open == preview }
+        return false
+    }
+
     /// Quick Look `preview` saved a copy of what he drew. While it is up,
     /// the copy is kept, and the one before it handed back to be let go.
     /// Once it has closed with none, within `late`, it is the reply's.

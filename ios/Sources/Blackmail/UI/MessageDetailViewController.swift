@@ -1299,9 +1299,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 case .markupAndReply:
                     // iOS's own Markup on it, in Quick Look, full screen as
                     // a tap opens it, a copy made of what he draws and the
-                    // picture left as it came (B-171). The one preview with
-                    // the pane as its delegate (`QLPreviewControllerDelegate`
-                    // below): a tap's Quick Look has no Markup, as before.
+                    // picture left as it came (B-171). The pane its
+                    // delegate (`QLPreviewControllerDelegate` below), which
+                    // gives Markup to this preview alone.
                     let preview = QLPreviewController()
                     preview.dataSource = self
                     preview.delegate = self
@@ -1313,6 +1313,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 case .quickLook, .saveImage, .copy:
                     let preview = QLPreviewController()
                     preview.dataSource = self
+                    // The pane its delegate too, which says it has no
+                    // Markup: with none, Quick Look shows its Markup button
+                    // for the file written here (B-171).
+                    preview.delegate = self
                     // Full screen, not a sheet. A scanned letter or a receipt is
                     // the thing he is trying to read, and the whole point of the
                     // iPad is that it can be as large as the glass.
@@ -2234,11 +2238,15 @@ extension MessageDetailViewController: QLPreviewControllerDataSource {
 /// (B-063).
 extension MessageDetailViewController: QLPreviewControllerDelegate {
 
-    /// Markup on, a copy made of what he draws: Quick Look's Markup button,
-    /// as Mail's composer has Quick Look's for a file.
+    /// Markup on, a copy made of what he draws, in Markup and Reply's
+    /// preview alone: Quick Look's Markup button, as Mail's composer has
+    /// Quick Look's for a file. Any other preview, a tap's, has none
+    /// (`MarkupReply.marks`). With no delegate, as a tap's had none, Quick
+    /// Look on iPadOS 16.5.1 showed its Markup button for the picture
+    /// written to the iPad, editable (the test iPad, 2026-10-27).
     func previewController(_ controller: QLPreviewController,
                            editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode {
-        .createCopy
+        markup.marks(in: ObjectIdentifier(controller)) ? .createCopy : .disabled
     }
 
     /// A copy of what he drew, staged at once, since the file Quick Look

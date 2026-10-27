@@ -9350,14 +9350,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       directory gone from `tmp/Attachments`.
       6. *The others:* the logo held: the menu with Markup and Reply. The
       picture from the web held: WebKit's menu, as before, no Markup and
-      Reply. A tap on the photo: Quick Look, written down whether it has
-      a Markup button (it should not).
+      Reply. A tap on the photo: Quick Look with no Markup button, Share
+      and Done alone at its top (the round of 2026-10-27 found one there);
+      Done. Held, Quick Look from the menu: no Markup button either.
       7. *A conversation:* "B-171 thread 2" listed, thread 1's line opened,
       its photo held, Markup and Reply, a line drawn, Done: the reply's To
       is thread 1's sender, its subject thread 1's. Cancel, Delete Draft.
-      8. *A HEIC:* "B-171 heic" opened; written down whether its photo
-      shows. Where it does: held, Markup and Reply, a line drawn, Done:
-      the row's name ends ".jpg", its kind a JPEG. Cancel, Delete Draft.
+      8. *A HEIC:* "B-171 heic" opened: its photo shows among the words,
+      upright, as wide as the letter at most, on iPadOS 16 as on 17 and
+      later (the round of 2026-10-27 found a broken box on 16.5.1; the
+      app makes a JPEG of it for WebKit below 17). Held, Markup and Reply, a line drawn, Done: the row's
+      name ends ".jpg", its kind a JPEG. Cancel, Delete Draft.
       9. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
