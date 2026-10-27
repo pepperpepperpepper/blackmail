@@ -30,9 +30,22 @@ public final class ShareViewController: UIViewController,
 
     private let nav = UINavigationController()
     private var form: ShareComposeViewController?
+    /// The sheet's text size and Bold Text, as iOS hands them to it, in
+    /// `Theme` before the form is made and again when either changes
+    /// (B-166). The extension has no `UIApplication` of its own to ask, as
+    /// the app does (`TextSizes.app`): it reads its own traits. Until they
+    /// say, it is Large, the factory size, and read again as they come
+    /// (`traitCollectionDidChange`) and as the sheet appears.
+    private lazy var sizes = TextSizes(
+        names: [UIContentSizeCategory.didChangeNotification,
+                UIAccessibility.boldTextStatusDidChangeNotification],
+        read: { [weak self] in TextSize(self?.traitCollection.preferredContentSizeCategory ?? .unspecified) },
+        apply: { Theme.textSize = $0 })
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        // The text size in `Theme` before anything of the sheet is made.
+        _ = sizes
         // Dark, as the app always is (D-010), whatever the app it is shared
         // from looks like.
         overrideUserInterfaceStyle = .dark
@@ -133,6 +146,8 @@ public final class ShareViewController: UIViewController,
         super.viewWillAppear(animated)
         view.window?.overrideUserInterfaceStyle = .dark
         presentationController?.delegate = self
+        // Its traits are the sheet's by now (B-166).
+        sizes.look()
     }
 
     /// A swipe at the sheet, which is held: the letter's Cancel, which asks
@@ -147,6 +162,15 @@ public final class ShareViewController: UIViewController,
     private func cancel() {
         extensionContext?.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain,
                                                            code: NSUserCancelledError))
+    }
+
+    /// The sheet's text size may have changed: read again, and the form
+    /// drawn at it if it has (B-166).
+    public override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        if previous?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+            sizes.look()
+        }
     }
 
     /// The app's bar, as `RootViewController` styles it, set on this one
@@ -251,6 +275,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private let suggestionsView = UITableView(frame: .zero, style: .plain)
     private var suggestions: [KnownRecipient] = []
     private weak var activeAddressField: RecipientField?
+    /// The type and the lines set from the text size, set again when it
+    /// changes while the sheet is up, as in the app's composer (B-166).
+    private let restyles = Restyles()
 
     private lazy var sendItem = UIBarButtonItem(
         title: "Send", style: .done, target: self, action: #selector(sendTapped))
@@ -350,13 +377,18 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         let toggleRow = ccToggleRow
         toggleRow.isHidden = draft.showsCcAndBcc
         toggleRow.addSubview(ccToggle)
+        let toggleHeight = ccToggle.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
         NSLayoutConstraint.activate([
             ccToggle.leadingAnchor.constraint(equalTo: toggleRow.leadingAnchor,
                                               constant: Theme.detailContentInsetLeft),
             ccToggle.topAnchor.constraint(equalTo: toggleRow.topAnchor),
             ccToggle.bottomAnchor.constraint(equalTo: toggleRow.bottomAnchor),
-            ccToggle.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            toggleHeight,
         ])
+        restyles.keep { [ccToggle] in
+            ccToggle.titleLabel?.font = Theme.fontDetailMeta
+            toggleHeight.constant = Theme.lineHeight
+        }
         stack.addArrangedSubview(toggleRow)
         stack.addArrangedSubview(row("Subject:", subjectField, draft.subject))
         // Above what is attached, where he looks for the photo he chose.
@@ -371,7 +403,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         stack.addArrangedSubview(attachmentsStack)
         rebuildAttachments()
 
-        bodyView.font = .systemFont(ofSize: Theme.scaled(17))
+        restyles.keep { [bodyView] in bodyView.font = .systemFont(ofSize: Theme.scaled(17)) }
         // What was shared under an empty first line, as Mail shows it.
         bodyView.text = ShareLetter.shown(draft.body)
         // The caret starts on that line, at the top, where Tab and Return
@@ -415,7 +447,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
         suggestionsView.dataSource = self
         suggestionsView.delegate = self
-        suggestionsView.rowHeight = Theme.suggestionRowHeight
+        suggestionsView.rowHeight = Theme.scaled(Theme.suggestionRowHeight)
         suggestionsView.backgroundColor = Theme.barFill
         suggestionsView.separatorColor = Theme.separator
         suggestionsView.layer.borderWidth = 0.5
@@ -423,11 +455,29 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         suggestionsView.isHidden = true
         suggestionsView.register(UITableViewCell.self, forCellReuseIdentifier: "suggestion")
         view.addSubview(suggestionsView)
+        // The sheet at its text size, again when it changes while it is up
+        // (B-166).
+        NotificationCenter.default.addObserver(self, selector: #selector(textSizeChanged),
+                                               name: TextSizes.didChange, object: nil)
 
         subjectField.delegate = self
         subjectField.addTarget(self, action: #selector(subjectChanged), for: .editingChanged)
         updateSend()
         askForTheTitle()
+    }
+
+    /// The text size or Bold Text has changed while the sheet is up
+    /// (`TextSizes`, B-166): as in the app's composer, every caption, field,
+    /// line and the body at the new size, the files' rows made again, and
+    /// the addresses offered at their new height. Cancel and Send keep
+    /// theirs, as a bar's do.
+    @objc private func textSizeChanged() {
+        restyles.again()
+        rebuildAttachments()
+        suggestionsView.rowHeight = Theme.scaled(Theme.suggestionRowHeight)
+        suggestionsView.reloadData()
+        if let field = activeAddressField { place(under: field) }
+        view.setNeedsLayout()
     }
 
     /// A YouTube video shared with nothing naming it: its title asked of
@@ -573,10 +623,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         let container = UIView()
         let label = UILabel()
         label.text = text
-        label.font = Theme.fontDetailMeta
         label.textColor = Theme.secondaryText
         field.text = value
-        field.font = .systemFont(ofSize: Theme.scaled(17))
         field.textColor = Theme.primaryText
         // "To", not "To:": the caption is a label of its own.
         field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
@@ -593,16 +641,25 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
+        let captionWidth = label.widthAnchor.constraint(equalToConstant: Theme.scaled(72))
+        let height = container.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
+        // As in the app's composer (B-166).
+        restyles.keep {
+            label.font = Theme.fontDetailMeta
+            field.font = .systemFont(ofSize: Theme.scaled(17))
+            captionWidth.constant = Theme.scaled(72)
+            height.constant = Theme.lineHeight
+        }
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                            constant: Theme.detailContentInsetLeft),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            label.widthAnchor.constraint(equalToConstant: 72),
+            captionWidth,
             field.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
             field.trailingAnchor.constraint(equalTo: container.trailingAnchor,
                                             constant: -Theme.detailContentInsetLeft),
             field.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            height,
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -613,15 +670,13 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     }
 
     /// To, Cc or Bcc: the caption, then the field of bubbles, a line of
-    /// `minHitTarget` for each line of them, as in the app's composer.
+    /// `lineHeight` for each line of them, as in the app's composer.
     private func addressRow(_ text: String, _ field: RecipientField, _ entries: [String]) -> UIView {
         let container = UIView()
         let label = UILabel()
         label.text = text
-        label.font = Theme.fontDetailMeta
         label.textColor = Theme.secondaryText
         field.show(entries)
-        field.font = .systemFont(ofSize: Theme.scaled(17))
         field.textColor = Theme.primaryText
         // "To", not "To:": the caption is a label of its own.
         field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
@@ -636,12 +691,20 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
+        let captionY = label.centerYAnchor.constraint(equalTo: container.topAnchor,
+                                                      constant: Theme.lineHeight / 2)
+        let captionWidth = label.widthAnchor.constraint(equalToConstant: Theme.scaled(72))
+        restyles.keep {
+            label.font = Theme.fontDetailMeta
+            field.font = .systemFont(ofSize: Theme.scaled(17))
+            captionY.constant = Theme.lineHeight / 2
+            captionWidth.constant = Theme.scaled(72)
+        }
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                            constant: Theme.detailContentInsetLeft),
-            label.centerYAnchor.constraint(equalTo: container.topAnchor,
-                                           constant: Theme.minHitTarget / 2),
-            label.widthAnchor.constraint(equalToConstant: 72),
+            captionY,
+            captionWidth,
             field.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
             field.trailingAnchor.constraint(equalTo: container.trailingAnchor,
                                             constant: -Theme.detailContentInsetLeft),
@@ -664,7 +727,6 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         let container = UIView()
         let label = UILabel()
         label.text = words
-        label.font = Theme.fontDetailMeta
         label.textColor = Theme.primaryText
         let rule = UIView()
         rule.backgroundColor = Theme.separator
@@ -672,13 +734,18 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
+        let height = container.heightAnchor.constraint(equalToConstant: Theme.lineHeight)
+        restyles.keep {
+            label.font = Theme.fontDetailMeta
+            height.constant = Theme.lineHeight
+        }
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                            constant: Theme.detailContentInsetLeft),
             label.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor,
                                             constant: -Theme.detailContentInsetLeft),
             label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            height,
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -727,7 +794,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
                                                  constant: -Theme.detailContentInsetLeft),
                 remove.centerYAnchor.constraint(equalTo: container.centerYAnchor),
                 remove.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget),
-                container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+                container.heightAnchor.constraint(equalToConstant: Theme.lineHeight),
                 rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                               constant: Theme.detailContentInsetLeft),
                 rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -786,7 +853,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private func place(under field: RecipientField) {
         if let row = field.superview, let frame = row.superview?.convert(row.frame, to: view) {
             suggestionsView.frame = CGRect(x: frame.minX, y: frame.maxY, width: frame.width,
-                                           height: CGFloat(suggestions.count) * Theme.suggestionRowHeight)
+                                           height: CGFloat(suggestions.count)
+                                               * Theme.scaled(Theme.suggestionRowHeight))
         }
         view.bringSubviewToFront(suggestionsView)
     }

@@ -416,7 +416,9 @@ final class NewMailBannersTests: XCTestCase {
 
         let folders = try source("Sources/Blackmail/UI/MailboxListViewController.swift")
         XCTAssertTrue(folders.contains("counted = true AppBadge.app.counted(inboxUnread)"))
-        XCTAssertTrue(folders.contains("configure(cell, with: folder) } "
+        XCTAssertTrue(folders.contains("configure(cell, with: folder) patched = true } "
+                                       + "if patched, Theme.textSize != .factory { "
+                                       + "tableView.beginUpdates() tableView.endUpdates() } "
                                        + "AppBadge.app.counted(inboxUnread) }"))
 
         let root = try source("Sources/Blackmail/UI/RootViewController.swift")

@@ -126,7 +126,9 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         backgroundColor = Theme.searchBarFill
 
         field.backgroundColor = Theme.searchFieldFill
-        field.font = Theme.fontListSubject
+        // The band's own type, which keeps its size as the band keeps its
+        // height, as a bar does (B-166).
+        field.font = Theme.fontControl
         field.textColor = Theme.primaryText
         field.layer.cornerRadius = Theme.searchFieldCornerRadius
         field.layer.masksToBounds = true
@@ -153,7 +155,7 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         icon.contentMode = .scaleAspectFit
         let label = UILabel()
         label.text = "Search"
-        label.font = Theme.fontListSubject
+        label.font = Theme.fontControl
         label.textColor = Theme.secondaryText
         // Drawn, not read (B-071). The field is called "Search" itself, and
         // VoiceOver read the magnifier and the word as two more things
@@ -183,9 +185,9 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
             MailSearchScope.allCases.firstIndex(of: scope) ?? 0
         scopeControl.selectedSegmentTintColor = Theme.tintBlue
         scopeControl.setTitleTextAttributes(
-            [.foregroundColor: Theme.secondaryText, .font: Theme.fontDetailMeta], for: .normal)
+            [.foregroundColor: Theme.secondaryText, .font: Theme.fontControl], for: .normal)
         scopeControl.setTitleTextAttributes(
-            [.foregroundColor: UIColor.white, .font: Theme.fontDetailMeta], for: .selected)
+            [.foregroundColor: UIColor.white, .font: Theme.fontControl], for: .selected)
         scopeControl.addTarget(self, action: #selector(scopeTapped), for: .valueChanged)
         scopeControl.isHidden = true
         addSubview(scopeControl)
@@ -204,6 +206,16 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// The recent searches' type at the text size now, which has changed
+    /// (B-166); their heights are read from `Theme` as the band is laid
+    /// out and asked how tall it is. The field, the word in it, Cancel and
+    /// the scope buttons keep theirs, as the band keeps its height.
+    func restyle() {
+        recentHeading.font = Theme.fontListSender
+        for row in recentRows { row.restyle() }
+        setNeedsLayout()
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -425,6 +437,14 @@ private final class RecentSearchRow: UIControl {
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// The clock and the words at the text size now (B-166).
+    func restyle() {
+        icon.image = UIImage(systemName: "clock",
+                             withConfiguration: UIImage.SymbolConfiguration(font: Theme.fontListSubject))
+        label.font = Theme.fontListSubject
+        setNeedsLayout()
+    }
 
     override var isHighlighted: Bool {
         didSet { backgroundColor = isHighlighted ? Theme.selection : .clear }

@@ -450,7 +450,7 @@ final class ReplyLikeMailTests: XCTestCase {
                      "let b = BubbleButton(type: .system)",
                      "let w = min(max(ceil(b.intrinsicContentSize.width), Theme.minHitTarget), width)",
                      "b.frame = CGRect(x: x, y: CGFloat(row) * line + (line - tall) / 2, width: w, height: tall)",
-                     "let line = Theme.minHitTarget",
+                     "let line = Theme.lineHeight",
                      "menu.popoverPresentationController?.sourceView = sender "
                         + "menu.popoverPresentationController?.sourceRect = sender.bounds"] {
             XCTAssertTrue(code.contains(line), line)
@@ -614,7 +614,7 @@ final class ReplyLikeMailTests: XCTestCase {
                      "menu.overrideUserInterfaceStyle = .dark",
                      "look.background.backgroundColor = selected ? Theme.tintBlue : Theme.recipientBubbleFill",
                      "title.foregroundColor = Theme.primaryText",
-                     "let tall = CGFloat(lines) * Theme.minHitTarget"] {
+                     "let tall = CGFloat(lines) * Theme.lineHeight"] {
             XCTAssertTrue(code.contains(line), line)
         }
         XCTAssertFalse(code.contains("UISearchTextField("))

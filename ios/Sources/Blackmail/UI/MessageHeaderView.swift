@@ -206,6 +206,25 @@ final class MessageHeaderView: UIView {
         }
     }
 
+    /// The header's type at the text size now, which has changed (B-166):
+    /// the names, the subject and the date, and each file's row, its
+    /// paperclip with it. Its lines are laid out by Auto Layout and grow or
+    /// shrink with their words, a file's row 44 pt or taller, and the letter
+    /// under the header moves with its foot, as when it was drawn.
+    func restyle() {
+        senderLabel.font = Theme.fontDetailSender
+        toLabel.font = Theme.fontDetailMeta
+        ccLabel.font = Theme.fontDetailMeta
+        subjectLabel.font = Theme.fontDetailSubject
+        dateLabel.font = Theme.fontDetailMeta
+        for button in attachmentButtons.values {
+            button.configuration?.image = Theme.symbol("paperclip")
+            button.configuration?.preferredSymbolConfigurationForImage = Theme.symbolSize
+            button.configuration?.attributedTitle?.font = Theme.fontDetailMeta
+        }
+        setNeedsLayout()
+    }
+
     /// The date under the subject written from the letter's own, as the
     /// iPad writes it now: as the letter is shown, and again where it is
     /// when the 24-Hour Time switch, the time zone or the region has
@@ -224,8 +243,9 @@ final class MessageHeaderView: UIView {
         let button = UIButton(type: .system)
 
         var config = UIButton.Configuration.plain()
-        // At a fixed size (B-071). The button's own would follow the iPad's
-        // text size, and at the largest took the row from 44 pt to 86.
+        // At a size of the app's own (B-071), the words' (B-166). The
+        // button's own followed the iPad's text size whatever the words,
+        // and at the largest took the row from 44 pt to 86.
         config.image = Theme.symbol("paperclip")
         config.preferredSymbolConfigurationForImage = Theme.symbolSize
         config.imagePadding = 8

@@ -29,8 +29,10 @@ final class MoveMessageViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Mailbox")
-        tableView.rowHeight = Theme.mailboxRowHeightScaled
+        tableView.register(FolderCell.self, forCellReuseIdentifier: "Mailbox")
+        // As the Mailboxes' rows, at the size the sheet opens at
+        // (`FolderCell`, B-166).
+        FolderCell.size(tableView)
         tableView.separatorColor = Theme.separator
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: "Cancel", style: .plain, target: self, action: #selector(cancel))
@@ -65,6 +67,7 @@ final class MoveMessageViewController: UITableViewController {
         content.text = mailboxes[ip.row].displayName
         content.textProperties.font = Theme.fontMailboxName
         cell.contentConfiguration = content
+        (cell as? FolderCell)?.holdFloor()
         return cell
     }
 

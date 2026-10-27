@@ -391,9 +391,10 @@ final class SentRowLikeMailTests: XCTestCase {
             "conversationMark.isHidden = !marked",
             "let markSize = conversationMark.isHidden ? nil : conversationMark.image?.size",
             "let line = RowTopLine(left: left, right: right, mark: markSize?.width, "
-                + "gap: Theme.conversationMarkGap, date: timestampLabel.intrinsicContentSize.width)",
-            "place(timestampLabel, baseline: Theme.senderBaseline, left: line.dateX, width: line.dateWidth)",
-            "place(senderLabel, baseline: Theme.senderBaseline, left: line.namesX, width: line.namesWidth)",
+                + "gap: Theme.conversationMarkGap, date: timestampLabel.intrinsicContentSize.width, "
+                + "scale: s, stacked: lines.stacked)",
+            "place(timestampLabel, baseline: lines.date, left: line.dateX, width: line.dateWidth)",
+            "place(senderLabel, baseline: lines.names, left: line.namesX, width: line.namesWidth)",
         ] {
             XCTAssertTrue(cell.contains(wiring), wiring)
         }

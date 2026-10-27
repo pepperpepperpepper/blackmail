@@ -46,6 +46,8 @@ final class MessageCell: UITableViewCell {
     private let spinner = UIActivityIndicatorView(style: .medium)
     /// The row's date, kept to be written again where it is (`drawDate`).
     private var date: Date?
+    /// The text size the row's type was last set for (`restyle`).
+    private var styled: TextSize?
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
@@ -61,14 +63,10 @@ final class MessageCell: UITableViewCell {
         unreadDot.backgroundColor = Theme.tintBlue
         unreadDot.layer.cornerRadius = Theme.unreadDotDiameter / 2
 
-        senderLabel.font = Theme.fontListSender
         senderLabel.textColor = Theme.primaryText
-        timestampLabel.font = Theme.fontListTimestamp
         timestampLabel.textColor = Theme.secondaryText
         timestampLabel.textAlignment = .right
-        subjectLabel.font = Theme.fontListSubject
         subjectLabel.textColor = Theme.primaryText
-        previewLabel.font = Theme.fontListPreview
         previewLabel.textColor = Theme.secondaryText
         previewLabel.numberOfLines = 2
 
@@ -83,8 +81,6 @@ final class MessageCell: UITableViewCell {
         statusIcon.tintColor = Theme.secondaryText
         statusIcon.contentMode = .scaleAspectFit
         statusIcon.isHidden = true
-        conversationMark.image = UIImage(systemName: "chevron.forward.circle",
-                                         withConfiguration: Theme.conversationMarkSymbol)
         conversationMark.tintColor = Theme.tintBlue
         conversationMark.contentMode = .center
         conversationMark.isHidden = true
@@ -96,6 +92,25 @@ final class MessageCell: UITableViewCell {
                   previewLabel, attachmentIcon, flagIcon, conversationMark, spinner] {
             contentView.addSubview(v)
         }
+        restyle()
+    }
+
+    /// The row's type, and the conversation mark drawn at the date's size,
+    /// as the text size is now (`Theme.textSize`, B-166): set as the cell
+    /// is made, and again as it is next given a row once the size or Bold
+    /// Text has changed, which the list's redraw at that change does for
+    /// every row in sight. The arrow needs nothing: its box is the row's,
+    /// and it is scaled to fit it.
+    private func restyle() {
+        guard styled != Theme.textSize else { return }
+        styled = Theme.textSize
+        senderLabel.font = Theme.fontListSender
+        timestampLabel.font = Theme.fontListTimestamp
+        subjectLabel.font = Theme.fontListSubject
+        previewLabel.font = Theme.fontListPreview
+        conversationMark.image = UIImage(systemName: "chevron.forward.circle",
+                                         withConfiguration: Theme.conversationMarkSymbol)
+        setNeedsLayout()
     }
 
     /// A spinner in the leading gutter, over the unread dot, the arrow and
@@ -116,6 +131,7 @@ final class MessageCell: UITableViewCell {
     /// `marked`: the row ends its top line with the mark of a
     /// conversation (`MessageThread.marksConversation(in:)`).
     func configure(with m: MessageSummary, marked: Bool) {
+        restyle()
         // The top line as the row gives it (`MessageThread.displayRow`),
         // which has named each sender already (`participants`). Read again
         // as one sender, a line naming whom was cut at its first "<", and
@@ -127,10 +143,9 @@ final class MessageCell: UITableViewCell {
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
 
         // Forced line height, so the two preview lines keep the row's own 20 pt
-        // rhythm instead of the font's natural 18.
+        // rhythm instead of the font's natural 18, at any text size.
         let ps = NSMutableParagraphStyle()
-        ps.minimumLineHeight = (Theme.previewLine2Baseline - Theme.previewLine1Baseline)
-            * Theme.textScale
+        ps.minimumLineHeight = Theme.messageRowLines.pitch
         ps.maximumLineHeight = ps.minimumLineHeight
         ps.lineBreakMode = .byTruncatingTail
         previewLabel.attributedText = NSAttributedString(string: m.preview, attributes: [
@@ -163,8 +178,9 @@ final class MessageCell: UITableViewCell {
     }
 
     /// Places a label so its *baseline* lands at `baseline` points from the top
-    /// of the row. Laying out by baseline rather than by frame top is what
-    /// keeps the vertical rhythm identical when the type scale changes.
+    /// of the row, as `RowLines` has it at the text size. Laying out by
+    /// baseline rather than by frame top is what keeps the vertical rhythm
+    /// identical when the type scale changes.
     /// The origin is snapped to the device pixel grid. Without it, `baseline -
     /// ascender` is a fractional y that differs per font (11.35 for 17 pt
     /// semibold, 13.25 for 15 pt), so two labels asked for the SAME baseline
@@ -172,7 +188,7 @@ final class MessageCell: UITableViewCell {
     /// out of line on every row.
     private func place(_ label: UILabel, baseline: CGFloat, left: CGFloat, width: CGFloat) {
         let scale = UIScreen.main.scale
-        let y = (((baseline * Theme.textScale) - label.font.ascender) * scale).rounded() / scale
+        let y = ((baseline - label.font.ascender) * scale).rounded() / scale
         label.frame = CGRect(x: left, y: y, width: width, height: label.font.lineHeight)
     }
 
@@ -196,6 +212,10 @@ final class MessageCell: UITableViewCell {
         let gutterX = Theme.unreadDotCenterX + indent
         let right = w - Theme.rowTextRightInset
         let textWidth = right - left
+        // The lines at the text size (B-166), the row at Large's own at
+        // Large, and the trailing paperclip and flag with them.
+        let lines = Theme.messageRowLines
+        let s = Theme.textScale
 
         unreadDot.frame = CGRect(
             x: gutterX - Theme.unreadDotDiameter / 2,
@@ -211,22 +231,24 @@ final class MessageCell: UITableViewCell {
         // date's own text needs more, as "Wednesday" in Edit mode in three
         // panes, the names give it up, never the date (B-080).
         let markSize = conversationMark.isHidden ? nil : conversationMark.image?.size
+        // At the accessibility sizes the date and the mark have a line of
+        // their own under the names (`RowLines.stacked`).
         let line = RowTopLine(left: left, right: right, mark: markSize?.width,
                               gap: Theme.conversationMarkGap,
-                              date: timestampLabel.intrinsicContentSize.width)
+                              date: timestampLabel.intrinsicContentSize.width,
+                              scale: s, stacked: lines.stacked)
         if let markSize, let markX = line.markX {
             // Centred on the date's figures, as Mail's sits beside its date.
             let scale = UIScreen.main.scale
-            let figures = Theme.senderBaseline * Theme.textScale
-                - timestampLabel.font.capHeight / 2
+            let figures = lines.date - timestampLabel.font.capHeight / 2
             conversationMark.frame = CGRect(
                 x: (markX * scale).rounded() / scale,
                 y: ((figures - markSize.height / 2) * scale).rounded() / scale,
                 width: markSize.width, height: markSize.height)
         }
-        place(timestampLabel, baseline: Theme.senderBaseline,
+        place(timestampLabel, baseline: lines.date,
               left: line.dateX, width: line.dateWidth)
-        place(senderLabel, baseline: Theme.senderBaseline,
+        place(senderLabel, baseline: lines.names,
               left: line.namesX, width: line.namesWidth)
 
         // The paperclip belongs in the LEADING gutter on the sender line — the
@@ -264,27 +286,27 @@ final class MessageCell: UITableViewCell {
                 y: (Theme.unreadDotCenterY * Theme.textScale) - size / 2,
                 width: size, height: size)
         } else if !attachmentIcon.isHidden {
-            attachmentIcon.frame = CGRect(x: right - 18,
-                                          y: (Theme.subjectBaseline * Theme.textScale) - 13,
-                                          width: 14, height: 14)
-            subjectWidth -= 22
+            attachmentIcon.frame = CGRect(x: right - 18 * s,
+                                          y: lines.subject - 13 * s,
+                                          width: 14 * s, height: 14 * s)
+            subjectWidth -= 22 * s
         }
         // The flag has no reference support in either position, so it keeps its
         // trailing place — but anchored to the same right edge as the timestamp
         // so the column's right edge stops being ragged between the two lines.
         if !flagIcon.isHidden {
-            let x = right - 14 - (clipInGutter || attachmentIcon.isHidden ? 0 : 22)
-            flagIcon.frame = CGRect(x: x, y: (Theme.subjectBaseline * Theme.textScale) - 13,
-                                    width: 14, height: 14)
-            subjectWidth -= 22
+            let x = right - 14 * s - (clipInGutter || attachmentIcon.isHidden ? 0 : 22 * s)
+            flagIcon.frame = CGRect(x: x, y: lines.subject - 13 * s,
+                                    width: 14 * s, height: 14 * s)
+            subjectWidth -= 22 * s
         }
-        place(subjectLabel, baseline: Theme.subjectBaseline, left: left, width: subjectWidth)
+        place(subjectLabel, baseline: lines.subject, left: left, width: subjectWidth)
 
         // Explicit leading. A 2-line label left to SF's natural 15 pt metrics
         // puts line 2 eighteen points below line 1, so `previewLine2Baseline`
         // was a constant the layout never consulted — it is set in configure().
-        let pitch = (Theme.previewLine2Baseline - Theme.previewLine1Baseline) * Theme.textScale
-        let firstBaseline = Theme.previewLine1Baseline * Theme.textScale
+        let pitch = lines.pitch
+        let firstBaseline = lines.preview
         let lineHeight = previewLabel.font.lineHeight
         previewLabel.frame = CGRect(
             x: left,
