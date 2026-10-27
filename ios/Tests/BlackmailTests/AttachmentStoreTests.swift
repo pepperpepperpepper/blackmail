@@ -307,7 +307,7 @@ final class AttachmentStoreTests: XCTestCase {
                  "UIDocumentPickerViewController(forExporting: [url], asCopy: true)",
                  "UIActivityViewController(activityItems: [url], applicationActivities: nil)",
                  "preview.dataSource = self",
-                 "present(preview, animated: true)"], in: code)
+                 "present(preview, animated: true, completion: ready)"], in: code)
         XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "previewURL = nil").count - 1, 1)

@@ -385,7 +385,8 @@ final class MarkupReplyTests: XCTestCase {
             "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
                 + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
                 + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
-                + "present(preview, animated: true) case .quickLook, .saveImage, .copy:",
+                + "handedOver = true present(preview, animated: true, completion: ready) "
+                + "case .quickLook, .saveImage, .copy:",
             "case .quickLook, .markupAndReply, .saveToFiles, .share: break",
             "extension MessageDetailViewController: QLPreviewControllerDelegate { "
                 + "func previewController(_ controller: QLPreviewController, "

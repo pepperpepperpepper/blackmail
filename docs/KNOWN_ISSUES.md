@@ -36210,7 +36210,7 @@ stack, has its white `bgcolor` on its box, the one fingerprint changed.
 The box not put around the markup, 16 failures in the new test; the
 held-back count of the picture undone alone, 4. Both put back.
 
-## B-170 — FIXED 2026-10-27, not yet seen on the iPad. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
+## B-170 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 
 **Found** in the copy-Mail research of 2026-10-26, "New gaps found on the
 way", the second: "Mail puts every file in the letter's body, not in a
@@ -36331,9 +36331,11 @@ under its header.
    in Quick Look, as B-113's row did (`PaneNavigation`'s `openFile`,
    `openAttachment`).
 7. *Coming* (`BodyFiles.Busy`, the script's `bmFileBusy`): from the tap
-   until the file opens or is let go, the tile is dimmed to half and its
-   last line says "Loading…", the pane's word, as B-148's row said it
-   after its name; then the line says what it said again.
+   until the file is open, Quick Look or the sheet asked for on the
+   screen, or is let go, the tile is dimmed to half and its last line
+   says "Loading…", the pane's word, as B-148's row said it after its
+   name; then the line says what it said again (cleared as Quick Look
+   began to come up until the fix after the test iPad, below).
 8. *Held* (the script's `bmPictureDown` and `bmFileClicked`,
    `BodyFiles.Hold`, `holdFile`): a finger held half a second on a tile,
    anywhere on it, still, gives a menu at the finger, by the sheet a held
@@ -36640,6 +36642,42 @@ picture drawn as a tile, has Markup and Reply second in its menu (B-171);
 a file that is no picture keeps `fileMenu`. In TODO, this check's step 2
 now has the tile grow with the text size, and step 3 has Markup and Reply
 in the photo's menu.
+
+**Found on the test iPad, 2026-10-27**, in round r6-i-look, on the int19
+build, at the check's step 2, and reproduced by a second run on a new
+letter. "B-170 pdf", kept on the iPad, its tile tapped while the screen
+was recorded at 60 frames a second: the tile was dimmed with "Loading…"
+in one frame only, then as it was for about 0.37 s until Quick Look came
+over it. The second run's bursts, 26 to 127 ms after the tap, never
+caught the dim at all.
+
+*The cause.* `openAttachment` cleared the tile in the `defer` of its
+task, which runs as soon as `present(_:animated:)` has been called, not
+once Quick Look is on the screen. A file kept on the iPad comes in
+milliseconds, so the dim and its clearing reached WebKit all but
+together, and the tile sat as it was through Quick Look's own third of a
+second of coming up: against the check's "until the PDF is in Quick
+Look" and item 7 of "Changed". Over the network the gap was about two
+frames. The app's doing, not the iPad's.
+
+*Changed.* The task notes when it hands the file over (`handedOver`),
+and each of the four presentations, Quick Look for a tap, Markup and
+Reply's (B-171), Save to Files' and Share's (B-150), is given the
+clearing as its completion (`ready`), which UIKit runs once its
+transition has ended, on the page the tile was dimmed on and not on one
+given since. The `defer` clears it only where nothing was handed over: a
+failure, a file let go for a later tap or a pane moved on, and Save
+Image and Copy, which put nothing over the pane; it still lets the
+download and its count go at once, as before.
+
+*Tests.* `FileListedOnceTests`, one new, read from the source: the four
+presentations each after `handedOver = true` with `completion: ready`,
+no presentation without it, `ready` clearing only on the page shown at
+the tap, and the `defer` clearing only when nothing was handed over.
+The pins of `openAttachment` in `FileListedOnceTests`,
+`LastFileTappedTests`, `ExpiryWarningTests`, `AttachmentStoreTests` and
+`MarkupReplyTests` follow. The function put back as it was, 10 failures
+in 2 tests of `FileListedOnceTests`; then restored.
 
 ## B-171 — FIXED 2026-10-27, not yet seen on the iPad. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 

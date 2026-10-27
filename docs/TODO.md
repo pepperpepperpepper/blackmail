@@ -9248,7 +9248,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       together, its lines whole (B-166);
       the Text Size back to where it was. The tile
       tapped: it dims and its last line says "Loading…" until the PDF is in
-      Quick Look; Done: the tile as it was.
+      Quick Look, in every frame of a recording from the tap until Quick
+      Look covers it, a file kept on the iPad too (the round of 2026-10-27
+      saw it for one frame only, then the tile as it was for 0.37 s);
+      Done: the tile as it was.
       3. *Photo:* "B-170 photo": the photo under the words, as wide as the
       letter at most, and no tile for it; the PDF's tile under it. The
       photo tapped: Quick Look; Done. A finger held on the photo half a

@@ -627,22 +627,59 @@ final class FileListedOnceTests: XCTestCase {
 
     /// The pane, read: a tap shows the file coming on its tile, whichever
     /// letter it is of, and the `defer` that ends the download puts it
-    /// back on the page it was shown on, and not on a page given since; by
-    /// script, in the app's content world. No header row is told anything.
+    /// back on the page it was shown on, and not on a page given since,
+    /// unless it was handed to what it opens in; by script, in the app's
+    /// content world. No header row is told anything.
     func testThePaneShowsTheTileComingFromTheTapToTheEnd() throws {
         let code = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(code.contains(
             "guard let m = letter ?? message else { return } "
                 + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) let shown = loads.shown"))
         XCTAssertTrue(code.contains(
-            "fileTaps.ended(file) "
-                + "if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) } }"))
+            "fileTaps.ended(file) if !handedOver && loads.stillShows(shown) { "
+                + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) } }"))
         XCTAssertTrue(code.contains(
             "private func run(_ busy: BodyFiles.Busy) { webView.callAsyncJavaScript(BodyFiles.Busy.script, "
                 + "arguments: busy.arguments, in: nil, in: .defaultClient) }"))
-        XCTAssertEqual(code.components(separatedBy: "BodyFiles.Busy(").count - 1, 2)
+        XCTAssertEqual(code.components(separatedBy: "BodyFiles.Busy(").count - 1, 3)
         XCTAssertFalse(code.contains("header.setAttachment"))
         XCTAssertFalse(code.contains("onSelectAttachment"))
+    }
+
+    /// The tile stays dimmed, saying "Loading…", until what the file opens
+    /// in is on the screen: each of the four presentations, Quick Look
+    /// for a tap, Markup and Reply's, Save to Files' and Share's, is
+    /// handed the clearing as its completion, which UIKit runs once its
+    /// transition has ended, and the `defer` that ends the download clears
+    /// it only where nothing was handed over: a failure, a file let go, a
+    /// file kept with nothing put over the pane. Cleared in the `defer`
+    /// for all, a file kept on the iPad was dimmed for a frame or none
+    /// and Quick Look came up a third of a second later over the tile as
+    /// it was (found on the test iPad, 2026-10-27). Read from the source.
+    func testTheTileIsDimmedUntilQuickLookIsUp() throws {
+        let code = try source("UI/MessageDetailViewController.swift")
+        let start = try XCTUnwrap(code.range(of: "private func openAttachment("))
+        let end = try XCTUnwrap(code.range(of: "private func prepareInlineImages(",
+                                           range: start.upperBound..<code.endIndex))
+        let open = String(code[start.lowerBound..<end.lowerBound])
+        XCTAssertTrue(open.contains(
+            "let ready: () -> Void = { [weak self] in guard let self, self.loads.stillShows(shown) else { return } "
+                + "self.run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) }"), open)
+        XCTAssertTrue(open.contains("if !handedOver && loads.stillShows(shown) {"), open)
+        for presented in [
+            "present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true, "
+                + "completion: ready)",
+            "present(share, animated: true, completion: ready)",
+            "marking = (m, attachment) handedOver = true present(preview, animated: true, completion: ready)",
+            "preview.modalPresentationStyle = .fullScreen handedOver = true "
+                + "present(preview, animated: true, completion: ready) } } catch {",
+        ] {
+            XCTAssertTrue(open.contains("handedOver = true " + presented)
+                          || open.contains(presented), presented)
+        }
+        XCTAssertEqual(open.components(separatedBy: "handedOver = true present(").count - 1, 4, open)
+        XCTAssertEqual(open.components(separatedBy: "present(").count - 1, 4, open)
+        XCTAssertFalse(open.contains("animated: true)"), open)
     }
 
     // MARK: - Held

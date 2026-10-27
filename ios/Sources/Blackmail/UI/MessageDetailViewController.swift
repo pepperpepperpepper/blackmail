@@ -1227,12 +1227,29 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         filesOpening += 1
 
         Task { @MainActor in
+            // Whether what it opens in has been put over the pane, which
+            // clears the tile once it is on the screen (`ready`).
+            var handedOver = false
             defer {
                 filesOpening -= 1
                 fileTaps.ended(file)
                 // Only on the page it was shown coming on: on a page given
                 // since, the same tile can be coming for a tap of its own.
-                if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) }
+                // Not for one handed over, whose presentation clears it.
+                if !handedOver && loads.stillShows(shown) {
+                    run(BodyFiles.Busy(attachment.id, of: m.id, busy: false))
+                }
+            }
+            // The tile dimmed and saying "Loading…" until Quick Look, or
+            // the sheet asked for, is on the screen, as its words promise:
+            // cleared as the presentation ends, not as it begins. Cleared
+            // in the `defer` instead, a file kept on the iPad, whose bytes
+            // come in milliseconds, was dimmed for a frame or none, and the
+            // tile sat as it was for the third of a second Quick Look takes
+            // to come up (found on the test iPad, 2026-10-27).
+            let ready: () -> Void = { [weak self] in
+                guard let self, self.loads.stillShows(shown) else { return }
+                self.run(BodyFiles.Busy(attachment.id, of: m.id, busy: false))
             }
             do {
                 let data = try await repository.fetchAttachmentData(
@@ -1270,12 +1287,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 switch use {
                 case .saveToFiles:
                     // Files' own sheet, which copies it where he picks.
-                    present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true)
+                    handedOver = true
+                    present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true,
+                            completion: ready)
                 case .share:
                     let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
                     share.popoverPresentationController?.sourceView = webView
                     share.popoverPresentationController?.sourceRect = pictureSpot
-                    present(share, animated: true)
+                    handedOver = true
+                    present(share, animated: true, completion: ready)
                 case .markupAndReply:
                     // iOS's own Markup on it, in Quick Look, full screen as
                     // a tap opens it, a copy made of what he draws and the
@@ -1288,7 +1308,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     preview.modalPresentationStyle = .fullScreen
                     MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
                     marking = (m, attachment)
-                    present(preview, animated: true)
+                    handedOver = true
+                    present(preview, animated: true, completion: ready)
                 case .quickLook, .saveImage, .copy:
                     let preview = QLPreviewController()
                     preview.dataSource = self
@@ -1296,7 +1317,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     // the thing he is trying to read, and the whole point of the
                     // iPad is that it can be as large as the glass.
                     preview.modalPresentationStyle = .fullScreen
-                    present(preview, animated: true)
+                    handedOver = true
+                    present(preview, animated: true, completion: ready)
                 }
             } catch {
                 // Nor is a failure said over another letter, or for a file
