@@ -319,16 +319,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         restyleIfOwed()
     }
 
-    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166),
-    /// and the pane follows it as Mail's does while it is open: the header's
-    /// type at once, and the letter, or the conversation, drawn again at the
-    /// new size, from what the pane holds, with nothing fetched
-    /// (`PaneDocument.restyled`). Drawn again, it starts where a letter
-    /// starts as it opens, at its top, or a conversation at its first open
-    /// letter (B-074), as after WebKit lost it: the place he had scrolled
-    /// to is not kept. While the pane cannot be seen, or the app is not in
-    /// front, the letter waits to be drawn until they are, as `drawAgain`
-    /// waits.
+    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166;
+    /// since 2026-10-27 only Bold Text, the size being Large whatever the
+    /// iPad's, `TextSize.drawn`), and the pane follows it while it is open,
+    /// as Mail's does: the header's type at once, and the letter, or the
+    /// conversation, drawn again at the new size, from what the pane holds,
+    /// with nothing fetched (`PaneDocument.restyled`). Drawn again, it starts
+    /// where a letter starts as it opens, at its top, or a conversation at
+    /// its first open letter (B-074), as after WebKit lost it: the place he
+    /// had scrolled to is not kept. While the pane cannot be seen, or the app
+    /// is not in front, the letter waits to be drawn until they are, as
+    /// `drawAgain` waits.
     @objc private func textSizeChanged() {
         header.restyle()
         placeholder.font = Theme.fontDetailMeta

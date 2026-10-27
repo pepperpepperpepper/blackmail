@@ -54,7 +54,9 @@ final class MailOptionsView: UIStackView {
     func redraw() { redraws.forEach { $0() } }
 
     /// The iPad's text size or Bold Text has changed with the page open
-    /// (`TextSizes`, B-166): every word at the new size, the rows with it.
+    /// (`TextSizes`, B-166; since 2026-10-27 only Bold Text, the size being
+    /// Large whatever the iPad's, `TextSize.drawn`): every word at the new
+    /// size, the rows with it.
     @objc private func textSizeChanged() {
         restyles.again()
         setNeedsLayout()

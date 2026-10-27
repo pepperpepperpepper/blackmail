@@ -39,7 +39,8 @@ final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerD
     let input = TypingLine()
     private var buttons: [UIButton] = []
     /// One line of `lineHeight` for each line of bubbles: `minHitTarget`
-    /// at Large, and taller with the type at the larger text sizes (B-166).
+    /// at Large, the size the app is drawn at whatever the iPad's (B-166,
+    /// `TextSize.drawn`).
     private lazy var height = heightAnchor.constraint(equalToConstant: Theme.lineHeight)
 
     var font: UIFont = .systemFont(ofSize: Theme.scaled(17)) {

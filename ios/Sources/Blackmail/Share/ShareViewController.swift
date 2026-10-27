@@ -146,9 +146,15 @@ public final class ShareViewController: UIViewController,
     /// The window as well as this controller is dark, so what is put up
     /// over the sheet is dark too: Cancel's question, as a popover, drew
     /// light on the dark sheet with only this controller's style to go by.
+    /// And at Large, as the app's window is (`AppDelegate`), so that what
+    /// is put up over the form, which its held trait does not reach, keeps
+    /// its layout too: Cancel's question, an error's alert, a bubble's menu
+    /// (B-166, Changed 2026-10-27).
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         view.window?.overrideUserInterfaceStyle = .dark
+        view.window?.minimumContentSizeCategory = .large
+        view.window?.maximumContentSizeCategory = .large
         presentationController?.delegate = self
         // Its traits are the sheet's by now (B-166).
         sizes.look()
@@ -471,7 +477,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     }
 
     /// The text size or Bold Text has changed while the sheet is up
-    /// (`TextSizes`, B-166): as in the app's composer, every caption, field,
+    /// (`TextSizes`, B-166; since 2026-10-27 only Bold Text, the size being
+    /// Large whatever the sheet's, `TextSize.drawn`): as in the app's
+    /// composer, every caption, field,
     /// line and the body at the new size, the files' rows made again, and
     /// the addresses offered at their new height. Cancel and Send keep
     /// theirs, as a bar's do.

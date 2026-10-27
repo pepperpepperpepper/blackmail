@@ -170,7 +170,10 @@ final class SteadyChromeTests: XCTestCase {
     /// the folders and the list, taken off by B-166 and put back with the
     /// reading pane when the owner ruled, on 2026-10-27, to keep the exact
     /// layout at every text size. What UIKit draws beside their words, a
-    /// folder's icon's room and Edit mode's circles, stays as at Large. No
+    /// folder's icon's room and Edit mode's circles' size, stays as at
+    /// Large; the circles' column did not on the test iPad under this same
+    /// trait (B-071): 12.5 points lower at the largest accessibility size
+    /// and about 1 lower two stops above Large, the rows' words still. No
     /// pane holds a size of its own beside it.
     func testThePanesAreHeldAtLarge() throws {
         let code = try source("UI/RootViewController.swift")

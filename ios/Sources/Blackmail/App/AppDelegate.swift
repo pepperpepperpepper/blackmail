@@ -66,6 +66,13 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // UIUserInterfaceStyle is Dark too, for the launch screen the system
         // draws before this runs, which was white while it said Light (B-124).
         window.overrideUserInterfaceStyle = .dark
+        // Everything in the window at Large, whatever the iPad's text size
+        // or a Per-App size (B-166, Changed 2026-10-27), as the dark above
+        // reaches the alerts: what the panes' and the sheets' traits of
+        // Large do not, the app's questions and action sheets, the bubble
+        // menu and the setup form. At Large it changes nothing.
+        window.minimumContentSizeCategory = .large
+        window.maximumContentSizeCategory = .large
         // NOTE: the app cannot defend itself against Smart Invert. Setting
         // `accessibilityIgnoresInvertColors` was tried here AND on the root
         // view controller's view, deployed and photographed both times, and

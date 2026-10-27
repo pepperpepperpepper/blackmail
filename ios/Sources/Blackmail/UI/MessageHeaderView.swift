@@ -150,10 +150,12 @@ final class MessageHeaderView: UIView {
         drawDate()
     }
 
-    /// The header's type at the text size now, which has changed (B-166):
-    /// the names, the subject and the date. Its lines are laid out by Auto
-    /// Layout and grow or shrink with their words, and the letter under the
-    /// header moves with its foot, as when it was drawn. A file has no row
+    /// The header's type at the text size now, which has changed (B-166;
+    /// since 2026-10-27 only Bold Text, the size being Large whatever the
+    /// iPad's, `TextSize.drawn`): the names, the subject and the date. Its
+    /// lines are laid out by Auto Layout and grow or shrink with their
+    /// words, and the letter under the header moves with its foot, as when
+    /// it was drawn. A file has no row
     /// here since B-170: it is drawn in the letter, its tile at the pane's
     /// scale (`BodyFiles.sizeRule`; int19).
     func restyle() {

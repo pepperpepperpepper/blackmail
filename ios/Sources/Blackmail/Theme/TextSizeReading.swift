@@ -49,7 +49,13 @@ extension UITraitCollection {
     /// app's sheets (`UINavigationController.formSheet`) and the share
     /// sheet's form, so that none of it grows or moves with the iPad's text
     /// size either, as B-071 held the folders and the list (B-166, Changed
-    /// 2026-10-27). Bold Text is not held: it is a trait of its own.
+    /// 2026-10-27). Bold Text is not held: it is a trait of its own. What
+    /// is put up over them, a question, an action sheet, a menu, and the
+    /// setup form, which has no parent to hold it, are held by the
+    /// window's limits of Large (`AppDelegate`; the share sheet's in its
+    /// `viewWillAppear`). B-071 saw one thing the trait does not hold:
+    /// Edit mode's circles, their size held, sit lower in their rows at
+    /// the larger sizes, 12.5 points at the largest.
     static let heldTextSize = UITraitCollection(preferredContentSizeCategory: .large)
 }
 

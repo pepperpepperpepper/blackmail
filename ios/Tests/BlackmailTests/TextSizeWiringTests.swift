@@ -92,6 +92,14 @@ final class TextSizeWiringTests: XCTestCase {
     /// through its presentation, so with all pushed on it, Settings' pages
     /// among them, and on the share sheet's form. Every sheet of the app's
     /// is made by the one maker, and nothing else reads the text size.
+    /// Everything put up is known, file by file: the app's sheets, by the
+    /// maker; its questions and action sheets, held by the window's limits
+    /// (`testTheWindowsAreHeldAtLarge`); and iOS's own controllers, Quick
+    /// Look, the photo and document pickers, the Share sheet and the print
+    /// panel. No presentation style is set anywhere but in the maker and
+    /// on Quick Look, so no sheet is put up as a page sheet, or has its
+    /// style changed after the maker, which would make a new presentation
+    /// without the trait.
     func testEveryScreenIsHeldAtLarge() throws {
         let reading = try source("Theme/TextSizeReading.swift")
         XCTAssertNotNil(place(of: "static let heldTextSize = "
@@ -112,11 +120,49 @@ final class TextSizeWiringTests: XCTestCase {
         let files = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
             .compactMap { $0 as? String }.filter { $0.hasSuffix(".swift") }
         XCTAssertGreaterThan(files.count, 50)
+        // What each file puts up, in the order it is written: `nav`, a
+        // sheet of the maker's; an alert controller (`alert`, `ask`, `menu`,
+        // `confirm`, and `sheet` but in the connection log, where it is the
+        // Share sheet); `picker`, the photo picker or the document picker;
+        // `preview`, Quick Look; `share`, the Share sheet; `from: anchor`,
+        // the print panel.
+        let presented: [String: [String]] = [
+            "App/AppDelegate.swift": ["nav"],
+            "Share/ShareViewController.swift": ["confirm"],
+            "UI/ComposeViewController.swift": ["picker", "picker", "sheet"],
+            "UI/DiagnosticsViewController.swift": ["sheet", "nav"],
+            "UI/DiscardConfirmation.swift": ["sheet", "sheet"],
+            "UI/EraseConfirmation.swift": ["alert"],
+            "UI/ErrorPresenter.swift": ["alert", "alert"],
+            "UI/LetterPrint.swift": ["from: anchor"],
+            "UI/MessageDetailViewController.swift": [
+                "UIDocumentPickerViewController(forExporting: [url], asCopy: true)", "share",
+                "preview", "preview", "sheet", "nav", "sheet", "nav", "sheet", "sheet", "nav"],
+            "UI/MessageListViewController.swift": ["nav", "sheet", "nav", "nav", "sheet", "nav", "nav", "nav"],
+            "UI/RecipientField.swift": ["menu"],
+            "UI/SettingsViewController.swift": ["ask", "alert"],
+        ]
+        let presenting = try NSRegularExpression(
+            pattern: #"(?<![A-Za-z0-9_])present\(([^,()]+(?:\([^()]*\))?), animated:"#)
         var sheets = 0
         for file in files {
             let code = try source(file)
             let made = count("UINavigationController.formSheet(", in: code)
             sheets += made
+            let found = presenting.matches(in: code, range: NSRange(code.startIndex..., in: code))
+                .map { String(code[Range($0.range(at: 1), in: code)!]) }
+            XCTAssertEqual(found, presented[file] ?? [], file)
+            XCTAssertEqual(found.filter { $0 == "nav" }.count, made, "every sheet put up is the maker's, \(file)")
+            switch file {
+            case "Theme/TextSizeReading.swift":
+                XCTAssertEqual(count("modalPresentationStyle", in: code), 1, file)
+            case "UI/MessageDetailViewController.swift":
+                XCTAssertEqual(count("modalPresentationStyle", in: code), 2, file)
+                XCTAssertEqual(count("let preview = QLPreviewController() preview.dataSource = self", in: code), 2, file)
+                XCTAssertEqual(count("preview.modalPresentationStyle = .fullScreen", in: code), 2, file)
+            default:
+                XCTAssertFalse(code.contains("modalPresentationStyle"), file)
+            }
             switch file {
             case "Theme/TextSizeReading.swift":
                 XCTAssertEqual(count(".formSheet", in: code), 1, file)
@@ -136,6 +182,49 @@ final class TextSizeWiringTests: XCTestCase {
         }
         XCTAssertEqual(sheets, 11, "the composer five times, Settings, Move three times, "
                                    + "Go to Date and the connection log")
+        XCTAssertEqual(Set(presented.keys).subtracting(files), [], "every file listed is there")
+    }
+
+    /// The app's window, and the share sheet's, are limited to Large, the
+    /// least and the most, so that what the traits on the panes and the
+    /// sheets do not reach keeps its layout too: the questions and action
+    /// sheets put up over them, the bubble menu, and the setup form,
+    /// which is the window's own first screen with no
+    /// parent to hold it. The app's set before its first screen is made;
+    /// the share sheet's as it appears, where its window is first there,
+    /// beside the dark style that reaches its Cancel question. Nothing else
+    /// sets a limit that could let a part of a screen grow.
+    func testTheWindowsAreHeldAtLarge() throws {
+        let app = try source("App/AppDelegate.swift")
+        let made = try XCTUnwrap(place(of: "let window = UIWindow(frame: UIScreen.main.bounds)", in: app))
+        let held = try XCTUnwrap(place(of: "window.minimumContentSizeCategory = .large "
+                                           + "window.maximumContentSizeCategory = .large", in: app))
+        let first = try XCTUnwrap(place(of: "window.rootViewController = Self.makeRoot()", in: app))
+        XCTAssertLessThan(made, held)
+        XCTAssertLessThan(held, first, "before the first screen is made")
+
+        let share = try source("Share/ShareViewController.swift")
+        XCTAssertNotNil(place(of: "public override func viewWillAppear(_ animated: Bool) { "
+                                  + "super.viewWillAppear(animated) "
+                                  + "view.window?.overrideUserInterfaceStyle = .dark "
+                                  + "view.window?.minimumContentSizeCategory = .large "
+                                  + "view.window?.maximumContentSizeCategory = .large ", in: share))
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail")
+        let files = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
+            .compactMap { $0 as? String }.filter { $0.hasSuffix(".swift") }
+        for file in files {
+            let code = try source(file)
+            let limits = count("minimumContentSizeCategory", in: code) + count("maximumContentSizeCategory", in: code)
+            switch file {
+            case "App/AppDelegate.swift", "Share/ShareViewController.swift":
+                XCTAssertEqual(limits, 2, file)
+            default:
+                XCTAssertEqual(limits, 0, file)
+            }
+        }
     }
 
     // MARK: - The type, and what keeps its size

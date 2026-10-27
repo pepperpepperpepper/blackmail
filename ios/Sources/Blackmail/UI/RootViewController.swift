@@ -228,10 +228,13 @@ final class RootViewController: UIViewController {
         // accessibility sizes each name began where its own icon ended, so
         // a block's names were no longer on one line. In Edit mode the
         // circle he ticks grew from 26 pt to 49 at the largest size and
-        // pushed every row's words 25 pt right. The reading pane too, so
-        // nothing of UIKit's in it moves either. The sheets these panes put
-        // up are held as they are presented
-        // (`UINavigationController.formSheet`).
+        // pushed every row's words 25 pt right; held, their size and the
+        // words stay, but the test iPad put the circles' column 12.5 pt
+        // lower at the largest size, about 1 pt two stops above Large,
+        // UIKit's own placing (B-071). The reading pane too, so nothing of
+        // UIKit's in it moves either. The sheets these panes put up are
+        // held as they are presented (`UINavigationController.formSheet`),
+        // and the questions and menus by the window's limits (`AppDelegate`).
         for nav in [mailboxNav, listNav, detailNav] {
             setOverrideTraitCollection(.heldTextSize, forChild: nav)
         }
