@@ -42,8 +42,8 @@ final class LinkAtOnceTests: XCTestCase {
         XCTAssertEqual(follow, "{ if url.scheme?.lowercased() == \"mailto\", let draft = MailtoLink.draft("
                        + "from: url, signature: CredentialStore.loadAccount()?.signature ?? \"\") { "
                        + "let compose = ComposeViewController(repository: repository, draft: draft) "
-                       + "let nav = UINavigationController(rootViewController: compose) "
-                       + "nav.modalPresentationStyle = .formSheet present(nav, animated: true) return } "
+                       + "let nav = UINavigationController.formSheet(compose) "
+                       + "present(nav, animated: true) return } "
                        + "UIApplication.shared.open(url) }")
         XCTAssertFalse(follow.contains("UIAlertController"))
         XCTAssertEqual(code.components(separatedBy: "UIApplication.shared.open(").count - 1, 1,

@@ -174,17 +174,18 @@ extension Theme {
     /// name he recognises and, under it, the address it actually resolves
     /// to. At 44 the second line was clipped away entirely, which left
     /// "Carlo" standing for an address he could not see — and two people
-    /// can share a name. At Large; both lines grow with the type, and the
-    /// row with them (`scaled`, B-166).
+    /// can share a name. At Large, the size the app is drawn at whatever
+    /// the iPad's (`TextSize.drawn`); through `scaled` (B-166).
     static let suggestionRowHeight: CGFloat = 60
 
     /// A recipient's bubble in the composer's To, Cc and Bcc, and the share
     /// sheet's (B-076), as Mail shows each recipient by name. Centred in a
     /// line of `minHitTarget`, the field's height for one line of them, so
     /// a field of a few people is the 44 points it always was and a Reply
-    /// All to many grows a line at a time, as Mail's does. At Large: the
-    /// bubble grows with its name's type, and the line with it
-    /// (`lineHeight`, B-166).
+    /// All to many grows a line at a time, as Mail's does. At Large, the
+    /// size the app is drawn at whatever the iPad's (`TextSize.drawn`);
+    /// B-166 had the bubble grow with its name's type above it, and the
+    /// line with it (`lineHeight`), unused since 2026-10-27.
     static let recipientBubbleHeight: CGFloat = 30
     /// Between two bubbles on a line, and the words' room inside one.
     static let recipientBubbleGap: CGFloat = 6
@@ -203,7 +204,8 @@ extension Theme {
     /// Mail's recent searches under the scope bar (B-105), shown while the
     /// field is focused and empty: the "Recent Searches" line, and a row
     /// for each, up to three, every one a full tap target. Both go through
-    /// `scaled`, as the type does, so they follow the text size (B-166).
+    /// `scaled`, as the type does (B-166), so at Large, the size the app is
+    /// drawn at whatever the iPad's (`TextSize.drawn`), each is as here.
     static let searchRecentHeadingHeight: CGFloat = 32
     static let searchRecentRowHeight: CGFloat = 44
 
@@ -337,20 +339,22 @@ extension Theme {
     static let detailDateAttachmentGap: CGFloat = 3
     static let detailAttachmentRuleGap: CGFloat = 14
 
-    // MARK: - Type (binding at Large; follows the iPad's text size, B-166)
+    // MARK: - Type (binding at Large, at every text size; B-166)
 
-    /// The iPad's text size and Bold Text, as iOS hands them to the app, set
-    /// by `TextSizes` before the first screen is made and again whenever
-    /// either changes, as Mail follows them (B-166). D-007's "do NOT wire up
-    /// free Dynamic Type" and B-071's hold on the panes are reversed by the
-    /// owner's ruling of 2026-10-26, copy Apple Mail. Large, the size an
-    /// iPad comes with, is the reference's scale, and at it every number
-    /// here is what it always was.
+    /// The size the app is drawn at, and Bold Text as iOS hands it, set by
+    /// `TextSizes` before the first screen is made and again whenever
+    /// either changes (B-166). The size is Large whatever the iPad's text
+    /// size or a Per-App size says (`TextSize.drawn`): the owner's ruling
+    /// of 2026-10-27, "Let's keep the exact layout for now", as D-007 and
+    /// B-071 had it. Large, the size an iPad comes with, is the
+    /// reference's scale, and at it every number here is what it always
+    /// was.
     static var textSize = TextSize.factory
 
     /// The reference's scale, drawn for 2016 eyesight, is 1: Large. Every
     /// size of the app's own type and rows goes through it, so the rhythm
-    /// holds at any text size, row heights with the type.
+    /// would hold at any text size, row heights with the type; since
+    /// 2026-10-27 it is 1 whatever the iPad's size (`TextSize.drawn`).
     static var textScale: CGFloat { textSize.scale }
 
     static func scaled(_ points: CGFloat) -> CGFloat { (points * textScale).rounded() }
@@ -389,8 +393,9 @@ extension Theme {
     /// the words: the folders' icons, a file's paperclip in a letter's
     /// header. 17 pt at the large scale, which is what UIKit draws each of
     /// them at when the iPad's text size is the default, so nothing changes
-    /// there, and with the type at any other (B-166), as Mail's grow with
-    /// its words.
+    /// there; scaled with the type at any other size (B-166), as Mail's grow
+    /// with its words, which is unused since 2026-10-27: the app is drawn
+    /// at Large (`TextSize.drawn`).
     ///
     /// A size of the app's own rather than UIKit's (B-071): left to UIKit,
     /// at the largest size the paperclip took the file's row from 44 pt to
@@ -409,8 +414,9 @@ extension Theme {
 
     /// The conversation mark's chevron at the date's size, as Mail draws it
     /// beside its date (B-075). It moves with the type, as the date does,
-    /// and so with the text size (B-166), by the app's type and not by
-    /// UIKit's own sizing of a symbol (B-071).
+    /// by the app's type and not by UIKit's own sizing of a symbol (B-071),
+    /// and so would with the text size (B-166; unused since 2026-10-27:
+    /// drawn at Large, `TextSize.drawn`).
     static var conversationMarkSymbol: UIImage.SymbolConfiguration {
         UIImage.SymbolConfiguration(font: fontListTimestamp, scale: .medium)
     }
@@ -423,14 +429,15 @@ extension Theme {
     /// for 17 pt semibold's 12, is 12 to 12.7 points wide and 10 high,
     /// centred on the name's capitals as the dot is. Not the paperclip's
     /// 16, which would draw it a quarter larger than Mail's. Scaled with
-    /// the type, never wider than the gutter, which is as at Large at every
-    /// size (`RowLines.gutterBox`, B-166).
+    /// the type above Large, never wider than the gutter, which is as at
+    /// Large at every size (`RowLines.gutterBox`, B-166); unused since
+    /// 2026-10-27, as the app is drawn at Large (`TextSize.drawn`).
     static var rowArrowBox: CGFloat {
         RowLines.gutterBox(12, at: textSize, centre: unreadDotCenterX, textLeft: messageTextLeft)
     }
 
     /// The arrow's symbol at a size of its own, not UIKit's (B-071); its
-    /// box decides how large it is drawn, and grows with the type (B-166).
+    /// box decides how large it is drawn, 12 at Large (`rowArrowBox`).
     static var rowArrowSymbol: UIImage.SymbolConfiguration {
         UIImage.SymbolConfiguration(pointSize: rowArrowBox, weight: .regular)
     }
@@ -453,8 +460,10 @@ extension Theme {
     /// Row heights move with the type or the rhythm breaks. D-007 kept free
     /// Dynamic Type out for this, so that an accidental swipe in Control
     /// Centre could never rearrange his mail; Mail's rows move with it, and
-    /// so do these (B-166). A folder's row is never under `minHitTarget`,
-    /// however small the size, as UIKit's rows are not.
+    /// B-166 had these move too, which is unused since 2026-10-27: the app
+    /// is drawn at Large whatever the iPad's size (`TextSize.drawn`), so
+    /// the rows are 96 and the folders' 44. A folder's row is never under
+    /// `minHitTarget`, however small the size, as UIKit's rows are not.
     static var messageRowLines: RowLines {
         RowLines(textSize, names: senderBaseline, subject: subjectBaseline,
                  preview1: previewLine1Baseline, preview2: previewLine2Baseline,
@@ -465,9 +474,10 @@ extension Theme {
 
     /// A line of the composer and the share sheet, To, Cc, Bcc, Subject,
     /// the Cc/Bcc row and a file's row, and a line of bubbles in To: the
-    /// 44 of `minHitTarget` at Large and under it, growing with the type
-    /// above it, so a field's words are never cut at the larger sizes
-    /// (B-166).
+    /// 44 of `minHitTarget` at Large, the size the app is drawn at
+    /// (`TextSize.drawn`). B-166 had it grow with the type above Large, so
+    /// a field's words were never cut at the larger sizes; unused since
+    /// 2026-10-27.
     static var lineHeight: CGFloat { textSize.tappable(minHitTarget, floor: minHitTarget) }
 
     // MARK: - Colour (advisory)

@@ -238,9 +238,10 @@ enum BodyFiles {
     /// Mail's sheet has, which WebKit sizes by the text size in Settings:
     /// no text of the pane moves with it (D-007, B-071), and the box,
     /// whose size is written out as Mail's, would cut the lines at the
-    /// larger sizes. Since B-166 the pane's text does move with the text
-    /// size, and the page's head scales the whole tile with it
-    /// (`sizeRule`; int19).
+    /// larger sizes. B-166 had the pane's text move with the text size,
+    /// and the page's head scale the whole tile with it (`sizeRule`;
+    /// int19); since 2026-10-27 the pane is drawn at Large whatever the
+    /// iPad's size (`TextSize.drawn`), as before, and the tile with it.
     ///
     /// A link of the pane's own (`link`): a tap opens the file in Quick
     /// Look (`PaneNavigation`'s `openFile`), and its last line says
@@ -287,17 +288,18 @@ enum BodyFiles {
     static let tileClass = "bm-tile"
 
     /// The head's rule that draws every tile of a page at the pane's text
-    /// size (B-166): the box, its icon and its lines scaled together by
-    /// the pane's body size over its size at Large, 17, the scale the rest
-    /// of the pane's CSS has (`Theme.textScale`), as WebKit scales its own
-    /// element in Mail by the text size, box and lines, never below the
-    /// default (`attachmentDynamicTypeScaleFactor`). Not WebKit's keywords
-    /// for the caption and the footnote, which follow the iPad's size
-    /// whatever the app's restyle says, and would outgrow the box: one
-    /// scale for the box and its words. "" at Large and below, so the page
-    /// is as it was there. In the head, not on the tile, so a stack drawn
-    /// again at a new size, its bodies put back as they came, has its tiles
-    /// at the new size (int19).
+    /// size (B-166; "" since 2026-10-27, the pane being drawn at Large
+    /// whatever the iPad's size, `TextSize.drawn`): the box, its icon and its
+    /// lines scaled together by the pane's body size over its size at Large,
+    /// 17, the scale the rest of the pane's CSS has (`Theme.textScale`), as
+    /// WebKit scales its own element in Mail by the text size, box and lines,
+    /// never below the default (`attachmentDynamicTypeScaleFactor`). Not
+    /// WebKit's keywords for the caption and the footnote, which follow the
+    /// iPad's size whatever the app's restyle says, and would outgrow the
+    /// box: one scale for the box and its words. "" at Large and below, so
+    /// the page is as it was there. In the head, not on the tile, so a stack
+    /// drawn again at a new size, its bodies put back as they came, has its
+    /// tiles at the new size (int19).
     ///
     /// No more than twice the size at Large, `maxTileZoom`: a tile is 178
     /// points wide with its margin, and the letter's column, which keeps

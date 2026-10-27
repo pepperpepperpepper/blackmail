@@ -77,6 +77,59 @@ final class TextSizeTests: XCTestCase {
         }
     }
 
+    // MARK: - Drawn at Large at every size (Changed 2026-10-27)
+
+    /// Whatever size iOS hands the app, the iPad's or a Per-App one, it is
+    /// drawn at Large, with Bold Text as it is (the owner, 2026-10-27:
+    /// "Let's keep the exact layout for now"). At a larger size and at an
+    /// accessibility size, with Bold Text or without, every number is
+    /// Large's: the type, a height a finger hits, the row's lines and
+    /// height, the date on the names' line and its room there, the arrow's
+    /// square, a file's tile, and a conversation's stack to the byte.
+    func testEverySizeIsDrawnAtLarge() {
+        for step in Step.allCases {
+            XCTAssertEqual(TextSize.drawn(at: step, bold: false), .factory, "\(step)")
+            XCTAssertEqual(TextSize.drawn(at: step, bold: true), TextSize(step: .large, bold: true), "\(step)")
+        }
+        let large = TextSize.factory
+        let largeLines = RowLines(large, names: 24, subject: 44, preview1: 64, preview2: 84, height: 96)
+        let stack = [entry("7/3", open: true), entry("7/2")]
+        let largeStack = ConversationDocument.html(entries: stack, inset: 20,
+                                                   bodyPointSize: Int(large.scaled(17)), lineHeight: 1.41,
+                                                   stacked: large.stacksRowDate)
+        for step in [Step.extraExtraExtraLarge, .accessibilityExtraExtraExtraLarge] {
+            for bold in [false, true] {
+                let size = TextSize.drawn(at: step, bold: bold)
+                let at = "\(step) \(bold)"
+                XCTAssertEqual(size.step, .large, at)
+                XCTAssertEqual(size.scale, 1, at)
+                XCTAssertFalse(size.stacksRowDate, at)
+                for points: CGFloat in [11, 12, 15, 17, 20, 44, 60, 72, 96] {
+                    XCTAssertEqual(size.scaled(points), points, at)
+                }
+                XCTAssertEqual(size.tappable(44, floor: 44), 44, at)
+                let lines = RowLines(size, names: 24, subject: 44, preview1: 64, preview2: 84, height: 96)
+                XCTAssertEqual(lines, largeLines, at)
+                XCTAssertEqual([lines.names, lines.date, lines.subject, lines.preview, lines.pitch, lines.height],
+                               [24, 24, 44, 64, 20, 96], at)
+                for right: CGFloat in [285, 245, 360, 320] {
+                    for mark: CGFloat? in [nil, 18] {
+                        XCTAssertEqual(RowTopLine(left: 29, right: right, mark: mark, gap: 5, date: 80,
+                                                  scale: size.scale, stacked: size.stacksRowDate),
+                                       RowTopLine(left: 29, right: right, mark: mark, gap: 5, date: 80), at)
+                    }
+                }
+                XCTAssertEqual(RowLines.gutterBox(12, at: size, centre: 14, textLeft: 29), 12, at)
+                XCTAssertEqual(ConversationDocument.html(entries: stack, inset: 20,
+                                                         bodyPointSize: Int(size.scaled(17)), lineHeight: 1.41,
+                                                         stacked: size.stacksRowDate),
+                               largeStack, at)
+                XCTAssertEqual(BodyFiles.sizeRule(bodyPointSize: Int(size.scaled(17))),
+                               BodyFiles.sizeRule(bodyPointSize: 17), "a file's tile, \(at)")
+            }
+        }
+    }
+
     // MARK: - A row at every size
 
     /// The ink of a line of `points` type on `baseline`: SF's ascender and

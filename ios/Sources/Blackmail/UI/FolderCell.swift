@@ -8,7 +8,9 @@ import UIKit
 /// A folder's row, in the Mailboxes and in the Move sheet (B-166).
 ///
 /// At Large, the size an iPad comes with, every row is the 44 points it
-/// always was, the table's `rowHeight`. At any other text size a row is
+/// always was, the table's `rowHeight`, with Bold Text on or off, and Large
+/// is the size the app is drawn at whatever the iPad's (`TextSize.drawn`,
+/// B-166 Changed 2026-10-27). At any other text size a row is
 /// as tall as its name needs, never under the rows' height at that size
 /// (`Theme.mailboxRowHeightScaled`): a name too long for the column goes
 /// on to as many lines as it takes, the row growing with it, as Apple's
@@ -26,7 +28,7 @@ final class FolderCell: UITableViewCell {
     /// UIKit's own; at any other size each as tall as its name, from an
     /// estimate of the rows' height.
     static func size(_ table: UITableView) {
-        if Theme.textSize == .factory {
+        if Theme.textSize.step == .large {
             table.rowHeight = Theme.mailboxRowHeightScaled
             table.estimatedRowHeight = UITableView.automaticDimension
         } else {
@@ -48,7 +50,7 @@ final class FolderCell: UITableViewCell {
     /// The floor at the text size as it is now: set as the row is filled.
     func holdFloor() {
         floor.constant = Theme.mailboxRowHeightScaled
-        floor.isActive = Theme.textSize != .factory
+        floor.isActive = Theme.textSize.step != .large
     }
 }
 

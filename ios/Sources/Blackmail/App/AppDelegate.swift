@@ -51,9 +51,9 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // correspondence is not a bound. Launch is the only instant at which
         // nothing can be open.
         AttachmentStore.purge()
-        // The iPad's text size and Bold Text in `Theme` before any screen
-        // is made, so the first frame is drawn at his size, and followed
-        // from now on, as Mail follows them (B-166).
+        // The size the app is drawn at, Large whatever the iPad's text
+        // size (B-166, Changed 2026-10-27), and Bold Text, in `Theme`
+        // before any screen is made, and Bold Text followed from now on.
         _ = TextSizes.app
 
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -66,6 +66,13 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // UIUserInterfaceStyle is Dark too, for the launch screen the system
         // draws before this runs, which was white while it said Light (B-124).
         window.overrideUserInterfaceStyle = .dark
+        // Everything in the window at Large, whatever the iPad's text size
+        // or a Per-App size (B-166, Changed 2026-10-27), as the dark above
+        // reaches the alerts: what the panes' and the sheets' traits of
+        // Large do not, the app's questions and action sheets, the bubble
+        // menu and the setup form. At Large it changes nothing.
+        window.minimumContentSizeCategory = .large
+        window.maximumContentSizeCategory = .large
         // NOTE: the app cannot defend itself against Smart Invert. Setting
         // `accessibilityIgnoresInvertColors` was tried here AND on the root
         // view controller's view, deployed and photographed both times, and
@@ -195,8 +202,7 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         var top: UIViewController = root
         while let shown = top.presentedViewController, !shown.isBeingDismissed { top = shown }
         let compose = ComposeViewController(repository: root.repository, draft: draft)
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         top.present(nav, animated: true)
         return true
     }

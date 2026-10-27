@@ -1396,15 +1396,16 @@ final class MessageListViewController: UITableViewController {
         if showingAge { sayAge() }
     }
 
-    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166),
-    /// as Mail's list follows them while it is open: the rows at their new
-    /// height (`RowLines`), every row drawn again with its type at the new
-    /// size (`MessageCell.restyle`), as a regroup draws them, which holds
-    /// his place by the letters he can see, the highlight and Edit mode's
-    /// ticks by their letters, and VoiceOver's row; the recent searches
-    /// under the field and "No messages" at the new size. Nothing is
-    /// fetched. The bars and the line under the list keep theirs, as
-    /// UIKit's bars do.
+    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166;
+    /// since 2026-10-27 only Bold Text, the size being Large whatever the
+    /// iPad's, `TextSize.drawn`), as Mail's list follows them while it is
+    /// open: the rows at their new height (`RowLines`), every row drawn again
+    /// with its type at the new size (`MessageCell.restyle`), as a regroup
+    /// draws them, which holds his place by the letters he can see, the
+    /// highlight and Edit mode's ticks by their letters, and VoiceOver's row;
+    /// the recent searches under the field and "No messages" at the new size.
+    /// Nothing is fetched. The bars and the line under the list keep theirs,
+    /// as UIKit's bars do.
     ///
     /// His place is taken first, while the rows are still at their old
     /// height, and put back once they are at the new one. Taken after the
@@ -1646,8 +1647,7 @@ final class MessageListViewController: UITableViewController {
                 self.jump(to: date)
             }
         }
-        let nav = UINavigationController(rootViewController: picker)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(picker)
         present(nav, animated: true)
     }
 
@@ -2826,8 +2826,7 @@ final class MessageListViewController: UITableViewController {
             if self.inEditMode { self.editTapped() }
             self.runBatch(.move(to: destination), on: chosen, saying: StatusLine.moving)
         }
-        let nav = UINavigationController(rootViewController: move)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(move)
         present(nav, animated: true)
     }
 
@@ -3102,8 +3101,7 @@ final class MessageListViewController: UITableViewController {
             self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving,
                           fromRow: true)
         }
-        let nav = UINavigationController(rootViewController: move)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(move)
         present(nav, animated: true)
     }
 
@@ -3268,8 +3266,7 @@ final class MessageListViewController: UITableViewController {
                 await self?.reload(keepingPlace: true)
             }
         }
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         present(nav, animated: true)
     }
 
@@ -3286,8 +3283,7 @@ final class MessageListViewController: UITableViewController {
         let signature = CredentialStore.loadAccount()?.signature ?? ""
         let compose = ComposeViewController(repository: repository,
                                             draft: .blank(signature: signature))
-        let nav = UINavigationController(rootViewController: compose)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(compose)
         present(nav, animated: true)
     }
 
@@ -3575,8 +3571,7 @@ final class MessageListViewController: UITableViewController {
         // The grouping switch acts immediately, so the list behind the
         // sheet has to hear about it the moment it flips.
         settings.onOrganizeByThreadChanged = { [weak self] in self?.regroup() }
-        let nav = UINavigationController(rootViewController: settings)
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(settings)
         present(nav, animated: true)
     }
 

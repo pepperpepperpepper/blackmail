@@ -154,20 +154,30 @@ colour fault should ever be quoted from this reference.
 ## Text size (B-166, 2026-10-27)
 
 Every number in this file is the layout at Large, the text size an iPad
-comes with. Since B-166 the app's type follows the iPad's text size and
-Bold Text, as Mail's does: the type, the message rows' height and their
-four baselines (24 / 44 / 64 / 84 in a row of 96), the composer's lines
-and the recent searches are multiplied by the size's body over Large's 17
-(`TextSize.scale`), so at Large each is exactly the number here. At the
-five accessibility sizes a message row gives its date a line of its own
-under the names, and is one line taller. Away from Large a folder's row is
-as tall as its name, never under 44 scaled, and its name goes on to more
-lines where it needs them. Above Large the date keeps 110 points of the
-row's top line, or its own width where that is more, never more than its
-scaled share. The reply arrow's square grows with the type up to the
-gutter's width, 28 points. The panes' widths, the insets, the 29-point
-gutter and the unread dot stay as here at every size, and so do the bars,
-as UIKit's bars do, and the controls of a fixed height, the search field
-among them, which is the app's choice and not a copy of Mail's (B-166).
-The scaling rule above, that nothing varies by the screen's size but the
-panes' widths, is unchanged.
+comes with, and the layout at **every** text size: the owner ruled on
+2026-10-27, "Let's keep the exact layout for now". Whatever the iPad's
+text size, or a size set for Blackmail alone in Per-App Settings, the app
+is drawn at Large (`TextSize.drawn`): the type, the message rows' 96
+points and their four baselines (24 / 44 / 64 / 84), the date on the names'
+line, the folders' 44-point rows, the reply arrow's 12-point square, the
+composer's 44-point lines, the reading pane's 17-point letter and its
+tiles, Settings and the share sheet. What UIKit sizes by itself in those
+screens, a folder's icon's room, Edit mode's circles' size, a list
+configuration's gaps, the calendar, is held at Large too, by a trait of
+Large on the three panes, on every sheet of the app's and on the share
+sheet's form (`UITraitCollection.heldTextSize`), as B-071 held the
+folders and the list; and what is put up over them, the questions, the
+action sheets and the bubble menu, and the setup form, by the window's
+limits of Large. One thing moves: Edit mode's circles, their size and the
+rows' words held, sit lower in their rows at the larger sizes, about 1
+point two steps above Large and 12.5 at the largest accessibility size,
+as B-071 saw on the test iPad under the same trait; UIKit's own placing.
+Bold Text is followed, as it was before B-166: no size and no row's
+height changes with it, the same fonts, bolder; but its wider glyphs may
+make a line that only just fit give way, a long name cut a little sooner,
+a preview broken at another word, the header's subject a line longer and
+the letter under it lower. B-166's scaling, every size multiplied by the
+size's body over Large's 17 (`TextSize.scale`, 1 at Large), and the rows
+at the other eleven sizes, stay in the code and its tests for the day the
+owner says otherwise; they are not used. The scaling rule above, that
+nothing varies by the screen's size but the panes' widths, is unchanged.

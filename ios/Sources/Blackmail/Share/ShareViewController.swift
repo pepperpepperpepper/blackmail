@@ -30,12 +30,13 @@ public final class ShareViewController: UIViewController,
 
     private let nav = UINavigationController()
     private var form: ShareComposeViewController?
-    /// The sheet's text size and Bold Text, as iOS hands them to it, in
-    /// `Theme` before the form is made and again when either changes
-    /// (B-166). The extension has no `UIApplication` of its own to ask, as
-    /// the app does (`TextSizes.app`): it reads its own traits. Until they
-    /// say, it is Large, the factory size, and read again as they come
-    /// (`traitCollectionDidChange`) and as the sheet appears.
+    /// The sheet's text size and Bold Text, in `Theme` before the form is
+    /// made and again when either changes (B-166): the size Large whatever
+    /// iOS hands the sheet (`TextSize.drawn`, Changed 2026-10-27), Bold
+    /// Text as iOS has it. The extension has no `UIApplication` of its own
+    /// to ask, as the app does (`TextSizes.app`): it reads its own traits,
+    /// again as they change (`traitCollectionDidChange`) and as the sheet
+    /// appears.
     private lazy var sizes = TextSizes(
         names: [UIContentSizeCategory.didChangeNotification,
                 UIAccessibility.boldTextStatusDidChangeNotification],
@@ -68,6 +69,9 @@ public final class ShareViewController: UIViewController,
         nav.view.tintAdjustmentMode = .normal
         nav.navigationBar.tintAdjustmentMode = .normal
         addChild(nav)
+        // The form laid out at Large, as the app's sheets are, whatever the
+        // text size the sharing app hands it (B-166, Changed 2026-10-27).
+        setOverrideTraitCollection(.heldTextSize, forChild: nav)
         nav.view.frame = view.bounds
         nav.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(nav.view)
@@ -142,9 +146,15 @@ public final class ShareViewController: UIViewController,
     /// The window as well as this controller is dark, so what is put up
     /// over the sheet is dark too: Cancel's question, as a popover, drew
     /// light on the dark sheet with only this controller's style to go by.
+    /// And at Large, as the app's window is (`AppDelegate`), so that what
+    /// is put up over the form, which its held trait does not reach, keeps
+    /// its layout too: Cancel's question, an error's alert, a bubble's menu
+    /// (B-166, Changed 2026-10-27).
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         view.window?.overrideUserInterfaceStyle = .dark
+        view.window?.minimumContentSizeCategory = .large
+        view.window?.maximumContentSizeCategory = .large
         presentationController?.delegate = self
         // Its traits are the sheet's by now (B-166).
         sizes.look()
@@ -467,7 +477,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     }
 
     /// The text size or Bold Text has changed while the sheet is up
-    /// (`TextSizes`, B-166): as in the app's composer, every caption, field,
+    /// (`TextSizes`, B-166; since 2026-10-27 only Bold Text, the size being
+    /// Large whatever the sheet's, `TextSize.drawn`): as in the app's
+    /// composer, every caption, field,
     /// line and the body at the new size, the files' rows made again, and
     /// the addresses offered at their new height. Cancel and Send keep
     /// theirs, as a bar's do.

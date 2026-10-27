@@ -1,18 +1,23 @@
 import Foundation
 
-/// The iPad's text size and Bold Text, which Mail follows and so does the
-/// app (B-166).
+/// The iPad's text size and Bold Text, which Mail follows (B-166). The app
+/// follows Bold Text, and since 2026-10-27 is drawn at Large whatever the
+/// size (`drawn(at:bold:)`).
 ///
 /// Mail's list, its Mailboxes, the letter it shows and its composer take
 /// the size set in Settings, Display & Brightness, Text Size, or past its
 /// seven steps in Accessibility, Display & Text Size, Larger Text; or the
 /// one set for the app alone in Accessibility, Per-App Settings, which iOS
 /// hands the app the same way, as its `preferredContentSizeCategory`; and
-/// Bold Text. The app's type was fixed at the factory size (D-007, B-071),
-/// and is not now: every size its type and rows take goes through this
+/// Bold Text. Every size the app's type and rows take goes through this
 /// size's `scale` (`Theme.textScale`, `Theme.scaled`), which is exactly 1
 /// at Large, the size an iPad comes with, so that the app at Large is the
 /// app as it was.
+///
+/// Held at Large since 2026-10-27: the owner, "Let's keep the exact layout
+/// for now", so Blackmail is drawn at Large whatever size iOS hands it,
+/// as D-007 and B-071 had it (`drawn(at:bold:)`). The sizes and the rows
+/// at each stay here, run by the suite, for the day he says otherwise.
 ///
 /// Out of `Theme` and the screens, which are UIKit, so that the suite can
 /// run it: the sizes iOS has, by the body text Apple sets at each, and
@@ -68,6 +73,21 @@ struct TextSize: Equatable, Sendable {
 
     /// The iPad as it comes: Large, Bold Text off.
     static let factory = TextSize(step: .large, bold: false)
+
+    /// The size the app is drawn at when iOS hands it `step`: Large,
+    /// whatever `step` is, so that every screen keeps its exact layout at
+    /// every text size (the owner, 2026-10-27: "Let's keep the exact layout
+    /// for now"; B-166, Changed). Bold Text is followed: it was before
+    /// B-166, the app's fonts being the system's, made as they are drawn,
+    /// and held off they would mix weights, the fonts made before a switch
+    /// beside those made after it. It sets no size and no row's height,
+    /// but its glyphs are wider, so a line that only just fit may be cut
+    /// sooner or wrap: a long name cut with "…" a little sooner, the two
+    /// preview lines broken elsewhere, and the header's subject, on as
+    /// many lines as it takes, a line longer, the letter under it lower.
+    static func drawn(at step: Step, bold: Bool) -> TextSize {
+        TextSize(step: .large, bold: bold)
+    }
 
     /// What the app's sizes are multiplied by: this size's body over
     /// Large's, so exactly 1 at Large.
@@ -159,6 +179,8 @@ final class TextSizes {
 
     /// Said on the main queue, in the centre given, once the new size is
     /// where the type reads it: the screens set their type and rows again.
+    /// Since 2026-10-27 only for Bold Text, the size read being Large
+    /// whatever the iPad's (`TextSize.drawn`).
     static let didChange = Notification.Name("BlackmailTextSizeDidChange")
 
     private let notifications: NotificationCenter

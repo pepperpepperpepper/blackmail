@@ -68,7 +68,8 @@ enum RemoteContent {
     /// stack's own between letters once inverted.
     ///
     /// Its class, `lineClass`, is for the page's head to size it: at the
-    /// pane's body size, which follows the text size (B-166), and over a
+    /// pane's body size, 17 at Large, the size the app is drawn at whatever
+    /// the iPad's (B-166, `TextSize.drawn`), and over a
     /// sender's own rule for a `div`, a `span` or an `a`, which the line
     /// would take otherwise (`sizeRule`; int19). In the head and not in the
     /// line, so a stack drawn again at a new size, its bodies put back as

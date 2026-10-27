@@ -229,7 +229,7 @@ final class MailboxListViewController: UITableViewController {
         // the row: the table measures the rows again, without reloading
         // them, which would drop the highlight. At Large the rows are of
         // one height, and nothing is asked.
-        if patched, Theme.textSize != .factory {
+        if patched, Theme.textSize.step != .large {
             tableView.beginUpdates()
             tableView.endUpdates()
         }
@@ -263,11 +263,13 @@ final class MailboxListViewController: UITableViewController {
         redraw()
     }
 
-    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166):
-    /// the rows at their new height, or as tall as their names away from
-    /// Large (`FolderCell`), each drawn again with its name, count and
-    /// icon at the new size, and the highlight put back, as a sweep puts
-    /// it back. As Mail's folders follow it, while the app is open.
+    /// The iPad's text size or Bold Text has changed (`TextSizes`, B-166;
+    /// since 2026-10-27 only Bold Text, the size being Large whatever the
+    /// iPad's, `TextSize.drawn`): the rows at their new height, or as tall as
+    /// their names away from Large (`FolderCell`), each drawn again with its
+    /// name, count and icon at the new size, and the highlight put back, as a
+    /// sweep puts it back. As Mail's folders follow it, while the app is
+    /// open.
     @objc private func textSizeChanged() {
         FolderCell.size(tableView)
         redraw()

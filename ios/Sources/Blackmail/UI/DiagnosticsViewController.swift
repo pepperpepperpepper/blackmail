@@ -140,8 +140,7 @@ private final class FiveTapGesture: NSObject {
 
     @objc private func fired() {
         guard let host = presenter() else { return }
-        let nav = UINavigationController(rootViewController: DiagnosticsViewController())
-        nav.modalPresentationStyle = .formSheet
+        let nav = UINavigationController.formSheet(DiagnosticsViewController())
         host.present(nav, animated: true)
     }
 }

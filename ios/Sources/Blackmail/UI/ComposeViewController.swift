@@ -86,7 +86,8 @@ final class ComposeViewController: UIViewController,
     private let ccToggleRow = UIView()
     /// The type and the lines set from the text size, set again when it
     /// changes while the letter is open, as Mail's composer follows it
-    /// (B-166).
+    /// (B-166; since 2026-10-27 only Bold Text changes it, the size being
+    /// Large whatever the iPad's, `TextSize.drawn`).
     private let restyles = Restyles()
 
     /// Addresses offered under the field he is typing in.
@@ -664,9 +665,10 @@ final class ComposeViewController: UIViewController,
         let button = UIButton(type: .system)
         var config = UIButton.Configuration.plain()
         config.image = UIImage(systemName: choice.symbol)
-        // The size of the words beside it, which follow the text size
-        // (B-166). Left to the button, the symbol grew with the iPad's text
-        // size whatever the words did.
+        // The size of the words beside it, 15 at Large, the size the app is
+        // drawn at whatever the iPad's (B-166, `TextSize.drawn`). Left to
+        // the button, the symbol grew with the iPad's text size whatever
+        // the words did.
         config.preferredSymbolConfigurationForImage =
             UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
         config.imagePadding = 6
@@ -1074,7 +1076,8 @@ final class ComposeViewController: UIViewController,
             rule.heightAnchor.constraint(equalToConstant: 0.5),
         ])
         // The caption's room grows with its words, "Subject:" whole at any
-        // size, and the line with the field's (B-166).
+        // size, and the line with the field's (B-166; at Large whatever the
+        // iPad's size since 2026-10-27, `TextSize.drawn`).
         restyles.keep {
             label.font = Theme.fontDetailMeta
             field.font = .systemFont(ofSize: Theme.scaled(17))
