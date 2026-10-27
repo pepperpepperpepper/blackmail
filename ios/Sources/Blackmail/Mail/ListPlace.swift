@@ -59,6 +59,24 @@ struct ListPlace: Equatable {
     /// or in Edit mode his ticks.
     let selected: [String]
 
+    private init(seen: [Seen], above: Seen?, selected: [String]) {
+        self.seen = seen
+        self.above = above
+        self.selected = selected
+    }
+
+    /// The same place, with the letter `old` named `new` wherever it was:
+    /// a row put back by its Undo, under the new UID the move back gave it
+    /// (B-157), held where it stood, at the same offsets.
+    func renaming(_ old: String, to new: String) -> ListPlace {
+        func renamed(_ id: String) -> String { id == old ? new : id }
+        func renamed(_ row: Seen) -> Seen {
+            Seen(id: renamed(row.id), letters: row.letters.map(renamed), offset: row.offset)
+        }
+        return ListPlace(seen: seen.map(renamed), above: above.map(renamed),
+                         selected: selected.map(renamed))
+    }
+
     /// Taken from the rows as they are BEFORE they are rebuilt, which is the
     /// whole point: `visible`, `above` and `selected` are row numbers in
     /// `rows`, and they mean nothing in the rows that replace them.
@@ -527,10 +545,23 @@ struct TakenRows {
     /// one of the rows still out put back, with the list as the last take or
     /// put back left it, to where he was before they were taken out;
     /// otherwise where he is.
+    ///
+    /// A row put back by its Undo has a new id (`ListChange.restored`): the
+    /// place is taken with it renamed, so the row is found where it stood.
     func move(for change: ListChange, here: ListPlace) -> ListPlaces.Move {
-        guard case .putBack(let id) = change, out.contains(id), let before, let left,
+        guard let (id, now) = Self.back(change), out.contains(id), let before, let left,
               here.showsTheSame(as: left) else { return .stay }
-        return .putBack(before)
+        return .putBack(now.map { before.renaming(id, to: $0) } ?? before)
+    }
+
+    /// The row a change puts back, by the id it was taken under, and its
+    /// id now if that is another; nil for any other change.
+    private static func back(_ change: ListChange) -> (String, String?)? {
+        switch change {
+        case .putBack(let id): return (id, nil)
+        case .restored(let id, let now): return (id, now)
+        case .taken, .marked: return nil
+        }
     }
 
     /// `change` drawn, the list taken from `here` to `now`. A take with the
@@ -547,12 +578,13 @@ struct TakenRows {
             }
             out.insert(id)
             left = now
-        case .putBack(let id):
+        case .putBack(let id), .restored(let id, _):
             guard move(for: change, here: here) != .stay else {
                 self = TakenRows()
                 return
             }
             out.remove(id)
+            if case .restored(_, let new) = change { before = before?.renaming(id, to: new) }
             if out.isEmpty { self = TakenRows() } else { left = now }
         case .marked:
             break

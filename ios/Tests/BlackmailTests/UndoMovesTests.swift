@@ -381,6 +381,34 @@ final class UndoMovesTests: XCTestCase {
                        "read again, one off again")
     }
 
+    /// The list at its top, its first row trashed and undone, a drag's or
+    /// the pane's Delete: the row back first, in sight, the list still at
+    /// its top, as Mail puts it back. Found on the test iPad, 2026-10-27:
+    /// it came back one row above the top of the pane, out of sight, the
+    /// row below it first, since the list held its place by the row's old
+    /// id, which no row has once it is back under its new UID.
+    @MainActor
+    func testTheFirstRowUndoneAtTheTopComesBackInSight() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, _) = makeList(folder: rows)
+        let screen = ListOnScreen(list)
+        XCTAssertEqual(screen.inView.first, rows[0].id)
+
+        let (_, made) = await remove(.delete, [rows[0]], list: list, repository: repository)
+        XCTAssertEqual(screen.inView.first, rows[1].id, "the rows below closed up")
+        XCTAssertEqual(screen.offset, ListOnScreen.top)
+        let undone = await UndoMoves.run(try XCTUnwrap(made), repository: repository, list: list,
+                                         requestSweep: {})
+        XCTAssertEqual(undone.unplaced, [])
+        let back = try XCTUnwrap(list.shown.first)
+        XCTAssertEqual(back.gmailMessageID, rows[0].gmailMessageID)
+        XCTAssertNotEqual(back.id, rows[0].id, "under its new id")
+        XCTAssertEqual(screen.offset, ListOnScreen.top, "the list at its top")
+        XCTAssertEqual(screen.inView.prefix(2), [back.id, rows[1].id], "back first, in sight")
+        XCTAssertEqual(screen.onPane[back.id], ListOnScreen.band + ListOnScreen.barTop)
+    }
+
     /// Among a search's hits, a hit deleted and undone comes back where it
     /// stood among them. A list fetched afresh since the Delete no longer
     /// holds the row: the letter is moved back all the same, and is left to

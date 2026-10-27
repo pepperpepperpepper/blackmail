@@ -879,7 +879,7 @@ final class ListLetters: PaneActionList {
         }
         guard placed else { return false }
         if !back.isRead, let folders = billing.returned(back) { onUnreadCountChanged(folders, 1) }
-        changed(.putBack(row.id))
+        changed(.restored(row.id, as: id))
         return true
     }
 
@@ -917,9 +917,15 @@ enum ListChange: Equatable {
     /// (`ListLetters.take`), by the letter's id.
     case taken(String)
     /// The letter's row put back, its Delete or Move refused or never sent
-    /// (`ListLetters.putBack`), or moved back by its Undo (B-157,
-    /// `ListLetters.restore`): by the id it was taken under.
+    /// (`ListLetters.putBack`): by the id it was taken under.
     case putBack(String)
+    /// The letter's row put back by its Undo (B-157, `ListLetters.restore`):
+    /// by the id it was taken under and the id it has now, a new UID. The
+    /// place from before the take names the row by the first, which heads
+    /// no row any more; found by it, the row first in sight at a list's top
+    /// came back above the top of the pane (Found on the test iPad,
+    /// 2026-10-27).
+    case restored(String, as: String)
     /// A flag set or put back, or a folder the letter is filed in: no row
     /// in or out.
     case marked

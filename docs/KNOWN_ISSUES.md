@@ -33010,6 +33010,51 @@ reply or a forward that went while the letter was away, though Gmail had
 the mark; `ListLetters.restore` carries the mark over from the hidden row
 the list still holds, pinned in `SentMarkTests`, one test new.
 
+**Found on the test iPad, 2026-10-27**, in round r6-h-list, on the int18
+build, at the check's step 8, and reproduced by a second run. Letter 7,
+just opened, was the list's first row, the list at its top; Delete in the
+pane, a shake, Undo: on the server all was right, one MOVE to the Trash
+and one back, and the row back read with the count unchanged, but the
+list showed letter 6 first and letter 7's row one row above the top of
+the pane, under the search band, out of sight until the list was dragged
+down. A full drag's Trash of the top row did the same. The first row in
+sight with a row on screen above it, and rows below the first in sight,
+came back in place (steps 1 to 7, and the second run's controls).
+
+*The cause.* `ListLetters.restore` put the row back under its new UID and
+told the list only `.putBack` of the id it was taken under. `TakenRows`
+sent the list back to its place from before the take (B-093), which
+names the row first in sight by that old id; no row has it now, so
+`ListPlace.landing` took the row for gone (`closingUp`), and with no row
+above it, at the list's top, held the next row he could see at the first
+row's offset: the list one row down, the row put back above the top. With
+a row on screen above it, that row was held instead, and the row came
+back in place, which is why only the top row of a list at its top went
+wrong. An Edit-mode batch of such rows went the same way.
+
+*Changed.* `ListChange.restored(_:as:)`, new, for a row put back by its
+Undo: the id it was taken under and the one it has now; `restore` tells
+it in place of `.putBack`. `TakenRows` takes it as a row put back, and
+sends the list to its place from before the take with the row renamed
+there (`ListPlace.renaming`, new), the offsets as they were; for a batch,
+the place kept for the rest is renamed too, so each row undone after it
+is found under its new id. The row comes back first, in sight, the list
+at its top, as Mail puts it back. Not changed: a list moved since the
+take still holds the rows he can see then (B-093), and a refused row put
+back under its own id goes as before.
+
+*Tests.* `ListPlaceTests`, two new: a row undone under a new id goes back
+where it stood, the list's first at its top, the first in sight with a
+row above it, one out of sight above, one below; the first two rows of a
+list at its top, out together and undone in either order, both back in
+sight, the list at its top. `UndoMovesTests`, one new, through the
+shipping repository and the list on the screen as the suite lays it out
+(`ListOnScreen`): the Inbox at its top, its first row trashed and undone,
+back first and in sight under its new id. Undone by hand, then put back
+and passing: the place not renamed, 7 failures in 3 tests, the iPad's
+symptom, the list one row down; `restore` telling `.putBack` again, 3 in
+1; the batch's place not renamed, 2 in 1.
+
 ## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 
 **What Mail does.** Since iOS 18.4 it is a setting, Settings > Apps >

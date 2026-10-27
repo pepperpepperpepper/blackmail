@@ -1033,6 +1033,65 @@ final class ListPlaceTests: XCTestCase {
         }
     }
 
+    /// A row put back by its Undo (B-157), under the new UID the move back
+    /// gave it, in front of its old place (`ListLetters.restore`): back
+    /// where it stood, as a refused row is, and every row with it. The
+    /// first row of a list at its top, found on the test iPad, 2026-10-27:
+    /// the place from before the take named it by its old id, which heads
+    /// no row now, so the rows below were held as if it had gone, and it
+    /// came back above the top of the pane, out of sight. The same for the
+    /// first row in sight with a row above it, one out of sight above, and
+    /// one below the first in sight.
+    func testARowUndoneUnderANewIDGoesBackWhereItStood() throws {
+        let rows = grouped(twenty)
+        for (gone, from, tapped) in [("7/200", -74.0, -74.0), ("7/197", 214.0, 214.0),
+                                     ("7/197", 310.0, 214.0), ("7/194", 310.0, 310.0)] {
+            let what = "\(gone) at \(from)"
+            let without = grouped(twenty.filter { $0.id != gone })
+            let undone = grouped(twenty.map { $0.id == gone ? $0.renamed("7/301") : $0 })
+            var taken = TakenRows()
+            let to = try redraw(.taken(gone), &taken, in: rows, at: from, to: without)
+            XCTAssertEqual(to, tapped, what)
+            let back = try redraw(.restored(gone, as: "7/301"), &taken, in: without, at: to, to: undone)
+            XCTAssertEqual(back, from, "\(what): every row where it was")
+            XCTAssertEqual(onPane(undone, at: back)["7/301"], onPane(rows, at: from)[gone], what)
+            XCTAssertEqual(taken.move(for: .restored(gone, as: "7/301"), here: place(in: undone, at: back)),
+                           .stay, "\(what): nothing kept once it is back")
+        }
+        XCTAssertEqual(inView(grouped(twenty), at: -74).first, "7/200", "the list's first at its top")
+    }
+
+    /// The first two rows of a list at its top, out together, a drag and
+    /// then the pane, or Edit mode, and both undone, in either order: each
+    /// back where it stood under its new id, the list at its top, both in
+    /// sight.
+    func testTheFirstTwoRowsUndoneUnderNewIDsGoBackWhereTheyStood() throws {
+        let new = ["7/200": "7/301", "7/199": "7/302"]
+        func listed(out: Set<String>, back: Set<String>) -> [MessageThread] {
+            grouped(twenty.compactMap { letter in
+                if back.contains(letter.id) { return letter.renamed(new[letter.id]!) }
+                return out.contains(letter.id) ? nil : letter
+            })
+        }
+        for order in [["7/200", "7/199"], ["7/199", "7/200"]] {
+            var taken = TakenRows()
+            var at = try redraw(.taken("7/200"), &taken, in: listed(out: [], back: []), at: -74,
+                                to: listed(out: ["7/200"], back: []))
+            at = try redraw(.taken("7/199"), &taken, in: listed(out: ["7/200"], back: []), at: at,
+                            to: listed(out: ["7/200", "7/199"], back: []))
+            var back = Set<String>()
+            for id in order {
+                let out = Set(new.keys).subtracting(back)
+                at = try redraw(.restored(id, as: new[id]!), &taken, in: listed(out: out, back: back),
+                                at: at, to: listed(out: out.subtracting([id]), back: back.union([id])))
+                back.insert(id)
+            }
+            XCTAssertEqual(at, -74, "\(order): at its top")
+            XCTAssertEqual(Array(inView(listed(out: [], back: back), at: at).prefix(2)), ["7/301", "7/302"],
+                           "\(order)")
+        }
+    }
+
     /// Put back once the list has moved since the tap. Scrolled: the rows he
     /// can see then stay where they are, the row goes in above them out of
     /// sight, as any row put back does (`landing`), and the place from

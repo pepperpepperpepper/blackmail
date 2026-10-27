@@ -8367,12 +8367,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *After the search field:* the search field tapped, a letter
       typed, Cancel; letter 2 deleted by a drag; a shake: the alert comes.
       Undo.
-      8. *A letter just opened, deleted in the pane:* the count beside
-      "Notes" noted; letter 7 tapped: the dot gone, the count down by
-      one; Delete in the pane. A shake, Undo: its row back with no dot,
-      the count as it was after the tap, not up by one; letter 7 tapped
-      again: the count as it was, nothing more taken off. A Refresh: the
-      same.
+      8. *A letter just opened, deleted in the pane:* "Notes" at its top,
+      letter 7's row the first; the count beside "Notes" noted; letter 7
+      tapped: the dot gone, the count down by one; Delete in the pane. A
+      shake, Undo: its row back with no dot, the first row and in sight,
+      the list still at its top (on 2026-10-27 it came back above the top
+      of the pane, B-157, Found on the test iPad); the count as it was
+      after the tap, not up by one; letter 7 tapped again: the count as it
+      was, nothing more taken off. A Refresh: the same.
       9. *Undo Flag:* a drag's Flag on letter 4. A shake: "Undo Flag", its
       words written down; Undo: the flag gone at once, one `UID STORE n
       -FLAGS.SILENT (\Flagged)`. Flag by a drag again, then Unflag by a
