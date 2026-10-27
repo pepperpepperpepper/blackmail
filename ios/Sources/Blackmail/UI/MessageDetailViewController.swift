@@ -126,9 +126,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// while Block All Remote Content holds back the pictures of what the
     /// pane shows and none of its letters has been loaded (B-168).
     private let remoteList: RemoteBlockList
-    /// The letters of what the pane shows whose pictures from the web
-    /// "Load All Images" has loaded; none as it shows something else
-    /// (`RemotePictures`, B-168).
+    /// The letters of what the pane shows built held back, and those whose
+    /// pictures from the web "Load All Images" has loaded; none as it shows
+    /// something else (`RemotePictures`, B-168).
     private var remote = RemotePictures()
     /// The body fetches for what the pane shows, called off when it shows
     /// something else. See `PaneLoads`.
@@ -448,6 +448,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         setActionsEnabled(true)
 
         let repository = self.repository
+        let held = remote.hold(summary.id)
         loads.show(
             standIn: {
                 // The letter he tapped, from the row, before its body is
@@ -473,9 +474,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // The page is built away from the main thread, and drawn only
             // if he is still on this letter when it is ready; see
             // `PaneLoads`.
-            prepare: { [style = pageStyle, held = remote.holdsBack(summary.id)] m in
-                (m, PanePage.letter(m, style: style, heldBack: held))
-            },
+            prepare: { [style = pageStyle] m in (m, PanePage.letter(m, style: style, heldBack: held)) },
             settle: { [weak self] result in
                 guard let self else { return }
                 switch result {
@@ -567,7 +566,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // app is queuing on.
         let newest = thread.newest
         let repository = self.repository
-        let newestHeld = remote.holdsBack(newest.id) ? newest.id : nil
+        let newestHeld = remote.hold(newest.id) ? newest.id : nil
         loads.show(
             standIn: {
                 // The header is given its content BEFORE the stack is
@@ -645,7 +644,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func loadRelated(_ entryID: String) {
         guard let load = related.load(for: entryID) else { return }
         let repository = self.repository
-        let held = remote.holdsBack(load.entryID) ? load.entryID : nil
+        let held = remote.hold(load.entryID) ? load.entryID : nil
         loads.start({ try await repository.openLetter(load.row) },
                     prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) },
                     settle: { [weak self] result in self?.settleRelated(result, for: load) })
@@ -771,7 +770,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         let repository = self.repository
-        let held = remote.holdsBack(id) ? id : nil
+        let held = remote.hold(id) ? id : nil
         loads.start({ try await repository.openLetter(row) },
                     prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) },
                     settle: { [weak self] result in
@@ -1348,10 +1347,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// built away from the main thread, as at the tap, and drawn only if
     /// the pane still shows the letter.
     ///
-    /// Nothing for a letter not held back, or not shown here: a link of
-    /// the scheme in a letter's own markup does no more than its own line.
+    /// Nothing for a letter whose page or body was not built held back, or
+    /// one not shown here: a link of the scheme in a letter's own markup
+    /// does no more than its own line. Decided by what the page was built
+    /// with (`RemotePictures.waits`), not by the setting now, so a line
+    /// still on screen after Block All Remote Content is turned off loads
+    /// its letter.
     private func loadImages(of id: String) {
-        guard remote.holdsBack(id) else { return }
+        guard remote.waits(id) else { return }
         if threadSummaries.isEmpty {
             guard let m = message, m.id == id else { return }
             remote.load(id)
@@ -1371,8 +1374,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         remoteList.on = remote.listOn()
         loads.start({ m }, prepare: { m in PanePage.stackBody(m) },
                     settle: { [weak self] result in
-                        guard case .success(let body) = result else { return }
-                        self?.fill(id, body)
+                        guard let self, case .success(let body) = result else { return }
+                        // The loader pointed at this letter's own pictures,
+                        // for the body put back asks for them again, as
+                        // `drawBody` points it; it may have been another's
+                        // since, the one that came last.
+                        self.prepareInlineImages(for: [m])
+                        self.fill(id, body)
                     })
     }
 

@@ -12,9 +12,11 @@ import WebKit
 /// WebKit's changes then. WebKit makes it on its own time, a few
 /// milliseconds; until it has, a letter held back is held back by its
 /// markup alone (`RemoteContent.blocked`), and the list goes on as soon as
-/// it is made. A change goes on the controller at once, before whatever
-/// the web view is given next: WebKit applies it to the requests made
-/// after it, the page on screen's among them.
+/// it is made. One WebKit could not make is asked for again once at the
+/// next thing the pane shows, not before (`took`). A change goes on the
+/// controller at once, before whatever the web view is given next: WebKit
+/// applies it to the requests made after it, the page on screen's among
+/// them.
 @MainActor
 final class RemoteBlockList {
 
@@ -70,12 +72,22 @@ final class RemoteBlockList {
         }
     }
 
+    /// WebKit's answer. The list made, each holder waiting for it puts it
+    /// on if it still wants it on. Not made, as when the iPad's storage is
+    /// full, the holders are let go untold, their letters held back by
+    /// their markup alone, and it is asked for again only when the pane
+    /// next shows something (`holdBackTheWeb`): told, a holder still on
+    /// would ask for it again at once, and again, for as long as WebKit
+    /// could not make it, each time in the log.
     private static func took(_ list: WKContentRuleList?, _ error: Error?) {
         making = false
-        if let error { Diagnostics.log(.note, "remote: list not made \((error as NSError).code)") }
-        made = list
         let holders = waiting
         waiting = []
+        guard let list else {
+            Diagnostics.log(.note, "remote: list not made \((error as NSError?)?.code ?? 0)")
+            return
+        }
+        made = list
         for holder in holders { holder.list?.apply() }
     }
 }

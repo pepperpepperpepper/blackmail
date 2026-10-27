@@ -1320,8 +1320,9 @@ final class CompleteThreadsTests: XCTestCase {
         for wiring in [
             "guard let load = related.load(for: entryID) else { return }",
             // Held back under Block All Remote Content by its own entry,
-            // as the stack's letters are by theirs (B-168).
-            "let held = remote.holdsBack(load.entryID) ? load.entryID : nil "
+            // as the stack's letters are by theirs, and kept as held for
+            // its line's button (B-168).
+            "let held = remote.hold(load.entryID) ? load.entryID : nil "
                 + "loads.start({ try await repository.openLetter(load.row) }, "
                 + "prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) }, "
                 + "settle: { [weak self] result in self?.settleRelated(result, for: load) })",

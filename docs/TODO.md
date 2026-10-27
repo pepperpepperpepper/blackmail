@@ -8845,13 +8845,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       a `style` `url()`: "B-168 news", which also carries a picture of its
       own by `cid:` and a link, and a conversation of two, "B-168 talk"
       (a) and (b), (b)'s References naming (a), each with its own two
-      paths. Then six plain letters, "B-168 bin 1" to "B-168 bin 6", and
-      a conversation of two plain ones, "B-168 pair" (a) and (b). The
-      list goes by UID, the last APPENDed on top. Organize by Thread on,
-      three panes. In Blackmail's Settings both options written down as
-      found, then set as each step says. A screen recording through each
-      step, the app's connection log read after each, and the server's
-      log, from the step's first second, for the round's paths.
+      paths, (b) with a picture of its own by `cid:` too. Then six plain
+      letters, "B-168 bin 1" to "B-168 bin 6", and a conversation of two
+      plain ones, "B-168 pair" (a) and (b). The list goes by UID, the
+      last APPENDed on top. Organize by Thread on, three panes. In
+      Blackmail's Settings both options written down as found, then set
+      as each step says. A screen recording through each step, the app's
+      connection log read after each, and the server's log, from the
+      step's first second, for the round's paths.
       1. *Off, as it comes.* Both off. "Notes", "B-168 news" tapped: its
       pictures from the web there, no line over it; the server's log has
       both of its paths. Nothing else changed from before B-168.
@@ -8870,11 +8871,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *A conversation.* "B-168 talk" tapped: (b) open with its line,
       (a) closed above; (a)'s line tapped: it opens with its own line;
       nothing for either in the server's log. "Load All Images" on (b):
-      (b)'s pictures come, (b)'s line goes, (a) as it was, its line and
-      its blanks; the server's log has (b)'s two paths and not (a)'s.
-      Close (a) and open it again: still held back. Then "B-168 bin 1"
-      tapped, and "B-168 talk" again: (a) and (b) both held back, their
-      lines back.
+      (b)'s pictures come, its own by `cid:` still drawn, (b)'s line goes,
+      (a) as it was, its line and its blanks; the server's log has (b)'s
+      two paths and not (a)'s. Close (a) and open it again: still held
+      back. Then "B-168 bin 1" tapped, and "B-168 talk" again: (a) and
+      (b) both held back, their lines back. Settings, Block All Remote
+      Content off, Save; if the pane still shows "B-168 talk", "Load All
+      Images" on (b): its pictures come and its line goes (if the pane
+      moved on, written down).
       Block All Remote Content off.
       6. *Ask Before Deleting, the pane.* On. "B-168 bin 1" tapped,
       Delete: a sheet from the Delete button, "Trash Message" in red;
@@ -8904,8 +8908,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       nothing else on the account has, and deletes them there, and
       empties the round's paths on the web server. Nothing was sent.
       Not on the iPad: an Archive from a drag, with no account set to
-      discard into the Archive (`SwipeOptions.his`), and his letters from
-      Sent Mail held back in an Inbox conversation (host tests alone).
+      discard into the Archive (`SwipeOptions.his`), his letters from
+      Sent Mail held back in an Inbox conversation, and a list WebKit
+      could not make (host tests alone); nor Mail's own, whether its slow
+      drag's Trash asks and Ask Before Deleting's factory value, which
+      need Mail on an iOS 18 device (B-168's "Not seen"); his own value
+      is read off his iPad on the day.
 
 ## Blocked on the owner
 

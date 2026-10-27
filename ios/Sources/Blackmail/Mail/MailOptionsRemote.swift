@@ -3,9 +3,9 @@ import Foundation
 /// Two of Mail's options under Messages in Settings > Apps > Mail on his
 /// iPad that the app did not have (B-168): Privacy Protection's Block All
 /// Remote Content, and Ask Before Deleting. No app can read either off his
-/// iPad, so each is stored here, at Mail's factory value, to be set to his
-/// before the install-day build (TODO, "His iPad's own settings"); the
-/// owner's ruling of 2026-10-26.
+/// iPad, so each is stored here, at Mail's factory value, and matched in
+/// Blackmail's Settings on the day (B-167's rows; TODO, "On the day"),
+/// with no build; the owner's ruling of 2026-10-26.
 ///
 /// What each does is elsewhere: `RemoteContent` and `RemotePictures` for
 /// the pictures from the web, `DiscardQuestion` for the question before a
@@ -51,7 +51,9 @@ enum MessagesOptions {
     /// Mail's Ask Before Deleting: a Trash or an Archive of a letter asks
     /// first, with Mail's words, but for a full drag on a row, which goes
     /// at once (`DiscardQuestion`). Off unless set otherwise, as it comes
-    /// from the factory. The question before an erase inside Trash
+    /// from the factory by third-party guides; Apple's own guide, telling
+    /// how to turn it off, reads as if it were on, and his is matched on
+    /// the day whichever it is. The question before an erase inside Trash
     /// (`EraseQuestion`) is asked whatever this says, as it always was.
     static var askBeforeDeleting: Bool {
         get {

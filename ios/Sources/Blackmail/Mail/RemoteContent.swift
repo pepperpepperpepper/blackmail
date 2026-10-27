@@ -125,8 +125,9 @@ enum RemoteContent {
     /// Where each reference to the web in `html` begins, in its UTF-8: the
     /// `h` of an `http:` or `https:`, in any case, that no letter, digit,
     /// `+`, `-` or `.` comes right before, so it is the whole of a scheme,
-    /// slashes or none (`https:host` loads as `https://host/`), in a place
-    /// a page loads from:
+    /// slashes or none (`https:host` loads as `https://host/`), a tab or a
+    /// line break among its letters or none (the URL parser drops them,
+    /// so `ht<LF>tp:` loads as `http:`), in a place a page loads from:
     ///
     /// - the value of an attribute that names something to load: `src`,
     ///   `srcset`, `background`, `poster`, `lowsrc`, `dynsrc`, `data`,
@@ -139,10 +140,12 @@ enum RemoteContent {
     ///
     /// Not a link's address, which a tap opens in Safari as ever, nor the
     /// letter's words, nor a comment (Outlook's `<!--[if mso]>` among
-    /// them), nor the text of `<script>`, `<textarea>`, `<title>`,
-    /// `<iframe>` and the other elements whose text is not markup. A
-    /// `<meta>` refresh or a frame's `src` is a navigation, which the pane
-    /// cancels whatever it names (`PaneNavigation`), and is not counted.
+    /// them), ended where HTML ends it: at `-->` or `--!>`, or at once by
+    /// `<!-->` or `<!--->`; nor the text of `<script>`, `<textarea>`,
+    /// `<title>`, `<iframe>` and the other elements whose text is not
+    /// markup. A `<meta>` refresh or a frame's `src` is a navigation, which
+    /// the pane cancels whatever it names (`PaneNavigation`), and is not
+    /// counted.
     ///
     /// One pass over the bytes, as `InlineImageRewriter.rewrite`.
     static func references(in html: String, stoppingAtFirst: Bool = false) -> [Int] {
@@ -190,7 +193,7 @@ enum RemoteContent {
                     continue
                 }
                 if matches(commentOpen, at: i) {
-                    i = find(commentClose, from: i + 4).map { $0 + 3 } ?? n
+                    i = commentEnd(from: i + 4)
                     continue
                 }
                 let c = b[i + 1]
@@ -269,18 +272,55 @@ enum RemoteContent {
         /// Every reference to the web from `start` up to `end`.
         mutating func mark(from start: Int, to end: Int) {
             var k = start
-            while k + 5 <= end, !done {
+            while k < end, !done {
                 defer { k += 1 }
-                guard (b[k] | 0x20) == 0x68, (b[k + 1] | 0x20) == 0x74,          // h t
-                      (b[k + 2] | 0x20) == 0x74, (b[k + 3] | 0x20) == 0x70 else { // t p
-                    continue
-                }
-                let colon = (b[k + 4] | 0x20) == 0x73 ? k + 5 : k + 4             // s
-                guard colon < end, b[colon] == 0x3A else { continue }            // :
+                guard (b[k] | 0x20) == 0x68,                                        // h
+                      let ends = colon(after: k, before: end) else { continue }
                 if k > 0, partOfScheme(b[k - 1]) { continue }
                 marks.append(k)
-                k = colon
+                k = ends
             }
+        }
+
+        /// The colon of the `http:` or `https:`, in any case, whose `h` is
+        /// at `h`, before `end`; nil if the letters there are not one. A tab
+        /// or a line break among them, or before the colon, is passed over,
+        /// as the URL parser drops them: `ht<LF>tps:` loads as `https:`.
+        func colon(after h: Int, before end: Int) -> Int? {
+            var k = h + 1
+            func skipDropped() {
+                while k < end, b[k] == 0x09 || b[k] == 0x0A || b[k] == 0x0D { k += 1 }
+            }
+            for letter: UInt8 in [0x74, 0x74, 0x70] {                            // t t p
+                skipDropped()
+                guard k < end, (b[k] | 0x20) == letter else { return nil }
+                k += 1
+            }
+            skipDropped()
+            if k < end, (b[k] | 0x20) == 0x73 {                                  // s
+                k += 1
+                skipDropped()
+            }
+            return k < end && b[k] == 0x3A ? k : nil                              // :
+        }
+
+        /// Where a comment ends, after its `>`, its `<!--` ending just
+        /// before `start`: where HTML ends it, at once for `<!-->` and
+        /// `<!--->`, or else at the first `-->` or `--!>`; the end of the
+        /// markup if it is never closed.
+        func commentEnd(from start: Int) -> Int {
+            let n = b.count
+            if start < n, b[start] == gt { return start + 1 }
+            if start + 1 < n, b[start] == dash, b[start + 1] == gt { return start + 2 }
+            var k = start
+            while k + 2 < n {
+                if b[k] == dash, b[k + 1] == dash {
+                    if b[k + 2] == gt { return k + 3 }
+                    if b[k + 2] == bang, k + 3 < n, b[k + 3] == gt { return k + 4 }
+                }
+                k += 1
+            }
+            return n
         }
 
         /// Where the text of an element named `name` ends: the `<` of its
@@ -302,15 +342,6 @@ enum RemoteContent {
                 k += 1
             }
             return n
-        }
-
-        func find(_ needle: [UInt8], from start: Int) -> Int? {
-            var k = start
-            while k + needle.count <= b.count {
-                if matches(needle, at: k) { return k }
-                k += 1
-            }
-            return nil
         }
 
         func matches(_ needle: [UInt8], at index: Int) -> Bool {
@@ -335,7 +366,7 @@ enum RemoteContent {
 
         let lt: UInt8 = 0x3C, gt: UInt8 = 0x3E, slash: UInt8 = 0x2F, bang: UInt8 = 0x21
         let question: UInt8 = 0x3F, equals: UInt8 = 0x3D, quote: UInt8 = 0x22, apostrophe: UInt8 = 0x27
-        let commentOpen = Array("<!--".utf8), commentClose = Array("-->".utf8)
+        let dash: UInt8 = 0x2D, commentOpen = Array("<!--".utf8)
         let style = Array("style".utf8), href = Array("href".utf8), xlinkHref = Array("xlink:href".utf8)
         let a = Array("a".utf8), area = Array("area".utf8)
         let iframe = Array("iframe".utf8), frame = Array("frame".utf8), src = Array("src".utf8)
@@ -353,12 +384,33 @@ enum RemoteContent {
 struct RemotePictures: Equatable {
 
     private(set) var loaded: Set<String> = []
+    /// The letters whose page or body has been built held back (`hold`),
+    /// Mail's line over each that asks the web for anything.
+    private(set) var held: Set<String> = []
 
     /// Whether the letter `id` has its pictures from the web held back:
     /// under Block All Remote Content (`blocking`), until its line's button
     /// has been tapped.
     func holdsBack(_ id: String, blocking: Bool = MessagesOptions.blockAllRemoteContent) -> Bool {
         blocking && !loaded.contains(id)
+    }
+
+    /// `holdsBack`, for a page or a body about to be built with it, and the
+    /// letter kept among those `held` if so, for its line's button.
+    mutating func hold(_ id: String, blocking: Bool = MessagesOptions.blockAllRemoteContent) -> Bool {
+        let holding = holdsBack(id, blocking: blocking)
+        if holding { held.insert(id) }
+        return holding
+    }
+
+    /// Whether the button on the letter `id`'s line is to load it: by what
+    /// its page or body was built with, held back and not loaded since,
+    /// not by the setting now. Turned off in Settings while the letter is
+    /// on screen, its line still loads it; turned on, a letter drawn
+    /// before has no line, and a link of the scheme in its markup loads
+    /// nothing.
+    func waits(_ id: String) -> Bool {
+        held.contains(id) && !loaded.contains(id)
     }
 
     /// Whether WebKit's list is to be on the pane's web view: under Block

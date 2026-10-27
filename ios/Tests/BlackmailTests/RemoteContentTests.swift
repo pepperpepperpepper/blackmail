@@ -151,6 +151,47 @@ final class RemoteContentTests: XCTestCase {
                        "<style>a{b:url(bmoffhttp://e.com/x)")
     }
 
+    /// A comment ends where HTML ends it, so a picture after `<!-->`,
+    /// `<!--->` or `--!>` is found, and one inside a comment that only
+    /// looks closed is not; a scheme with a tab or a line break among its
+    /// letters, which the URL parser drops, is found and held back with
+    /// them left where they were.
+    func testACommentEndsAndASplitSchemeIsReadAsWebKitReadsThem() {
+        for (html, held) in [
+            ("<!--><img src=\"https://example.com/a.png\">",
+             "<!--><img src=\"bmoffhttps://example.com/a.png\">"),
+            ("<!---><img src=\"https://example.com/a.png\">",
+             "<!---><img src=\"bmoffhttps://example.com/a.png\">"),
+            ("<!-- x --!><img src=\"https://example.com/a.png\">",
+             "<!-- x --!><img src=\"bmoffhttps://example.com/a.png\">"),
+            ("<!-- x ---><img src=https://example.com/a.png>",
+             "<!-- x ---><img src=bmoffhttps://example.com/a.png>"),
+            ("<img src=\"ht\ntps://example.com/a.png\">",
+             "<img src=\"bmoffht\ntps://example.com/a.png\">"),
+            ("<img src=\"H\tt\r\nT\tP\nS\t:example.com/a.png\">",
+             "<img src=\"bmoffH\tt\r\nT\tP\nS\t:example.com/a.png\">"),
+            ("<img src=\"http\n://example.com/a.png\">",
+             "<img src=\"bmoffhttp\n://example.com/a.png\">"),
+            ("<style>p { background: url(\"ht\ttp://example.com/a.png\") }</style>",
+             "<style>p { background: url(\"bmoffht\ttp://example.com/a.png\") }</style>"),
+        ] {
+            XCTAssertTrue(RemoteContent.asksTheWeb(html), html)
+            XCTAssertEqual(RemoteContent.blocked(html), held, html)
+            XCTAssertEqual(RemoteContent.blocked(held), held, html)
+        }
+        for html in [
+            "<!-- -- > <img src=\"https://example.com/a.png\"> -->",
+            "<!--!> <img src=\"https://example.com/a.png\"> -->",
+            "<!-- -!> <img src=\"https://example.com/a.png\"> -->",
+            "<!-- <img src=\"https://example.com/a.png\">",
+            "<a href=\"ht\ntps://example.com/\">x</a>",
+            "<img src=\"ht tps://example.com/a.png\"><img src=\"x\nhttps\n\n\">",
+        ] {
+            XCTAssertFalse(RemoteContent.asksTheWeb(html), html)
+            XCTAssertEqual(RemoteContent.blocked(html), html, html)
+        }
+    }
+
     // MARK: - The pages
 
     /// On a page of its own, held back: Mail's line at the top of the
@@ -280,6 +321,39 @@ final class RemoteContentTests: XCTestCase {
         XCTAssertTrue(RemotePictures().listOn())
     }
 
+    /// The button loads by what the page or body was built with, not by
+    /// the setting now: a letter built held back waits for its button
+    /// after the setting is turned off, until it is tapped; one built with
+    /// the setting off waits for nothing after it is turned on, so a link
+    /// of the scheme in its markup loads nothing.
+    func testTheButtonLoadsByWhatThePageWasBuiltWith() {
+        var remote = RemotePictures()
+        XCTAssertFalse(remote.waits("7/3"))
+        XCTAssertTrue(remote.hold("7/3", blocking: true))
+        XCTAssertEqual(remote.held, ["7/3"])
+        XCTAssertTrue(remote.waits("7/3"))
+        // Turned off in Settings, the letter on screen with its line.
+        XCTAssertFalse(remote.holdsBack("7/3", blocking: false))
+        XCTAssertTrue(remote.waits("7/3"))
+        // Built with it off, then turned on: no line, nothing to load.
+        XCTAssertFalse(remote.hold("7/4", blocking: false))
+        XCTAssertFalse(remote.waits("7/4"))
+        XCTAssertTrue(remote.holdsBack("7/4", blocking: true))
+        remote.load("7/3")
+        XCTAssertFalse(remote.waits("7/3"))
+        // Built again once loaded, it is not held back.
+        XCTAssertFalse(remote.hold("7/3", blocking: true))
+        XCTAssertFalse(remote.waits("7/3"))
+        XCTAssertEqual(remote.held, ["7/3"])
+        // The setting read where none is handed in.
+        UserDefaults.standard.removeObject(forKey: MessagesOptions.blockAllRemoteContentKey)
+        var factory = RemotePictures()
+        XCTAssertFalse(factory.hold("7/3"))
+        MessagesOptions.blockAllRemoteContent = true
+        XCTAssertTrue(factory.hold("7/3"))
+        XCTAssertTrue(factory.waits("7/3"))
+    }
+
     /// WebKit's list: one rule, every request to `http:` or `https:` of any
     /// kind blocked, under its own name.
     func testWebKitsListBlocksEveryRequestToTheWeb() throws {
@@ -306,14 +380,17 @@ final class RemoteContentTests: XCTestCase {
             "self.remoteList = RemoteBlockList(on: config.userContentController)",
             "func showEmpty() { loads.supersede() liftCover() holdBackTheWeb()",
             "private func holdBackTheWeb() { remote = RemotePictures() remoteList.on = remote.listOn() }",
-            "prepare: { [style = pageStyle, held = remote.holdsBack(summary.id)] m in "
-                + "(m, PanePage.letter(m, style: style, heldBack: held)) },",
-            "let newestHeld = remote.holdsBack(newest.id) ? newest.id : nil",
+            "let held = remote.hold(summary.id) loads.show(",
+            "prepare: { [style = pageStyle] m in (m, PanePage.letter(m, style: style, heldBack: held)) },",
+            "let newestHeld = remote.hold(newest.id) ? newest.id : nil",
             "prepare: { m in (m, PanePage.stackBody(m, heldBack: newestHeld)) },",
-            "let held = remote.holdsBack(id) ? id : nil loads.start({ try await repository.openLetter(row) }, "
+            "let held = remote.hold(load.entryID) ? load.entryID : nil "
+                + "loads.start({ try await repository.openLetter(load.row) }, "
+                + "prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) },",
+            "let held = remote.hold(id) ? id : nil loads.start({ try await repository.openLetter(row) }, "
                 + "prepare: { m in (m, PanePage.stackBody(m, heldBack: held)) },",
             "case .loadImages(let letter): decisionHandler(.cancel) loadImages(of: letter) }",
-            "private func loadImages(of id: String) { guard remote.holdsBack(id) else { return } "
+            "private func loadImages(of id: String) { guard remote.waits(id) else { return } "
                 + "if threadSummaries.isEmpty { guard let m = message, m.id == id else { return } "
                 + "remote.load(id) remoteList.on = remote.listOn() let style = pageStyle "
                 + "loads.start({ m }, prepare: { m in (m, PanePage.letter(m, style: style)) }, "
@@ -322,8 +399,8 @@ final class RemoteContentTests: XCTestCase {
             "guard let m = loaded[id] ?? related.letter(inSection: ConversationDocument.sectionID(for: id)) "
                 + "else { return } remote.load(id) remoteList.on = remote.listOn() "
                 + "loads.start({ m }, prepare: { m in PanePage.stackBody(m) }, "
-                + "settle: { [weak self] result in guard case .success(let body) = result else { return } "
-                + "self?.fill(id, body) }) }",
+                + "settle: { [weak self] result in guard let self, case .success(let body) = result "
+                + "else { return } self.prepareInlineImages(for: [m]) self.fill(id, body) }) }",
             "letter: m, heldBack: remote.holdsBack(m.id), repository: repository,",
         ] {
             XCTAssertTrue(pane.contains(line), line)
@@ -331,6 +408,11 @@ final class RemoteContentTests: XCTestCase {
         XCTAssertEqual(pane.components(separatedBy: "holdBackTheWeb()").count - 1, 4, "defined, emptied, two shows")
         XCTAssertEqual(pane.components(separatedBy: "PanePage.stackBody(m").count - 1, 4)
         XCTAssertEqual(pane.components(separatedBy: "remote.load(").count - 1, 2)
+        // Each page and body built remembers what it was built with; the
+        // button reads that, and only the print reads the setting now.
+        XCTAssertEqual(pane.components(separatedBy: "remote.hold(").count - 1, 4)
+        XCTAssertEqual(pane.components(separatedBy: "remote.waits(").count - 1, 1)
+        XCTAssertEqual(pane.components(separatedBy: "remote.holdsBack(").count - 1, 1)
 
         let list = try source("UI/RemoteBlockList.swift")
         for line in [
@@ -347,6 +429,29 @@ final class RemoteContentTests: XCTestCase {
         XCTAssertTrue(job.contains("PrintPage.made(m, style: style, size: size, heldBack: heldBack)"))
         XCTAssertTrue(job.contains("if heldBack, let list = RemoteBlockList.list { "
                                    + "config.userContentController.add(list) }"))
+    }
+
+    /// A list WebKit could not make, as with the iPad's storage full: the
+    /// holders waiting are let go untold, so none asks for it again at once,
+    /// and again; it is asked for again only at the next thing the pane
+    /// shows, which sets the holder on afresh. Made, each holder waiting
+    /// puts it on.
+    func testAListWebKitCouldNotMakeIsAskedForAgainOnlyAtTheNextShow() throws {
+        let list = try source("UI/RemoteBlockList.swift")
+        for line in [
+            "private static func took(_ list: WKContentRuleList?, _ error: Error?) { making = false "
+                + "let holders = waiting waiting = [] guard let list else { Diagnostics.log(",
+            ") return } made = list for holder in holders { holder.list?.apply() } }",
+            "var on = false { didSet { apply() } }",
+        ] {
+            XCTAssertTrue(list.contains(line), line)
+        }
+        XCTAssertEqual(list.components(separatedBy: "made = ").count - 1, 1)
+        XCTAssertEqual(list.components(separatedBy: ".apply()").count - 1, 1)
+        XCTAssertEqual(list.components(separatedBy: "Self.make(for: self)").count - 1, 1)
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertEqual(pane.components(separatedBy: "remoteList.on = remote.listOn()").count - 1, 3,
+                       "set afresh at each show, and off at each button")
     }
 
     private func source(_ path: String) throws -> String {

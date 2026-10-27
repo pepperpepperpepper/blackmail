@@ -34867,12 +34867,18 @@ read made a setting in Blackmail's own Settings (D-024).
    out on an iPad was not found.
 2. *Ask Before Deleting*, below Messages in Settings > Apps > Mail
    (Apple's iPadOS 18 guide, "Delete and recover emails"), off from the
-   factory (third-party guides; Apple gives no default). With it on, Mail
-   asks before it trashes or archives a letter, a sheet with one red
-   button saying what it does: "Trash Message" or "Archive Message",
-   "Trash Messages" for more, and a count for a selection, "Trash 3
-   Messages" (`TRASH_EMAIL`, `_PLURAL`, `TRASH_FORMAT` and the Archive
-   ones, the same strings). A full swipe does not ask, whatever it says.
+   factory by third-party guides. Apple names no default, but its guide's
+   "To turn off the deletion confirmation, go to Settings > Apps > Mail,
+   then turn off Ask Before Deleting (below Messages)" reads as if it
+   were on. With it on, Mail asks before it trashes or archives a letter,
+   a sheet with one red button saying what it does: "Trash Message" or
+   "Archive Message", "Trash Messages" for more, and a count for a
+   selection, "Trash 3 Messages" (`TRASH_EMAIL`, `_PLURAL`,
+   `TRASH_FORMAT` and the Archive ones, the same strings). A full swipe
+   does not ask, whatever it says. Reports go further: a swipe to delete
+   never asks (iOS Hacker, TekRevue, a reader's comment on OSXDaily),
+   with no word on whether a slow drag's Trash, tapped, is a swipe to
+   them; Apple's guide does not say.
 
 **What Blackmail did.** A letter's pictures from the web always loaded,
 the decision left open (B-055), and nothing was asked before a Trash or
@@ -34904,7 +34910,12 @@ existed.
      set before anything is given to the web view at each thing it shows
      (`holdBackTheWeb`, after `coverPane`); on a print's web view for a
      letter held back. It does not see the pane's own pages
-     (`about:blank`) or the letter's own pictures (`bmcid:`).
+     (`about:blank`) or the letter's own pictures (`bmcid:`). One WebKit
+     could not make, as with the iPad's storage full, is asked for again
+     once at the next thing the pane shows, and not before
+     (`RemoteBlockList.took`): asked for again at once, it would be asked
+     for over and over while the pane held the list on, each time in the
+     log.
    - The letter's markup: each reference to the web where a page loads
      from turned into one to a scheme nothing answers, `bmoff` written
      before its `http:` or `https:`, and nothing else changed: the
@@ -34915,7 +34926,11 @@ existed.
      a `<style>` element's text; not a link's address, the letter's
      words, a comment (Outlook's `<!--[if mso]>`), the text of `<script>`,
      `<title>`, `<textarea>` or `<iframe>`, or a frame's own address,
-     which the pane cancels anyway (`PaneNavigation`). One pass over the
+     which the pane cancels anyway (`PaneNavigation`). A comment ends where
+     HTML ends it, at `-->` or `--!>`, or at once by `<!-->` or `<!--->`,
+     so a picture after one of those is found; and a tab or a line break
+     among a scheme's letters, which the URL parser drops (`ht` and `tps:`
+     on two lines load as `https:`), is passed over. One pass over the
      bytes. Until WebKit has made the list, a few milliseconds the first
      time, this is what holds a letter back.
    - *The line.* Mail's words, at the top of the letter, inside its own
@@ -34933,10 +34948,16 @@ existed.
      WebKit's list comes off the web view first, then a letter on its own
      is drawn again without the line, from the top, and in a stack the
      letter's body is put back into its section, where he is, the other
-     letters as they were. Built away from the main thread, as at the tap,
-     and drawn only if the pane still shows the letter. Nothing for a
-     letter not held back, or not shown, so a link of the scheme in a
-     letter's own markup does no more than its own line would.
+     letters as they were, the loader pointed back at the letter's own
+     pictures first, as when its body came, since the letter of the
+     stack that came last may have had it since. Built away from the main
+     thread, as at the tap, and drawn only if the pane still shows the
+     letter. Nothing for a letter whose page or body was not built held
+     back, or not shown, so a link of the scheme in a letter's own markup
+     does no more than its own line would. That is told by what the page
+     was built with (`RemotePictures.held`, `waits`), not by the setting
+     now: a line still on screen after Block All Remote Content is turned
+     off loads its letter.
    - *For how long.* A letter loaded stays so while the pane shows it or
      its conversation, and after WebKit has lost the page and drawn it
      again; the next thing the pane shows begins held back, as nothing
@@ -34995,7 +35016,7 @@ Content); "Trash Message", "Trash Messages", "Trash 1 Message", "Trash 3
 Messages" and the like, "Archive Message", "Archive Messages" and "Archive
 2 Messages" and the like (Ask Before Deleting), with Cancel.
 
-**Tests.** `RemoteContentTests`, twelve, new. The setting: off from the
+**Tests.** `RemoteContentTests`, fifteen, new. The setting: off from the
 factory, its key, its round trip, a value of another kind read as the
 factory's, not a view setting. The markup: each place a page loads from
 found, in any case, with or without the slashes, quoted or not; a link,
@@ -35004,7 +35025,11 @@ textarea's text, a frame's address, a refresh, the letter's own pictures,
 `data:`, a scheme that only ends in the letters and one held back already
 not found, and left as they were; a newsletter held back at its four
 references and nowhere else, the markup with `bmoff` taken out its own
-again, twice once, an unclosed tag or style held back to the end. The
+again, twice once, an unclosed tag or style held back to the end; a
+picture after a comment HTML ends early, `<!-->`, `<!--->` or `--!>`,
+found, and one in a comment that only looks closed not; a scheme with
+tabs and line breaks among its letters found and held back with them
+where they were, in a style sheet too, and in a link not. The
 pages: a letter held back with Mail's line naming it, nothing from the
 web, its own picture at the loader and its links; not held back, or held
 back with nothing from the web, or plain, the page it always was; a
@@ -35014,11 +35039,15 @@ nothing from the web and no line, its words the same. The button: a link
 naming a letter, an entry or an id with spaces loads it, by a tap only,
 and one naming none goes nowhere. The state: held back until its button,
 that letter alone, the list on until one is loaded, off nothing; the
-setting read where none is handed in. WebKit's list: one rule, its
-pattern and its action. And read from the source: the pane holding back
-afresh as it empties and at each show, each page and body built by the
-letter's id or entry, the button's two ways, the print held back, the
-list made once and only when wanted on.
+setting read where none is handed in; the button told by what the page
+was built with, a line on screen after the setting is turned off loading
+its letter and a letter built with it off loading nothing. WebKit's
+list: one rule, its pattern and its action. And read from the source:
+the pane holding back afresh as it empties and at each show, each page
+and body built by the letter's id or entry, the button's two ways, a
+stack's pointing the loader back at the letter's own pictures, the print
+held back, the list made once and only when wanted on, and one WebKit
+could not make let go untold, asked for again only at the next show.
 `DiscardQuestionTests`, five, new: off from the factory, its key and round
 trip; off, nothing asked from anywhere; on, Mail's words by where it was
 asked and how many, nothing for none; a full drag never asking, and the
@@ -35045,10 +35074,16 @@ Third: the letter's page not held back, 6 in 1; the list left on once a
 letter is loaded, 1 in 1; the pane not held back afresh as it empties, 2
 in 1. Fourth: every HTML letter held back, held back or not, 3 in 3 (the
 page not held back, the stack, the print). Fifth: a stack's body not held
-back, 3 in 1; a print not held back, 2 in 1. Every new test failed in one
-of them at least.
+back, 3 in 1; a print not held back, 2 in 1. Then the five parts the
+later commits add, `RemoteContentTests` run, in three groups more. Sixth:
+a list WebKit could not make told to its holders at once, 2 in 1; a
+comment ended at the next `-->` alone, 6 in 1; the button told by the
+letters loaded alone, 2 in 1. Seventh: tabs and line breaks in a scheme
+not passed over, 8 in 1; a stack's button leaving the loader where it
+was, 1 in 1. Eighth: the button reading the setting now, 3 in 1. Every
+new test failed in one of them at least.
 
-The full suite, serially: 2,962 tests, 17 of them new, 6 skipped, none
+The full suite, serially: 2,965 tests, 20 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not seen.**
@@ -35067,10 +35102,26 @@ failing. The release build for the iPad links.
   "Trash 3 Messages" for a selection, "Trash Messages" for a
   conversation's row; and whether More's Trash Message asks in Mail. Here
   every Trash or Archive tapped asks, and only a full drag does not.
+- Whether Mail asks when a slow drag's Trash is tapped. The reports that
+  a swipe to delete never asks (above) may mean it does not, a full drag
+  or a slow one; if so, the question over the row (`DiscardQuestion`'s
+  `.rowButton`, and `.more` if More's does not ask either) is the one to
+  take out. Mail on an iOS 18 device would settle it, and there is none;
+  the device check sees only Blackmail's.
+- Ask Before Deleting's factory value: off by third-party guides, as
+  built, though Apple's guide reads as if it were on. His own, read off
+  his iPad on the day and set in Blackmail's Settings, settles it for
+  him either way (TODO, "On the day").
 - In a conversation with one letter loaded, the others are held back by
   their markup alone: a reference to the web written with character
   references or CSS escapes, which the markup does not see, goes out
-  then; with no letter loaded, WebKit's list blocks it.
+  then; with no letter loaded, WebKit's list blocks it. A comment HTML
+  ends early (`<!-->`, `<!--->`, `--!>`) and a scheme split by a tab or a
+  line break are found since; nothing else the HTML tokenizer or the URL
+  parser does differently from the markup's one pass has been looked
+  for.
+- A list WebKit could not make: not made to fail, here or on the iPad;
+  that it is asked for once a show is read in the source alone.
 - A letter whose only reference to the web is in a place the markup does
   not see has its pictures held back by the list with no line over it.
 
@@ -35079,5 +35130,5 @@ All Remote Content, shown only with Protect Mail Activity off as Mail
 shows it, and for Ask Before Deleting, set `MessagesOptions`; the two can
 move into its `Mail/MailOptions.swift`, under the same keys. The pane
 reads Block All Remote Content at each thing it shows, so a change in
-Settings counts from the next letter opened; Ask Before Deleting is read
-at each tap.
+Settings counts from the next letter opened, a line already on screen
+still loading its letter; Ask Before Deleting is read at each tap.
