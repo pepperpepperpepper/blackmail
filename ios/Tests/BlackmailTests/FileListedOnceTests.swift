@@ -478,7 +478,8 @@ final class FileListedOnceTests: XCTestCase {
 
     /// A printed letter's files are in its body as the pane draws them,
     /// on paper: tiles with no "Tap to Download", and a picture file's
-    /// picture decoded as it is drawn; none in its header.
+    /// picture decoded as it is drawn, an HTML letter's and a plain
+    /// letter's; none in its header.
     func testAPrintedLettersFilesAreInItsBody() throws {
         let raw = Self.letter(Self.mixed([Self.html("Our garden."), Self.jpeg("photo.jpg"), Self.pdf("plan.pdf")]))
         var m = Self.message(raw)
@@ -493,6 +494,16 @@ final class FileListedOnceTests: XCTestCase {
                BodyFiles.tile(m.listedAttachments[1], of: m, on: .paper)], in: page, "printed")
         XCTAssertFalse(page.contains("Tap to Download"))
         XCTAssertNotNil(PanePage.pictures(of: [m])["bmfile-m7_3-2"], "the print's loader has it")
+
+        // A plain letter's photo the same: its words have no picture of
+        // their own, and the photo the pane draws after them is decoded as
+        // it is drawn, or prints as a blank of its shape (seen 2026-10-23).
+        let plain = Self.message(Self.letter(Self.mixed([Self.plain("Our garden."), Self.jpeg("photo.jpg")])))
+        XCTAssertNil(plain.htmlBody)
+        let printed = PrintPage.body(plain)
+        XCTAssertFalse(printed.isHTML)
+        order(["Our garden.", "<img decoding=sync src=\"bmcid://bmfile-m7_3-2\""], in: printed.html, "plain")
+        XCTAssertEqual(count("<img ", in: printed.html), 1)
     }
 
     // MARK: - Its tile shows it coming
