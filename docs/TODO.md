@@ -140,12 +140,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Mailbox or Archive Mailbox); Message List > Swipe Options > Swipe Left
       and Swipe Right, and Delete or Move Message Action (if his iPad has no
       such row, View Next Message, as Mail before 18.4); Threading >
-      Organize by Thread and Complete Threads. A greyed row whose value on
-      his iPad differs from Blackmail's (Preview, Show To/Cc Labels,
-      Collapse Read Messages, Most Recent Message on Top, and until B-168 is
-      merged Ask Before Deleting and Privacy Protection's Block All Remote
-      Content) written down for the owner: Blackmail does not have his
-      value. Then Blackmail's Settings closed with Cancel, which leaves them
+      Organize by Thread and Complete Threads; Messages > Ask Before
+      Deleting, and Privacy Protection > Block All Remote Content (B-168).
+      A greyed row whose value on his iPad differs from Blackmail's
+      (Preview, Show To/Cc Labels, Collapse Read Messages, Most Recent
+      Message on Top) written down for the owner: Blackmail does not have
+      his value. Then Blackmail's Settings closed with Cancel, which leaves them
       set.
 
 **Ways a letter is lost** (all confirmed in the code):
@@ -9231,14 +9231,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       the name and the size in small grey type, its last line empty.
       Written down: its colours on the dark pane, and whether its lines
       read. Settings, Display & Brightness, Text Size, at its largest, and
-      back to the app: the tile as it was, its lines whole, the same size;
+      back to the app: the tile larger with the words, box and lines
+      together, its lines whole (B-166);
       the Text Size back to where it was. The tile
       tapped: it dims and its last line says "Loading…" until the PDF is in
       Quick Look; Done: the tile as it was.
       3. *Photo:* "B-170 photo": the photo under the words, as wide as the
       letter at most, and no tile for it; the PDF's tile under it. The
       photo tapped: Quick Look; Done. A finger held on the photo half a
-      second: the menu Quick Look, Save Image, Save to Files, Share, Copy;
+      second: the menu Quick Look, Markup and Reply (B-171), Save Image,
+      Save to Files, Share, Copy;
       a tap outside it. A finger held on the PDF's tile: Quick Look, Save
       to Files, Share, Copy, and the lift opens nothing; Save to Files:
       Files' sheet, Cancel in it; Copy: nothing over the pane. Written
@@ -9579,7 +9581,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Accessibility > Touch > Shake to Undo (B-157).*
       *Ruled 2026-10-26: copy Apple Mail. Built as B-167 for Mail's own page
       only:* Swipe Options, Delete or Move Message Action, Ask Before
-      Deleting (live once B-168 is merged), Complete Threads and Move
+      Deleting and Block All Remote Content (B-168), Complete Threads and Move
       Discarded Messages Into are a part of Blackmail's Settings laid out as
       Mail's page, at Mail's factory values, set from his Mail settings page
       at the install (the install-day list above), no longer read before the

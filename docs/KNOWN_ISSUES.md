@@ -35136,6 +35136,23 @@ carry with a Per-App size set for Blackmail alone.
 
 **New words.** None.
 
+**Integration (int19, with B-167, B-168 and B-170).** Mail's part of
+Settings follows the text size, as Mail's own Settings page does: its
+heading, its line, every row's title, value and grey line, and their
+chevrons and ticks (`Theme.scaled`), set again at `TextSizes.didChange`
+with Settings open (`MailOptionsView`'s `Restyles`; the Mail heading and
+caption by `sizeMailWords`). The rest of Settings keeps its sizes, as
+above. Mail's line "Message contains unloaded images." (B-168) is at the
+pane's body size whatever the letter's own rules say, by a rule in the
+page's head and the stack's (`RemoteContent.sizeRule`, the line's class
+`bm-unloaded`), so a stack drawn again at a new size has it at the new
+size. A file's tile (B-170) is scaled with the pane, box, icon and lines
+together, by a rule in the head of the page, the stack and the print
+(`BodyFiles.sizeRule`, `zoom` of the body size over 17), never below
+Large, as WebKit scales its own element in Mail; not WebKit's
+caption and footnote keywords, which follow the iPad's size and not the
+app's restyle. The header's `restyle` lost its file rows with B-170.
+
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
 **Ruled** by the owner on 2026-10-26 (D-024): "close the gaps in our
@@ -35435,6 +35452,23 @@ titles, the values, and "Swipe Options" and "Privacy Protection".
 "Archive" on the Edit bar and as the pane's button's name, Mail's, only
 with Archive Mailbox set.
 
+**Integration (int19, with B-168).** One source: B-168's
+`MessagesOptions` (`Mail/MailOptionsRemote.swift`) is folded into
+`MailOptions` and the file is gone; `DiscardQuestion` reads
+`MailOptions.askBeforeDeleting`, `RemoteContent` and `RemotePictures`
+`MailOptions.blockAllRemoteContent`, under the same keys. Both are in
+`MailOptions.built`, so their rows are live and their grey lines gone
+(`MailOptionsTests` updated). Ask Before Deleting asks before an Archive
+too, as B-168 read Mail's strings (`ARCHIVE_EMAIL`, `ARCHIVE_FORMAT`):
+with Archive Mailbox, the pane's button asks "Archive Message" and the
+Edit bar's "Archive" asks "Archive 3 Messages", counted, the sheet in
+the bar's own word (`EditBar.discardVerb`); a drag's Archive already
+asked by `RowSwipes`. The Edit bar asks `EditBar.question` first, as here,
+then B-168's sheet. The install-day line in TODO no longer lists the two
+as greyed: they are set there with the rest; the item on his iPad's own
+settings names them built by B-168. The rows follow the text size
+(B-166's integration paragraph).
+
 ## B-168 — FIXED 2026-10-27, not yet seen on the iPad. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
 
 TODO items 7386 (pictures from the web in letters) and the Messages part
@@ -35726,6 +35760,21 @@ move into its `Mail/MailOptions.swift`, under the same keys. The pane
 reads Block All Remote Content at each thing it shows, so a change in
 Settings counts from the next letter opened, a line already on screen
 still loading its letter; Ask Before Deleting is read at each tap.
+
+**Integration (int19, with B-167, B-166 and B-169).** The two values
+are B-167's `MailOptions` (its integration paragraph): `MessagesOptions`
+and its file are gone. The Edit bar's and the pane's question say
+"Archive" where the button archives. Mail's line has the class
+`bm-unloaded` and is sized at the pane's body size by the head
+(`RemoteContent.sizeRule`, B-166), and over a letter drawn in its own
+colours has Mail's dark rule and button colour (`RemoteContent.darkRule`,
+B-169). A letter held back is judged by B-169's rule on its markup as it
+came: with a picture from the web it is light, its picture held back.
+For a letter in its own colours, the style brought back from its head and
+its body's `style` is held back too (`PanePage.inOwnColours`'s
+`heldBack`, `ownFrame`), and a `url()` of the web there alone puts Mail's
+line over it (`PanePage.held`'s `drawn`). "Load All Images" in a stack
+points the loader with `inStack: true`, as B-170 asked.
 
 ## B-169 — FIXED 2026-10-27, not yet seen on the iPad. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 
@@ -36049,6 +36098,17 @@ The full suite, serially, on the branch: 2,961 tests, 16 of them new,
   around a letter on the iPad was not seen.
 - In a conversation Mail gives each letter a page of its own; here they
   share one, each with its own class and box.
+
+**Integration (int19, with B-168 and B-170).** `PanePage.letter` takes
+`heldBack` and `scheme`; `stackBody` takes `heldBack` again. The scheme
+is read from the letter's markup as it came, so a letter held back keeps
+it, and a tile or a picture file B-170 draws, which is the page's own
+drawing, never makes a letter light. The style brought back for a letter
+in its own colours loads nothing from the web under Block All Remote
+Content (B-168's integration paragraph). A tile is drawn in Mail's light
+colours on a letter inverted or light and in its dark ones on a letter in
+its own colours, as on a plain letter, on its page and in the stack
+(`BodyFiles.drawn`'s `on:`).
 
 ## B-170 — FIXED 2026-10-27, not yet seen on the iPad. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 
@@ -36465,6 +36525,19 @@ links.
   iPad and drawn nowhere at the tap (B-042): the header has no rows to
   draw from them.
 
+**Integration (int19, with B-166, B-168, B-169 and B-171).** `on:`
+follows the letter's scheme (B-169): `.dark` for `own` and plain text,
+`.light` for `light` and `inverted`. The tile has the class `bm-tile`
+and is scaled with the pane's text size by the head (`BodyFiles.sizeRule`,
+B-166's integration paragraph), on the page, in the stack and on paper;
+at Large every page is as it was. B-168's "Load All Images" in a stack
+says `inStack: true`, and `PaneNavigation`'s line speaks of a file's tile.
+A picture held, shown by `cid:` or drawn at its size as a file, and a
+picture drawn as a tile, has Markup and Reply second in its menu (B-171);
+a file that is no picture keeps `fileMenu`. In TODO, this check's step 2
+now has the tile grow with the text size, and step 3 has Markup and Reply
+in the photo's menu.
+
 ## B-171 — FIXED 2026-10-27, not yet seen on the iPad. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
 Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
@@ -36696,3 +36769,11 @@ skipped, none failing. The release build for the iPad links.
 - In a conversation the reply answers the letter the picture is in,
   which need not be the one the header is on; his own from Sent Mail is
   answered to whom it went (`ReplyAddressing`). Not tried.
+
+**Integration (int19, with B-170).** A letter's picture files are drawn
+in its body by B-170 and held as its own pictures are (`PanePictures.opening`
+names the file), so their menu is `PanePictures.menu`, Markup and Reply
+second; a picture drawn as a tile, a HEIC say, has it too
+(`menu(for:)`); a file that is no picture keeps B-150's menu as B-170
+gives it, with no Markup and Reply. `MarkupReplyTests` counts two uses
+of `PanePictures.menu` in the pane, a held picture's and a held tile's.
