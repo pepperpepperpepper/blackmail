@@ -20202,7 +20202,7 @@ unread again from the sheet, the Trash's unread count as found. Not shown:
 the tap outside and the times. With Flag about 0.4 s after the row the
 item was not grey, its shot not looked at a second time. Nothing was sent.
 
-## B-106 — FIXED 2026-10-26, not yet seen on the iPad. Move to Junk: the Flag button's sheet held Flag and the read mark alone, Move to Junk left out for the owner; Mail's sheet has Move to Junk, and Move to Inbox inside Junk, and so does this one now
+## B-106 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. Move to Junk: the Flag button's sheet held Flag and the read mark alone, Move to Junk left out for the owner; Mail's sheet has Move to Junk, and Move to Inbox inside Junk, and so does this one now
 
 The second half of B-106, which keeps its number. Built in the
 `bm-cm-junk` worktree (branch `copy-junk`), off master at 4a390c2.
@@ -20342,6 +20342,17 @@ every item of the Flag sheet; "Moving…" is up only while the MOVE is
 out, a third of a second on the test iPad, and was not caught in either
 shot. No change in the app; the check's step 2 now says when to look,
 at least a second after the tap.
+
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), and
+step 2 again on 26740c2, recorded: the Flag sheet read Flag, Mark as
+Unread and Move to Junk, with no Cancel; Move to Junk asked nothing, and
+once the popover had gone, 0.475 s after the tap, "one" left the list and
+"two" opened in the same frame, highlighted; "Moving…" for a quarter of a
+second; one `UID MOVE` to Spam, nothing else written. Inside Junk, Move to
+Inbox and no Move to Junk; on a search's hit from All Mail, Move to Junk
+with All Mail selected. Edit mode's Mark had no Move to Junk. Not seen:
+Spam's "Show in IMAP" off, a setting on Gmail's web the rounds do not
+change. Nothing was sent.
 
 ## B-107 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A reply to someone new went without the original's files, and Forward asked nothing; Mail carries them and asks
 
@@ -30562,7 +30573,7 @@ not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
 
-## B-144 — FIXED 2026-10-26, not yet seen on the iPad. Mail's words where the app had its own: Gmail's Sent Mail and Spam are "Sent" and "Junk", by their role; Edit mode's third button is "Trash", "Delete" inside the Trash, in the bar's blue, not red, and "Cancel" ends Edit mode where it said "Done"; Forward's question says "Don’t Include" with Mail's apostrophe; a file Attach File could not attach says Mail's "Unable to Attach"
+## B-144 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. Mail's words where the app had its own: Gmail's Sent Mail and Spam are "Sent" and "Junk", by their role; Edit mode's third button is "Trash", "Delete" inside the Trash, in the bar's blue, not red, and "Cancel" ends Edit mode where it said "Done"; Forward's question says "Don’t Include" with Mail's apostrophe; a file Attach File could not attach says Mail's "Unable to Attach"
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision tree
 by copying Apple Mail". Three items of TODO's "Blocked on the owner": "Mail's
@@ -30795,7 +30806,18 @@ failing. The release build for the iPad links.
   not be attached keeps the share sheet's words; Mail's share sheet was not
   looked at for it.
 
-## B-145 — FIXED 2026-10-26, not yet seen on the iPad. A link tapped in a letter asked "Open this link?" before it opened; it opens at once, in Safari or the app that claims it, as Mail opens one, and a `mailto:` still opens the composer with its address
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046): the
+Mailboxes, the list's titles and the Move sheet said Sent and Junk, by
+their role, a label of the account's own named "[Gmail]Spam" keeping its
+name; Edit mode's third button read Trash, and Delete in the Trash, both
+in the bar's blue as Mark and Move, rgb(10, 132, 255), and Cancel ended
+Edit mode; in two panes with Cancel "Important" was cut to "Impor…", "All
+Mail" and "Starred" whole; "Found in Sent"; "Don’t Include" with its curly
+apostrophe; a 30 MB file gave "Unable to Attach" and no row. What Mail
+shows on iPadOS 18 was not seen, Mail not being on the test iPad. Nothing
+was sent.
+
+## B-145 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A link tapped in a letter asked "Open this link?" before it opened; it opens at once, in Safari or the app that claims it, as Mail opens one, and a `mailto:` still opens the composer with its address
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision
 tree by copying Apple Mail" (TODO, "Blocked on the owner", "Open this
@@ -30895,7 +30917,14 @@ card is tapped; the check's step said "menu and preview". Nothing in the
 app changed; the step now says what 16.5.1 shows. What Mail on iPadOS 18
 shows for a link held is not known.
 
-## B-146 — FIXED 2026-10-26, not yet seen on the iPad. His signature was drawn on a white sheet with black words in the reading pane, alone and in a conversation; it is drawn with the rest of its letter, as Mail draws it: its words white on the black, its logo as drawn, dark on it
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046):
+every link tapped, plain, `www.`, in HTML, a YouTube address and one in a
+stack, opened Safari or the YouTube app at once, with no question, and
+back by "◀ Blackmail" the letter or the stack was where it was; a
+`mailto:` opened the composer with its address and subject. A link held
+gave WebKit's menu under "Tap to show preview" (above). Nothing was sent.
+
+## B-146 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. His signature was drawn on a white sheet with black words in the reading pane, alone and in a conversation; it is drawn with the rest of its letter, as Mail draws it: its words white on the black, its logo as drawn, dark on it
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision
 tree by copying Apple Mail" (TODO, "Blocked on the owner", "His
@@ -30996,7 +31025,14 @@ build for the iPad links.
 - The logo is dark on the black, hard to see, as Mail draws it. It was
   the reason for the sheet; the owner's ruling takes Mail's.
 
-## B-147 — FIXED 2026-10-26, not yet seen on the iPad. A plain letter's quotes were drawn as typed, each line with its ">" and no bar; they are drawn as Mail draws them, Mail's quote bars beside them, a deeper bar for each mark more, the marks hidden, on the pane, in a conversation and on paper
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046): his
+signature, alone in three panes and two, in a stack and inside a quote,
+had no sheet: its words white on the black, rgb(0, 0, 0) under them, its
+links blue and the logo dark on it; Print's preview had the words black on
+white and the logo as on paper. Mail's own drawing was not seen. Nothing
+was sent.
+
+## B-147 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A plain letter's quotes were drawn as typed, each line with its ">" and no bar; they are drawn as Mail draws them, Mail's quote bars beside them, a deeper bar for each mark more, the marks hidden, on the pane, in a conversation and on paper
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision
 tree by copying Apple Mail" (TODO, "Blocked on the owner", "Quote bars
@@ -31176,7 +31212,15 @@ build for the iPad links.
   its own. An HTML letter's quotes were open to it already; a plain
   letter's are new to it. Not built.
 
-## B-148 — FIXED 2026-10-26, not yet seen on the iPad. A PDF put among a letter's words had two rows, one there and one in the header's list of files; it has the one among the words, and the header, decided from the letter's structure at the tap, does not change height when the body comes
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046): a
+plain letter's quotes had Mail's bars, measured rgb(191, 90, 242), rgb(0,
+200, 250) and rgb(87, 217, 119), each 5 pt past the one before and the
+words 5 pt in and in their colours, no ">" before them, ">From" as typed
+with no bar, and no blank line added; a flowed letter's "> > " line kept
+its one mark; the same in two panes, in a stack, and in Print's preview in
+the light colours. Mail's own was not seen. Nothing was sent.
+
+## B-148 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A PDF put among a letter's words had two rows, one there and one in the header's list of files; it has the one among the words, and the header, decided from the letter's structure at the tap, does not change height when the body comes
 
 **Found** in the owner's question "A PDF's two rows" (TODO, under
 "Blocked on the owner"), ruled on 2026-10-26: "close the gaps in our
@@ -31364,7 +31408,17 @@ iPad links.
 - A picture shown by `cid:` among the words is marked as among them too;
   it is no file, and nothing lists it, so nothing changes for it.
 
-## B-149 — FIXED 2026-10-26, not yet seen on the iPad. At a tap on another letter the letter he left stayed under the new header for a frame or two; the pane is covered in its own colour from the tap until WebKit has painted what comes in its place, and never longer than half a second
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046),
+before B-170: a PDF among the words had its one blue row there and none in
+the header, and the header's lower rule stood at the same height in every
+frame from the tap to the letter drawn, at 60 frames a second; a PDF after
+the words kept its header row, grey then blue; of three, the third alone
+in the header. The letter of 8.2 MB fetched its words without the PDF,
+whose row said "Loading…" for 2.2 s, until Quick Look, with about 0.1 s of
+plain blue before it came. Offline, "This message could not be
+downloaded." and no file anywhere. Nothing was sent.
+
+## B-149 — FIXED 2026-10-26, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27. At a tap on another letter the letter he left stayed under the new header for a frame or two; the pane is covered in its own colour from the tap until WebKit has painted what comes in its place, and never longer than half a second
 
 **Found** as B-098, recorded and left; the owner's question "One frame of
 the letter before" (TODO, under "Blocked on the owner"), ruled on
@@ -31542,7 +31596,16 @@ lifts it and its limit then lifts nothing, and with only bits 1 and 6 the
 limit lifts it. The other tests lift on bit 8 where they lifted on bits 1
 or 6. Bit 1 put back in `painted`, 13 failures in 2 tests; then restored.
 
-## B-150 — FIXED 2026-10-26, not yet seen on the iPad. A finger held on a photo in a letter gave WebKit's menu, with Save to Photos and no Save to Files; it gives Mail's: Quick Look, Save Image, Save to Files, Share and Copy
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (26740c2), the
+change above: 20 taps on letters kept on the iPad, about 0.4 s apart and
+2.8 s apart, and a conversation's row tapped from two colour letters; in
+no frame was a letter under another's header; each new header came over
+black for one or two frames, then "Loading…" or its letter; the "Not
+covered" frame at three taps, row 1 after row 4; no lift by the limit. On
+0625046 seven taps on letters fetched from Gmail, one after a launch and
+one offline had passed. Nothing was sent.
+
+## B-150 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A finger held on a photo in a letter gave WebKit's menu, with Save to Photos and no Save to Files; it gives Mail's: Quick Look, Save Image, Save to Files, Share and Copy
 
 **Found** in B-122's "Not changed" and "Not covered", the touch and hold
 left as WebKit's (B-067); among the older questions closed on 2026-10-26:
@@ -31715,7 +31778,17 @@ iPad links.
 - A second finger is no hold by the script's own test; the model of the
   page has one finger, so that is read, not run.
 
-## B-151 — FIXED 2026-10-26, not yet seen on the iPad. A Delete or Move whose MOVE Gmail carried out, its answer lost with the connection, came back on the list with "Can't connect to mail server." and stayed there until a Refresh; on the next connection the letter is looked for once by its Gmail id, and if Gmail did move it, its row goes quietly
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046): a
+photo held gave Mail's menu about half a second after the finger, nothing
+selected and the photo not lifted; each item did its part, Save Image a
+JPEG pixel for pixel the letter's, Save to Files the file byte for byte,
+Copy the JPEG on the pasteboard; a tap, and a press of 0.3 s, gave Quick
+Look; a picture from the web and a photo in a link kept WebKit's menus; a
+finger on a photo still coasting stopped it with no menu. A logo drawn
+over 100 wide counts as a photo. Not possible: a pinch, and a paste into
+Notes, which is not on the test iPad. Nothing was sent.
+
+## B-151 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A Delete or Move whose MOVE Gmail carried out, its answer lost with the connection, came back on the list with "Can't connect to mail server." and stayed there until a Refresh; on the next connection the letter is looked for once by its Gmail id, and if Gmail did move it, its row goes quietly
 
 Built in the `bm-cm-junk` worktree (branch `copy-junk`), off master at
 4a390c2, after B-106's Move to Junk.
@@ -31971,7 +32044,16 @@ failing. The release build for the iPad links.
 **Integration (int18, with B-144).** The TODO check's step 1 says the
 Edit bar's "Trash", "Delete" on a build without B-144.
 
-## B-152 — FIXED 2026-10-26, not yet seen on the iPad. A letter he answered or forwarded in Blackmail was never marked on Gmail, so it never had the arrow B-102 draws; once the server has taken the reply or the forward, its original is marked `\Answered` or `$Forwarded`, as Mail marks it, also when the letter goes later from the Outbox
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part: a Delete of sixteen, Airplane Mode coming on as it went, lost the
+answer of the fourth MOVE, `LOST-ANSWER` at the deadline, and 22 s after
+the connection came back one `UID SEARCH X-GM-MSGID` in Notes said `gone`,
+once, with no alert; the letter was in the Trash. A Move into a label did
+the same with the list scrolled, nothing in sight moving. A Delete that
+sent nothing brought no look. Not seen: the row going in sight, below the
+rows in sight both times; it was gone when looked for. Nothing was sent.
+
+## B-152 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A letter he answered or forwarded in Blackmail was never marked on Gmail, so it never had the arrow B-102 draws; once the server has taken the reply or the forward, its original is marked `\Answered` or `$Forwarded`, as Mail marks it, also when the letter goes later from the Outbox
 
 **What Mail does.** Read from iOS 18.6's Mail code (its symbols), the
 Outbox study and the 16.5 Envelope Index's schema, with medium
@@ -32144,7 +32226,13 @@ links.
   Drafts, which sends nothing. Mail has no such state; not seen.
 - Not seen on the iPad. The device check's sends wait for the owner's go.
 
-## B-153 — FIXED 2026-10-26, not yet seen on the iPad. A link shared with no connection stayed in the share sheet with "Can't connect to mail server."; Mail's sheet closes and the letter waits in its Outbox, and now a share with no files closes with the sent sound and waits in Blackmail's Outbox, to go when Blackmail is next opened or comes back to the front
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part: reading a letter, and a reply or a forward put away, wrote no mark,
+no `SENT-MARK` and no STORE. Not seen: the marks after a send, from the
+Outbox and on an original gone, as each sends, and the rounds send no
+letter. Nothing was sent.
+
+## B-153 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A link shared with no connection stayed in the share sheet with "Can't connect to mail server."; Mail's sheet closes and the letter waits in its Outbox, and now a share with no files closes with the sent sound and waits in Blackmail's Outbox, to go when Blackmail is next opened or comes back to the front
 
 **What Mail does.** Read from MessageUI's and MobileMailUI's strings in
 iOS 18.6 and Apple's support article 102556, with medium confidence, and
@@ -32315,7 +32403,16 @@ links.
   kept on how many, as there is for the addresses (`sentLimit`).
 - Not seen on the iPad. The device check's sends wait for the owner's go.
 
-## B-154 — FIXED 2026-10-26, not yet seen on the iPad. The keyboard's shortcut bar had no paperclip, where Mail has one while he types in the letter; it has, with a menu of Attach File and Photo Library, and the two buttons under the files stay
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part: a page shared from Safari with Airplane Mode on closed the sheet
+with no alert; brought back offline, Blackmail took it into its Outbox, "1
+Unsent Message", its To, subject and time as shared, and kept it once
+across a relaunch; opened and put back, then deleted, nothing asked and
+nothing sent after. The extension writes no transcript when its connection
+fails to open. Not seen: the sound, the photo's refusal, and the letter
+going, which sends. Nothing was sent.
+
+## B-154 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. The keyboard's shortcut bar had no paperclip, where Mail has one while he types in the letter; it has, with a menu of Attach File and Photo Library, and the two buttons under the files stay
 
 Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
 at 4a390c2, on the owner's ruling of 2026-10-26, "close the gaps in our
@@ -32429,7 +32526,15 @@ build for the iPad links.
   paperclip, and its paperclip offers Take Photo or Video and Scan
   Document too (B-108's reasons stand).
 
-## B-155 — FIXED 2026-10-26, not yet seen on the iPad. The address book knew only the people of the rows listed and of his sends from the app, so about half the people he writes to in a month were not offered until one of their letters was listed; it is filled once per account from six months of his Sent Mail
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part, in landscape: the paperclip at the right of the bar only with the
+caret in the letter, never in To, Subject or the share sheet; its menu,
+Photo Library above Attach File as iOS turns a menu that opens upward,
+each opening its picker as the buttons do, which stay; Send in sight with
+the menu open. Not seen: portrait, a keyboard of keys, and the paperclip
+greyed while a letter goes, which sends. Nothing was sent.
+
+## B-155 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. The address book knew only the people of the rows listed and of his sends from the app, so about half the people he writes to in a month were not offered until one of their letters was listed; it is filled once per account from six months of his Sent Mail
 
 Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
 at 4a390c2, on the owner's ruling of 2026-10-26, "close the gaps in our
@@ -32644,7 +32749,18 @@ nothing else starting with those letters had as many letters as it, or
 more. No change in the app; step 3 now checks his own
 address on the first row, and Prefix Fill by a prefix only it matches.
 
-## B-156 — FIXED 2026-10-26, not yet seen on the iPad. A row of the list had no drag at all, by the brief's rule against swipes; it has Mail's: a slow drag to the left shows More, Flag and Trash, a full drag trashes at once with no question, and a drag to the right marks it read or unread, as iPadOS 18 Mail with its factory Swipe Options
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046, then
+26740c2), in part: the fill, made due again by hand, ended about 3 s after
+the launch, `BOOK-FILL letters=780 people=255` and then `letters=774
+people=254`, the host's search of six months back finding 780, and 774
+from a day later; FETCHes of at most 100, no STORE and no BODY; once, not
+again at a relaunch. Quentin Fill was offered and Olive Old not, Prefix
+Fill by its own prefix (above), his own address first; Sent Mail's search
+found (a) and (b). Not seen: (b) left unread, made read in these rounds; a
+letter tapped while the fill ran, over in 3 s; the SEARCH's lines, gone
+from the log first. Nothing was sent.
+
+## B-156 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A row of the list had no drag at all, by the brief's rule against swipes; it has Mail's: a slow drag to the left shows More, Flag and Trash, a full drag trashes at once with no question, and a drag to the right marks it read or unread, as iPadOS 18 Mail with its factory Swipe Options
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision tree
 by copying Apple Mail", and then, of this item: "We want to follow what
@@ -32868,7 +32984,17 @@ Edit mode the list's `inEditMode`, More's Junk item the list's alone
 outside the two sheets, never in Edit mode's Mark sheet. One test new,
 `RowSwipesTests.testMoreHasMoveToJunkAndTheWordsAreTheEditBars`.
 
-## B-157 — FIXED 2026-10-26, not yet seen on the iPad. Nothing could be undone; as in Mail, a shake of the iPad, iPadOS's three-finger undo or Command-Z offers "Undo Trash" or "Undo Move" after a Trash or a Move, from a drag, Edit mode or the reading pane, and Undo moves the letters back and their rows come back where they stood; "Undo Flag" after a Flag
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part: a slow drag to the left showed More, Flag and Trash; Flag and
+Unflag, Unread and Read each sent one STORE; the Trash by a tap and by a
+full drag asked nothing, the full drag's row sliding off and never back in
+frames 0.1 s apart, and the next letter opening (B-158); a conversation
+went by two MOVEs; More's sheet in Mail's order, with Move to Junk; no
+buttons in Edit mode; refused offline, the row back with the alert; in the
+Trash, Delete red and "Delete Message?". Not seen: that Delete, which
+erases. Nothing was sent.
+
+## B-157 — FIXED 2026-10-26, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27. Nothing could be undone; as in Mail, a shake of the iPad, iPadOS's three-finger undo or Command-Z offers "Undo Trash" or "Undo Move" after a Trash or a Move, from a drag, Edit mode or the reading pane, and Undo moves the letters back and their rows come back where they stood; "Undo Flag" after a Flag
 
 **Ruled** by the owner on 2026-10-26, "close the gaps in our decision
 tree by copying Apple Mail" (the TODO's "Undo for Delete and Move", item
@@ -33168,7 +33294,18 @@ a control, a drag's Flag, a shake, "Undo Flag", Undo. Step 10, nothing
 after a relaunch, has the same trip to the background and the same
 control.
 
-## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046, then
+26740c2), by AssistiveTouch's Shake: "Undo Trash" after a drag's, Edit
+mode's and the pane's Trash, "Undo Move" after a Move to Junk, "Undo Flag"
+and "Undo Unflag"; each Undo moved the letters back, their rows where they
+stood, the last Trash first; offline the alert and nothing written;
+nothing offered after a relaunch. On 26740c2 the first row put back came
+first and in sight, the list at its top, as did one with the list changed
+between (above). A shake now and then brought nothing, once two in a row,
+and the next the alert. Not seen: three fingers, Command-Z and Mail's
+alert. Nothing was sent.
+
+## B-158 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 
 **What Mail does.** Since iOS 18.4 it is a setting, Settings > Apps >
 Mail > Message List > Delete or Move Message Action: "View Next Message",
@@ -33407,7 +33544,16 @@ APPENDed before the others so that, the list going by UID, they sit under
 the conversation, and its step 6 drags a letter of the host's and not one
 of Notes' own.
 
-## B-159 — FIXED 2026-10-26, not yet seen on the iPad. His own replies in an Inbox conversation were not there after a relaunch with no connection, and one he had read could not be opened; Mail keeps them with the conversation
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046):
+after the pane's Delete the row below opened, highlighted and marked read,
+in the first frame without the deleted row, with no "No message selected"
+between; a double tap moved one letter; after a Move the next opened as
+the sheet went; in a conversation the stack opened again without the
+letter; at a search's foot the one above, then an empty pane; Edit mode
+opened nothing; a full drag on the open row opened the next. Nothing was
+sent.
+
+## B-159 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. His own replies in an Inbox conversation were not there after a relaunch with no connection, and one he had read could not be opened; Mail keeps them with the conversation
 
 Built on the owner's ruling of 2026-10-26, "close the gaps in our decision
 tree by copying Apple Mail" (TODO, "Blocked on the owner", his own Sent
@@ -33588,7 +33734,15 @@ the background has finished, a moment into a launch, still reads them on
 the main thread, waiting on the disk queue; how long that read takes on
 the iPad was not measured.
 
-## B-160 — FIXED 2026-10-26, not yet seen on the iPad. With no connection he could not scroll past the Inbox's first fifty letters, open a letter he had never opened, or search; Mail keeps every letter's line, downloads mail ahead and searches what it has
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (26740c2):
+after a relaunch with no connection his reply was in the stack where it
+was online, in the first frame, and opened from the iPad; one never opened
+said it could not be downloaded; back online after ten minutes it was
+looked up again and shown once; Complete Threads off took it away and
+looked up nothing. The conversations were the host's APPENDs, as none of
+B-104's was left. Nothing was sent.
+
+## B-160 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. With no connection he could not scroll past the Inbox's first fifty letters, open a letter he had never opened, or search; Mail keeps every letter's line, downloads mail ahead and searches what it has
 
 Built on the owner's ruling of 2026-10-26, "close the gaps in our decision
 tree by copying Apple Mail" (TODO, "Blocked on the owner", the three
@@ -33943,7 +34097,17 @@ wait for the pass still ends; the fill is not marked done, so the next
 ordinary launch sends it. `FetchAheadTests` and `SentFillTests` read the
 guards.
 
-## B-161 — FIXED 2026-10-26, not yet seen on the iPad. Blackmail put no number on its icon and no banner for new mail, as Apple Mail does from the factory; the icon carries the Inbox's unread count, and a check iOS wakes the app for while it is away puts up a banner for each new unread letter in the Inbox, a tap on it opening the letter
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (26740c2), in
+part: offline, Notes held all its pages, 130 letters and its own 30,
+scrolled to its foot with no page loading, and a letter opened before came
+from the iPad; the fresh page landing over the kept ones moved nothing in
+sight; offline search found the kept words, with "Some Results May Not
+Appear", and nothing went on the wire; the first letters of his own
+address found no letter for that alone. Not seen: letters fetched ahead,
+as the three unread letters it needs in the Inbox ring the owner's phone.
+Nothing was sent.
+
+## B-161 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. Blackmail put no number on its icon and no banner for new mail, as Apple Mail does from the factory; the icon carries the Inbox's unread count, and a check iOS wakes the app for while it is away puts up a banner for each new unread letter in the Inbox, a tap on it opening the letter
 
 **From the owner's ruling of 2026-10-26**, "close the gaps in our decision
 tree by copying Apple Mail", with Mail's factory behaviour built where his
@@ -34244,7 +34408,17 @@ launch's first page sets `firstPageTried` once, before iOS's question,
 and the book's fill goes between the tapped banner and the watch:
 `NewMailBannersTests` reads the merged lines.
 
-## B-162 — FIXED 2026-10-26, not yet seen on the iPad. To, Cc and Bcc offered only the people the app had seen in his mail; they offer his Contacts too, as Mail does, iOS's question put the first time he types in one of them
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046, then
+26740c2), in part: iOS's question came once the Inbox had come, in the
+words above, nothing of the app's up, and not again after a relaunch; the
+icon's number was the Inbox's unread count, 16; a launch read unfinished
+for its first half minute and finished about 30 s after the first page.
+Not seen: a banner, a check, the number after a letter is read, and the
+switch, as new letters in the Inbox ring the owner's phone and the battery
+was under the round's 30% on a USB port that did not charge it. Nothing
+was sent.
+
+## B-162 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. To, Cc and Bcc offered only the people the app had seen in his mail; they offer his Contacts too, as Mail does, iOS's question put the first time he types in one of them
 
 **Ruled** by the owner on 2026-10-26: close the gaps by copying Apple
 Mail, and where a choice turns on his own settings, build Mail's
@@ -34467,7 +34641,16 @@ leaves, the mirror is written without a read of Contacts and B-161's
 number and next check follow (`AppDelegate`); `ContactSuggestionsTests`
 and `NewMailBannersTests` read the merged lines.
 
-## B-163 — FIXED 2026-10-26, not yet seen on the iPad. A share through Blackmail always began at its icon with To empty, as no letter of his was ever told to iOS; each letter that goes is told now, by the people it went to, his second address among them, so they can come up at the top of the share sheet with Blackmail's badge, and a tap on one opens Blackmail's sheet with them in To
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part: iOS's question came at the first letter typed in To, not at the
+launch or at the tap, with the line "As you type, Blackmail suggests
+people from your Contacts.", and not again; the switch off and on ended
+the app each time, as iOS does. Not seen: any card offered, the Contacts
+app not being on the test iPad to make one. The book, full, had put out
+the two senders only seen in Notes before they were looked for (TODO).
+Nothing was sent.
+
+## B-163 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A share through Blackmail always began at its icon with To empty, as no letter of his was ever told to iOS; each letter that goes is told now, by the people it went to, his second address among them, so they can come up at the top of the share sheet with Blackmail's badge, and a tap on one opens Blackmail's sheet with them in To
 
 **Asked.** "His own circle at the top of the share sheet", under "Blocked
 on the owner" since the gap review of 2026-10-24: built only if he shares
@@ -34691,7 +34874,13 @@ amended to say so. Those cards keep no `CNContact.identifier`: if
 `contactIdentifier`, and iOS could name the circle and draw its picture
 from his card.
 
-## B-165 — FIXED 2026-10-26, not yet seen on the iPad. A draft held after three tries said under its row "Open it, tap Cancel, then Save Draft.", but Cancel on it unchanged closed the composer with nothing asked, so Save Draft never came and it stayed held; Cancel now asks Save Draft or Delete Draft for such a draft as it opened
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (0625046), in
+part: a second address added and taken off in Settings; with no letter
+gone, no row of people in Safari's or the YouTube app's share sheet, and
+Blackmail's icon opened with To empty. Not seen: anything told to iOS, as
+it needs letters sent. Nothing was sent.
+
+## B-165 — FIXED 2026-10-26, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27. A draft held after three tries said under its row "Open it, tap Cancel, then Save Draft.", but Cancel on it unchanged closed the composer with nothing asked, so Save Draft never came and it stayed held; Cancel now asks Save Draft or Delete Draft for such a draft as it opened
 
 **Found** on the test iPad on 2026-10-26, in round r6-g-store2, step 08
 (B-057's TODO step 6, its draft half), on a build of int17 (939ad5a). With
@@ -34840,6 +35029,13 @@ source, `keptChanged` and `listOutbox` taking the move before the list
 changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
+
+**Seen on the test iPad, 2026-10-27**, on a build of int18 (26740c2), the
+change above: the held draft's Cancel asked Save Draft or Delete Draft;
+Save Draft sent one APPEND to Drafts and nothing else, and its row lost
+its two lines in about 1.7 s, first and in sight, Drafts at its top, with
+no Refresh. Steps 1 to 3 and 5 had passed on 0625046 too. Nothing was
+sent.
 
 ## B-166 — FIXED 2026-10-27, not yet seen on the iPad. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved
 

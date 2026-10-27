@@ -7684,7 +7684,29 @@ checks below is left as not needed, not open, and none is worth a round.*
       MOVE`), and deletes in the Trash only the UID that move answered
       (`COPYUID`); "Notes" itself stays. It takes "B-144 large.bin" off the
       iPad. Never anything found by subject or Message-ID.
-- [ ] **B-145, a tapped link opens at once.** On the test iPad, the test
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 10 and 12
+      passed; 11 not possible, Mail not on the test iPad (B-028) and no
+      iPadOS 18 device with it at hand. In 1 Inbox, Drafts, Sent, Junk,
+      Trash and All Mail, then the others inside "[Gmail]" by name, then
+      the labels, a label of the account's own named "[Gmail]Spam" keeping
+      its name. In 3 and 4 Trash and Delete were the bar's blue, rgb(10,
+      132, 255), as Mark and Move, read from a full-size shot; Cancel
+      brought back Edit, the bar and the open letter's highlight. In 6, in
+      two panes with Cancel, "Important" was cut to "Impor…" and "All
+      Mail" and "Starred" were whole, as expected, and the longest label's
+      name, of 32 characters, was cut with "…" in three panes and two;
+      "Cancel" was whole every time, and no title ran under a button. In 7
+      the Move sheet's Cancel moved nothing. For 8 the host made the
+      conversation, two letters in the Inbox and a reply in Sent Mail
+      alone, by APPEND, read: "Found in Sent" over the reply, its body
+      peeked at, nothing written. In 9 the apostrophe was curly in a shot
+      zoomed four times, and a tap outside closed the question. In 10 the
+      30 MB file was left out, `SHARE-FILE … went=left out, more than the
+      letter's room`, the alert as written and no row; Cancel asked
+      nothing, Drafts as counted. The file was moved off On My iPad, not
+      deleted; the host put the letters in the Trash by a STORE of its
+      label. Nothing was sent. Left: 11.*
+- [x] **B-145, a tapped link opens at once.** On the test iPad, the test
       account only, from a build of the `bm-cm-pages` worktree (branch
       `copy-pages`) or of the int it is merged into. Nothing is sent: the
       composer of step 3 is cancelled and its draft deleted. The host makes
@@ -7732,7 +7754,21 @@ checks below is left as not needed, not open, and none is worth a round.*
       If Mail is back on the test iPad (B-028), or an iPad with iPadOS 18
       and Mail is at hand: the same letters there, each link tapped, to
       see that Mail asks nothing either.
-- [ ] **B-146, no white sheet under his signature.** On the test iPad,
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 7 passed.
+      Each link tapped brought Safari to the front at once with no
+      question, and the YouTube address the YouTube app; "◀ Blackmail"
+      brought back the letter, or the stack with (d) open, where it was.
+      For `www.` Safari went to a tab it already had at that address. The
+      `mailto:` opened the composer To the address with `+b145` and
+      Subject "B-145"; its Cancel asked nothing, and nothing was in
+      Drafts. In 6 WebKit's menu came as the step now says, under the card
+      "Tap to show preview"; the round had written a page preview, which a
+      second run did not find in the shot (B-145, Found on the test iPad).
+      The log had no question and no write. The Safari tabs opened were
+      closed; the host put the letters in the Trash by a STORE of its
+      label. Nothing was sent. Mail is not on the test iPad: its side was
+      not seen.*
+- [x] **B-146, no white sheet under his signature.** On the test iPad,
       the test account only, from a build of the `bm-cm-pages` worktree
       (branch `copy-pages`) or of the int it is merged into. Nothing is
       composed, sent, moved or deleted in the app, and nothing is printed
@@ -7772,7 +7808,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       with iPadOS 18 and Mail is at hand: (a) there, to see how Mail draws
       the signature, which is inferred from its code and not seen; the
       words and the logo written down beside 1's.
-- [ ] **B-147, quote bars beside a plain letter's quotes.** On the test
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 5 passed.
+      (a) and (c) carried the body and logo of a letter of the account's
+      own with the signature. In 1, in three panes and two, no sheet: in a
+      full-size shot the signature's ground was rgb(0, 0, 0) but for the
+      strokes of its white words, its links blue and the 35 by 25 logo
+      dark on it. In the stack and inside the quote's violet bar the same.
+      In 4 the preview's paper was white, the signature's words black and
+      the logo as on paper; Cancel, and the log's `PRINT closed
+      done=false`. The host put the letters in the Trash by a STORE of its
+      label. Nothing was sent or printed. Mail is not on the test iPad:
+      its side was not seen.*
+- [x] **B-147, quote bars beside a plain letter's quotes.** On the test
       iPad, the test account only, from a build of the `bm-cm-pages`
       worktree (branch `copy-pages`) or of the int it is merged into.
       Nothing is composed, sent, moved or deleted in the app, and nothing
@@ -7821,7 +7868,21 @@ checks below is left as not needed, not open, and none is worth a round.*
       with iPadOS 18 and Mail is at hand: (a) and (b) there, the bars, the
       colours, the 5 pt, and how Mail draws the ">From" line, the flowed
       "> > " line and the fourth level, written down beside 1's and 2's.
-- [ ] **B-148, a PDF among the words listed once.** On the test iPad, the
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 6
+      passed. In 1, from a full-size shot, the bars rgb(191, 90, 242),
+      rgb(0, 200, 250) and rgb(87, 217, 119), each 1 pt wide and 5 pt
+      past the one before, the words in their bar's colour and 5 pt in,
+      the link rgb(10, 131, 254); no ">" before a quoted line, ">From the
+      store's line." white as typed, with no bar, and no blank line
+      added. In 2 "> Still one." kept its one ">" in the violet bar, and
+      "Two." was teal inside it. Two panes and the stack the same. In 5
+      the preview's paper white, the bars and words in Mail's light
+      violet, teal and green, ">From the store's line." black as typed;
+      Cancel, `PRINT closed done=false`. The host read (a) back from
+      Gmail first: no ">>From" and no line beginning "From ". It put the
+      letters in the Trash by a STORE of its label. Nothing was sent or
+      printed. Mail is not on the test iPad: its side was not seen.*
+- [x] **B-148, a PDF among the words listed once.** On the test iPad, the
       test account only, from a build of the `bm-cm-pane` worktree (branch
       `copy-pane`) or of the int it is merged into. Nothing is composed,
       sent, saved, moved or deleted in the app: one of the test accounts
@@ -7880,7 +7941,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered. Nothing else was
       written.
-- [ ] **B-149, the pane covered from the tap to the paint.** On the test
+      *Seen on the test iPad 2026-10-27 on int18 (0625046), a build
+      without B-170: 1 to 9 passed, the recordings read frame by frame at
+      60 a second. In 2 the header came a frame after the selection moved,
+      with no file row, and its lower rule stood at view y 164 in every
+      frame from there to the letter drawn, 0.26 s later, and on, 68
+      frames; "Programme.pdf (309 KB)" in blue on its own line among the
+      words, Quick Look at a tap, the paperclip on the row. In 3 "End.pdf"
+      in the header was grey for about half a second, with "Loading…" in
+      the body, then blue. In 5, 8.2 MB on the wire with a PDF of about
+      6 MB, the log had `KEPT-LETTER not-kept reason=size`, its
+      BODYSTRUCTURE, then the words' three parts and not the PDF; the rule
+      at y 164 in every frame; the PDF's row dimmed with "Loading…" from
+      the tap for 2.2 s while its FETCH ran, then about 0.1 s of plain
+      blue before Quick Look slid in, written down; after Done, blue. In 7
+      "end", kept on the iPad since 3, had its file row blue from its
+      first frame. In 8, offline, "This message could not be downloaded."
+      and "Check the connection and tap it again." under a header with no
+      file, none in the body, iOS's alert over it; online again, as "one".
+      The host put the letters in the Trash by a STORE of its label.
+      Nothing was sent.*
+- [x] **B-149, the pane covered from the tap to the paint.** On the test
       iPad, the test account only, from a build of the `bm-cm-pane`
       worktree (branch `copy-pane`) or of the int it is merged into.
       Nothing is composed, sent, saved, moved or deleted in the app. The
@@ -7932,6 +8013,30 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered. Nothing else was
       written.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046, then 26740c2),
+      the recordings read frame by frame at 60 a second: 1, 2, 5, 6 and 7
+      passed on 0625046; 3 and 4 failed there, a kept letter shown under
+      the next one's header for one or two frames (B-149, Found on the
+      test iPad), and passed on 26740c2. In 2, seven taps 1.5 s apart on
+      letters fetched from Gmail: 0 or 1 frame of black, then "Loading…",
+      then the letter, 92 to 458 ms after the tap; one frame of the "Not
+      covered" case at one tap; no `cover lifted by its limit`. On
+      26740c2, in 3, 20 taps on kept letters, four letters 0.37 to 0.40 s
+      apart four times over, then 2.7 to 2.95 s apart: no frame had a
+      letter under another's header; each header came over black for one
+      or two frames, then up to two of "Loading…", its colour two to four
+      frames from the tap; one frame of the "Not covered" case at three of
+      them, row 1 after row 4; 20 `KEPT-LETTER shown`, no limit line. In
+      4, from colour 4 and again from colour 3, the conversation's header
+      came over black, never over the colour, and its first line opened
+      with the stack on the screen, no black over it. In 5 the app was
+      ended from the host, not the app switcher, which the round's touches
+      cannot open, and opened again: two frames of black, then the letter
+      from the iPad. In 6 the FETCH was refused 9 ms after the tap, so
+      three frames of black and then "This message could not be
+      downloaded." at 59 ms, no "Loading…" between. 2, 5 and 6 were not
+      run again on 26740c2. The host put the letters in the Trash by a
+      STORE of its label. Nothing was sent.*
 - [ ] **B-150, Mail's menu on a photo held.** On the test iPad, the test
       account only, from a build of the `bm-cm-pane` worktree (branch
       `copy-pane`) or of the int it is merged into. Nothing is composed,
@@ -7995,6 +8100,33 @@ checks below is left as not needed, not open, and none is worth a round.*
       noted, and only them, from "Notes" to the Trash, and deletes in the
       Trash only the UIDs that move answered. Nothing else was written to
       the account.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 9 and 11
+      to 13 passed, and 10 but for the pinch, which needs two fingers
+      where the round's touches have one. In 2 the menu came about 0.54 s
+      after the finger, Quick Look, Save Image, Save to Files, Share and
+      Copy, none of WebKit's; in the recording every frame from the touch
+      to the menu was as the one before it: no words selected, no loupe,
+      the photo not lifted. In 4 iOS asked nothing, Blackmail being at
+      "Add Photos Only" already: Photos had a JPEG of 3024 by 4032, 1.2
+      MB, "Saved from Blackmail", pixel for pixel the host's, with five
+      EXIF tags Photos added. In 5 the file in On My iPad was the host's
+      byte for byte; it was deleted, from Recently Deleted too. In 7 the
+      pasteboard held the JPEG, byte for byte; Notes is not on the test
+      iPad, so no paste was tried. In 8 a press of 0.3 s gave Quick Look,
+      no menu. In 9 the first letter drew the logo 105 wide, which the app
+      takes for a photo, so a tap opened Quick Look: the round's mistake;
+      a letter with the logo at its own 35 by 25 and in no link gave the
+      menu held and nothing tapped. In the account's own signature the
+      logo sits in a link to a web page, so a tap on it opens Safari at
+      once (B-145). The picture from the web held gave WebKit's menu with
+      Save to Photos, the photo in the link WebKit's link menu; tapped,
+      Safari at once. In 10 the finger landed on the photo while it
+      coasted, the letter stopped and no menu came; held again on the
+      still photo, the menu at about 0.61 s. The photo saved in 4 was
+      deleted from Photos and Recently Deleted; the host put the letters
+      in the Trash by a STORE of its label, the two made for 9's second
+      try too, the small-logo one not read back in the Trash after (a
+      second run). Nothing was sent. Left: 10's pinch.*
 - [ ] **B-106, Move to Junk in the Flag sheet.** On the test iPad, the
       test account only, from a build of the `bm-cm-junk` worktree
       (branch `copy-junk`) or of the int it is merged into. Nothing is
@@ -8061,6 +8193,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       letters with the Message-IDs it made, and puts back the `\Seen` of
       any letter noted in 3. Spam's "Show in IMAP" as found. Nothing was
       sent.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046, then 26740c2):
+      0 to 5 and 7 passed; 6 not run, Spam's "Show in IMAP" being a
+      setting on Gmail's web that the rounds do not change. In 0 the app
+      put "four" in Junk by Edit mode's Move, the host making no APPEND to
+      Spam. In 2 on 0625046 the shot at 0.3 s still had "one" on the list
+      and open, the popover gone (B-106, Found on the test iPad); on
+      26740c2, recorded: the popover gone 0.38 s after the tap, and in the
+      frame at 0.475 s "one" off the list and "two" the first row,
+      highlighted, its header in the pane, no frame with "one" off the
+      list and the pane still on it; "Moving…" under the list for a
+      quarter of a second; one `UID MOVE` to "[Gmail]/Spam" answered with
+      its COPYUID, then "two"'s FETCH, nothing else written. In 3 the row
+      under "one" in Junk was "four", which opened, read, after Move to
+      Inbox; "one" in the Inbox, read. Whether the phone rang was not
+      looked at, no one being at it. In 4 the hit from All Mail went to
+      Spam, the MOVE sent with All Mail selected, and "No results". In 5
+      Edit mode's Mark held Mark as Unread and Mark as Read, no Flag and
+      no Move to Junk, as built: the step's Flag is not in it. In 7 the
+      app put the four in the Trash by Edit mode's Trash; the host deleted
+      nothing, and had no `\Seen` to put back. Gmail's web was read as the
+      host's IMAP. Nothing was sent. Left: 6.*
 - [ ] **B-151, a lost answer's row goes at the next connection.** On the
       test iPad, the test account only, from a build of the `bm-cm-junk`
       worktree (branch `copy-junk`) or of the int it is merged into.
@@ -8111,6 +8264,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Put back:* the host deletes, in the Trash and in the label, only
       the letters with the Message-IDs it made, and what is left of them
       in "Notes"; the label stays, empty, as found. Nothing was sent.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1, 3 and 4
+      passed, and 2 and 5 but for the row's going, which was out of sight.
+      In 1 an answer was lost on the first try: three MOVEs answered, then
+      single 4's sent as Airplane Mode came on, `LOST-ANSWER UID MOVE
+      folder=Notes uid=n` 31 s later at the deadline, the unanswered rows
+      back where they stood with the alert. In 2, 22 s after the
+      connection came back, the watch's check sent one `UID SEARCH
+      X-GM-MSGID …` with Notes selected, found nothing and wrote
+      `LOST-ANSWER-LOOK … gone`; no look after it, no alert, the line
+      under the list only ageing; the letter was in the Trash. Single 4's
+      row was below the rows in sight throughout, so its going was not
+      watched; scrolled down after, it was gone. In 4 the row was back
+      with the alert by the shot 1.1 s after the tap, the next letter in
+      the pane saying it could not be downloaded (B-158), `NO-PATH UID
+      MOVE nothing-sent`, and no look after. In 5 twelve were moved to an
+      empty label of the account's, the second's answer lost; the list
+      dragged up 120 px; the look said `gone`, nothing in sight moved and
+      no alert came. The row was out of sight below before and after; with
+      the list back at its top it was gone, no listing between, so when it
+      went was not seen. The letter was in the label. The host put the
+      letters in the Trash by a STORE of its label, the label left empty.
+      Nothing was sent. Left: the row's going in sight, in 2 and in 5.*
 - [ ] **B-152, the original marked once a reply or a forward has gone.**
       On the test iPad, the test account only, from a build of the
       `bm-cm-sent` worktree (branch `copy-aftersend`) or of the int it is
@@ -8159,6 +8334,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       9. *Put back:* "Notes" left, the Inbox at its top. The host moves
       the UIDs it noted, and only them, from "Notes" to the Trash; the
       letters 4 to 7 sent to `+b152` are left for the owner to say.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 3 and 9
+      passed; 4 to 7 not run, as each sends and the rounds send no letter;
+      8 not run, Mail not on the test iPad. In 1 no arrow, no `UID STORE`
+      and no `SENT-MARK` line; the host read `\Seen` alone on each. In 2
+      the Reply button's menu, Reply, a word typed, Cancel, Delete Draft:
+      no `SENT-MARK`, no STORE and no APPEND to Drafts. In 3 the forward's
+      Cancel, the letter untouched, asked nothing, and the same. The host
+      put the letters in the Trash by a STORE of its label. Nothing was
+      sent. Left: 4 to 7, which send, with the owner's go, and 8.*
 - [ ] **B-153, a share with no connection waits in the Outbox.** On the
       test iPad, the test account only, from a build of the `bm-cm-sent`
       worktree (branch `copy-aftersend`) or of the int it is merged into,
@@ -8207,6 +8391,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       question 25): Wi-Fi off with Airplane Mode off, share a page to Mail:
       say whether Mail puts up an alert, and its words; then Airplane Mode
       on, the same: Mail's "Cannot Send Email" alert, written down.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 but for its
+      swoosh, and 3 to 6, passed; 7 and 8 not run, as they send, and 2 not
+      run, as the rounds allowed one Send, 1's, which could not go; 9 not
+      run, Mail not on the test iPad. In 1 Send was tapped once, Airplane
+      Mode and no connection read in the same line just before: both
+      sheets went, no alert, Safari on its page; the sound was not heard,
+      none reaching the round. The extension wrote no transcript, as it
+      writes none when its connection fails to open, so 3 is what shows
+      the letter waited. In 3 "1 Unsent Message" under the list, the
+      Outbox with 1, one row, To the `+b153` address, the page's title,
+      the share's time; `SHARE-WAITING taken into the Outbox` once. In 4,
+      Home and back, then the app ended from the host, not the app
+      switcher, and opened again offline: still one row, no second
+      `SHARE-WAITING`. Between 4 and 5, with the app ended, three tries
+      were written into the letter's file by hand, as in B-165's check, so
+      that it would not go once the connection came back; so in 5 its row
+      read "Not sent automatically. …". Tapped, the composer had the link
+      above the signature; Cancel untouched, back in the Outbox. In 6,
+      Edit, Trash: nothing asked, and the row, the Outbox and "1 Unsent
+      Message" gone; online, no `LETTER-PLAN` line, and nothing to `+b153`
+      on the account. Nothing was sent. Left: 2, 7 and 8, with the owner's
+      go, 1's swoosh, and 9.*
 - [ ] **B-154, Mail's paperclip in the keyboard's shortcut bar.** On the
       test iPad, the test account only, from a build of the
       `bm-cm-compose` worktree (branch `copy-compose`) or of the int it is
@@ -8249,6 +8455,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       the caret in the body: no paperclip in its bar. Cancel, Delete Draft
       if asked.
       Nothing else is tapped; Drafts and Sent Mail counted before and after.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 2 to 6 and 9
+      passed, and 1 in landscape; 1 in portrait not possible, the iPad
+      fixed in landscape with no one to turn it; 7 not run, as it sends; 8
+      not possible, no keyboard of keys at hand. Shortcuts was on, as
+      found. In 1 the paperclip at the right end of the bar with the caret
+      in the body, none in To or Subject. In 2 the menu stood above the
+      paperclip, over the bar, "Photo Library" on top and "Attach File"
+      under it, the reverse of the code's order, as iOS turns a menu that
+      opens upward; the paperclip dimmed while it was open. In 3 the Files
+      browser on On My iPad, and "B-154.pdf — 583 bytes" under Subject. In
+      4 the picker opened on all of Photos, photos and videos; a still of
+      23 KB was in within a second, no spinner caught. In 5 Send stayed in
+      sight with the menu open. In 9 no paperclip in the share sheet's
+      bar. Every letter closed with nothing asked or with Delete Draft;
+      Drafts and Sent Mail as counted. Nothing was sent. Left: 1 in
+      portrait, 7 with the owner's go, and 8.*
 - [ ] **B-155, the address book filled from his Sent Mail.** On the test
       iPad, the test account only, from a build of the `bm-cm-compose`
       worktree (branch `copy-compose`) or of the int it is merged into. The
@@ -8304,6 +8526,32 @@ checks below is left as not needed, not open, and none is worth a round.*
       only the UIDs that move answered (`COPYUID`). Never anything found
       by subject or Message-ID: a UID not noted is left, and written down.
       Nothing else was written.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046, then 26740c2):
+      1, 5, 6 and 7 passed, 2 but for its SELECT, SEARCH and tap, and 3 on
+      26740c2 as it now reads; 4 not run, (b) put in read, as these rounds
+      APPEND no letter unread. The build had been launched in the round
+      before, so its fill had run then; with the app ended, the mark that
+      says so was taken out of its settings, and the fill ran again at the
+      next launch, ending about 3 s after it: `BOOK-FILL letters=780
+      people=255` on 0625046 and `letters=774 people=254` on 26740c2, the
+      host's `UID SEARCH SINCE` of six months back finding 780, and 774
+      from a day later; FETCHes of at most 100 UIDs each, (c) not among
+      them; no STORE and no BODY. The SELECT and the SEARCH had left the
+      log's 500 lines before it was read, so their form and the time from
+      the SEARCH to `BOOK-FILL` were not seen; and the fill had ended
+      before a letter could be tapped while it ran: one tapped after had
+      its header at 0.5 s and its words at 1.5 s. In 3 on 0625046 Prefix
+      Fill was not in the four rows, where the step then had it (B-155,
+      Found on the test iPad); on 26740c2 "quen" offered Quentin Fill,
+      "oliv" nothing, the first four letters of the address four rows, the
+      account's own two addresses first and then two of its `+tag` ones,
+      and P with its "." Prefix Fill alone. In 5 (a) and (b) found. In 6
+      the app was ended from the host, not the app switcher, and opened
+      again: no `BOOK-FILL`, no SEARCH and no SELECT of Sent Mail. The
+      host put the five in the Trash by a STORE of its label, and the book
+      and its mark were put back as found with the app ended. Nothing was
+      sent. Left: 4, with (b) unread, and 2's SELECT and SEARCH lines,
+      with the time to `BOOK-FILL`, and its tap while the fill runs.*
 - [ ] **B-156, Mail's drags on a row.** On the test iPad, the test
       account only, from a build of the `bm-cm-swipe` worktree (branch
       `copy-swipe`) or of the int it is merged into. Nothing is sent:
@@ -8378,7 +8626,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       the app's MOVEs of letters 4, 6, 8 and 9 were answered with
       (`COPYUID`, in its log); "Notes" itself stays. Never anything found by subject
       or Message-ID. Nothing was sent.
-- [ ] **B-157, Undo as in Mail.** On the test iPad, the test account
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 9 passed,
+      and 10 up to the question; 10's Delete in the Trash not run, as it
+      erases and the rounds never Delete there; 11 done by a STORE of the
+      Trash's label, no delete. The conversation's row showed its mark,
+      not a 2, as the app draws it (B-075, B-080). In 2 one STORE each
+      way, the pane's sheet offering Unflag. In 3 the count beside Notes
+      up by one and down again. In 4 "Deleting…" and one MOVE answered. In
+      5 and 6, in frames about 0.1 s apart in place of a recording, the
+      row slid off under the widening Trash and was gone by 0.38 and 0.46
+      s, never sliding back; in 5 letter 3 opened in the pane, highlighted
+      (B-158); in 6 two MOVEs, 8's first. In 7 More's sheet read Reply,
+      Reply All, Forward, Trash Message, Flag, Mark as Unread, Move to
+      Junk and Move Message; Reply's To the sender's name, its quote under
+      the keyboard, not looked at; Forward's To empty; each Cancel asked
+      nothing, nothing in Drafts, only the letter's FETCH in the log. In 9
+      the row was back within half a second with "Can't connect to mail
+      server.", `NO-PATH UID MOVE nothing-sent`. In 10 "Delete Message?"
+      said "This message will be deleted immediately. You can't undo this
+      action.", with Cancel and Delete; Cancel each time, the full drag's
+      row sliding back with it. Nothing was sent. Left: 10's Delete in the
+      Trash, with the owner's yes.*
+- [x] **B-157, Undo as in Mail.** On the test iPad, the test account
       only, from the same build as B-156's check. Nothing is composed or
       sent. Shake to Undo on (Settings > Accessibility > Touch), as it
       comes. The host APPENDs seven letters to "Notes" as for B-156, From
@@ -8465,7 +8734,38 @@ checks below is left as not needed, not open, and none is worth a round.*
       Letter 3 is left in the Trash for the host.
       11. *Put back:* as B-156's step 11, by the UIDs noted and the ones
       every MOVE answered; Spam left as found. Nothing was sent.
-- [ ] **B-158, the letter after a Delete or Move in the pane.** On the
+      *Seen on the test iPad 2026-10-27 on int18 (0625046, then 26740c2),
+      by AssistiveTouch's Shake: 1 to 4, 6, 7, 9 and 10 passed on 0625046,
+      and the setup and 8 on 26740c2; 11 done by a STORE of the Trash's
+      label, no delete; 0 not run, Mail not on the test iPad; 5 not
+      possible, the round's touches having one finger; no shake by hand
+      and no Command-Z, no one being at the iPad and no keyboard of keys.
+      On 0625046 the setup's shakes came after B-156's Trash, and 8's row
+      came back above the top of the pane (B-157, Found on the test iPad).
+      On 26740c2 the app was ended from the host, not the app switcher,
+      opened again, and sent to the background and back; two shakes, no
+      alert; the control, a drag's Flag, "Undo Flag" at the second shake,
+      the first lost; Undo, one `-FLAGS.SILENT (\Flagged)`. In 8, each
+      part: letter 7 back with no dot, first and in sight, the list at its
+      top, the count as after the tap, no second `\Seen` at a tap or after
+      a Refresh; by a full drag the same; with letter 1 trashed lower down
+      and the list taken back to its top by a tap on the status bar,
+      letter 1 back where it stood and letter 7 first, in sight. On
+      0625046: in 1 "Undo Trash", Cancel and Undo; Undo, the row back
+      where it stood, a FETCH of its Gmail id in the Trash and one MOVE to
+      Notes, a new UID there; in 2 both back, letter 2's first; in 3 "Undo
+      Move", the letter out of Spam; in 4 letter 6 back, then letter 5; in
+      6 offline the alert and nothing written, then online "Undo Trash"
+      again and the row back; in 9 "Undo Flag", "Undo Unflag", and after a
+      read mark "Undo Flag". In 10, after the relaunch, the shakes reached
+      the app only after a trip to the background; the control's first
+      Undo said "Can't connect to mail server.", the connection lost while
+      the app was away, the second brought the flag back; then no alert
+      for the Trash made before the relaunch. Four shakes in the two
+      rounds brought nothing, two of them in a row, and the shake after
+      them the alert. The host put the letters in the Trash by a STORE of
+      its label. Nothing was sent.*
+- [x] **B-158, the letter after a Delete or Move in the pane.** On the
       test iPad, the test account only, from a build of the `bm-cm-next`
       worktree (branch `copy-nextletter`) or of the int it is merged into.
       Nothing is composed, sent or saved as a draft, and the app's Deletes
@@ -8529,8 +8829,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       yet (host tests alone), Trash's question before an erase, and the
       foot of the pages loaded while older letters are still to come,
       where nothing opens (host tests alone).
+      *Seen on the test iPad 2026-10-27 on int18 (0625046): 1 to 6 passed,
+      in frames about 0.1 s apart at 1, 2 and 6 and shots elsewhere, not a
+      recording; 7 done by a STORE of the Trash's label, no delete. In 1
+      next 3 was in the pane, highlighted, its dot gone, in the first
+      frame without next 2's row, 0.19 s after the tap, no "No message
+      selected" between; the count gone by 0.84 s; the MOVE, next 3's
+      `\Seen` and its FETCH in the log; Delete blue. In 2 the taps were
+      about 0.21 s apart: one MOVE, next 4 open to the end; Delete dimmed
+      only in the frame after each tap's release. In 3 an empty label of
+      the account's stood for "B-158 moved", which the host may not make:
+      at 0.3 s the sheet and next 5's row were gone and next 6 open,
+      highlighted. In 4 (c) went, the row stayed highlighted with (b)
+      open, then (a) alone opened as one letter. In 5 next 6 went and next
+      1 opened, the search's words and its one result still there; then
+      "No results" and an empty pane. In 6 Edit mode ended by itself at
+      its Trash, the pane empty and nothing opened, so no Done or Cancel
+      was needed; drag 1's row slid off at a full drag, gone by 0.46 s,
+      and drag 2 opened, highlighted. The host put the letters in the
+      Trash by a STORE of its label. Nothing was sent.*
 
-- [ ] **B-159, his replies kept with an Inbox conversation.** On the
+- [x] **B-159, his replies kept with an Inbox conversation.** On the
       test iPad, the test account only, from a build of the
       `bm-cm-offline` worktree (branch `copy-offline`) or of the int it is
       merged into. Nothing is composed, sent, saved, moved or deleted in the
@@ -8563,6 +8882,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       nothing looked up. On again.
       Put back: Airplane Mode off, Blackmail on the Inbox. Nothing was
       written.
+      *Seen on the test iPad 2026-10-27 on int18 (26740c2): 1 to 5 passed.
+      A first try stopped at its start on the battery. No letter of
+      B-104's check was left, so the host made two conversations of three,
+      each with a reply of A's in Sent Mail alone, by APPEND, read;
+      nothing was sent for them. In 1 A's line came once the newest letter
+      had come, and read "Found in Sent", B-144's name, once open; one
+      `UID FETCH … (UID BODY.PEEK[])` in Sent Mail, `KEPT-LETTER kept`, no
+      STORE; the second conversation was looked up too, its A's line left
+      closed. In 2, offline, A's line was in the stack in its first frame,
+      where it was online, and its body came at once, `KEPT-LETTER shown`;
+      the app writes no line for the launch's failure to connect, so the
+      log held only `KEPT-LETTER shown` lines. In 3 the second's A's line
+      was there and said the message could not be downloaded. In 4, 10 min
+      26 s after the first lookup, both were looked up again, the second
+      first, so the first's had no `SELECT` of its own; A's line once. In
+      5, off, neither stack had A's line and nothing was looked up; on, it
+      was back. The host put the letters in the Trash by a STORE of its
+      label. Nothing was sent.*
 
 - [ ] **B-160, reading with no connection: more pages, letters fetched
       ahead, and search.** On the test iPad, the test account only, from a
@@ -8616,6 +8953,33 @@ checks below is left as not needed, not open, and none is worth a round.*
       and deletes in the Trash only the UIDs that move answered
       (`COPYUID`). Never anything found by subject or Message-ID: a UID not
       noted is left, and written down. Nothing else was written.
+      *Seen on the test iPad 2026-10-27 on int18 (26740c2): 1 to 3 passed,
+      and 5 done by a STORE of the Trash's label, no move or delete; 4
+      only in its parts that put nothing in the Inbox, as its three unread
+      APPENDs there ring the phone with the test account and need the
+      owner's go. A first try stopped at its start on the battery. Notes
+      held its own 30 letters below row 1, so there were three pages below
+      the first, each one `UID FETCH` of summaries. In 1, offline, rows
+      130 to 124 were in the first frame and every row to 1 was read in 17
+      shots down, no page loading at any foot; row 7 came from the iPad,
+      `KEPT-LETTER shown`, the log holding nothing else, as the app writes
+      no line for the launch's failure to connect. The first offline tap
+      hit row 6, the list 27 px further than online, and was made again.
+      In 2 the fresh page landed with rows 64 to 58 in sight, which did
+      not move in eight shots to 90 s; no Refresh. Opened again offline,
+      Notes went to its foot in 24 shots with no page loading, but only
+      three were read, rows 65 to 59, 7 to 1 and the foot (a second run).
+      In 3 "quincunx" found row 7 alone with "Some Results May Not
+      Appear", "B-160 row 12" row 12 alone; Cancel brought back how old
+      the list is; All Mailboxes found row 7 once; a word in no letter,
+      "No results" with the line; nothing went on the wire. Of 4: the
+      launch's pass fetched nothing, the kept page's three unread letters,
+      real mail, having been fetched ahead at an earlier launch; a Refresh
+      fetched none of them again; offline, the first four letters of the
+      account's address found only the round's letters from a `+tag`
+      address beginning with them, none for his own address alone. The
+      host put the letters in the Trash by a STORE of its label. Nothing
+      was sent. Left: 4 as written, with the owner's go.*
 - [ ] **B-161, the red number and the banners for new mail.** On the test
       iPad, the test account only, from a build of the `bm-cm-badge`
       worktree (branch `copy-badge`) or of the int it is merged into: the
@@ -8682,6 +9046,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       10. *Put back:* the letter of 2 marked read again; the UIDs the host
       noted in 3 and 4, and only them, moved to the Trash, answered by
       COPYUID. Nothing else was written.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046, then 26740c2),
+      in part. A first try stopped at its start on the battery. 1 passed:
+      on 0625046, at the first launch, iOS's question came over the listed
+      Inbox, nothing of the app's up, in the words of the entry's "New
+      words"; photographed, Allow. On 26740c2, ended from the host, not
+      the app switcher, and opened again: not asked within a minute. Of 2:
+      the count beside Inbox, the icon's number and Gmail's unread count
+      were 16 each; no letter the rounds had made was unread on the kept
+      Inbox page, and the host marks no other letter unread, so none was
+      opened to take one off. Of 7: `Launches/unfinished` read 1 at 4, 17
+      and 26 s into a launch and 0 at 35 s, about 30 s after the first
+      page; `New Mail/state.json` held a mark, when he left and when a
+      check ran, and nothing else. 3 and 4, and so 5, not run, as they put
+      unread letters in the Inbox, which rings the phone with the test
+      account, and need the owner's go; 6, 8 and 7 after a check not run,
+      the battery at 29% on a USB port that did not charge it, under the
+      round's 30%; 7 during a check not possible, as a check's seconds
+      cannot be caught from the host; 9 not run, the iPad never on charge.
+      Nothing was sent. Left: 2's letter opened, 3 to 6, 7 during and
+      after a check, 8 and 9.*
 - [ ] **B-162, his Contacts in To, Cc and Bcc.** On the test iPad, the
       test account only, from a build of the `bm-cm-contacts` worktree
       (branch `copy-contacts`) or of the int it is merged into. Nothing is
@@ -8735,6 +9119,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       the Trash (`UID MOVE`), and deletes in the Trash only the UIDs that
       move answered (`COPYUID`); a UID not noted is left, and written
       down.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046), in part: the
+      Contacts app is not on the test iPad, which offers to restore it
+      from the App Store, and Files' Quick Look of a card offers no way to
+      add it, so 0's cards could not be made; Blackmail was not listed
+      under Contacts before. 1 passed but for the cards: no question at
+      the launch or at To, then at "s" iOS's question at once over the
+      sheet, "“Blackmail” Would Like to Access Your Contacts", "As you
+      type, Blackmail suggests people from your Contacts.", "Don't Allow"
+      and "OK"; OK. 4 passed: no question after the background or a
+      relaunch. 2, 3, the rows of 5 and the going and coming back of 6 not
+      possible without cards; in 5 and 6 no question, and iOS ended
+      Blackmail at each turn of its switch. Sales and Sammy, listed in
+      Notes at 0, were not in the book by 2: it was full at 300, and each
+      new address only seen puts out the oldest only seen
+      (`RecipientBook`), so the Inbox's next pages had put them out; 2's
+      "ahead of Sales" needs them listed just before. In 7 the switch was
+      left off, as never asked; Blackmail is listed now, so 1 cannot be
+      seen again without Reset Location & Privacy, which is the owner's to
+      allow. The host put the two letters in the Trash by a STORE of its
+      label. Nothing was sent. Left: 0 to 3, 5 and 6 with cards, once
+      Contacts is back on the test iPad.*
 - [ ] **B-163, the people at the top of the share sheet.** On the test
       iPad (iPadOS 16.5.1), the test account only, from a build of the
       `bm-cm-circle` worktree (branch `copy-circle`) or of the int it is
@@ -8815,7 +9220,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       No send of its own: on the next five-photo share check, the
       `SHARE-SEND` lines' least memory compared with B-109's 160 MB, which
       matched B-070's, as the extension now loads Intents too.
-- [ ] **B-165, a held draft's Cancel asks Save Draft.** On the test iPad,
+      *Seen on the test iPad 2026-10-27 on int18 (0625046), in part: the
+      setup, 1, 5, 9 and 10 passed, and 8 up to its tap; 2, 3 and 7 not
+      run, as they send; 4 not needed, as on this build a share with no
+      connection waits in the Outbox (B-153); 6 and 8's tap not run, no
+      circle being there; the closing note needs a send. "Show When
+      Sharing" was on, as found; the Contacts app is not on the test iPad,
+      and Settings > Contacts > My Info showed no card. "Add Another
+      Email…" put up "Add Another Email" and "An address of yours that
+      mail to you comes to.", with Cancel and Add; the `+b163` address was
+      added, Save, and taken off at 10. In 1, in 5's three looks and in 8,
+      the YouTube app's share sheet, no row of people at all, as expected
+      with no letter gone. In 9 To empty with the caret in it and the
+      page's title as Subject; Cancel asked nothing. Nothing was sent.
+      Left: 2, 3 and 7, with the owner's go, then 5, 6 and 8's tap again,
+      and the closing note.*
+- [x] **B-165, a held draft's Cancel asks Save Draft.** On the test iPad,
       the test account only, from a build of the `bm-helddraft` worktree
       (branch `fix-helddraft`) or of the int it is merged into. Nothing is
       sent: no Send is tapped in any step, and the letter is a draft
@@ -8852,6 +9272,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
+      *Seen on the test iPad 2026-10-27 on int18 (0625046, then 26740c2):
+      1 to 3 and 5 passed on both; 4 failed on 0625046, the row one row
+      above the top of the pane (B-165, Found on the test iPad), and
+      passed on 26740c2. The three tries were written with the app ended,
+      by `cat >` into the same file, and read back once by `grep`. In 2
+      the row read "On this iPad only" and "Not saved to Gmail
+      automatically. Open…"; no APPEND and no `MAIL FROM`; `DRAFT-HELD
+      unfinished-tries=3` once on 0625046, and on 26740c2 already out of
+      the log's 500 lines, behind the book's fill, when it was read. In 3
+      the sheet, Save Draft and Delete Draft; a tap outside, and the
+      letter still open. In 4 on 26740c2, in frames about 0.2 s apart: the
+      sheet gone at 0.42 s, the row first under the search band, and from
+      1.69 s without its two lines, in sight, Drafts at its top, the rows
+      below in place; the same at 10 and 25 s, with no Refresh; one APPEND
+      to Drafts answered, no `MAIL FROM`, `RCPT TO` or `DATA`; `Local
+      Drafts` emptied; one copy in Drafts, read over IMAP in place of the
+      web. In 5 the app's own `\Deleted` and `UID EXPUNGE` of its copy;
+      Drafts as found. Nothing was sent.*
 - [ ] **B-166, the text size and Bold Text as the iPad sets them.** On the
       test iPad, the test account only, from a build of the
       `bm-cm-textsize` worktree (branch `copy-textsize`) or of the int it
