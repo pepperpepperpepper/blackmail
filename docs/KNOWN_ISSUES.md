@@ -35149,13 +35149,26 @@ page's head and the stack's (`RemoteContent.sizeRule`, the line's class
 size. A file's tile (B-170) is scaled with the pane, box, icon and lines
 together, by a rule in the head of the page, the stack and the print
 (`BodyFiles.sizeRule`, `zoom` of the body size over 17), never below
-Large, as WebKit scales its own element in Mail; not WebKit's
+Large, as WebKit scales its own element in Mail, and never above twice
+Large (`BodyFiles.maxTileZoom`): from AX3 up a tile, 178 points with its
+margin, was wider than the letter's column, about 382 in two panes in
+portrait, and the letter scrolled sideways; not WebKit's
 caption and footnote keywords, which follow the iPad's size and not the
-app's restyle. The header's `restyle` lost its file rows with B-170. In
-TODO, the item on his iPad's own settings no longer lists Display & Text
-Size, Larger Text and Bold Text as still to be read before the last
-build: a line of 2026-10-27 there names them built here, a size set for
-Mail alone in Per-App Settings matched on the day.
+app's restyle. The header's `restyle` lost its file rows with B-170. A
+letter drawn again at a new size (`restyleIfOwed`) is built away from
+the main thread, as `loadImages` builds it, the page now being more than
+string work (B-169's reading of its style, B-170's files), and held back
+as it was built (`RemotePictures.waits`, B-168): it was rebuilt without
+Mail's line and its hold. A conversation drawn again at a new size points
+the loader with `inStack: true`, as `drawAgain` does, so his letters from
+Sent Mail keep their pictures. Delete's button drawn again as the archive
+box (B-167) is `Theme.barSymbol`, the size of the bar's other four at
+every size. In TODO, the item on his iPad's own settings no longer
+lists Display & Text Size, Larger Text and Bold Text as still to be read
+before the last build: a line of 2026-10-27 there names them built here, a size set for
+Mail alone in Per-App Settings matched on the day. In TODO, this check's
+steps 1 and 2 read (a)'s files as B-170's tiles, and step 8 has (a)'s
+tiles within the pane.
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
@@ -35465,10 +35478,16 @@ with Archive Mailbox set.
 (`MailOptionsTests` updated). Ask Before Deleting asks before an Archive
 too, as B-168 read Mail's strings (`ARCHIVE_EMAIL`, `ARCHIVE_FORMAT`):
 with Archive Mailbox, the pane's button asks "Archive Message" and the
-Edit bar's "Archive" asks "Archive 3 Messages", counted, the sheet in
-the bar's own word (`EditBar.discardVerb`); a drag's Archive already
+Edit bar's "Archive" asks "Archive 3 Messages", counted, where its tap
+archives every letter, and "Trash 3 Messages" where it sends any to the
+Trash, by what `EditBar.discarding` does and not by the bar's word
+(`EditBar.discardVerb(for:)`): an All Mailboxes search's hits from All
+Mail go to the Trash under "Archive"; a drag's Archive already
 asked by `RowSwipes`. The Edit bar asks `EditBar.question` first, as here,
-then B-168's sheet. The install-day line in TODO no longer lists the two
+then, under Ask Before Deleting, B-168's sheet of the letters it
+archives ("Archive 2 Messages"), which the erase question does not
+count. Delete's button drawn as the archive box is `Theme.barSymbol`, as
+`buildToolbar`'s, so it does not grow with the text size (B-166). The install-day line in TODO no longer lists the two
 as greyed: they are set there with the rest; the item on his iPad's own
 settings names them built by B-168. The rows follow the text size
 (B-166's integration paragraph). In TODO, this check's step 1 has Block
@@ -35781,8 +35800,13 @@ came: with a picture from the web it is light, its picture held back.
 For a letter in its own colours, the style brought back from its head and
 its body's `style` is held back too (`PanePage.inOwnColours`'s
 `heldBack`, `ownFrame`), and a `url()` of the web there alone puts Mail's
-line over it (`PanePage.held`'s `drawn`). "Load All Images" in a stack
-points the loader with `inStack: true`, as B-170 asked. In TODO, this
+line over it (`PanePage.held`'s `ownFrame`, read once for the line and
+the box). "Load All Images" in a stack
+points the loader with `inStack: true`, as B-170 asked. A letter drawn
+again at a new text size (B-166) keeps its line and its hold
+(`RemotePictures.waits`), and stays loaded after "Load All Images". In
+the Edit bar, the erase question counts the letters deleted alone, and
+the letters it archives are asked of after it (B-167's paragraph). In TODO, this
 entry's line of 2026-10-27 on his iPad's own settings follows B-167's
 words there and B-166's line, its own words as they were.
 
@@ -36118,7 +36142,10 @@ in its own colours loads nothing from the web under Block All Remote
 Content (B-168's integration paragraph). A tile is drawn in Mail's light
 colours on a letter inverted or light and in its dark ones on a letter in
 its own colours, as on a plain letter, on its page and in the stack
-(`BodyFiles.drawn`'s `on:`).
+(`BodyFiles.drawn`'s `on:`). Held back, a letter in its own colours is
+read for its style once, its frame (`ownFrame`) given both to Mail's line
+and to its box, so Block All Remote Content does not double the reading
+`testALetterMadeToBeSlowIsReadOnce` bounds.
 
 ## B-170 — FIXED 2026-10-27, not yet seen on the iPad. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 
@@ -36539,8 +36566,11 @@ links.
 follows the letter's scheme (B-169): `.dark` for `own` and plain text,
 `.light` for `light` and `inverted`. The tile has the class `bm-tile`
 and is scaled with the pane's text size by the head (`BodyFiles.sizeRule`,
-B-166's integration paragraph), on the page, in the stack and on paper;
-at Large every page is as it was. B-168's "Load All Images" in a stack
+B-166's integration paragraph), on the page, in the stack and on paper,
+at most twice its size (`maxTileZoom`), so it fits the letter's column
+and the paper at every size;
+at Large every page is as it was. A stack drawn again at a new text size
+points the loader with `inStack: true`, as `drawAgain` does. B-168's "Load All Images" in a stack
 says `inStack: true`, and `PaneNavigation`'s line speaks of a file's tile.
 A picture held, shown by `cid:` or drawn at its size as a file, and a
 picture drawn as a tile, has Markup and Reply second in its menu (B-171);

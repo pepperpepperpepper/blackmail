@@ -8880,7 +8880,8 @@ checks below is left as not needed, not open, and none is worth a round.*
          the app: "Notes" with (a) open, its row highlighted; New Message,
          then Cancel; Reply All on (a), then Cancel. The same three
          screens on the int18 build (26740c2), taken first: the same to
-         the pixel but for the clock.
+         the pixel but for the clock; on a build with B-170, but for (a)'s
+         two files, tiles after its words and not rows in the header.
       2. *The largest of the seven, while the app is open.* With (a) open
          and "Notes" scrolled so its row is in sight a few rows down,
          leave the app; Text Size dragged to its right end; back in the
@@ -8891,9 +8892,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          highlighted; every folder's name whole, "Important" and the
          account's longest label among them, on a second line where it
          needs one, its row as tall as its two lines, nothing over the
-         next row. The header's names, subject and date larger, its two
-         files' rows 44 points or taller; (a)'s words larger. The bars'
-         titles and buttons, the calendar, the search field, its two
+         next row. The header's names, subject and date larger; (a)'s
+         words larger, and (a)'s two files' tiles after its words larger
+         with them, box and lines together, their lines whole (B-170). The
+         bars' titles and buttons, the calendar, the search field, its two
          buttons once tapped (then Cancel) and the line under the list
          exactly as in 1. Nothing cut anywhere: no word clipped at its top
          or its foot, nothing over anything.
@@ -8926,7 +8928,8 @@ checks below is left as not needed, not open, and none is worth a round.*
          UIKit lays them out at this size, each name after its own icon,
          whole on as many lines as it takes, the Inbox's too, each row as
          tall as its name, nothing cut and nothing over the next row. The
-         header and (a)'s words larger again. (d)'s row: on the
+         header and (a)'s words larger again, (a)'s tiles within the pane,
+         each at most twice its size in 1 (B-170). (d)'s row: on the
          conversation's lines each name on a line of its own, its date on the
          line under it at its left, a closed letter's first words under that;
          nothing past the pane's right edge, and the pane not scrolling
