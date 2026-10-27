@@ -151,7 +151,7 @@ final class PaneNavigationTests: XCTestCase {
         XCTAssertNotNil(place(of: "private func file(_ section: String, of letter: String) -> (Message, Attachment)? { "
                                   + "let shown = message?.id == letter ? message "
                                   + ": (loaded[letter] ?? related.letter(withID: letter)) "
-                                  + "guard let m = shown, let file = m.listedAttachments.first(where: "
+                                  + "guard let m = shown, let file = m.attachments.first(where: "
                                   + "{ $0.id == section }) else { return nil } return (m, file) }",
                               in: code))
         XCTAssertNotNil(place(of: "private func openAttachment(_ attachment: Attachment, of letter: "

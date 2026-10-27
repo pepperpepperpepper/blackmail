@@ -235,8 +235,9 @@ final class PanePageTests: XCTestCase {
 
     /// `MessageDetailViewController.prepareInlineImages`'s map as it was
     /// built there, before the pane and a printed letter both read it from
-    /// `PanePage.pictures`; and each letter's picture files, which the body
-    /// draws at their size since B-170, by their address.
+    /// `PanePage.pictures`; and each letter's pictures, which the body
+    /// draws at their size since B-170 where it does not show them itself,
+    /// by their address.
     private func previousPictures(_ letters: [Message])
         -> [String: (letter: Message, section: String, mimeType: String)] {
         var parts: [String: (letter: Message, section: String, mimeType: String)] = [:]
@@ -245,7 +246,7 @@ final class PanePageTests: XCTestCase {
                 guard let cid = attachment.contentID else { continue }
                 parts[cid] = (m, attachment.id, attachment.mimeType)
             }
-            for file in m.listedAttachments where BodyFiles.isPicture(file) {
+            for file in m.attachments where BodyFiles.isPicture(file) {
                 parts["bmfile-" + ConversationDocument.sectionID(for: m.id) + "-" + file.id]
                     = (m, file.id, file.mimeType)
             }

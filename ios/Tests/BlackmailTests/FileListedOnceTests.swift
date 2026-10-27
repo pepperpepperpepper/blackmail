@@ -85,7 +85,7 @@ final class FileListedOnceTests: XCTestCase {
     /// How a page names the file at `section` of `m` where the pane drew
     /// it: its tile's link, or its picture's address.
     private func drawn(_ section: String, of m: Message) -> String {
-        let file = m.listedAttachments.first { $0.id == section }!
+        let file = m.attachments.first { $0.id == section }!
         return BodyFiles.isPicture(file)
             ? address(BodyFiles.pictureID(section, of: m.id))
             : "href=\"" + QuotedMarkup.attributeEscaped(BodyFiles.link(section, of: m.id)) + "\""
@@ -191,6 +191,68 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertEqual(count("bmcid://bmfile-", in: page), 1, "the other photo, drawn by the pane")
         XCTAssertEqual(count(drawn("4", of: m), in: page), 1)
         XCTAssertFalse(page.contains("bmfile:"), "no tile")
+    }
+
+    /// A picture sent to be shown by `cid:` that the body shown does not
+    /// show is drawn as a file, as Mail draws a picture its page does not
+    /// name: after a plain letter's words, after the words of HTML that
+    /// never names it, and alone for a letter of nothing else, which is not
+    /// said to have no text; once, at its size, from the loader, opened as
+    /// a file is, and printed decoded as it is drawn. Not for a letter
+    /// shown only in part, whose HTML names it in what did not come, as
+    /// often as not, while its files are drawn above the words; and the
+    /// HTML that names one draws it itself, the pane not again.
+    func testAPictureSentToBeShownThatTheBodyDoesNotShowIsDrawnAsAFile() throws {
+        let inline = Self.jpeg("photo.jpg", contentID: "photo@example.com", disposition: "inline")
+        let shapes: [(name: String, raw: Data, order: [String])] = [
+            ("a plain letter", Self.letter(Self.mixed([Self.plain("Our garden."), inline])), ["Our garden.", "2"]),
+            ("HTML that never names it", Self.letter(Self.mixed([Self.html("Our garden."), inline])),
+             ["Our garden.", "2"]),
+            ("nothing else", Self.letter(Self.mixed([inline])), ["1"]),
+        ]
+        for shape in shapes {
+            let m = Self.message(shape.raw)
+            let section = try XCTUnwrap(shape.order.last)
+            XCTAssertEqual(m.listedAttachments.map(\.id), [], shape.name)
+            XCTAssertEqual(m.attachments.map(\.id), [section], shape.name)
+            XCTAssertTrue(try XCTUnwrap(m.attachments.first).isShownInBody, shape.name)
+            XCTAssertFalse(PanePage.isEmpty(m), shape.name)
+            let page = try XCTUnwrap(PanePage.letter(m, style: style), shape.name)
+            for (kind, body) in [("page", page), ("stack", PanePage.stackBody(m).html),
+                                 ("printed", PrintPage.body(m).html)] {
+                let label = "\(shape.name), \(kind)"
+                XCTAssertEqual(count(drawn(section, of: m), in: body), 1, label)
+                order(shape.order.map { $0 == section ? drawn(section, of: m) : $0 }, in: body, label)
+                XCTAssertFalse(body.contains(MailText.emptyBodyNotice), label)
+                XCTAssertFalse(body.contains("<!--bm-file:"), label)
+            }
+            XCTAssertTrue(PrintPage.body(m).html.contains("<img decoding=sync src=\"bmcid://bmfile-m7_3-"),
+                          shape.name)
+            let address = BodyFiles.pictureID(section, of: m.id)
+            XCTAssertEqual(PanePage.pictures(of: [m])[address],
+                           PanePage.Picture(messageID: "7/3", mailboxID: "INBOX", section: section,
+                                            mimeType: "image/jpeg"), shape.name)
+            XCTAssertEqual(PanePictures.file(address, of: m)?.id, section, shape.name)
+            XCTAssertEqual(PanePictures.part(address, of: m)?.id, section, shape.name)
+        }
+
+        // Shown only in part: not drawn; a file of the letter still is,
+        // above the words.
+        var cut = Self.message(Self.letter(Self.mixed([Self.html("Our garden."), inline, Self.pdf("plan.pdf")])))
+        cut.isShortened = true
+        let page = try XCTUnwrap(PanePage.letter(cut, style: style))
+        XCTAssertFalse(page.contains("bmcid://bmfile-"))
+        XCTAssertEqual(count(drawn("3", of: cut), in: page), 1)
+        order([MailText.shortenedNotice, drawn("3", of: cut), "Our garden."], in: page, "cut")
+        XCTAssertFalse(PanePage.stackBody(cut).html.contains("bmcid://bmfile-"))
+
+        // Named by the HTML: drawn there, once, by the letter.
+        let named = Self.message(Self.letter(Self.mixed([
+            Self.html("Our garden. <img src=\"cid:photo@example.com\">"), inline])))
+        let shown = try XCTUnwrap(PanePage.letter(named, style: style))
+        XCTAssertEqual(count(address("photo@example.com"), in: shown), 1)
+        XCTAssertFalse(shown.contains("bmcid://bmfile-"))
+        XCTAssertFalse(PanePage.stackBody(named).html.contains("bmcid://bmfile-"))
     }
 
     /// A file's mark of the sender's own is drawn once, at the first; any
@@ -548,7 +610,8 @@ final class FileListedOnceTests: XCTestCase {
     /// it is a file, and no logo; a hold gives the held photo's menu, by
     /// its picture's address, on a letter's own page and in a stack. A
     /// picture the letter shows by `cid:` is as B-122 has it: not opened
-    /// when small. A picture file of another letter opens nothing.
+    /// when small. A picture file of another letter opens nothing, nor
+    /// does a file that is no picture, by a picture's address.
     func testAPictureFileOpensAtAnySize() throws {
         let photo = Attachment(id: "2", filename: "icon.png", mimeType: "image/png", size: 900)
         let logo = Attachment(id: "3", filename: "logo.png", mimeType: "image/png", size: 900,
@@ -574,7 +637,15 @@ final class FileListedOnceTests: XCTestCase {
                                             his: { _ in nil })?.part, logo)
         XCTAssertNil(PanePictures.opening(tap("bmcid://bmfile-m7_9-2"), inStack: false, alone: m, stack: [:],
                                           his: { _ in nil }), "another letter's")
-        XCTAssertNil(PanePictures.part("bmfile-m7_3-3", of: m), "not a picture file")
+        // The logo by the address of a picture the pane draws: its own,
+        // as the pane draws it so where the body shown does not show it.
+        XCTAssertEqual(PanePictures.part("bmfile-m7_3-3", of: m), logo)
+        XCTAssertNil(PanePictures.part("bmfile-m7_3-4", of: m), "no such part")
+        XCTAssertNil(PanePictures.part("bmfile-m7_3-3", of: Message(
+            id: "7/3", mailboxID: "INBOX", sender: "Jane <jane@example.com>", senderAddress: "jane@example.com",
+            to: [], cc: [], subject: "Plan", date: Date(timeIntervalSince1970: 1_792_679_717), textBody: "Plan.",
+            htmlBody: nil, attachments: [Attachment(id: "3", filename: "plan.pdf", mimeType: "application/pdf",
+                                                    size: 900)])), "not a picture")
     }
 
     /// The script, on the model of the page: a finger held half a second

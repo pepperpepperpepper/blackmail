@@ -287,7 +287,9 @@ extension Message {
     /// The letter's files: every attachment but the pictures the body
     /// shows by `cid:`, which are not files to him. See
     /// `Attachment.isShownInBody`. The pane draws each in the letter's body
-    /// (`BodyFiles`, B-170), where the header listed them until then.
+    /// (`BodyFiles`, B-170), where the header listed them until then, and
+    /// a picture sent to be shown by `cid:` that the body shown does not
+    /// show as well.
     var listedAttachments: [Attachment] { attachments.filter { !$0.isShownInBody } }
 
     /// The body to quote underneath a reply or forward.
@@ -392,7 +394,10 @@ struct Attachment: Identifiable, Hashable {
     /// picture, with a `Content-ID`. It stays among the letter's parts (the
     /// reading pane needs it to resolve the reference) but the pane does
     /// not draw it as a file, which would put the signature's logo on
-    /// every letter twice, as Mail does not.
+    /// every letter twice, as Mail does not; unless the body shown does not
+    /// show it, a plain letter's say, when the pane draws it after the
+    /// words, as Mail draws a picture its page does not name (`BodyFiles`,
+    /// B-170).
     ///
     /// Every other part is a file, inline or not, and is drawn in the body
     /// (B-101, `BodyFiles` since B-170).

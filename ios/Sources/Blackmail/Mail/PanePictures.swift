@@ -230,10 +230,12 @@ enum PanePictures {
     }
 
     /// The picture file of `m` the pane draws in the body by the address
-    /// `contentID` (`BodyFiles.pictureID`, B-170), nil for any other.
+    /// `contentID` (`BodyFiles.pictureID`, B-170), nil for any other: a
+    /// file, or a picture sent to be shown by `cid:` that the body shown
+    /// does not show (`BodyFiles.drawn`).
     static func file(_ contentID: String, of m: Message) -> Attachment? {
         guard contentID.hasPrefix("bmfile-") else { return nil }
-        return m.listedAttachments.first {
+        return m.attachments.first {
             BodyFiles.isPicture($0) && BodyFiles.pictureID($0.id, of: m.id) == contentID
         }
     }

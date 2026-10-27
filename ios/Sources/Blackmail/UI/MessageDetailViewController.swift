@@ -1313,18 +1313,20 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// The letter `letter` the pane holds and its file at `section`, as a
-    /// tile names them; nil for a letter it does not hold or a file the
-    /// letter does not list.
+    /// tile names them; nil for a letter it does not hold or a part the
+    /// letter does not have. A file it lists, or a picture sent to be shown
+    /// by `cid:` that its body does not show, which is drawn as a file
+    /// (`BodyFiles.drawn`).
     private func file(_ section: String, of letter: String) -> (Message, Attachment)? {
         let shown = message?.id == letter ? message : (loaded[letter] ?? related.letter(withID: letter))
-        guard let m = shown, let file = m.listedAttachments.first(where: { $0.id == section }) else {
+        guard let m = shown, let file = m.attachments.first(where: { $0.id == section }) else {
             return nil
         }
         return (m, file)
     }
 
     /// A picture of a letter's own, tapped (B-122): opened full screen as a
-    /// file's row in the header opens a file, by `openAttachment`, from the
+    /// file's tile in the body opens a file, by `openAttachment`, from the
     /// letter whose section it is in, the one on its own in the pane, one
     /// of the conversation's that has come, or his from Sent Mail; nothing
     /// for a picture too small, or one no letter the pane holds has

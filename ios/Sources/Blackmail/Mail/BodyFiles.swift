@@ -22,12 +22,14 @@ import Foundation
 /// letter lists (`Message.listedAttachments`) into the file, and draws every
 /// file with no mark after the words: those after all of them, and those of
 /// a plain letter, whose words carry no marks. A picture the letter's HTML
-/// shows by `cid:` is drawn there by the letter, and not again.
+/// shows by `cid:` is drawn there by the letter, and not again; one sent to
+/// be shown so that the body shown does not show, the pane draws as a file,
+/// as Mail draws a picture its page does not name.
 ///
 /// A mark of anything else stays a comment: a picture the body shows by
-/// `cid:` that is no file, a file the letter does not have, a second mark
-/// of a file, or a mark the sender wrote, which can name nothing but the
-/// letter's own files.
+/// `cid:`, a file the letter does not have, a second mark of a file, or a
+/// mark the sender wrote, which can name nothing but the letter's own
+/// parts.
 enum BodyFiles {
 
     /// The scheme of a tile's link, which never leaves the pane.
@@ -66,11 +68,19 @@ enum BodyFiles {
     /// anything after it would be drawn inside that, or not at all
     /// (`PanePage.shortened`). As it came when `m` has no file.
     ///
+    /// And a picture sent to be shown by `cid:` (`Attachment.isShownInBody`)
+    /// that `content` does not show, as a file: a plain letter's, or one
+    /// its HTML never names. Mail's script draws "an image that isn't
+    /// referenced in the DOM" (MobileMailUI, iOS 18.6,
+    /// `imageAttachmentNodeFinishedDownloading`). Not for a body `cut`,
+    /// whose HTML shows them, as often as not, in what was not fetched or
+    /// printed, as it does the words after the cut.
+    ///
     /// One pass over the bytes for the marks, as `InlineImageRewriter`'s: a
     /// search from each mark for the next would read the rest of the letter
     /// for every one, and a sender can write a hundred thousand.
     static func drawn(in content: String, of m: Message, on page: Page, cut: Bool) -> String {
-        let listed = m.listedAttachments
+        let listed = cut ? m.listedAttachments : m.attachments
         guard !listed.isEmpty else { return content }
         let shown = shownByTheLetter(listed, in: content)
         let files = listed.filter { !shown.contains($0.id) }
@@ -130,11 +140,11 @@ enum BodyFiles {
 
     /// Which of `files` the letter's HTML draws itself: a picture it shows
     /// by `cid:`, its reference pointed at the loader (`InlineImageRewriter`),
-    /// as a picture sent with a `Content-ID` and no word that it is inline
-    /// is. Each is drawn there, and not a second time. One pass over the
-    /// bytes, each address read whole, to the first byte that cannot be in
-    /// one, so that `cid:a` is not taken for `cid:ab`; none for a letter
-    /// with no such picture, nearly every one.
+    /// sent to be shown so or with no word that it is inline. Each is drawn
+    /// there, and not a second time. One pass over the bytes, each address
+    /// read whole, to the first byte that cannot be in one, so that `cid:a`
+    /// is not taken for `cid:ab`; none for a letter with no picture sent
+    /// with a `Content-ID`.
     private static func shownByTheLetter(_ files: [Attachment], in content: String) -> Set<String> {
         var wanted: [String: [String]] = [:]
         for file in files where file.mimeType.lowercased().hasPrefix("image/") {

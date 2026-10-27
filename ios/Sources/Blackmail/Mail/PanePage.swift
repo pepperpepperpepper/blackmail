@@ -54,7 +54,9 @@ enum PanePage {
     /// both have `cid:image001.png`; where they do, the later letter's is
     /// served. And each letter's picture files, which the body draws at
     /// their size (`BodyFiles.picture`, B-170), by the address the page
-    /// asks for them by (`BodyFiles.pictureID`), which names the letter.
+    /// asks for them by (`BodyFiles.pictureID`), which names the letter;
+    /// every picture of the letter's, as one sent to be shown by `cid:` is
+    /// drawn so where the body shown does not show it (`BodyFiles.drawn`).
     static func pictures(of letters: [Message]) -> [String: Picture] {
         var parts: [String: Picture] = [:]
         for m in letters {
@@ -63,7 +65,7 @@ enum PanePage {
                 parts[cid] = Picture(messageID: m.id, mailboxID: m.mailboxID,
                                      section: attachment.id, mimeType: attachment.mimeType)
             }
-            for file in m.listedAttachments where BodyFiles.isPicture(file) {
+            for file in m.attachments where BodyFiles.isPicture(file) {
                 parts[BodyFiles.pictureID(file.id, of: m.id)] = Picture(
                     messageID: m.id, mailboxID: m.mailboxID, section: file.id, mimeType: file.mimeType)
             }
@@ -227,14 +229,14 @@ enum PanePage {
         return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)
     }
 
-    /// Whether the pane says the letter has no text: nothing in it to draw,
-    /// no file either, and all of it there. A letter shown only in part is
-    /// never said to have none, but to be only the beginning (B-114). A
-    /// letter of files and no words is its files, as Mail draws it
-    /// (B-170), where the pane said it had no text and its files were in
-    /// the header.
+    /// Whether the pane says the letter has no text: nothing in it to draw, no
+    /// file or picture of its own either, and all of it there. A letter shown
+    /// only in part is never said to have none, but to be only the beginning
+    /// (B-114). A letter of files and no words is its files, as Mail draws it
+    /// (B-170), where the pane said it had no text and its files were in the
+    /// header.
     static func isEmpty(_ m: Message) -> Bool {
-        !m.isShortened && m.listedAttachments.isEmpty
+        !m.isShortened && m.attachments.isEmpty
             && MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
     }
 }
