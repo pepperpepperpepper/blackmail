@@ -1248,10 +1248,11 @@ final class MessageListViewController: UITableViewController {
     /// with "Sending…" while it goes or why it has not gone.
     @MainActor
     private func listOutbox() {
+        let move = keptMove
         _ = letters.fetchedAfresh([])
         letters.keep(kept.outboxRows, replacing: [:])
         reachedOldestMessage = true
-        regroup()
+        regroup(to: move)
         updateEmptyState()
         updatePageFooter()
         sayAge()
@@ -1283,6 +1284,9 @@ final class MessageListViewController: UITableViewController {
         // How many letters wait in the Outbox, under the age.
         if showingAge { sayAge() }
         guard mailbox.role == .drafts else { return }
+        // Where the list goes, taken before anything is put on it: at its
+        // top it stays there, where the copy and the rows kept go.
+        let move = keptMove
         if let landing = note.userInfo?[LocalDrafts.landingKey] as? DraftLanding {
             var copy: MessageSummary?
             if let letter = landing.letter, let id = landing.id {
@@ -1291,8 +1295,17 @@ final class MessageListViewController: UITableViewController {
             letters.landed(copy, replacing: landing.replaced, atTop: reachedNewestMessage)
         }
         listKept()
-        regroup()
+        regroup(to: move)
         updateEmptyState()
+    }
+
+    /// Where the list goes as the rows kept on the iPad are drawn again:
+    /// to its top if he is at its top, otherwise where he is
+    /// (`ListPlaces.keptDrawn`).
+    private var keptMove: ListPlaces.Move {
+        let here = newsPlace
+        return ListPlaces.keptDrawn(atTop: here.atTop, searching: here.searching, ticked: here.ticked,
+                                    touching: here.touching)
     }
 
     /// Back to the newest mail after a while away, in this list rather than

@@ -398,6 +398,23 @@ struct ListPlaces {
         atTop && !searching && !ticked && !touching
     }
 
+    /// Where the list goes as the rows kept on the iPad are drawn again:
+    /// Drafts with a draft's copy landed at the top of the folder's letters
+    /// or a letter just put away listed above them, or the Outbox's rows
+    /// (`MessageListViewController.keptChanged`, `listOutbox`). At its top,
+    /// as the watch's news goes on (`showsNews`), it stays at its top, where
+    /// those rows go, and he sees them come. Anywhere else where he is: the
+    /// rows he can see stay where they are (B-093).
+    ///
+    /// Drawn where he was at the top, the first row he could see was held
+    /// in its place, and a row put above it went above the top of the pane,
+    /// out of sight: found on the test iPad, 2026-10-27, a held draft's
+    /// copy landed by Save Draft, not in sight until the list was dragged
+    /// down or a Refresh took it to the top (B-165).
+    static func keptDrawn(atTop: Bool, searching: Bool, ticked: Bool, touching: Bool) -> Move {
+        showsNews(atTop: atTop, searching: searching, ticked: ticked, touching: touching) ? .top : .stay
+    }
+
     /// Whether a table scrolled to `offset` is at its top, the first row's
     /// top against the top of the pane: `topInset` is the table's top
     /// content inset, which the offset is measured from. Within half a

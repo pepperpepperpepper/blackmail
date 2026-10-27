@@ -34682,3 +34682,48 @@ failing. The release build for the iPad links.
 **Not covered.** The sheet is UIKit: that `cancelTapped` brings it up when
 `asksAnyway` is true is read from the source (`ComposeLikeMailTests` pins
 the guard), not run. Not seen on the iPad: the TODO's B-165 check.
+
+**Found on the test iPad, 2026-10-27**, in round r6-h-compose, on the
+int18 build, at the check's step 4, and reproduced by a second run.
+Drafts at its top; the held draft opened, Cancel, Save Draft: the
+composer closed, one `APPEND` to `"[Gmail]/Drafts"` answered with its
+UID, nothing sent, `Local Drafts` emptied, one copy on the server; but
+Drafts showed no row for it at +1 s, +3 s or +25 s, the row below first,
+until a Refresh at +66 s. The second run dragged the list down slowly
+with nothing fetched: the copy's row was there, one row above the top of
+the pane under the search band. So B-165's sheet did its part, and the
+copy landed (`DraftLanding`), out of sight.
+
+*The cause.* Not B-165's change, but the list's: it held his place even
+at its top. `keptChanged` put the landed copy at the top of the folder's
+letters (`ListLetters.landed`) and regrouped where he was (`.stay`);
+`ListPlace.landing` kept the first row he could see at its offset, so the
+new row 0 went above the top of the pane. The watch's news, which goes
+on at the top the same way, is regrouped to the top for this reason
+(`showNewsIfAtTop`); the rows kept on the iPad were not. The row a Save
+Draft lists above the folder's letters as the sheet goes (B-087) was
+likely put out of sight the same way, and so was a letter put into the
+Outbox while the Outbox showed at its top (`listOutbox`). Recorded here
+rather than in B-093's entry, whose place-holding is the cause: B-093 was
+built before 2026-10-26 and this was found by B-165's check.
+
+*Changed.* `ListPlaces.keptDrawn`, new: where the list goes as the rows
+kept on the iPad are drawn again, to its top when the watch's news would
+go on there (`showsNews`: at the top, no search, no tick, no finger on
+the list), and where he is otherwise. `keptChanged` and `listOutbox` take
+it before anything is put on the list (`keptMove`) and regroup by it, in
+place of `.stay`. A list at its top stays at its top, the copy first and
+in sight; a list scrolled down keeps his place as B-093 has it. The other
+callers of `keep` are left as they were: a Refresh and the fresh page
+over the kept one go by `ListPlaces.replaced`, `refetched` and `KeptSwap`,
+and a failed fetch lists the rows already kept, with nothing new to put
+on.
+
+*Tests.* `ListPlaceTests`, one new: the move for each place, to the top
+only at the top with no search, tick or finger; a copy landed at the top
+of twenty rows, out of sight held where he was and first in sight at the
+top; scrolled down, the rows in view where they were; and read from the
+source, `keptChanged` and `listOutbox` taking the move before the list
+changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
+by hand, then put back and passing: `keptDrawn` always `.stay`, and
+`keptChanged` back to `regroup()`, 3 failures in 1 test.

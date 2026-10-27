@@ -1237,6 +1237,51 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertFalse(inView(grouped(twenty), at: at).contains("7/196"))
     }
 
+    /// Drafts or the Outbox drawn again for the rows kept on the iPad
+    /// (`ListPlaces.keptDrawn`): at the top, with no search, no tick and
+    /// no finger on the list, to the top, where a draft's copy landed by
+    /// Save Draft goes, and in sight; anywhere else where he is, the rows
+    /// he can see held (B-093). Found on the test iPad, 2026-10-27 (B-165):
+    /// drawn where he was at the top, the first row he could see stayed in
+    /// its place and the copy went above the top of the pane, out of sight.
+    /// And read from the source: `keptChanged` and `listOutbox` take the
+    /// move before anything is put on the list and regroup by it.
+    func testRowsKeptDrawnAtTheTopStayAtTheTopAndAnywhereElseWhereHeIs() throws {
+        XCTAssertEqual(ListPlaces.keptDrawn(atTop: true, searching: false, ticked: false, touching: false),
+                       .top)
+        for (searching, ticked, touching) in [(true, false, false), (false, true, false),
+                                              (false, false, true)] {
+            XCTAssertEqual(ListPlaces.keptDrawn(atTop: true, searching: searching, ticked: ticked,
+                                                touching: touching), .stay)
+        }
+        XCTAssertEqual(ListPlaces.keptDrawn(atTop: false, searching: false, ticked: false, touching: false),
+                       .stay)
+
+        let rows = grouped(twenty)
+        let landed = grouped([letter(230, thread: "d230")] + twenty)
+        let held = try offset(after: place(in: rows, at: -74), in: landed, from: -74)
+        XCTAssertFalse(inView(landed, at: held).contains("7/230"), "held where he was: above the top")
+        XCTAssertEqual(inView(landed, at: -74).first, "7/230", "at the top: first, in sight")
+        let down = try offset(after: place(in: rows, at: 310), in: landed, from: 310)
+        let was = onPane(rows, at: 310)
+        for id in inView(rows, at: 310) { XCTAssertEqual(onPane(landed, at: down)[id], was[id], id) }
+
+        let list = try source("UI/MessageListViewController.swift")
+        let changed = flat(body(after: "@objc private func keptChanged(_ note: Notification)", in: list))
+        let outbox = flat(body(after: "private func listOutbox()", in: list))
+        for (name, code, first) in [("keptChanged", changed, "if let landing"),
+                                    ("listOutbox", outbox, "_ = letters.fetchedAfresh([])")] {
+            let move = try XCTUnwrap(code.range(of: "let move = keptMove"), name)
+            let after = try XCTUnwrap(code.range(of: first), name)
+            XCTAssertLessThan(move.lowerBound, after.lowerBound, "\(name): taken before")
+            XCTAssertTrue(code.contains("regroup(to: move)"), name)
+            XCTAssertFalse(code.contains("regroup()"), name)
+        }
+        XCTAssertTrue(flat(body(after: "private var keptMove: ListPlaces.Move", in: list)).contains(
+            "let here = newsPlace return ListPlaces.keptDrawn(atTop: here.atTop, searching: here.searching, "
+                + "ticked: here.ticked, touching: here.touching)"))
+    }
+
     /// The list shows what it showed while the same rows are in sight, each
     /// where it was to half a point. The row out of sight above them and
     /// the rows selected do not count; a row more or less in sight does.

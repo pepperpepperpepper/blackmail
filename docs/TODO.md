@@ -8763,11 +8763,14 @@ checks below is left as not needed, not open, and none is worth a round.*
          Delete Draft, as for a changed letter. Its own Cancel (a tap
          outside it): the sheet goes and the letter is still open. On int17
          (939ad5a) the composer closed at once with nothing asked (B-165).
-      4. *Save Draft.* Cancel again, Save Draft: the composer closes; the
-         log has one `APPEND` to `"[Gmail]/Drafts"`, and no `MAIL FROM`,
-         `RCPT TO` or `DATA`; the row loses "On this iPad only" and its
-         held line; `letter.json` is gone from `Local Drafts`; one copy in
-         Drafts on the web.
+      4. *Save Draft.* Drafts at its top. Cancel again, Save Draft: the
+         composer closes; the log has one `APPEND` to `"[Gmail]/Drafts"`,
+         and no `MAIL FROM`, `RCPT TO` or `DATA`; the row loses "On this
+         iPad only" and its held line, and stays the first row, in sight,
+         Drafts still at its top, within a few seconds and with no
+         Refresh (on int18 it went one row above the top of the pane,
+         B-165, Found on the test iPad 2026-10-27); `letter.json` is gone
+         from `Local Drafts`; one copy in Drafts on the web.
       5. *Put back.* Open it from Drafts, type a word, Cancel, Delete
          Draft: no copy in Drafts, in the app or on the web. Nothing was
          sent.
