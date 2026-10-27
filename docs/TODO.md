@@ -8353,12 +8353,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       and To A with `+b157`, "B-157 undo N", letters 1 to 6 read and
       letter 7 unread, noting each UID. A shake by hand, or
       AssistiveTouch's Shake; three fingers if they can be made. The app's
-      connection log read after each step. First of all, before any Trash
-      or Move of the round, B-156's check's included when the two run
-      together, or straight after a relaunch: a shake with nothing to
-      undo puts up no alert. On 2026-10-27 the shake was made after
-      B-156's Trash, still on the undo stack, and "Undo Trash" came, so
-      it showed nothing of this.
+      connection log read after each step. First of all, before anything
+      Undo can take back, a Trash, a Move, a Flag or an Unflag, by a
+      drag, More, Edit mode or the pane, so before B-156's check begins
+      when the two run together (its step 2 flags and unflags by drags):
+      the app ended in the app switcher and opened again, then sent to
+      the background and back (Home, then its icon); two shakes a second
+      or two apart: no alert. Then the control: a drag's Flag on one of
+      the host's letters in "Notes", a shake: "Undo Flag"; Undo: the flag
+      gone, one `-FLAGS.SILENT (\Flagged)`. A shake with no alert and no
+      control after it is not evidence. On 2026-10-27 the shake was made
+      after B-156's Trash, still on the undo stack, and "Undo Trash" came;
+      at step 10 AssistiveTouch's Shake did not reach the app just
+      relaunched until it had been to the background and back; and a
+      first shake was lost twice (B-157, Found on the test iPad).
       0. *Informative, not blocking*, on any iPadOS 18 device with Mail, if
       one is at hand (the test iPad has none, B-028): flag a letter, shake,
       and write down the alert's words; Cancel. Unflag it, shake, the same.
@@ -8413,7 +8421,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       on letter 5, then a shake: the alert names the Flag before it, not
       the read mark; Cancel.
       10. *Nothing after a relaunch:* letter 3 deleted by a drag; the app
-      ended in the app switcher and opened again; a shake: no alert.
+      ended in the app switcher and opened again, then sent to the
+      background and back (Home, then its icon), as in the setup; two
+      shakes a second or two apart: no alert. Then the control: a drag's
+      Unflag on letter 4, flagged since 9, a shake: "Undo Unflag"; Undo:
+      the flag back, one `+FLAGS.SILENT (\Flagged)` (a first Undo that
+      says "Can't connect to mail server.", the connection lost while the
+      app was away, as on 2026-10-27: a shake, Undo again). Without the
+      control the no-alert shakes are not evidence: on 2026-10-27 the
+      shakes from AssistiveTouch did not reach the app just relaunched.
       Letter 3 is left in the Trash for the host.
       11. *Put back:* as B-156's step 11, by the UIDs noted and the ones
       every MOVE answered; Spam left as found. Nothing was sent.

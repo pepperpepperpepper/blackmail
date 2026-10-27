@@ -33148,9 +33148,19 @@ source checks.
 *The check's setup* (round r6-h-list, 2026-10-27, read by the round's
 audit): its one step, a shake with nothing to undo putting up no alert,
 was made after B-156's check, whose Trash was still on the undo stack, so
-"Undo Trash" came and the step showed nothing. The check now makes it
-first, before any Trash or Move of the round, or straight after a
-relaunch.
+"Undo Trash" came and the step showed nothing. Nor does a shake with no
+alert show anything by itself: at step 10 the round's shakes from
+AssistiveTouch did not reach the app just relaunched, and a control
+Unflag and a letter typed in the search field brought no alert either,
+until the app had been to the background and back; at step 9, and in the
+second run, a first shake was lost. The check now makes it first of all,
+before anything Undo takes back, a Trash, a Move, a Flag or an Unflag
+(B-156's step 2 flags and unflags by drags before its first Trash), so
+before B-156's check when the two run together: the app launched afresh,
+then sent to the background and back, two shakes and no alert, and then
+a control, a drag's Flag, a shake, "Undo Flag", Undo. Step 10, nothing
+after a relaunch, has the same trip to the background and the same
+control.
 
 ## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 
