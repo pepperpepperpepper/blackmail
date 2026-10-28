@@ -179,22 +179,23 @@ enum PageWindow {
     /// `landing`, by his calendar.
     ///
     /// `matches` is what the jump's SEARCHes found (`IMAPDate.jump`,
-    /// B-115): the letters of that day, by their dates in his calendar; or
-    /// if it has none, those of the first span after it that has any; or
-    /// if none has, every letter after it; each arrived no more than
-    /// `IMAPDate.arrivalSlack` days before the day and no later than a week
-    /// after today (B-058). Of them it is the LOWEST UID, the first to have
-    /// arrived, not the newest, which would be the day's last letter, or
-    /// the span's, or today's mail. On a day with mail that is a letter of
-    /// his day whatever order the folder's UIDs are in, never one of his
-    /// evening before that Gmail, counting from midnight UTC, takes for
-    /// the day; it is the day's first while they follow its dates, as they
-    /// do in a folder whose letters came in the order they were written.
+    /// B-115), all by when the letters arrived (B-178): the first to arrive
+    /// of that day's, in his calendar; or if it has none, the letters of
+    /// the first span after it that has any; or if none has, every letter
+    /// that arrived after it, no later than a week after today (B-058). Of
+    /// them it is the LOWEST UID, the first to have come into the folder,
+    /// not the newest, which would be the span's last letter or today's
+    /// mail. On a day with mail that is the first of his day to arrive
+    /// whatever order the folder's UIDs are in, never one of his evening
+    /// before that Gmail, counting from midnight UTC, takes for the day.
+    /// From a span it is the first to arrive while the folder's UIDs follow
+    /// its arrivals, and `landing` goes down to it where they do not.
     ///
     /// Returns nil only when the mailbox has nothing so matched, which the
     /// caller reads as "everything here is older than the day you asked
-    /// for" and answers by going to the top: a letter dated on or after the
-    /// day that arrived long before it is dated wrong, and not matched.
+    /// for" and answers by going to the top: nothing arrived on or after
+    /// the day, or only a letter that says it arrived more than a week
+    /// after today, copied in dated wrong.
     static func anchor(forMatches matches: [UInt32], in ascending: [UInt32]) -> UInt32? {
         guard let oldestMatch = matches.min() else { return nil }
         // The SEARCH and the snapshot are two round trips, so they can
@@ -231,41 +232,37 @@ enum PageWindow {
     }
 
     /// The row a jump lands on in its window, by his calendar: `dates` the
-    /// window's rows' dates, newest first, `anchor` the row the SEARCH
-    /// landed on (`anchor(forMatches:in:)`), `dayStart` midnight of the
-    /// day he asked for where he is, `searchedFrom` midnight UTC of that
-    /// same date, from which the SEARCH counted, and `notAfter` a week
-    /// after today.
+    /// window's rows' dates, newest first, each when its letter arrived as
+    /// the list goes and shows it (`MessageSummary.listDate`, B-178),
+    /// `anchor` the row the SEARCH landed on (`anchor(forMatches:in:)`),
+    /// `dayStart` midnight of the day he asked for where he is, and
+    /// `notAfter` a week after today.
     ///
-    /// Gmail counts a day from midnight UTC, not from the day the Date
-    /// header gives, as RFC 3501 has it, nor from his midnight (B-058, seen
-    /// on the iPad). West of Greenwich the SEARCH matches the evening before
-    /// as well, from 8 pm in Boston in summer, and the jump landed on a
-    /// letter of that evening and said the day before. So a landing dated
-    /// before his day moves up, to the nearest newer row dated on or after
-    /// it. East of Greenwich the SEARCH misses his first hours, which were
-    /// the day before in UTC, so a landing moves down over the older rows
-    /// dated in those hours and no others: in Boston there are none, and a
-    /// row below the landing dated after his midnight is one the SEARCH left
-    /// out on purpose, dated wrong.
+    /// The oldest row that arrived on or after his day: in a list in the
+    /// order the letters arrived, every row above it arrived after it and
+    /// every row below it before his day. From the anchor, down over the
+    /// rows below it that arrived on or after his midnight, each no later
+    /// than the row above it: a row out of that order, as a row kept with
+    /// no arrival can be, ends the walk, as the account's own letters of
+    /// 2026 at the foot of a folder by UID ended none before. Of his day's
+    /// letters the anchor is the first to arrive (`IMAPDate.jump`), and
+    /// none is below it. Of a span's after it, the anchor is the lowest UID
+    /// matched, which in a label or a folder with letters moved in can have
+    /// arrived after others the span matched, which are below it in the
+    /// list: the landing goes down to the first of them to arrive, as far
+    /// as the window goes below. It went down only over his first hours
+    /// east of Greenwich while a jump went by the Date, a row below dated
+    /// later being one dated wrong; by arrival a row is where it arrived.
     ///
-    /// A row dated after `notAfter`, more than a week ahead, is dated wrong
-    /// and is never landed on by this; a landing that is one moves up as
-    /// one dated before his day does. With no such row above it, the
-    /// landing stays where the SEARCH put it.
-    ///
-    /// Since B-115 a jump fetches the dates of the letters of Gmail's days
-    /// that hold his day, and anchors on one dated within it
-    /// (`IMAPDate.jump`); with none, on one after it, from a SEARCH that
-    /// begins after his midnight. So its anchor is no longer of the
-    /// evening before, nor of his next morning with his first hours left
-    /// out, and this seldom moves it: up from a letter dated more than a
-    /// week ahead, which the SEARCH with no end can find; for a day a week
-    /// or more ahead, which the picker does not offer, asked as before; and
-    /// down onto a row of his first hours, east of Greenwich, that the
-    /// SEARCH left out, having arrived more than a week before the day.
-    static func landing(dates: [Date], anchor: Int, dayStart: Date, searchedFrom: Date,
-                        notAfter: Date) -> Int {
+    /// Gmail counts a day from midnight UTC, not from his midnight (B-058,
+    /// seen on the iPad). An anchor that arrived before his day, which the
+    /// day's SEARCH no longer gives, moves up to the nearest newer row that
+    /// arrived on or after it. A row that says it arrived after `notAfter`,
+    /// more than a week ahead, was copied in dated wrong and is never
+    /// landed on by this; a landing that is one moves up as one before his
+    /// day does. With no such row above it, the landing stays where the
+    /// SEARCH put it, and the repository finds nothing that recent.
+    static func landing(dates: [Date], anchor: Int, dayStart: Date, notAfter: Date) -> Int {
         guard dates.indices.contains(anchor) else { return anchor }
         func onOrAfterHisDay(_ i: Int) -> Bool { dates[i] >= dayStart && dates[i] <= notAfter }
         if !onOrAfterHisDay(anchor) {
@@ -275,8 +272,8 @@ enum PageWindow {
             return anchor
         }
         var landed = anchor
-        while landed + 1 < dates.count, dates[landed + 1] >= dayStart,
-              dates[landed + 1] < searchedFrom {
+        while landed + 1 < dates.count, onOrAfterHisDay(landed + 1),
+              dates[landed + 1] <= dates[landed] {
             landed += 1
         }
         return landed

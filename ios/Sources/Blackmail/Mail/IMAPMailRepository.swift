@@ -1448,12 +1448,13 @@ actor IMAPMailRepository: MailRepository {
         // reconnect could fall between them onto a renumbered folder, and
         // the anchor would be some other letter.
         //
-        // The letters of his day are asked for first, with their dates, and
-        // spans after it only while none is found (`IMAPDate.jump`, B-115):
-        // the lowest UID of all on or after the day was the first letter
-        // of it only while the folder's UIDs followed its dates, and the
-        // lowest of Gmail's day, counted from midnight UTC, can be his
-        // evening before. Of the spans only the lowest UID matched is ever
+        // The letters that arrived on his day are asked for first, with
+        // their dates, and spans after it only while none is found
+        // (`IMAPDate.jump`, B-115), all by when the letters arrived, as the
+        // list goes and its rows show (B-178): the lowest UID of all on or
+        // after the day was the first letter of it only while the folder's
+        // UIDs followed its arrivals, and the lowest of Gmail's day,
+        // counted from midnight UTC, can be his evening before. Of the spans only the lowest UID matched is ever
         // used (`PageWindow.anchor`), so only that is asked for, where the
         // server can say it alone (`IMAPClient.PageSearch.lowestDated`).
         // The whole listing is still asked for: it is what the pages walk.
@@ -1512,41 +1513,42 @@ actor IMAPMailRepository: MailRepository {
         guard !rows.isEmpty else { return nil }
         let anchorRow = min(PageWindow.anchorRow(fetched: opened.summaries.compactMap(\.uid),
                                                  in: window) ?? 0, rows.count - 1)
-        // Gmail's day runs from midnight UTC, his from his own midnight:
-        // landed on the first letter of his day (`PageWindow.landing`). The
-        // anchor is one of his day's letters by their dates, or one after
-        // it (B-115), so this seldom moves it now: up from a letter dated
-        // more than a week ahead, which the SEARCH with no end can find;
-        // for a day a week or more ahead, asked as before; and down, east
-        // of Greenwich, onto a letter of his first hours that the SEARCH
-        // left out (`PageWindow.landing`).
+        // Landed on the first letter to arrive on or after his day, by his
+        // midnight, as the rows show when each arrived (`PageWindow.landing`,
+        // `MessageSummary.listDate`, B-178). The anchor is the first to
+        // arrive of his day's letters, or the lowest UID of a span's after
+        // it (B-115), so this moves it down from that to the first of the
+        // span's to arrive, where the folder's UIDs do not follow its
+        // arrivals; and up from a letter that says it arrived more than a
+        // week ahead, or for a day a week or more ahead, asked as before.
+        // By the Date, the day's letters that were dated another day were
+        // dropped and a span's letter dated long before was landed short
+        // of the day, and the jump said "No mail on or after" (2026-10-28).
         let dayStart = calendar.startOfDay(for: date)
         let notAfter = calendar.date(byAdding: .day, value: IMAPDate.arrivalSlack + 1,
                                      to: now()) ?? now()
-        var utc = Calendar(identifier: .gregorian)
-        utc.timeZone = TimeZone(identifier: "UTC")!
-        let searchedFrom = utc.date(from: calendar.dateComponents([.year, .month, .day],
-                                                                  from: date)) ?? dayStart
         let landedIndex = PageWindow.landing(
-            dates: rows.map(\.date), anchor: anchorRow,
-            dayStart: dayStart, searchedFrom: searchedFrom, notAfter: notAfter)
-        // Landed before his day, or on a letter dated wrong, with every newer
-        // letter in the window: none is on or after his day, only the evening
-        // before it as Gmail counts, so there is nothing that recent.
-        let landedDate = rows[landedIndex].date
+            dates: rows.map(\.listDate), anchor: anchorRow,
+            dayStart: dayStart, notAfter: notAfter)
+        // Landed before his day, or on a letter that says it arrived more
+        // than a week ahead, with every newer letter in the window: none
+        // arrived on or after his day, only the evening before it as Gmail
+        // counts, so there is nothing that recent.
+        let landedDate = rows[landedIndex].listDate
         if window.reachedNewest, landedDate < dayStart || landedDate > notAfter {
             return nil
         }
 
         // The bounds the landing went by go with it: the list opens on the
-        // oldest row dated within them at or above the letter, by its
-        // newest letter's date (`ListOpening.dayRow`, B-118).
+        // oldest row within them at or above the letter, by when its newest
+        // letter arrived, the date the row shows (`ListOpening.dayRow`,
+        // B-118, B-178).
         stamp(order, of: name)
         return MessageWindow(messages: rows,
                              anchorIndex: landedIndex,
                              reachedNewest: window.reachedNewest,
                              reachedOldest: window.reachedOldest,
-                             landedOn: rows[landedIndex].date,
+                             landedOn: landedDate,
                              dayStart: dayStart,
                              notAfter: notAfter)
     }

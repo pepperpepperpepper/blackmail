@@ -57,7 +57,7 @@ final class MockMailRepository: MailRepository {
         let all = messages[mailboxID] ?? []
         // Newest first, so the FIRST letter on or after the date is the LAST
         // matching row.
-        guard let idx = all.lastIndex(where: { $0.date >= date }) else { return nil }
+        guard let idx = all.lastIndex(where: { $0.listDate >= date }) else { return nil }
         // The window and the page above it, as the real one has them
         // (`PageWindow.jumpWindow`, B-117).
         let window = min(PageWindow.newerRowsAboveAnchor, idx)
@@ -68,7 +68,7 @@ final class MockMailRepository: MailRepository {
                              anchorIndex: takeNewer,
                              reachedNewest: start == 0,
                              reachedOldest: end == all.count,
-                             landedOn: all[idx].date,
+                             landedOn: all[idx].listDate,
                              dayStart: date)
     }
 

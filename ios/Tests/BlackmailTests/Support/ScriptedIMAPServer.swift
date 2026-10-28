@@ -126,8 +126,10 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         /// letter is.
         var joins: String?
         /// When Gmail took it, its INTERNALDATE, which SINCE, BEFORE and ON
-        /// search: nil for the moment its Date says, as every seeded letter
-        /// arrives. Set apart for a letter delayed, or one dated wrong.
+        /// search, and SENTSINCE, SENTBEFORE and SENTON too, as Gmail's do
+        /// (B-178): nil for the moment its Date says, as every seeded
+        /// letter arrives. Set apart for a letter delayed, or one dated
+        /// wrong.
         var arrived: Date? = nil
 
         /// Its Reply-To header, an address each: none for a letter without
@@ -2934,13 +2936,16 @@ private extension ScriptedIMAPServer {
                         .range(of: needle, options: .caseInsensitive) != nil
                 }
             case let .sent(comparison, day), let .received(comparison, day):
-                // Both by the day in UTC, which is the zone every seeded
-                // Date header is written in: SENT* by its Date, the rest by
-                // when it arrived.
+                // Both by the day in UTC, as Gmail counts them (B-058), and
+                // both by when the letter arrived, as Gmail answers them:
+                // on the test account on 2026-10-28 `SENTON` the day a
+                // letter dated 1 March 2024 arrived found it, and `SENTON
+                // "01-Mar-2024"` found nothing (B-178). RFC 3501 has SENT*
+                // by the Date header; this server answered so until then,
+                // and a jump that searched by it passed here and failed on
+                // the iPad.
                 let calendar = Self.utc
-                let when: Date
-                if case .sent = self { when = letter.date } else { when = letter.arrival }
-                let letterDay = calendar.startOfDay(for: when)
+                let letterDay = calendar.startOfDay(for: letter.arrival)
                 let asked = calendar.startOfDay(for: day)
                 switch comparison {
                 case .since:  return letterDay >= asked

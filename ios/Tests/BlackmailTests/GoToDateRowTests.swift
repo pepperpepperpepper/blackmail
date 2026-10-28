@@ -268,20 +268,15 @@ final class GoToDateRowTests: XCTestCase {
     private func jump(to ymd: String, in folder: Folder, landingOn anchor: UInt32,
                       grouped: Bool = true) -> Opened {
         let dayStart = Self.newYork.startOfDay(for: Self.ny(ymd + "T12:00"))
-        var utc = Calendar(identifier: .gregorian)
-        utc.timeZone = TimeZone(identifier: "UTC")!
-        let parts = ymd.split(separator: "-").map { Int($0)! }
-        let searchedFrom = utc.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))!
         let notAfter = Self.newYork.date(byAdding: .day, value: IMAPDate.arrivalSlack + 1, to: now)!
         let jumped = PageWindow.jumpWindow(around: anchor, in: folder.listing, limit: 50)
         let letters = jumped.uids.map { letter($0, in: folder) }
-        let landed = PageWindow.landing(dates: letters.map(\.date), anchor: jumped.anchorIndex,
-                                        dayStart: dayStart, searchedFrom: searchedFrom,
-                                        notAfter: notAfter)
+        let landed = PageWindow.landing(dates: letters.map(\.listDate), anchor: jumped.anchorIndex,
+                                        dayStart: dayStart, notAfter: notAfter)
         let window = MessageWindow(messages: letters, anchorIndex: landed,
                                    reachedNewest: jumped.reachedNewest,
                                    reachedOldest: jumped.reachedOldest,
-                                   landedOn: letters[landed].date,
+                                   landedOn: letters[landed].listDate,
                                    dayStart: dayStart, notAfter: notAfter)
         let rows = MessageThread.rows(for: letters, grouped: grouped)
         return Opened(window: window, rows: rows, opened: ListOpening.dayRow(in: rows, for: window))
@@ -872,11 +867,13 @@ final class GoToDateRowTests: XCTestCase {
                 + "&& ConversationSettings.organizeByThread ).map(Row.thread)"))
 
         let repository = flat(try source("Mail/IMAPMailRepository.swift"))
-        XCTAssertTrue(repository.contains("landedOn: rows[landedIndex].date, dayStart: dayStart, "
+        XCTAssertTrue(repository.contains("landedOn: landedDate, dayStart: dayStart, "
                                           + "notAfter: notAfter)"), "the landing's bounds")
+        // By when the letter landed on arrived, the date its row shows (B-178).
+        XCTAssertTrue(repository.contains("let landedDate = rows[landedIndex].listDate"))
         XCTAssertTrue(repository.contains("let dayStart = calendar.startOfDay(for: date)"))
         let mock = flat(try source("Mail/MockMailRepository.swift"))
-        XCTAssertTrue(mock.contains("landedOn: all[idx].date, dayStart: date)"))
+        XCTAssertTrue(mock.contains("landedOn: all[idx].listDate, dayStart: date)"))
     }
 
     // MARK: - Reading the source

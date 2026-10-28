@@ -166,8 +166,8 @@ final class LandedLetterTests: XCTestCase {
         let row = PageWindow.anchorRow(762, fetched: without)
         XCTAssertEqual(row.map { without[$0] }, 761)
         let dayStart = Date(timeIntervalSince1970: 1_338_508_800) // 1 June 2012, midnight UTC
-        let landed = PageWindow.landing(dates: without.map { letter($0).date }, anchor: row ?? 0,
-                                        dayStart: dayStart, searchedFrom: dayStart,
+        let landed = PageWindow.landing(dates: without.map { letter($0).listDate }, anchor: row ?? 0,
+                                        dayStart: dayStart,
                                         notAfter: Date(timeIntervalSince1970: 1_791_028_800))
         XCTAssertEqual(without[landed], 763, "the day's next letter, not 822")
 
@@ -470,7 +470,7 @@ final class LandedLetterTests: XCTestCase {
             "let anchorRow = min(PageWindow.anchorRow(fetched: opened.summaries.compactMap(\\.uid), "
                 + "in: window) ?? 0, rows.count - 1)"))
         XCTAssertTrue(flat(repository).contains(
-            "let landedIndex = PageWindow.landing( dates: rows.map(\\.date), anchor: anchorRow,"))
+            "let landedIndex = PageWindow.landing( dates: rows.map(\\.listDate), anchor: anchorRow,"))
     }
 
     /// `show` lands on the row it opens on, the oldest dated on or after the

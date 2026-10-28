@@ -48,21 +48,23 @@ protocol MailRepository {
 
     /// Opens the folder at a day instead of at the newest message.
     ///
-    /// Lands on the FIRST letter sent on or after `date`, by his calendar,
-    /// and returns the mail either side of it, so he can read forwards into
-    /// the days after or backwards into the days before without starting
-    /// from today and scrolling. Which is first goes by the list's order,
-    /// the first to arrive (B-178), among that day's letters, by their dates
-    /// in his calendar, or on a day with none among the first days after it
-    /// that have any (B-115, `IMAPDate.jump`). So in a folder whose letters
-    /// did not come in the order they were written it is still a letter of
+    /// Lands on the FIRST letter to arrive on or after `date`, by his
+    /// calendar, and returns the mail either side of it, so he can read
+    /// forwards into the days after or backwards into the days before
+    /// without starting from today and scrolling. Which is first goes by the
+    /// list's order and the date its rows show, when each letter arrived
+    /// (B-178), among the letters that arrived that day, in his calendar,
+    /// or on a day with none among the first days after it that have any
+    /// (B-115, `IMAPDate.jump`). So in a folder whose letters did not come
+    /// into it in the order they arrived it is still a letter of
     /// that day, or of those days, and never one of the evening before
     /// that Gmail's day, counted from midnight UTC, also holds. A `nil`
     /// result means the folder holds nothing that recent and the caller
-    /// should stay where the newest mail is. A letter dated on or after
-    /// `date` that arrived more than a week before it, or says it arrived
-    /// more than a week after today, is dated wrong, and is not where the
-    /// SEARCH lands (B-058, `IMAPDate.sentOnOrAfter`, `PageWindow.landing`).
+    /// should stay where the newest mail is. Every day here is a day the
+    /// letters arrived on, as the list goes and its rows show (B-178). A
+    /// letter that says it arrived more than a week after today was copied
+    /// in dated wrong, and is not where the SEARCH lands (B-058,
+    /// `IMAPDate.arrivedOnOrAfter`, `PageWindow.landing`).
     ///
     /// The mail either side is the window around the letter, `limit` long,
     /// and the page of `limit` above it (`PageWindow.jumpWindow`, B-117): a

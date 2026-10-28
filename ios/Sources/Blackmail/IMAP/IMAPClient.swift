@@ -1023,23 +1023,26 @@ actor IMAPClient {
         return []
     }
 
-    /// The lowest UID of the letters `day` matches whose date, as the list
-    /// shows it, is within `dated`, as `[uid]`; with none, what
+    /// The first to arrive of the letters `day` matches that arrived within
+    /// `dated`, as `[uid]`; with none, what
     /// `performLowestOfFirst(wider)` finds; nil if the server refused a
     /// SEARCH, or matched letters and gave none of their dates. The
     /// caller holds the gate.
     ///
-    /// A date jump's (B-115): `day` every letter of Gmail's days that hold
-    /// any of his day, `dated` his day (`IMAPDate.jump`). Gmail counts a
-    /// SEARCH's days from midnight UTC (B-058), so those letters include
-    /// his evening before west of Greenwich and his next morning east of
-    /// it, and in a folder whose UIDs do not follow its dates either can
-    /// have the lowest UID. So `day` is asked whole, a plain SEARCH, some
-    /// two days' letters, and their dates are fetched in the same hold
-    /// (`performDateFetch`); the first to arrive of those dated within his
-    /// day, by INTERNALDATE and then UID as the list goes (B-178), is the
-    /// answer; it was the lowest UID while the list went by UID. With none, his evening before alone or nothing,
-    /// `wider` is asked, as an empty day would be.
+    /// A date jump's (B-115): `day` every letter that arrived on Gmail's
+    /// days that hold any of his day, `dated` his day (`IMAPDate.jump`).
+    /// Gmail counts a SEARCH's days from midnight UTC (B-058), so those
+    /// letters include his evening before west of Greenwich and his next
+    /// morning east of it, and in a folder whose UIDs do not follow its
+    /// arrivals either can have the lowest UID. So `day` is asked whole, a
+    /// plain SEARCH, some two days' letters, and their dates are fetched in
+    /// the same hold (`performDateFetch`); the first to arrive of those
+    /// that arrived within his day, by INTERNALDATE and then UID as the
+    /// list goes and as its rows show (B-178), is the answer; it was the
+    /// lowest UID while the list went by UID. Judged by the Date until
+    /// 2026-10-28, which dropped every letter of his day dated another day,
+    /// on Gmail, which matched them by arrival. With none, his evening
+    /// before alone or nothing, `wider` is asked, as an empty day would be.
     private func performLowestDated(_ day: String, within dated: Range<Date>,
                                     wider: [String]) async throws -> [UInt32]? {
         guard let matched = try await performSearch(day) else { return nil }
@@ -1048,8 +1051,10 @@ actor IMAPClient {
             // The first of them to arrive, as the list now goes by when
             // each arrived (B-178): the lowest UID was the first only while
             // the folder's UIDs followed its arrivals. With no arrival
-            // given, the lowest UID, as before.
-            let ofHisDay = dates.filter { dated.contains($0.date) }
+            // given, the lowest UID, as before. Of his day by when it
+            // arrived, the date its row shows, or with none given, by its
+            // Date (`MessageSummary.listDate`).
+            let ofHisDay = dates.filter { dated.contains($0.arrived ?? $0.date) }
             if let first = ofHisDay.min(by: { a, b in
                 switch (a.arrived, b.arrived) {
                 case let (x?, y?): return ArrivalOrder.isOlder(a.uid, x, than: b.uid, y)
@@ -1064,9 +1069,11 @@ actor IMAPClient {
         return try await performLowestOfFirst(wider)
     }
 
-    /// The date each of `uids` shows in the list, the Date it was sent or,
-    /// with none, when it arrived, as a row has it (`IMAPMailRepository`'s
-    /// `rows`): `UID FETCH … (UID INTERNALDATE ENVELOPE)`, chunked as a
+    /// When each of `uids` arrived, `arrived`, the date its row shows, and
+    /// its Date, `date`, the Date it was sent or, with none, when it
+    /// arrived, as a row has them (`IMAPMailRepository`'s `rows`,
+    /// `MessageSummary.listDate`): `UID FETCH … (UID INTERNALDATE
+    /// ENVELOPE)`, chunked as a
     /// page's FETCH is. A letter the server leaves out is left out, and so
     /// is one it gives with no ENVELOPE, which is never made a row
     /// (`ordered`), or with neither date; nil if it gave none of them and
@@ -1268,8 +1275,9 @@ actor IMAPClient {
     /// `PageSearch.lowest` the lowest alone (`performLowest`), for a
     /// `PageSearch.lowestOfFirst` the lowest of the first of its SEARCHes
     /// to match anything (`performLowestOfFirst`), and for a
-    /// `PageSearch.lowestDated` the lowest of its day's letters dated
-    /// within it, or of the first wider SEARCH to match anything
+    /// `PageSearch.lowestDated` the first to arrive of its day's letters
+    /// that arrived within it, or the lowest of the first wider SEARCH to
+    /// match anything
     /// (`performLowestDated`). Every list
     /// comes out of the same SELECT, so they share its UIDVALIDITY, which is
     /// returned with each.
@@ -1362,9 +1370,10 @@ actor IMAPClient {
         /// they find nothing (`IMAPDate.jump`, B-115), or for a day a week
         /// or more ahead its one SEARCH.
         case lowestOfFirst([String])
-        /// The lowest UID of the letters the first matches whose date, as
-        /// the list shows it, is within the range, their dates fetched to
-        /// see; with none, as `lowestOfFirst` the rest: a date jump's,
+        /// The first to arrive of the letters the first matches that
+        /// arrived within the range, as the list goes and shows them, their
+        /// dates fetched to see; with none, as `lowestOfFirst` the rest: a
+        /// date jump's,
         /// its day's letters, his day, and the spans after it
         /// (`IMAPDate.Jump`, B-115).
         case lowestDated(String, within: Range<Date>, wider: [String])

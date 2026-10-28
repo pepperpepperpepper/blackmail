@@ -1,10 +1,11 @@
 import XCTest
 @testable import Blackmail
 
-/// Go to Date bounded by when a letter arrived as well as by its Date
-/// (B-058), over the shipping repository and client against the scripted
-/// server, which searches SENTSINCE by a letter's Date and SINCE by its
-/// INTERNALDATE, as RFC 3501 has it (on Gmail, see B-058).
+/// Go to Date by when a letter arrived, never later than a week after
+/// today (B-058, B-178), over the shipping repository and client against
+/// the scripted server, which searches SINCE and BEFORE by a letter's
+/// INTERNALDATE, as RFC 3501 has it, and the SENT* keys by it too, as Gmail
+/// does. A jump asked by the Date until B-178's fix of 2026-10-28.
 ///
 /// The Inbox here holds a letter copied in first, with an arrival of 2037
 /// as well as a Date of 2037, so the lowest UID; a letter that arrived in
@@ -126,8 +127,9 @@ final class GoToDateBoundTests: XCTestCase {
 
     /// Neither the letter dated 2037 that arrived in 2014, nor the one
     /// copied in saying it arrived in 2037, captures a jump: each lands on
-    /// the first letter on or after the day asked for, as it would with
-    /// them gone. Before the bound every jump below landed on one of them.
+    /// the first letter to arrive on or after the day asked for, as it
+    /// would with them gone. Before B-058 every jump below landed on one of
+    /// them.
     func testALetterDatedWrongIntoTheFutureCapturesNoJump() async throws {
         let repository = makeRepository()
         let first = try await landing(repository, "2015-01-01")
@@ -140,7 +142,7 @@ final class GoToDateBoundTests: XCTestCase {
 
     /// After the newest letter rightly dated, and before 2037, there is
     /// nothing that recent: not the letter dated wrong, which arrived years
-    /// before.
+    /// before, nor the one copied in saying it arrived in 2037.
     func testAfterTheNewestLetterThereIsNothingThatRecent() async throws {
         let repository = makeRepository()
         let window = try await repository.messages(around: picked("2021-01-01"), in: "inbox",
@@ -148,23 +150,33 @@ final class GoToDateBoundTests: XCTestCase {
         XCTAssertNil(window)
     }
 
-    /// A letter delayed on its way is found by its Date however late it
-    /// arrived, and one from a clock a few days fast by its Date as well:
-    /// it arrived within the week before.
-    func testLettersDelayedOrFromAFastClockAreStillFound() async throws {
+    /// Each letter is found on the day it arrived, the day its row shows
+    /// (B-178): the one delayed three days on its way on the 22nd, landed
+    /// on from its Date's day as the first to arrive after it; the one from
+    /// a clock two days fast on the 1st, and not from its Date's day before
+    /// that, the 2nd, which lands on the next to arrive; and the one dated
+    /// 2037 on the day in 2014 it arrived.
+    func testEachLetterIsFoundOnTheDayItArrived() async throws {
         let repository = makeRepository()
-        let delayed = try await landing(repository, "2019-06-19")
-        XCTAssertEqual(delayed, "Delayed")
-        let fast = try await landing(repository, "2019-08-02")
+        let window = try await repository.messages(around: picked("2019-06-19"), in: "inbox",
+                                                   limit: 10)
+        let delayed = try XCTUnwrap(window)
+        XCTAssertEqual(delayed.messages[delayed.anchorIndex].subject, "Delayed")
+        XCTAssertEqual(delayed.landedOn, day("2019-06-22"))
+        let fast = try await landing(repository, "2019-08-01")
         XCTAssertEqual(fast, "Clock fast")
+        let after = try await landing(repository, "2019-08-02")
+        XCTAssertEqual(after, "19th 16:00 UTC")
+        let wrong = try await landing(repository, "2014-03-01")
+        XCTAssertEqual(wrong, "Dated wrong")
     }
 
     /// The letters dated wrong are still in the Inbox, where the list's
     /// order puts them, by when each arrived as Mail's list goes (B-178):
     /// the one that arrived in 2014 at the foot, and the one copied in with
     /// its arrival set to 2037 at the top. By UID, the order they were put
-    /// in, both were at the foot. The bound hides them from jumps, nothing
-    /// more.
+    /// in, both were at the foot. The bound hides the second from jumps,
+    /// nothing more.
     func testTheLettersDatedWrongAreStillListed() async throws {
         let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
@@ -204,29 +216,24 @@ final class GoToDateBoundTests: XCTestCase {
         XCTAssertEqual(below(window), "Clock fast")
     }
 
-    /// On the wire, one SEARCH carries them all: the Date within Gmail's
-    /// days that hold his day, here New York's 19th, Gmail's 19th and 20th
-    /// (B-115), the arrival on or after a week before it, and no later
-    /// than a week after today, in his calendar; a day with mail, so no
-    /// other is asked.
+    /// On the wire, one SEARCH: the arrival within Gmail's days that hold
+    /// his day, here New York's 22nd, Gmail's 22nd and 23rd (B-115), by
+    /// SINCE and BEFORE, nothing by the Date (B-178), and with that end no
+    /// other bound; a day with mail, so no other is asked.
     func testOneSearchCarriesAllTheDates() async throws {
         let newYork = calendar("America/New_York")
         let repository = makeRepository(calendar: newYork)
-        let picked = newYork.date(from: DateComponents(year: 2019, month: 6, day: 19, hour: 12))!
+        let picked = newYork.date(from: DateComponents(year: 2019, month: 6, day: 22, hour: 12))!
         _ = try await repository.messages(around: picked, in: "inbox", limit: 10)
         let searches = server.log.filter { $0.verb == "UID SEARCH" }.map(\.command)
-        let dated = searches.filter { $0.contains("SENTSINCE") }
+        let dated = searches.filter { $0.contains(" SINCE ") }
         let only = try XCTUnwrap(dated.first)
         XCTAssertEqual(dated.count, 1)
-        XCTAssertTrue(only.hasSuffix(
-            "SENTSINCE \"19-Jun-2019\" SENTBEFORE \"21-Jun-2019\" SINCE \"12-Jun-2019\" "
-                + "BEFORE \"11-Oct-2026\""), only)
+        XCTAssertTrue(only.hasSuffix("SINCE \"22-Jun-2019\" BEFORE \"24-Jun-2019\""), only)
         // Asked whole, a day's few letters, whose dates are fetched to see
         // which are his day's (B-115); and the listing the pages walk,
         // whole, after it.
-        XCTAssertEqual(searches, ["UID SEARCH SENTSINCE \"19-Jun-2019\" "
-                                    + "SENTBEFORE \"21-Jun-2019\" "
-                                    + "SINCE \"12-Jun-2019\" BEFORE \"11-Oct-2026\"",
+        XCTAssertEqual(searches, ["UID SEARCH SINCE \"22-Jun-2019\" BEFORE \"24-Jun-2019\"",
                                   "UID SEARCH ALL"])
         XCTAssertEqual(server.log.filter { $0.command.hasSuffix("(UID INTERNALDATE ENVELOPE)") }.count, 1)
     }
@@ -262,7 +269,7 @@ final class GoToDateBoundTests: XCTestCase {
                         + "of \(w.messages.map(\.subject)) newest \(w.reachedNewest)"
                 } ?? "nothing that recent")
             }
-            let dated = server.log.filter { $0.command.contains("SENTSINCE") }
+            let dated = server.log.filter { $0.command.contains(" SINCE ") }
             let returning = dated.filter { $0.command.contains("RETURN (MIN)") }.count
             // His day's asked whole each time, its letters' dates wanted;
             // the spans after it for their lowest alone (B-115).
@@ -281,18 +288,16 @@ final class GoToDateBoundTests: XCTestCase {
     /// The SEARCH asks for his date, in his calendar, whatever day it is in
     /// UTC: 8 am on the 20th in Tokyo is the 19th in UTC, and his 20th is
     /// Gmail's 19th and 20th (B-115), where the 19th would be its 18th and
-    /// 19th, a week back from the 12th.
+    /// 19th.
     func testTheSearchAsksForHisDateInHisCalendar() async throws {
         let tokyo = calendar("Asia/Tokyo")
         let repository = makeRepository(calendar: tokyo)
         let picked = tokyo.date(from: DateComponents(year: 2019, month: 6, day: 20, hour: 8))!
         _ = try await repository.messages(around: picked, in: "inbox", limit: 10)
         let dated = server.log.filter { $0.verb == "UID SEARCH" }.map(\.command)
-            .filter { $0.contains("SENTSINCE") }
+            .filter { $0.contains(" SINCE ") }
         let only = try XCTUnwrap(dated.first)
-        XCTAssertTrue(only.hasSuffix(
-            "SENTSINCE \"19-Jun-2019\" SENTBEFORE \"21-Jun-2019\" SINCE \"13-Jun-2019\" "
-                + "BEFORE \"11-Oct-2026\""), only)
+        XCTAssertTrue(only.hasSuffix("SINCE \"19-Jun-2019\" BEFORE \"21-Jun-2019\""), only)
     }
 
     /// The 21st asked for in New York, a day with no mail of its own: the
@@ -324,8 +329,9 @@ final class GoToDateBoundTests: XCTestCase {
     }
 
     /// West of Greenwich the jump never moves down onto a letter below the
-    /// SEARCH's, which it left out: here one that arrived on the 5th dated
-    /// the 25th, just below the first letter of the 20th.
+    /// day's first to arrive: here one that arrived on the 5th dated the
+    /// 25th, just below the first letter of the 20th, as its arrival puts
+    /// it.
     func testWestOfGreenwichALetterLeftOutBelowIsNeverLandedOn() async throws {
         server = ScriptedIMAPServer(inboxCount: 0)
         for letter in [letter("Early", sent: "2019-09-01"),

@@ -115,9 +115,9 @@ enum ListOpening {
 
     /// The row of `rows`, the list's rows as it draws them from `window`'s
     /// letters, that a jump opens on, as Mail's list shows the day (B-118):
-    /// the oldest row dated on or after it, a row dated by its newest letter
-    /// (`MessageThread.date`), the rows dated after it above and those dated
-    /// before it below.
+    /// the oldest row dated on or after it, a row dated by when its newest
+    /// letter arrived, the date it shows (`MessageThread.listDate`, B-178),
+    /// the rows dated after it above and those dated before it below.
     ///
     /// Asked for by the owner on 2026-10-23: "Copy how Apple Mail works in
     /// terms of the date." With Organize by Thread on, Mail dates a
@@ -167,7 +167,7 @@ enum ListOpening {
         for (i, row) in rows.enumerated() where heading[row.id] == nil { heading[row.id] = i }
         for i in stride(from: landed, through: 0, by: -1) {
             guard let row = heading[letters[i].id] else { continue }
-            let date = rows[row].date
+            let date = rows[row].listDate
             if date >= window.dayStart && date <= window.notAfter {
                 return DayRow(row: row, shown: date)
             }

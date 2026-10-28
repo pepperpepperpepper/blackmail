@@ -3,9 +3,9 @@ import XCTest
 
 /// Go to Date in a folder whose UIDs do not follow its dates (B-115), over
 /// the shipping repository and client against the scripted server, which
-/// searches SENTSINCE and SENTBEFORE by a letter's Date and SINCE and
-/// BEFORE by when it arrived, each by the day in UTC, as Gmail counts them
-/// (B-058).
+/// searches SINCE and BEFORE, and SENTSINCE and SENTBEFORE as Gmail does,
+/// by when a letter arrived, each by the day in UTC, as Gmail counts them
+/// (B-058, B-178). Every letter here arrived when its Date says.
 ///
 /// The Inbox here is the size test's of 2026-10-23 made small: the
 /// account's own four letters first, the lowest UIDs, dated 25 August, 10
@@ -129,7 +129,7 @@ final class GoToDateOrderTests: XCTestCase {
         let opened = log.firstIndex { $0.verb == "SELECT" } ?? log.endIndex
         return Jump(landed: window.map { $0.messages[$0.anchorIndex].subject },
                     day: window.map { said.string(from: $0.landedOn) },
-                    dated: log.filter { $0.command.contains("SENTSINCE") }.map(\.command),
+                    dated: log.filter { $0.command.contains(" SINCE ") }.map(\.command),
                     dateFetches: log.filter { $0.command.hasSuffix(Self.dates) }.map(\.command),
                     steps: log[opened...].map(\.verb),
                     connections: Set(log.map(\.connection)).count)
@@ -161,16 +161,14 @@ final class GoToDateOrderTests: XCTestCase {
 
     /// A day with mail: its first letter, though four letters of the
     /// account's own, the lowest UIDs, are dated after it; one SEARCH, the
-    /// day itself, with the arrival bounds of B-058, asked whole, and one
+    /// day itself, by arrival (B-178), asked whole, and one
     /// FETCH of its three letters' dates. Before, the jump landed on "Own
     /// 25 Aug".
     func testADayWithMailLandsOnItsFirstLetterWithOneSearch() async throws {
         let jumped = try await jump("2014-03-10")
         XCTAssertEqual(jumped.landed, "10 Mar 2014 first")
         XCTAssertEqual(jumped.day, "10 Mar 2014")
-        XCTAssertEqual(jumped.dated, ["UID SEARCH SENTSINCE \"10-Mar-2014\" "
-                                        + "SENTBEFORE \"11-Mar-2014\" SINCE \"03-Mar-2014\" "
-                                        + "BEFORE \"11-Oct-2026\""])
+        XCTAssertEqual(jumped.dated, ["UID SEARCH SINCE \"10-Mar-2014\" BEFORE \"11-Mar-2014\""])
         XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1007:1009 \(Self.dates)"])
         assertOneHold(jumped, datesFetched: true)
     }
@@ -184,7 +182,7 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.day, "10 Mar 2014")
         XCTAssertEqual(jumped.dated.count, 1)
         XCTAssertTrue(jumped.dated.first?.hasPrefix(
-            "UID SEARCH SENTSINCE \"10-Mar-2014\" SENTBEFORE \"12-Mar-2014\" ") == true,
+            "UID SEARCH SINCE \"10-Mar-2014\" BEFORE \"12-Mar-2014\"") == true,
                       "\(jumped.dated)")
         XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1007:1010 \(Self.dates)"])
         assertOneHold(jumped, datesFetched: true)
@@ -198,14 +196,16 @@ final class GoToDateOrderTests: XCTestCase {
         let jumped = try await jump("2014-03-15")
         XCTAssertEqual(jumped.landed, "17 Mar 2014 first")
         XCTAssertEqual(jumped.day, "17 Mar 2014")
-        XCTAssertEqual(jumped.dated.map(sentBefore), ["16-Mar-2014", "17-Mar-2014", "19-Mar-2014"])
-        XCTAssertTrue(jumped.dated.first?.hasPrefix("UID SEARCH SENTSINCE \"15-Mar-2014\" ") == true,
+        XCTAssertEqual(jumped.dated.map(before), ["16-Mar-2014", "17-Mar-2014", "19-Mar-2014"])
+        XCTAssertTrue(jumped.dated.first?.hasPrefix("UID SEARCH SINCE \"15-Mar-2014\" ") == true,
                       "\(jumped.dated)")
         XCTAssertTrue(jumped.dated.dropFirst().allSatisfy {
-            $0.hasPrefix("UID SEARCH RETURN (MIN) SENTSINCE \"16-Mar-2014\" SENTBEFORE ")
+            $0.hasPrefix("UID SEARCH RETURN (MIN) SINCE \"16-Mar-2014\" BEFORE ")
         }, "\(jumped.dated)")
+        // Each with an end of its own before a week after today, by when
+        // the letters arrived, and nothing by the Date (B-178).
         XCTAssertTrue(jumped.dated.allSatisfy {
-            $0.hasSuffix(" SINCE \"08-Mar-2014\" BEFORE \"11-Oct-2026\"")
+            !$0.contains("11-Oct-2026") && !$0.contains("SENT")
         }, "\(jumped.dated)")
         assertOneHold(jumped, datesFetched: false)
     }
@@ -218,7 +218,7 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.landed, "4 Jan 2012")
         XCTAssertEqual(jumped.day, "4 Jan 2012")
         XCTAssertEqual(jumped.dated.count, 10)
-        XCTAssertEqual(jumped.dated.last.flatMap(sentBefore), "27-May-2012")
+        XCTAssertEqual(jumped.dated.last.flatMap(before), "27-May-2012")
         assertOneHold(jumped, datesFetched: false)
     }
 
@@ -228,7 +228,7 @@ final class GoToDateOrderTests: XCTestCase {
         let jumped = try await jump("1990-06-01")
         XCTAssertEqual(jumped.landed, "4 Jan 2012")
         XCTAssertEqual(jumped.dated.count, 14)
-        XCTAssertEqual(jumped.dated.last.flatMap(sentBefore), "04-Nov-2012")
+        XCTAssertEqual(jumped.dated.last.flatMap(before), "04-Nov-2012")
         assertOneHold(jumped, datesFetched: false)
     }
 
@@ -257,14 +257,14 @@ final class GoToDateOrderTests: XCTestCase {
     /// A day after the newest letter: nothing that recent, as before, after
     /// the day and the spans of two, four and eight days, which reach no
     /// further than the 11th, and then the SEARCH with no end, every letter
-    /// dated after the day.
+    /// that arrived after the day and before the 11th.
     func testADayAfterTheNewestIsNothingThatRecentAsBefore() async throws {
         let jumped = try await jump("2026-10-01")
         XCTAssertNil(jumped.landed)
-        XCTAssertEqual(jumped.dated.map(sentBefore), ["02-Oct-2026", "03-Oct-2026",
-                                                      "05-Oct-2026", "09-Oct-2026", nil])
-        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SENTSINCE \"02-Oct-2026\" "
-                                            + "SINCE \"24-Sep-2026\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(jumped.dated.map(before), ["02-Oct-2026", "03-Oct-2026",
+                                                  "05-Oct-2026", "09-Oct-2026", "11-Oct-2026"])
+        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SINCE \"02-Oct-2026\" "
+                                            + "BEFORE \"11-Oct-2026\"")
         // Nothing found, nothing fetched.
         assertOneHold(jumped, datesFetched: false, landed: false)
     }
@@ -276,9 +276,9 @@ final class GoToDateOrderTests: XCTestCase {
         let jumped = try await jump("1900-01-01")
         XCTAssertEqual(jumped.dated.count, IMAPDate.spanSearches + 1)
         XCTAssertEqual(jumped.dated.count, 16)
-        XCTAssertEqual(jumped.dated.dropLast().last.flatMap(sentBefore), "10-Nov-1944")
-        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SENTSINCE \"02-Jan-1900\" "
-                                            + "SINCE \"25-Dec-1899\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(jumped.dated.dropLast().last.flatMap(before), "10-Nov-1944")
+        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SINCE \"02-Jan-1900\" "
+                                            + "BEFORE \"11-Oct-2026\"")
         assertOneHold(jumped, datesFetched: false)
     }
 
@@ -371,9 +371,9 @@ final class GoToDateOrderTests: XCTestCase {
         let jumped = try await jump("2014-03-15", zone: "America/New_York")
         XCTAssertEqual(jumped.landed, "Mon 17 Mar")
         XCTAssertEqual(jumped.day, "17 Mar 2014")
-        XCTAssertEqual(jumped.dated.map(sentBefore), ["17-Mar-2014", "17-Mar-2014", "19-Mar-2014"])
+        XCTAssertEqual(jumped.dated.map(before), ["17-Mar-2014", "17-Mar-2014", "19-Mar-2014"])
         XCTAssertTrue(jumped.dated.dropFirst().allSatisfy {
-            $0.hasPrefix("UID SEARCH RETURN (MIN) SENTSINCE \"16-Mar-2014\" ")
+            $0.hasPrefix("UID SEARCH RETURN (MIN) SINCE \"16-Mar-2014\" ")
         }, "\(jumped.dated)")
         XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1000 \(Self.dates)"])
         assertOneHold(jumped, datesFetched: true)
@@ -405,7 +405,7 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.day, "10 Mar 2014")
         XCTAssertEqual(jumped.dated.count, 1)
         XCTAssertTrue(jumped.dated.first?.hasPrefix(
-            "UID SEARCH SENTSINCE \"09-Mar-2014\" SENTBEFORE \"11-Mar-2014\" ") == true,
+            "UID SEARCH SINCE \"09-Mar-2014\" BEFORE \"11-Mar-2014\"") == true,
                       "\(jumped.dated)")
         assertOneHold(jumped, datesFetched: true)
     }
@@ -425,9 +425,9 @@ final class GoToDateOrderTests: XCTestCase {
         assertOneHold(jumped, datesFetched: true)
     }
 
-    /// The `SENTBEFORE` date of a dated SEARCH, nil for one with none.
-    private func sentBefore(_ command: String) -> String? {
-        guard let range = command.range(of: "SENTBEFORE \"") else { return nil }
+    /// The `BEFORE` date of a dated SEARCH, nil for one with none.
+    private func before(_ command: String) -> String? {
+        guard let range = command.range(of: "BEFORE \"") else { return nil }
         let rest = command[range.upperBound...]
         return rest.firstIndex(of: "\"").map { String(rest[..<$0]) }
     }
