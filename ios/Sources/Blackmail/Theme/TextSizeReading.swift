@@ -90,7 +90,13 @@ extension UIViewController {
     /// (B-166, found 2026-10-28). Called on every one the app makes, before
     /// or after its popover's place is set, the popover being the same one
     /// either way, as it is presented, or as its maker hands it back
-    /// (`DiscardConfirmation`); at Large it changes nothing.
+    /// (`DiscardConfirmation`); at Large it changes nothing. It held their
+    /// frames and not their words, which still grew at the larger sizes
+    /// on 16.5.1 (round r6-k-fix, 2026-10-28), an alert's labels not
+    /// following its traits or its view's limits. They are believed to
+    /// follow the app's own size, not shown, which is answered Large at
+    /// the app's root since (`BlackmailApplication`), and this stays
+    /// beside it.
     /// Any trait UIKit put on the presentation itself is kept, the size
     /// alone laid over it.
     @discardableResult func heldAtLarge() -> Self {
@@ -110,10 +116,14 @@ extension TextSizes {
     /// which puts the size the app is drawn at in `Theme` there: Large,
     /// whatever size iOS hands the app, `preferredContentSizeCategory`,
     /// the one set for it alone in Per-App Settings or the iPad's
-    /// (`TextSize.drawn`); and Bold Text. Read again when iOS says either has changed, and as the app
+    /// (`TextSize.drawn`); and Bold Text. The app's own answers Large
+    /// since round r6-k-fix (`BlackmailApplication`, B-166), so iOS's word
+    /// that the size changed reads Large again and draws nothing; only
+    /// Bold Text says `didChange`. Read again when iOS says either has changed, and as the app
     /// comes back to the front, should a word have been missed while it was
-    /// away. Never in the share extension, which has no `UIApplication` of
-    /// its own and reads its sheet's traits (`ShareViewController`).
+    /// away. Never in the share extension, a process of its own that may
+    /// not ask `UIApplication.shared`, which reads its sheet's traits
+    /// (`ShareViewController`).
     static let app = TextSizes(
         names: [UIContentSizeCategory.didChangeNotification,
                 UIAccessibility.boldTextStatusDidChangeNotification,

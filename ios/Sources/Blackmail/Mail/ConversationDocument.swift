@@ -46,6 +46,9 @@ enum ConversationDocument {
     struct Entry: Equatable {
         let id: String
         let sender: String
+        /// The date on the letter's line: when it arrived, its row's
+        /// `listDate`, as the reading pane's header shows it (B-178, the
+        /// second round), its Date where that is not known.
         let date: Date
         /// Nil until the body has been fetched. The stack is drawn from the
         /// summaries the list already has, so the headers appear at once and
@@ -104,7 +107,7 @@ enum ConversationDocument {
 
     /// One letter's place in the stack, drawn from its row in the list.
     static func entry(for m: MessageSummary, open: Bool) -> Entry {
-        Entry(id: m.id, sender: m.sender, date: m.date, body: nil,
+        Entry(id: m.id, sender: m.sender, date: m.listDate, body: nil,
               isExpanded: open, preview: m.preview)
     }
 
@@ -168,7 +171,7 @@ enum ConversationDocument {
     /// His letter's place in the stack, drawn from its row: closed, with
     /// the folder it was found in.
     static func entry(forHis letter: MessageSummary, foundIn folder: String) -> Entry {
-        Entry(id: relatedID(of: letter), sender: letter.sender, date: letter.date, body: nil,
+        Entry(id: relatedID(of: letter), sender: letter.sender, date: letter.listDate, body: nil,
               isExpanded: false, preview: letter.preview, foundIn: folder)
     }
 

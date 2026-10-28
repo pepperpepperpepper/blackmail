@@ -159,7 +159,11 @@ final class ArrivalOrderTests: XCTestCase {
         let stack = ConversationDocument.stack(of: row)
         XCTAssertEqual(stack.map(\.id), ["1/2", "1/3", "1/9"])
         XCTAssertEqual(stack.last?.isExpanded, true)
-        XCTAssertNotEqual(stack.map(\.date), stack.map(\.date).sorted(), "not by Date")
+        let dated = row.messages.reversed().map(\.date)
+        XCTAssertNotEqual(dated, dated.sorted(), "not by Date")
+        // Each line has when its letter arrived, as the pane's header does
+        // (B-178, the second round), so they go in order down the stack.
+        XCTAssertEqual(stack.map(\.date), [10, 20, 30].map { Self.morning.addingTimeInterval($0 * 60) })
     }
 
     /// A conversation with a letter whose arrival is not known, a row kept
@@ -292,8 +296,10 @@ final class ArrivalOrderTests: XCTestCase {
             // it has the lowest UID there; by UID it was Carlo's.
             XCTAssertEqual(row.id, "\(server.uidValidity(of: Server.trash))/\(uids[0])",
                            "the letter listed first, \(label)")
+            // Each line when its letter arrived, as the pane's header has
+            // it (B-178, the second round); the kept rows carry it.
             XCTAssertEqual(ConversationDocument.stack(of: row).map(\.date),
-                           letters.map(\.date), label)
+                           letters.map(\.arrival), label)
         }
     }
 }

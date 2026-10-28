@@ -9,8 +9,9 @@ import XCTest
 /// "4:12 AM" on a letter dated 1 March 2024 that arrived that morning, and
 /// "10/8/26" on one dated that morning that arrived twenty days before.
 /// Blackmail had them in the same places, by arrival, but read "3/1/24"
-/// and "3:00 AM", their Dates. The reading pane, a reply's quote, Print
-/// and Forward keep the Date, which these tests hold too.
+/// and "3:00 AM", their Dates. A reply's quote, Print and Forward keep the
+/// Date, which these tests hold too; the reading pane's header shows the
+/// arrival since the second round (`HeaderDateTests`).
 final class RowDateTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -82,7 +83,7 @@ final class RowDateTests: XCTestCase {
 
     /// The round's two letters: each row shows when its letter arrived,
     /// the date the list put it by, and VoiceOver reads the same; the
-    /// letter keeps its Date for the reading pane, the quote and Forward.
+    /// letter keeps its Date for the quote, Print and Forward.
     func testEachRowShowsWhenItsLetterArrived() async throws {
         let old = datedOld
         let came = cameOld
@@ -105,7 +106,7 @@ final class RowDateTests: XCTestCase {
                           MailFormat.listTimestamp(came.date, now: now))
         // The dates down the list go in step with it.
         XCTAssertEqual(shown.map(\.listDate), shown.map(\.listDate).sorted(by: >))
-        // The letter's own Date is kept, for the pane, the quote and Forward.
+        // The letter's own Date is kept, for the quote, Print and Forward.
         let letterOld = try XCTUnwrap(rows.first { uid($0.id) == putOld })
         XCTAssertEqual(letterOld.date, old.date)
         XCTAssertEqual(threads[atOld].date, old.date)

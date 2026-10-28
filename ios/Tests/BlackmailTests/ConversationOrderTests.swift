@@ -521,7 +521,7 @@ final class ConversationOrderTests: XCTestCase {
         let focus = try section(of: code, from: "private func focusLetter(_ m: Message) {",
                                 to: "private func fill(")
         for wiring in [
-            "let before = header.frame.height header.configure(with: m)",
+            "let before = header.frame.height header.configure(with: m.arriving(as: summary))",
             "keepPlace(headerWas: before) }",
             "view.layoutIfNeeded()",
             "let grown = Double(header.frame.height - before) guard grown != 0 else { return }",

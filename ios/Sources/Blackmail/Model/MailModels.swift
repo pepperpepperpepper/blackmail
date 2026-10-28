@@ -200,8 +200,10 @@ struct MessageSummary: Identifiable, Hashable {
     /// and "3/1/24" in Blackmail, and one dated that morning that arrived
     /// twenty days before read "10/8/26" in Mail and "3:00 AM" in
     /// Blackmail. A date jump goes by it too (`IMAPDate.jump`), so the row
-    /// it lands on reads the day he picked. The reading pane's header, a
-    /// reply's "On ... wrote:", Print and Forward keep the Date (`date`).
+    /// it lands on reads the day he picked. The reading pane's header and
+    /// the stack's lines show it too, as Mail's header does
+    /// (`Message.headerDate`, the second round); a reply's "On ...
+    /// wrote:", Print and Forward keep the Date (`date`).
     var listDate: Date { arrived ?? date }
 
     /// Whether this row goes above `other` in a folder's list, which runs
@@ -315,9 +317,41 @@ struct Message: Identifiable {
     /// B-170). A letter fetched whole has its files in hand, and its tiles
     /// say nothing of it.
     var filesLeftOnServer = false
+    /// When the letter arrived, its INTERNALDATE, as its row in the list
+    /// has it (`MessageSummary.arrived`), for the date the reading pane's
+    /// header shows (`headerDate`, B-178). Given by the row
+    /// (`Message.heading(for:)`, `arriving(as:)`); nil where the row does
+    /// not say, a letter kept on the iPad with none, and on a letter as
+    /// the server reads it, which a reply, Forward and Print take, each
+    /// of them by its Date.
+    var arrived: Date? = nil
 }
 
 extension Message {
+    /// The date the reading pane's header shows: when the letter arrived,
+    /// or its Date where that is not known, as a letter kept on the iPad
+    /// with no arrival has (B-178, the second round). Mail 16.5.1's
+    /// header shows the arrival: on the test iPad on 2026-10-28 (round
+    /// r6-k-fix) a letter dated 1 March 2024 that arrived that morning read
+    /// "10:23 AM" there and "March 1, 2024 at 12:00 PM" in Blackmail, and
+    /// one dated that morning that arrived on 8 October "10/8/26" there
+    /// and "Today at 9:00 AM" here. Blackmail's words for it and their
+    /// place under the subject are its own and are kept
+    /// (`MailFormat.detailTimestamp`, D-008, D-025); only which date. A
+    /// reply's "On ... wrote:", Forward's header and Print go by `date`.
+    var headerDate: Date { arrived ?? date }
+
+    /// This letter with the arrival of `row`, its row in the list, for the
+    /// header (`headerDate`): the letter as the server reads it does not
+    /// say when it arrived, and its row does. Unchanged when `row` is
+    /// another letter's, or nil.
+    func arriving(as row: MessageSummary?) -> Message {
+        guard let row, row.id == id else { return self }
+        var m = self
+        m.arrived = row.arrived
+        return m
+    }
+
     /// The letter's files: every attachment but the pictures the body
     /// shows by `cid:`, which are not files to him. See
     /// `Attachment.isShownInBody`. The pane draws each in the letter's body

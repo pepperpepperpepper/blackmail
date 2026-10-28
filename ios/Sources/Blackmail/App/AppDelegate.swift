@@ -72,8 +72,10 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Large do not, the setup form above all, the window's first
         // screen. The questions, the action sheets and the bubble menu were
         // meant to be held by it too, and on the test iPad were not: each
-        // is held on its own (`heldAtLarge`, B-166, found 2026-10-28). At
-        // Large it changes nothing.
+        // is held on its own (`heldAtLarge`, B-166, found 2026-10-28), and
+        // their words, believed to follow the app's own size (not shown),
+        // by the app's answering Large (`BlackmailApplication`, the second
+        // round). At Large it changes nothing.
         window.minimumContentSizeCategory = .large
         window.maximumContentSizeCategory = .large
         // NOTE: the app cannot defend itself against Smart Invert. Setting

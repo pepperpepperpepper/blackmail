@@ -9311,7 +9311,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       layout the same at the largest sizes, but for where UIKit puts Edit
       mode's circles, a little lower (B-071). On the test iPad, the test
       account only, from a build of the `bm-textfixed` worktree (branch
-      `fix-textsize-fixed`) or of the int it is merged into. Nothing is
+      `fix-textsize-fixed`) or of the int it is merged into; since the
+      second round of 2026-10-28 (r6-k-fix, on ff47eb6), from a build of
+      the `fix-j1` branch at its tip, the app's own text size answered
+      Large at its root (`BlackmailApplication`, KI B-166, "Found on the
+      test iPad, 2026-10-28 (second round)"), or of the int it is merged
+      into. Nothing is
       typed, sent, saved, moved or deleted in the app: every composer is
       opened untouched and closed with Cancel, which asks nothing for an
       untouched letter (B-069), every sheet closed with Cancel or Done,
@@ -9375,7 +9380,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          not pass this step: written down as not checked, not passed. The
          Share sheet, in each comparison, but for iOS's row of
          suggestions, the people and apps it offers, which change from one
-         time to the next.
+         time to the next. And every one of them, and the connection
+         log's Share sheet, beside round r6-k-fix's Large shots of
+         2026-10-28 (ff47eb6): the same to the pixel but for the clock
+         and the caret, the app's own size now answered Large, which at
+         Large is the size iOS gives.
       2. *The largest of the seven, while the app is open.* With (a) open
          and "Notes" scrolled so its row is in sight a few rows down,
          leave the app; Text Size dragged to its right end; back in the
@@ -9391,18 +9400,30 @@ checks below is left as not needed, not open, and none is worth a round.*
          same trait (about 1 point two steps above Large; three not
          measured): how much, written down, or that it did not move. The
          bubble's menu, the Reply and Flag sheets, (a)'s file's held sheet
-         and "Add Another Email…" the same as in 1 to the pixel: on the
-         int21 build, round r6-j-look, 2026-10-28, the bubble's menu, the
-         Reply sheet, the Flag popover and "Add Another Email…" were
-         larger (the file's held sheet was not looked at), the window's
-         limits not reaching them, and each is held now by its own
-         presentation and view. A question, a sheet or a menu larger than
-         in 1: which, written down, and B-166 opened again. The Share
-         sheet from the file's sheet: its popover's anchor and arrow as in
-         1. Its size and what iOS draws in it, if larger than in 1
-         together, written down as iOS's own, not a failure, the popover's
-         size coming from what iOS puts in it; the popover larger while
-         what is in it stays as in 1, a failure, and B-166 opened again.
+         and "Add Another Email…" the same as in 1 to the pixel, their
+         frames and their words: on the int21 build, round r6-j-look,
+         2026-10-28, the bubble's menu, the Reply sheet, the Flag popover
+         and "Add Another Email…" were larger, the window's limits not
+         reaching them; on ff47eb6, round r6-k-fix, each kept its frame,
+         held by its own presentation and view, and its words were
+         larger, following neither its traits nor its view's limits.
+         They are believed to follow the app's own size, which the app
+         now answers Large, and that is not shown (KI B-166, "Found on
+         the test iPad, 2026-10-28 (second round)", The cause). A
+         question, a sheet or a menu, its frame or its words, larger
+         than in 1: which, written down, and B-166 opened again; words
+         larger mean the override does not reach them. The two Share
+         sheets, from the file's sheet
+         and the connection log's: each popover's anchor, arrow and frame
+         as in 1, as round r6-k-fix saw them held; one moved or of
+         another size, a failure, and B-166 opened again. What iOS draws
+         inside, the people and devices, the apps' names and the rows of
+         actions (Copy, Markup, Print, Edit Actions and the rest), is
+         iOS's own, drawn by iOS partly out of process: each part larger
+         than in 1, or as in 1, written down, which, not a failure (in
+         r6-k-fix AirDrop's, Messages' and Mail's names and the Copy,
+         Markup and Print rows were larger, "Blackmail" and the other rows
+         as in 1, pushed down).
       3. *The largest accessibility size.* Larger Text, Larger Accessibility
          Sizes on, the slider at its right end, back in the app: every
          screen of 1 again, each the same as in 1 to the pixel but for the
@@ -9415,7 +9436,13 @@ checks below is left as not needed, not open, and none is worth a round.*
          and buttons as in 1 to the pixel, its title in sight, its Cancel
          and Add side by side, never one under the other (on 2026-10-28
          the popovers reached halfway down the screen and the question's
-         title was scrolled away); the Share sheet as in 2; Swipe
+         title was scrolled away, on int21 and again on ff47eb6, round
+         r6-k-fix, the file's held sheet grown nearly to the top of the
+         screen with its Copy cut off), words larger than in 1 read as in
+         2, the override not reaching them; the two Share sheets as in 2,
+         their anchor, arrow and frame as in 1, what iOS draws in them
+         written down as iOS's own (in r6-k-fix the apps' names broken
+         over lines and Copy and Markup very large); Swipe
          Options as in 1. Edit mode's circles their size in 1 and the
          rows' words where they were, the column about 12.5 points lower,
          as B-071 saw: how much, written down, or that it did not move.
@@ -9461,13 +9488,17 @@ checks below is left as not needed, not open, and none is worth a round.*
          UIKit's Undo alert after a shake ("Undo Trash", "Undo Move" or
          "Undo Flag", with Cancel and Undo, B-157), which UIKit makes and
          puts up itself, iPadOS's undo banner after three fingers, what
-         iOS draws inside the Share sheet and the size it gives its
-         popover (the popover's anchor the app's, looked at in 2 and 3),
+         iOS draws inside the two Share sheets, their people, apps and
+         rows of actions, drawn by iOS partly out of process (the
+         popover's anchor, arrow and frame the app's, held, looked at in 2
+         and 3),
          the share sheet's frame (6), and the keyboard with its bar, the
          composer's paperclip and its menu among them, are iOS's own, at
-         the iPad's size as before B-166, and are not looked at here:
-         one seen larger at the larger sizes is not a failure of B-166,
-         nor counted as held.
+         the iPad's size or at Large, as iOS draws them (those drawn in
+         the app's process may read the app's own size, Large since the
+         second round: KI B-166, the second round's Not covered), and are
+         not looked at here: one seen larger at the larger sizes is not a
+         failure of B-166, nor one at Large counted as held.
       8. *Put back:* Text Size at its middle step, Bold Text off, Larger
          Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
@@ -9521,6 +9552,31 @@ checks below is left as not needed, not open, and none is worth a round.*
       before. Their fix, each question, action sheet and Share sheet held
       as it is put up, is on fix-j1, in int21 at ff47eb6; its re-check
       there is to come. Nothing was sent.*
+      9. *iPadOS 18, the simulator.* Steps 1 to 8 are 16.5.1's, the test
+         iPad's; his iPad is on 18, whose roots of the traits changed in
+         17, and nothing of B-166's second round is seen there (KI B-166,
+         "Found on the test iPad, 2026-10-28 (second round)", Not
+         covered). On the Mac's iOS 18.6 simulator, an iPad (7th
+         generation), his model, landscape, three panes, on a simulator
+         build of the `fix-j1` branch at its tip or of the int it is
+         merged into, signed in to the test account; on an iPad on 18
+         when there is one, the same, the test account only. A letter of
+         "Notes" from a made-up sender open, nothing tapped in it but the
+         two buttons below. At Large (the simulator's Settings, or
+         `xcrun simctl ui booted content_size large`): the pane's Reply
+         button, its sheet, closed with a tap beside it; the pane's Flag
+         button, its popover, the same; Settings, its "Add Another
+         Email…" question, then Cancel, nothing typed, and Settings closed
+         with Cancel, nothing saved; a full-size screenshot of each. Then
+         the largest accessibility size
+         (`accessibility-extra-extra-extra-large`), the app left open,
+         and the same three again: each the same as at Large to the
+         pixel, its frame and its words, the question's title in sight
+         and its Cancel and Add side by side. A frame or words larger than
+         at Large: which and how, written down, and B-166 opened again for
+         18, `UIWindowScene.traitOverrides` the documented root to
+         consider (KI B-166, the second round's Not covered). The size put
+         back to Large after. Nothing is sent, saved, moved or flagged.
 - [ ] **B-167, Mail's options in Settings.** On the test iPad, the test
       account only, from a build of the `bm-cm-mailsettings` worktree
       (branch `copy-mailsettings`) or of the int it is merged into.
@@ -10588,10 +10644,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       account only, from a build of the `fix-j1` branch at its tip (the
       row's date and Go to Date by arrival, 2026-10-28) or of the int it
       is merged into; the round of 2026-10-28 ran steps 0 to 8 on int21
-      (1873724), and its two failures, steps 2 and 4, are what this build
-      changes (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28").
-      Nothing is sent and nothing is saved to Drafts: no Send, Reply or New
-      Message is tapped. The host makes the letters, each from a made-up
+      (1873724), and its two failures, steps 2 and 4 (Go to Date, now
+      step 5), are what this build changes (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28");
+      the second round that day, r6-k-fix on ff47eb6, ran steps 0 to 2,
+      5's jumps to 1 March 2024, today and the day "came old" arrived, 6,
+      7 and the put back, as numbered now, and passed them but for the
+      reading pane's header, which showed the Date where Mail's showed
+      the arrival, and the `fix-j1` branch's tip changes that too
+      (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28 (second
+      round)"); it did not run 4, 5's jump to 14 June 2025 or 8, which
+      passed on int21, and 3 and 9 are new since. Nothing is sent and
+      nothing is saved to Drafts: no Send or New Message is tapped, and
+      Reply only in step 3, its composer closed with Cancel untouched;
+      Print only to its preview, nothing printed. The host makes the letters, each from a made-up
       address, with a new Message-ID of its own and naming none on the
       account, and APPENDs them, read (`\Seen`), to the label "Notes",
       never the Inbox, with the APPEND's own date as its INTERNALDATE,
@@ -10624,17 +10689,43 @@ checks below is left as not needed, not open, and none is worth a round.*
       the dates going down the list all the way. Then each of the two
       opened in Blackmail, nothing tapped in it: the date its reading
       pane's header shows written down beside Mail's from step 1, with a
-      screenshot of the header. Blackmail's header shows the Date: as
-      Mail's, this passes; if Mail's showed the arrival, the step FAILs, a
-      difference from Mail to fix, both screenshots cited, in the round's
-      results, not in KNOWN_ISSUES. The log: one
+      screenshot of the header. Blackmail's header shows the date Mail's
+      does, the arrival (seen on 2026-10-28 in r6-k-fix: "10:23 AM" and
+      "10/8/26" in Mail), in Blackmail's own words and place, under the
+      subject, which are kept as its layout (D-008, D-025): "Today at"
+      the time "dated old" arrived, never "March 1, 2024"; "came old"'s
+      arrival day and time written long ("October 8, 2026 at 12:00 PM"
+      then), never "Today at 9:00 AM"; the same day and time as Mail's,
+      the words Blackmail's. The Date shown, or a day or time other than
+      Mail's: the step FAILs, both screenshots cited. A header whose date
+      changes as the letter's body lands (the tap's header against the
+      landed one) also FAILs. The log: one
       `UID FETCH … (UID INTERNALDATE)` after the `UID SEARCH ALL`, read as
       `* FETCH {N dates}`, N the letters in Notes, then the page's FETCH.
       Screenshot of each place.
-      3. *To the end:* scrolled to the foot of Notes: every row once, the
+      3. *Print and Reply, Mail's against Blackmail's* (Not seen in
+      KNOWN_ISSUES B-178, second round). In Mail, "dated old" open: Print
+      (from its reply arrow's menu), the print preview's header, its date
+      written down with a screenshot, then the print panel cancelled,
+      nothing printed; Reply, the composer's "On ... wrote:" line, its
+      date written down with a screenshot, nothing typed, then Cancel, and
+      should Mail ask, Delete Draft, never Save Draft. The same for "came
+      old". Then the same two in Blackmail, Print from the pane's Reply
+      sheet, its preview only, and Reply, then Cancel, which asks nothing
+      for an untouched letter (B-069). Blackmail's print and attribution
+      give the Date's day and time, in Blackmail's words, Mail's medium
+      forms (`MailFormat.printedTimestamp`, `quoteAttribution`): for
+      "dated old", its Date at noon as the round's, "Mar 1, 2024 at
+      12:00:00 PM" on the print and "On Mar 1, 2024, at 12:00 PM, …" in
+      the reply; for "came old", today's date at "9:00:00 AM" on the
+      print and "at 9:00 AM" in the reply. As Mail's, this passes; if
+      Mail's give the arrival, the step FAILs, a difference from Mail to
+      fix, both screenshots cited, in the round's results. After it, Drafts as before the step, over IMAP, and
+      Mail's Outbox empty.
+      4. *To the end:* scrolled to the foot of Notes: every row once, the
       dates going down all the way, Notes' oldest last, nothing drawn
       twice, no row missing against the count over IMAP.
-      4. *Go to Date:* 14 June 2025: the list opens on "lastyear", 7/17/25
+      5. *Go to Date:* 14 June 2025: the list opens on "lastyear", 7/17/25
       above it, "Showing June 14, 2025". Then today, Current Mailbox: the
       list goes to Notes' top, "dated old" the top row, the foot "Showing"
       today (it read "No mail on or after October 28" and did not move on
@@ -10645,23 +10736,45 @@ checks below is left as not needed, not open, and none is worth a round.*
       SEARCHes `SINCE … BEFORE …`, none `SENTSINCE`. Scrolled up and down
       from 14 June 2025: the dates in order. Go to Date's day and scope put
       back as found at the end (Notes, the Inbox at its top after).
-      5. *Undo:* "came old" dragged left full: it goes. A shake, Undo
+      6. *Undo:* "came old" dragged left full: it goes. A shake, Undo
       Trash: it is back where it stood, its row's date the day it arrived
       (10/8/26 then), not today's 9 am. Refresh: still there, not at the
       top, the same date. Over IMAP its new UID is above every other in
       Notes.
-      6. *Relaunch:* the app quit and opened again, Notes tapped at once:
+      7. *Relaunch:* the app quit and opened again, Notes tapped at once:
       the kept rows in the order of step 2 before the listing lands, and
       the same after, each row's date as in step 2 both times: "dated old"
       today's time, not 3/1/24; "came old" the day it arrived, not today's
       9 am.
-      7. *Refresh:* the Inbox at its top, Refresh twice: the second's log is
+      8. *Refresh:* the Inbox at its top, Refresh twice: the second's log is
       NOOP, `UID SEARCH ALL` and one FETCH, with no dates FETCH.
-      8. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      9. *A conversation, Mail's dates against Blackmail's* (Not seen in
+      KNOWN_ISSUES B-178, second round). The host APPENDs two more letters
+      to Notes as the others, read, one conversation: "B-178 thread",
+      INTERNALDATE three days ago at noon, its Date 10 January 2025 at
+      noon; then "Re: B-178 thread", naming the first's Message-ID in
+      In-Reply-To and References, INTERNALDATE yesterday at 9 am, its Date
+      today at 7 am, before the step; it notes both UIDs. In Mail,
+      Notes pulled to refresh, the conversation's row tapped once and
+      nothing else: each letter's date as Mail's conversation shows it,
+      and any date it gives the conversation as a whole, written down
+      with a screenshot. In Blackmail, Notes, Refresh, the conversation's
+      row tapped once, nothing tapped in the pane: the pane's header's
+      date and each letter's line in the stack, its date, written down
+      with a screenshot, the header again once the newest letter has
+      landed. Blackmail gives each letter the day and time Mail gives
+      it, in its own words: by arrival, the first letter's line that
+      day's weekday and the second's "Yesterday", the header "Yesterday
+      at 9:00 AM", before and after the letter lands; never "1/10/25",
+      "7:00 AM" or "Today at 7:00 AM", the Dates. Should Mail give a
+      letter, or the conversation, its Date, the step FAILs, a difference
+      from Mail to fix, both screenshots cited, in the round's results.
+      Nothing is opened but the row, in either app.
+      10. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash (the one step
-      5 gave "came old" in place of its first), and deletes in the Trash
-      only the UIDs that move answered (`COPYUID`). Nothing was sent, and
-      nothing else was written to the account.
+      6 gave "came old" in place of its first, and step 9's two), and
+      deletes in the Trash only the UIDs that move answered (`COPYUID`).
+      Nothing was sent, and nothing else was written to the account.
       *Seen on the test iPad 2026-10-28 on int21 (1873724), round r6-j-act:
       0, 1 and 7 passed, 3, 5 and 6 but for the rows' dates, and 2 and 4 in
       part; 2's rows' dates and 4's jump to today FAILed (KNOWN_ISSUES

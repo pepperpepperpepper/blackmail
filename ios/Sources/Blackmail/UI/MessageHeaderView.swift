@@ -145,7 +145,9 @@ final class MessageHeaderView: UIView {
         ccLabel.isHidden = cc == nil
         ccGap.constant = cc == nil ? 0 : Theme.detailToCcGap
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
-        date = m.date
+        // When it arrived, as Mail's header shows it (B-178), its Date
+        // where that is not known.
+        date = m.headerDate
         spoken = "From \(MailFormat.displayName(m.sender)), \(m.subject)"
         drawDate()
     }
@@ -167,9 +169,10 @@ final class MessageHeaderView: UIView {
         setNeedsLayout()
     }
 
-    /// The date under the subject written from the letter's own, as the
-    /// iPad writes it now: as the letter is shown, and again where it is
-    /// when the 24-Hour Time switch, the time zone or the region has
+    /// The date under the subject, when the letter arrived
+    /// (`Message.headerDate`, B-178), its Date only where that is not
+    /// known, as the iPad writes it now: as the letter is shown, and again
+    /// where it is when the 24-Hour Time switch, the time zone or the region has
     /// changed, or the day has turned over, so "Today at 11:50 PM" reads
     /// "Yesterday at 11:50 PM" once midnight has passed (B-139). Nothing
     /// else in the header is touched, and it keeps its height: the date is

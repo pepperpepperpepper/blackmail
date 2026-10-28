@@ -1730,7 +1730,11 @@ iPad:
   Cc and Bcc, after the people he writes to and his Contacts.
 - B-178 (G): the list in date order, the newest first by when each
   letter arrived; each row shows that date and Go to Date goes by it, as
-  Mail's row was seen to on the test iPad on 2026-10-28.
+  Mail's row was seen to on the test iPad on 2026-10-28; and the reading
+  pane's header shows that date too, as Mail's was seen to the same day
+  (second round), in Blackmail's own words and place, the header's date
+  being kept as layout (part 3); each line of a conversation's stack
+  too, Mail's conversation not yet seen (KNOWN_ISSUES B-178).
 
 **Kept as Blackmail's layout**, not copied:
 
