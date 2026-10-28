@@ -216,16 +216,18 @@ enum PanePage {
             smartInvert = QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
         }
         // Mail's line, when there is one, at the body's size whatever the
-        // letter's own rules say (B-166, B-168), and in Mail's dark colours
-        // over a letter in its own (B-169); nothing otherwise, so the page
-        // is as it was.
+        // letter's own rules say (B-166, B-168), and in Mail's colours,
+        // white words and its blue on the pane's black, whatever the letter:
+        // under the invert for a letter inverted, Mail's own for one light
+        // or in its own colours (B-173); nothing otherwise, so the page is
+        // as it was.
         // Its tiles at the pane's text size (`BodyFiles.sizeRule`, B-166,
         // B-170); nothing at Large or below, nor for a letter with none.
         let tileRule = BodyFiles.sizeRule(bodyPointSize: style.bodyPointSize)
         let tiles = tileRule.isEmpty || !content.contains(BodyFiles.tileClass) ? "" : "\n  " + tileRule
         let heldSize = held.isEmpty
             ? "" : "\n  " + RemoteContent.sizeRule(in: "#bm", pointSize: style.bodyPointSize)
-                + (drawn == .own ? "\n  " + RemoteContent.darkRule(in: "#bm") : "")
+                + "\n  " + RemoteContent.colourRule(in: "#bm", inverted: drawn == .inverted)
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">

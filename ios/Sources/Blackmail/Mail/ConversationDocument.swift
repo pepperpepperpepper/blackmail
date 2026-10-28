@@ -385,10 +385,14 @@ enum ConversationDocument {
           .bm-letter:not(.bm-open) > .bm-found { display: none; }
           /* Mail's line over a letter whose pictures from the web are held
              back, at the body's size whatever the letter's own rules say
-             (B-166, B-168), and in Mail's dark colours over a letter in
-             its own (B-169). */
+             (B-166, B-168), and in Mail's colours, white words and its blue
+             on the pane's black, whatever the letter: under the invert for
+             a letter inverted, Mail's own for one light or in its own
+             colours (B-173). */
           \(RemoteContent.sizeRule(in: "body", pointSize: bodyPointSize))
-          \(RemoteContent.darkRule(in: ".bm-own"))
+          \(RemoteContent.colourRule(in: ".bm-html", inverted: true))
+          \(RemoteContent.colourRule(in: ".bm-light", inverted: false))
+          \(RemoteContent.colourRule(in: ".bm-own", inverted: false))
           /* A file's tile at the pane's text size, as Mail's grows with it
              (B-166, B-170); nothing at Large or below. */
           \(BodyFiles.sizeRule(bodyPointSize: bodyPointSize))\(stacked ? stackedLines : "")

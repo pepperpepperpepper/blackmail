@@ -750,7 +750,7 @@ final class DarkLikeMailTests: XCTestCase {
             XCTAssertFalse(page.contains("url('https:"), page)
             XCTAssertTrue(page.contains(RemoteContent.line(for: "7/3")), page)
         }
-        XCTAssertTrue(held.contains(RemoteContent.darkRule(in: "#bm")))
+        XCTAssertTrue(held.contains(RemoteContent.colourRule(in: "#bm", inverted: false)))
         let shown = try XCTUnwrap(PanePage.letter(own, style: style))
         XCTAssertTrue(shown.contains("url(https://example.com/paper.png)"), shown)
         XCTAssertFalse(shown.contains(RemoteContent.unloaded))
