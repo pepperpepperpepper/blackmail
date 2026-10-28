@@ -197,6 +197,42 @@ final class PrintPageTests: XCTestCase {
         }
     }
 
+    /// The header's table in the same document as the sender's markup,
+    /// whose own `<style>` in the body still applies on paper: a letter
+    /// that boxes every `td`, stretches every `table`, or, with
+    /// `!important`, sets each `td` as a block, does not reach the header's
+    /// lines, which print as they do with no such style. Each property such
+    /// a rule could change is the header's own, `!important`, on its
+    /// table, its rows and its cells; with no such style nothing changes.
+    func testTheHeaderKeepsItsLinesUnderTheSendersTableStyles() throws {
+        let html = "<style>td { border: 1px solid #ccc; background: #eee; } table { width: 100%; }"
+            + " @media (max-width: 600px) { td { display: block !important; } }</style>"
+            + "<table><tr><td>Hello.</td></tr></table>"
+        let page = self.page(letter(text: nil, html: html))
+        let sheet = try self.sheet(page)
+        XCTAssertTrue(try body(page).contains("td { display: block !important; }"), "the sender's style is there")
+        func rule(_ selector: String) throws -> Substring {
+            let at = try XCTUnwrap(sheet.range(of: selector + " {"), selector)
+            return sheet[at.upperBound...].prefix(while: { $0 != "}" })
+        }
+        let shields: [(String, [String])] = [
+            ("#bm-head table", ["border: 0 !important;", "background: none !important;",
+                                "width: auto !important;", "display: table !important;",
+                                "border-collapse: collapse !important;", "border-spacing: 0 !important;",
+                                "margin: 0 !important;"]),
+            ("#bm-head tr", ["border: 0 !important;", "background: none !important;",
+                             "display: table-row !important;"]),
+            ("#bm-head td", ["border: 0 !important;", "background: none !important;",
+                             "width: auto !important;", "display: table-cell !important;"]),
+        ]
+        for (selector, declarations) in shields {
+            let declared = try rule(selector)
+            for declaration in declarations {
+                XCTAssertTrue(declared.contains(declaration), "\(selector): \(declaration) in \(declared)")
+            }
+        }
+    }
+
     /// No To line with nobody in To, where the paper said "To: me"; no Cc
     /// line with no Cc; "(no subject)", as the pane says; one rule.
     func testTheHeaderSaysWhatThePaneSaysOfNothing() throws {

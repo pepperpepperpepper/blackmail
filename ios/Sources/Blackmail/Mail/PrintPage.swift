@@ -226,6 +226,15 @@ enum PrintPage {
         // read at WebKit's tags for both). `exact` is inherited, and the
         // header has no background to print. Only the header and the
         // notices (`asDrawn`): the sender's words are left to WebKit.
+        //
+        // The header's table is in the same document as the sender's
+        // markup, whose own `<style>` in the body still applies on paper
+        // (`DocumentWrapper.stripped` takes off only the `<head>`): a rule
+        // for every `td` or `table`, boxes, a width of 100%, or with
+        // `!important` a `td` set as a block, would reach the header's
+        // lines. What such a rule could change on the table, its rows and
+        // its cells is the header's own, `!important`; with no such rule
+        // each is what it would be anyway, and nothing on paper moves.
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="color-scheme" content="light only">
@@ -235,9 +244,14 @@ enum PrintPage {
           html, body { margin: 0; padding: 0; background: #fff; color: #000; }
           #bm-head { break-inside: avoid; page-break-inside: avoid; margin: 0 0 17px 0;
                      font-family: -apple-system, sans-serif; -webkit-print-color-adjust: exact; }
-          #bm-head table { border-collapse: collapse; border-spacing: 0; margin: 0; }
+          #bm-head table { border-collapse: collapse !important; border-spacing: 0 !important;
+                           margin: 0 !important; width: auto !important; border: 0 !important;
+                           background: none !important; display: table !important; }
+          #bm-head tr { border: 0 !important; background: none !important; display: table-row !important; }
           #bm-head td { padding: 1px 0; vertical-align: top;
-                        font: \(style.metaPointSize)px -apple-system, sans-serif; }
+                        font: \(style.metaPointSize)px -apple-system, sans-serif;
+                        border: 0 !important; background: none !important;
+                        display: table-cell !important; width: auto !important; }
           #bm-head .bm-label { color: #8e8e8e; text-align: right; white-space: nowrap; padding-right: 6px; }
           #bm-head .bm-value { color: #000; text-align: left; word-wrap: break-word; }
           #bm-head .bm-address { color: #8e8e8e; }
