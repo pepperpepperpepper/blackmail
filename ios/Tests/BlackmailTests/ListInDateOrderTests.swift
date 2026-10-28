@@ -400,8 +400,10 @@ final class ListInDateOrderTests: XCTestCase {
     /// A letter whose two dates differ: arrived among the letters of its
     /// own time, but its Date saying today. It sits where it arrived, as
     /// Mail's list goes by when a letter arrived, and its row shows when it
-    /// arrived, as Mail's does (seen 2026-10-28); the letter keeps its Date
-    /// for the reading pane.
+    /// arrived, as Mail's does (seen 2026-10-28); the letter keeps its Date,
+    /// which a reply's "On ... wrote:" and Print write, and the reading
+    /// pane's header shows when it arrived (`Message.headerDate`, B-178,
+    /// the second round), its Date only where that is not known.
     func testALetterWhoseTwoDatesDifferSitsWhereItArrived() async throws {
         let arrived = Server.newestDate.addingTimeInterval(-(10.4 * Self.day))
         let letter = lastYear("Dated today, came ten days ago", arrived: arrived,
