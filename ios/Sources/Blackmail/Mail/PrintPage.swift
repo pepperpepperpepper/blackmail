@@ -77,7 +77,11 @@ enum PrintPage {
     /// "To:" line, where the paper had "To: me". "(no subject)" for a
     /// letter with none, as the pane says. The date is Mail's
     /// (`MailFormat.printedTimestamp`), never "Today" or "Yesterday": the
-    /// paper is read on another day.
+    /// paper is read on another day. It is when the letter arrived, its
+    /// Date where that is not known (`Message.headerDate`), as Mail 16.5.1
+    /// prints it: seen on the test iPad on 2026-10-28 (round r6-l-fix,
+    /// B-178), "Date: Oct 28, 2026 at 2:15:14 PM" on a letter dated 1
+    /// March 2024 that arrived then.
     struct Head: Equatable {
         /// One person of a line: the name, and the address after it, nil
         /// when the entry is an address alone.
@@ -128,7 +132,7 @@ enum PrintPage {
                      locale: Locale = .current, timeZone: TimeZone = .current) -> Head {
         Head(from: person(m.sender),
              subject: jobName(m),
-             date: MailFormat.printedTimestamp(m.date, locale: locale, timeZone: timeZone),
+             date: MailFormat.printedTimestamp(m.headerDate, locale: locale, timeZone: timeZone),
              to: m.to.map(person),
              cc: m.cc.map(person),
              files: m.listedAttachments.map { file in

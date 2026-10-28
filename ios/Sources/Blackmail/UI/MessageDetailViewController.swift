@@ -752,8 +752,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 guard let self else { return }
                 switch result {
                 case .success(let (m, page)):
-                    self.message = m
-                    self.header.configure(with: m.arriving(as: summary))
+                    // The letter held, and handed on to Reply, Reply All,
+                    // Forward, Print and Markup and Reply, with its row's
+                    // arrival, which the header, a reply's "On ... wrote:",
+                    // Forward's header and Print go by, as Mail's do
+                    // (`Message.headerDate`, B-178).
+                    let shown = m.arriving(as: summary)
+                    self.message = shown
+                    self.header.configure(with: shown)
                     self.draw(m, page: page)
                 case .failure(let error) where error is MailShelf.NotTheKeptLetter:
                     self.notTheKeptLetter(summary)
@@ -1060,7 +1066,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func settleBody(_ result: Result<(Message, ConversationDocument.Entry.Rendered), Error>,
                             for id: String, focus: Bool) {
         switch result {
-        case .success(let (m, body)):
+        case .success(let (came, body)):
+            // With its row's arrival, as the single letter's pane holds it
+            // (`Message.headerDate`, B-178).
+            let m = came.arriving(as: threadSummaries[id])
             loaded[id] = m
             drawBody(m, body, focus: focus)
         case .failure(let error) where error is MailShelf.NotTheKeptLetter:
@@ -1100,6 +1109,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The header and the toolbar made whole for a letter of the stack
     /// whose body has come, if he has not opened another since
     /// (`StackFocus.takes`, B-129): its own To and Cc, and Reply its own.
+    /// `m` is the letter as `loaded` holds it, with its row's arrival
+    /// (`settleBody`), which Reply and Print go by (B-178).
     /// The stack hangs from the header if it changes height with it
     /// (`StackPlace`, B-128).
     private func focusLetter(_ m: Message) {
@@ -2309,7 +2320,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             defer { self.answering = nil }
             let m: Message
             do {
-                m = try await repository.openLetter(letter)
+                // With the row's arrival, as the pane hands a letter on
+                // (`Message.headerDate`, B-178).
+                m = try await repository.openLetter(letter).arriving(as: letter)
             } catch is MailShelf.NotTheKeptLetter {
                 self.onNotTheKeptLetter?(letter)
                 return

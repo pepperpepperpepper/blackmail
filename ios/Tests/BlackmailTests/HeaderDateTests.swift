@@ -12,7 +12,8 @@ import XCTest
 /// AM", their Dates. Blackmail's words for the date and their place are
 /// its own, kept (D-008, D-025); only which date. A conversation's lines in
 /// the stack go by it too. A reply's "On ... wrote:", Forward and Print
-/// keep the Date, which these tests hold as well.
+/// go by it as well since the third round (`PaperDateTests`), which these
+/// tests hold too.
 final class HeaderDateTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -73,7 +74,8 @@ final class HeaderDateTests: XCTestCase {
     /// The round's two letters: the header drawn from the row at the tap
     /// and the header of the letter once it has come both show when it
     /// arrived, in the header's own words; the letter itself keeps its
-    /// Date, which a reply's "On ... wrote:" and Print write.
+    /// Date, and given its row's arrival a reply's "On ... wrote:" and
+    /// Print write the arrival (B-178, the third round).
     func testTheHeaderShowsWhenTheLetterArrived() async throws {
         let old = datedOld
         let came = cameOld
@@ -97,11 +99,13 @@ final class HeaderDateTests: XCTestCase {
             XCTAssertEqual(shown.date, sent.date)
             XCTAssertNotEqual(MailFormat.detailTimestamp(shown.headerDate, now: now),
                               MailFormat.detailTimestamp(sent.date, now: now), sent.subject)
-            // A reply's "On ... wrote:" and Print go by the Date still.
+            // A reply's "On ... wrote:" and Print go by the arrival, as
+            // Mail's do (B-178, the third round).
             let reply = Draft.replying(to: shown, all: false, mine: OwnAddresses([]))
-            XCTAssertTrue(reply.body.contains(MailFormat.quoteAttribution(sent.date, sender: m.sender)))
+            XCTAssertTrue(reply.body.contains(MailFormat.quoteAttribution(sent.arrival, sender: m.sender)))
+            XCTAssertFalse(reply.body.contains(MailFormat.quoteAttribution(sent.date, sender: m.sender)))
             XCTAssertEqual(PrintPage.head(shown, size: { "\($0)" }).date,
-                           MailFormat.printedTimestamp(sent.date))
+                           MailFormat.printedTimestamp(sent.arrival))
         }
         // Another letter's row gives nothing.
         let oldRow = try XCTUnwrap(rows.first { uid($0.id) == putOld })
@@ -162,13 +166,15 @@ final class HeaderDateTests: XCTestCase {
             .map { String($0.prefix(while: { $0 != "\n" })) }
         XCTAssertEqual(given, [
             ".heading(for: summary))",
-            "m.arriving(as: summary))",
+            "shown)",
             ".heading(for: newest, subject: thread.subject))",
             ".heading(for: row))",
             "m.arriving(as: summary))",
         ])
         let loads = try source("Sources/Blackmail/Mail/PaneLoads.swift")
         XCTAssertTrue(loads.contains("attachments: row.attachments, arrived: row.arrived)"))
+        // Each `shown` is the letter given its row's arrival.
+        XCTAssertEqual(pane.components(separatedBy: "let shown = m.arriving(as: summary)").count - 1, 1)
     }
 
     private func source(_ file: String) throws -> String {

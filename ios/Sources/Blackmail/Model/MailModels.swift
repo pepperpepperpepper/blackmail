@@ -319,11 +319,11 @@ struct Message: Identifiable {
     var filesLeftOnServer = false
     /// When the letter arrived, its INTERNALDATE, as its row in the list
     /// has it (`MessageSummary.arrived`), for the date the reading pane's
-    /// header shows (`headerDate`, B-178). Given by the row
-    /// (`Message.heading(for:)`, `arriving(as:)`); nil where the row does
-    /// not say, a letter kept on the iPad with none, and on a letter as
-    /// the server reads it, which a reply, Forward and Print take, each
-    /// of them by its Date.
+    /// header shows, a reply's "On ... wrote:", Forward's header and Print
+    /// (`headerDate`, B-178). Given by the row (`Message.heading(for:)`,
+    /// `arriving(as:)`), to every letter the pane holds and hands on; nil
+    /// where the row does not say, a letter kept on the iPad with none,
+    /// and on a letter as the server reads it until its row gives it.
     var arrived: Date? = nil
 }
 
@@ -337,8 +337,15 @@ extension Message {
     /// one dated that morning that arrived on 8 October "10/8/26" there
     /// and "Today at 9:00 AM" here. Blackmail's words for it and their
     /// place under the subject are its own and are kept
-    /// (`MailFormat.detailTimestamp`, D-008, D-025); only which date. A
-    /// reply's "On ... wrote:", Forward's header and Print go by `date`.
+    /// (`MailFormat.detailTimestamp`, D-008, D-025); only which date.
+    ///
+    /// A reply's "On ... wrote:" and Print go by it too, as Mail 16.5.1's
+    /// do (B-178, the third round): on the test iPad on 2026-10-28 (round
+    /// r6-l-fix) Mail printed "Date: Oct 28, 2026 at 2:15:14 PM" and
+    /// wrote "On Oct 28, 2026, at 2:15 PM, ... wrote:" for the letter
+    /// dated 1 March 2024 that arrived at 2:15 PM, and "Oct 8, 2026" for
+    /// the one that arrived on 8 October. Forward's header goes by it as
+    /// well, by the same rule: Mail's Forward was not looked at.
     var headerDate: Date { arrived ?? date }
 
     /// This letter with the arrival of `row`, its row in the list, for the
@@ -668,7 +675,9 @@ extension Draft {
         // where a reader looks for it. Below the quote it is buried under
         // however much of the original he kept.
         let quoted = m.quoted(eachLineAfter: "> ")
-        let region = MailFormat.quoteAttribution(m.date, sender: m.sender) + "\n" + quoted.text
+        // When the letter arrived, as Mail's "On ... wrote:" has it
+        // (`headerDate`, B-178); its Date where that is not known.
+        let region = MailFormat.quoteAttribution(m.headerDate, sender: m.sender) + "\n" + quoted.text
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region, cut: quoted.isCut)
         // Marked answered once the reply has gone (B-152).
@@ -704,10 +713,13 @@ extension Draft {
         // WHO else already had it. Field order is the iPad's own: From,
         // Date, To, Subject, as his forwards show, with Cc after To when the
         // original had one (B-050 says where that placement comes from).
-        // Mail on the Mac writes Subject second instead.
+        // Mail on the Mac writes Subject second instead. The date is when
+        // the letter arrived, as a reply's and Print's are (`headerDate`,
+        // B-178), its Date where that is not known: Mail's own Forward was
+        // not looked at, its reply and its print were.
         var region = "Begin forwarded message:\n\n"
             + "From: \(MailFormat.addressForQuoting(m.sender))\n"
-            + "Date: \(MailFormat.forwardedDate(m.date))\n"
+            + "Date: \(MailFormat.forwardedDate(m.headerDate))\n"
             + "To: \(m.to.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"
         if !m.cc.isEmpty {
             region += "Cc: \(m.cc.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"

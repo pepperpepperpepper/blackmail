@@ -133,9 +133,12 @@ struct PaneRelated {
     /// The letter `load` fetched has come, `m`: kept while the pane shows
     /// the conversation, for a picture tapped in it (B-122). Only the letter
     /// asked for, by its id, and only an entry of the conversation shown.
+    /// Kept with its row's arrival in Sent Mail, which a Markup and Reply
+    /// on a file of it goes by, as the pane's letters do
+    /// (`Message.headerDate`, B-178).
     mutating func keep(_ m: Message, for load: Load) {
         guard m.id == load.id, letters[load.entryID] != nil else { return }
-        opened[load.entryID] = m
+        opened[load.entryID] = m.arriving(as: load.row)
     }
 
     /// His letter whose section is `sectionID` and has come, nil for any

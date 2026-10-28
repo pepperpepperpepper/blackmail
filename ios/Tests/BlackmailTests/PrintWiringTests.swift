@@ -143,11 +143,12 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertEqual(printed.components(separatedBy: "BodyFiles.drawn(").count - 1, 2)
         XCTAssertEqual(printed.components(separatedBy: "of: m, on: .paper, cut: shown)").count - 1, 2)
         // On screen when the letter arrived, as Mail's header shows it
-        // (B-178, the second round); on paper its Date.
+        // (B-178, the second round); on paper too, as Mail prints it (the
+        // third round).
         XCTAssertTrue(header.contains("date = m.headerDate"), "on screen, when it arrived")
         XCTAssertTrue(header.contains("MailFormat.detailTimestamp(date)"), "on screen, as it was")
         XCTAssertFalse(printed.contains("detailTimestamp"))
-        XCTAssertTrue(printed.contains("MailFormat.printedTimestamp(m.date, locale: locale, timeZone: timeZone)"))
+        XCTAssertTrue(printed.contains("MailFormat.printedTimestamp(m.headerDate, locale: locale, timeZone: timeZone)"))
         XCTAssertFalse(printed.contains("fullTimestamp("), "Mail's form, not the pane's")
         // The sizes as a file's tile writes them.
         XCTAssertTrue(try source("Mail/BodyFiles.swift")
