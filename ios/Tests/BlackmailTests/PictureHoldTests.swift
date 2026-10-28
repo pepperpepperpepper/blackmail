@@ -306,7 +306,7 @@ final class PictureHoldTests: XCTestCase {
                                         + "else if let hold = BodyFiles.Hold(scriptMessage.body) { holdFile(hold) } "
                                         + "return"))
         XCTAssertTrue(code.contains(
-            "private func holdPicture(_ tap: PanePictures.Tap) { guard presentedViewController == nil, "
+            "private func holdPicture(_ tap: PanePictures.Tap) { guard presentedViewController == nil, !editDimmed, "
                 + "let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message, "
                 + "stack: loaded, his: { related.letter(inSection: $0) }) else { return } "
                 + "hold(PanePictures.menu, opening.part, of: opening.letter, x: tap.x, y: tap.y) }"))

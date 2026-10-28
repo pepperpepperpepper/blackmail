@@ -593,6 +593,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`EditBar.dimsPane`, B-174): the letter and its header greyed and
     /// the buttons above them grey, as Mail dims its pane then, and the
     /// letter's buttons not to be tapped; Compose can be, grey as Mail's.
+    /// Nor its files and pictures, tapped or held (`openAttachment`,
+    /// `holdPicture`, `holdFile`), whose Markup and Reply would open a
+    /// Reply the greyed Reply button does not.
     /// With a row ticked its letter is in the pane in full colour
     /// (`EditPane`). Colours only: nothing moves, appears or goes.
     func dimForEdit(_ dim: Bool) {
@@ -1360,7 +1363,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// for wins.
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil,
                                 for item: PanePictures.Item = .quickLook) {
-        guard let m = letter ?? message else { return }
+        guard !editDimmed, let m = letter ?? message else { return }
         // Its tile in the body, every file's only one since B-170.
         run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))
         let shown = loads.shown
@@ -1731,7 +1734,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// been given something else meanwhile, and does with it what it says.
     /// A tap outside closes it with nothing done.
     private func holdPicture(_ tap: PanePictures.Tap) {
-        guard presentedViewController == nil,
+        guard presentedViewController == nil, !editDimmed,
               let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,
                                                  stack: loaded, his: { related.letter(inSection: $0) })
         else { return }
@@ -1743,7 +1746,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`PanePictures.menu(for:)`), at the finger, for the file a tap on
     /// the tile opens.
     private func holdFile(_ held: BodyFiles.Hold) {
-        guard presentedViewController == nil, let (m, file) = self.file(held.section, of: held.letter) else {
+        guard presentedViewController == nil, !editDimmed,
+              let (m, file) = self.file(held.section, of: held.letter) else {
             return
         }
         hold(PanePictures.menu(for: file), file, of: m, x: held.x, y: held.y)

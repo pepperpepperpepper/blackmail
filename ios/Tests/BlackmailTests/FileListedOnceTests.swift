@@ -650,7 +650,7 @@ final class FileListedOnceTests: XCTestCase {
     func testThePaneShowsTheTileComingFromTheTapToTheEnd() throws {
         let code = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(code.contains(
-            "guard let m = letter ?? message else { return } "
+            "guard !editDimmed, let m = letter ?? message else { return } "
                 + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) let shown = loads.shown"))
         XCTAssertTrue(code.contains(
             "fileTaps.ended(file) if !handedOver && loads.stillShows(shown) { "
@@ -839,7 +839,7 @@ final class FileListedOnceTests: XCTestCase {
         let code = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(code.contains("} else if let hold = BodyFiles.Hold(scriptMessage.body) { holdFile(hold) }"))
         XCTAssertTrue(code.contains(
-            "private func holdFile(_ held: BodyFiles.Hold) { guard presentedViewController == nil, "
+            "private func holdFile(_ held: BodyFiles.Hold) { guard presentedViewController == nil, !editDimmed, "
                 + "let (m, file) = self.file(held.section, of: held.letter) else { return } "
                 + "hold(PanePictures.menu(for: file), file, of: m, x: held.x, y: held.y) }"))
         XCTAssertEqual(code.components(separatedBy: "hold(PanePictures.").count - 1, 2)

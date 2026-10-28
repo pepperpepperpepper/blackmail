@@ -473,7 +473,7 @@ final class PictureTapTests: XCTestCase {
         XCTAssertTrue(code.contains(
             "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil, "
                 + "for item: PanePictures.Item = .quickLook) { "
-                + "guard let m = letter ?? message else { return } "
+                + "guard !editDimmed, let m = letter ?? message else { return } "
                 + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) "
                 + "let shown = loads.shown "
                 + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "

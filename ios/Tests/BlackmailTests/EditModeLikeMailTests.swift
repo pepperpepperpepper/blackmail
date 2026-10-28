@@ -374,6 +374,23 @@ final class EditModeLikeMailTests: XCTestCase {
         XCTAssertTrue(flat(pane).contains("private static let editDim: CGFloat = 0.57"))
     }
 
+    /// Dimmed, the letter's files and pictures are no more to be tapped
+    /// than its buttons: a tap on one, or a finger held on it, opens
+    /// nothing, so Markup and Reply cannot open a Reply the greyed Reply
+    /// button would not. Nothing changes in how the pane looks.
+    func testTheDimmedLettersFilesAndPicturesAreNotToBeTapped() throws {
+        let pane = try source("UI/MessageDetailViewController.swift")
+        let open = flat(body(after: "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil, "
+                             + "for item: PanePictures.Item = .quickLook)", in: flat(pane)))
+        XCTAssertTrue(open.hasPrefix("{ guard !editDimmed, let m = letter ?? message else { return }"), open)
+        let picture = flat(body(after: "private func holdPicture(_ tap: PanePictures.Tap)", in: pane))
+        XCTAssertTrue(picture.hasPrefix("{ guard presentedViewController == nil, !editDimmed, let opening = "),
+                      picture)
+        let file = flat(body(after: "private func holdFile(_ held: BodyFiles.Hold)", in: pane))
+        XCTAssertTrue(file.hasPrefix("{ guard presentedViewController == nil, !editDimmed, let (m, file) = "),
+                      file)
+    }
+
     /// A ticked row in Mail's blue with the tick white, its grey lines in
     /// Mail's see-through grey, set as Edit mode begins and as the row is
     /// selected; the grey of the letter in the pane out of Edit mode.

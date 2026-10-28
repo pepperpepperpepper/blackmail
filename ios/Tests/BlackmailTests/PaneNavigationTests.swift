@@ -156,7 +156,7 @@ final class PaneNavigationTests: XCTestCase {
                               in: code))
         XCTAssertNotNil(place(of: "private func openAttachment(_ attachment: Attachment, of letter: "
                                   + "Message? = nil, for item: PanePictures.Item = .quickLook) { "
-                                  + "guard let m = letter ?? message else { return } "
+                                  + "guard !editDimmed, let m = letter ?? message else { return } "
                                   + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))",
                               in: code))
         XCTAssertFalse(code.contains("setAttachment"))
