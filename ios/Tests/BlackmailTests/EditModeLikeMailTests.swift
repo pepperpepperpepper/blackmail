@@ -183,8 +183,9 @@ final class EditModeLikeMailTests: XCTestCase {
 
     /// A lost answer's look (B-151) finding the letter the pane had opened
     /// before Edit mode gone during it: not put back as Edit mode ends,
-    /// from its row nor from the row it had, the pane emptied as the look
-    /// empties it; another letter of its conversation gone leaves it to
+    /// from its row nor from the row it had, nor from its conversation's row
+    /// left with another letter, the pane emptied as the look empties it;
+    /// another letter of its conversation gone leaves it to
     /// come back; nothing out of Edit mode, and nothing kept for the next.
     /// Read from the list: told by the list's `movedAfterAll` in Edit mode,
     /// whether the rows go now or wait for the ticks to be let go.
@@ -210,6 +211,15 @@ final class EditModeLikeMailTests: XCTestCase {
         pane.gone([letter(147, thread: "A")])
         XCTAssertEqual(ids(pane.end(in: threads, showing: ["7/148"])), ["7/150", "7/147"],
                        "another letter of its conversation")
+
+        pane.begin(showing: ["7/150", "7/147"], thread: threads[0])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/150", "7/147"]), 2)
+        pane.gone([letter(150, thread: "A")])
+        let without = MessageThread.rows(for: [letter(149, thread: "B"), letter(148, thread: "C"),
+                                               letter(147, thread: "A")], grouped: true)
+        guard case .empty = pane.end(in: without, showing: ["7/148"]) else {
+            return XCTFail("gone, its conversation's row left with another letter")
+        }
 
         pane.gone([letter(149, thread: "B")])
         pane.begin(showing: ["7/149"], thread: threads[1])

@@ -313,7 +313,10 @@ struct EditPane {
         guard let thread = ListEdit.paneRow(in: threads, showing: before).map({ threads[$0] })
                 ?? beforeThread else { return .stay }
         if ListEdit.going(thread.messages, with: going) { return .empty }
-        if let opened = before.first, let letter = thread.messages.first(where: { $0.id == opened }),
+        // Looked for in the row it had too: its conversation's row can be
+        // left on the list with another letter, the one it opened gone.
+        if let opened = before.first,
+           let letter = (thread.messages + (beforeThread?.messages ?? [])).first(where: { $0.id == opened }),
            ListEdit.going([letter], with: lost) { return .empty }
         return .letters(thread)
     }
