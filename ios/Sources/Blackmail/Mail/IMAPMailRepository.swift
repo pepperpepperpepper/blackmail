@@ -1374,7 +1374,12 @@ actor IMAPMailRepository: MailRepository {
             // His own address goes by without its name: the book names it
             // as his account names him (`RecipientBook.noteOwn`), and an old
             // letter of his carries the name he had then (B-082).
-            if let env {
+            //
+            // Nothing from Junk: a letter Gmail took for spam, its sender's
+            // name as like as not a bank's or a shop's, would be kept and
+            // offered by that name as a sender only seen (B-177), and a
+            // letter to it his next.
+            if let env, name != roleNames[.junk] {
                 for a in env.from + env.to + env.cc {
                     recipients.note(address: a.address, name: isOwn(a.address) ? nil : a.name)
                 }

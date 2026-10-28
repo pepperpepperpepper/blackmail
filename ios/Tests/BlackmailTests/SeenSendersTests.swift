@@ -192,6 +192,24 @@ final class SeenSendersTests: XCTestCase {
         }
     }
 
+    /// Nobody from Junk: a letter there is one Gmail took for spam, its
+    /// sender's name as like as not a bank's or a shop's, and kept and
+    /// offered by name it would be his next letter to them. The Inbox's
+    /// senders are noted as ever.
+    func testNobodyFromJunkIsNoted() async throws {
+        let server = ScriptedIMAPServer(inboxCount: 12)
+        let repository = IMAPMailRepository(account: server.account, password: server.password,
+                                            transport: server.transportFactory, recipients: book,
+                                            shelf: keptShelf(for: server.account))
+        let junk = try await repository.listMessages(in: ScriptedIMAPServer.spam, beforeUID: nil, limit: 50)
+        XCTAssertFalse(junk.isEmpty)
+        XCTAssertFalse(book.snapshot().contains { $0.address == "prizes@example.net" })
+        XCTAssertEqual(offered("prize"), [])
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        XCTAssertTrue(book.snapshot().contains { $0.address == "sam@example.com" })
+        XCTAssertEqual(server.violations, [])
+    }
+
     /// After the people he has written to and his Contacts, the plan's
     /// order: Mail's list had the one row, so where its "SIRI FOUND IN
     /// APPS" comes beside its Recents was not seen.
