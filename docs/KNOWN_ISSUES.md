@@ -37288,3 +37288,92 @@ turn together with one, nor three with two, each its turn once and the
 turns given back; and the loader's pin takes the turn, the stopped
 request and the turn given back. Every request let through at once, 2
 failures in the new test; then restored.
+
+## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, after the people he writes to and his Contacts, and so does Blackmail now
+
+**What Mail does.** Seen side by side on the test iPad, Mail 16.5.1, in
+the comparison round of 2026-10-27 (its C-16, the shots
+`r6-i-compare-16-mail-zqx` and `-zqxab`). A letter from a made-up
+sender, "Zqxa Rmfix" at zqxa.b162@example.net, listed in a label and
+never written to, nor in Contacts. New Message, "zqx" in To: a list
+under To, the heading "SIRI FOUND IN APPS", one row, "Zqxa Rmfix" with
+the typed part bold, its address under it, an avatar and an (i). "zqxa.b"
+in To: nothing offered. So Mail offers a sender seen only in his mail,
+by the start of the name, and not by the start of the address. On
+iPadOS 18 the same suggestions are made (CoreRecents and Siri's); his own
+iPad's were not looked at. Where Mail puts them beside its Recents and
+Contacts was not seen: the list had that one row. After both is the
+plan's order, as B-162 put the seen.
+
+**What Blackmail did.** "zqx" and "zqxa.b" both offered nothing. The book
+(`RecipientBook`) notes every address of each row the list fetches, and
+since B-155 is filled from six months of his Sent Mail with the people he
+wrote to, up to its 300. Its one bound sent what was only seen first: in
+a book of 300 people written to (the comparison read 300 entries), a
+sender noted from a listed letter was the one to go, the moment it was
+noted. And an address only seen was matched by its start too (B-162's
+third group), and within (B-017), had it stayed.
+
+**Changed.**
+
+1. *A bound of their own* (`RecipientBook.evictIfNeeded`,
+   `seenCapacity`, new, 300). The book is two parts: his own addresses
+   and the people he has written to (`uses` above nothing) held to the
+   300 as before, his own never pushed out; and the addresses only seen,
+   held to 300 of their own. Each part over its bound loses its oldest,
+   and nothing else. A full book of people written to keeps a sender
+   just noted; a thousand newsletters still never push out anyone he
+   wrote to. The fill from Sent Mail takes as many as before.
+2. *Offered by name alone* (`AddressSuggestions`). An address only seen
+   is found by the start of a word of the name the book has for it,
+   "zqx", "rmf" and "zqxa r" for Zqxa Rmfix, case and accents aside as
+   his Contacts' names are; never by its address, nor within. One the
+   book has no name for, or an address for a name, is not offered. They
+   come after the people he has written to and his Contacts, as before.
+   The people he has written to are matched as ever, by address and
+   within too.
+3. *His own are never only seen* (`noteOwn`, `record`). His account's
+   address noted under his name, and any address of his own the account
+   lists noted from a list, count as written to once at least, so "own"
+   still finds owner@example.com under his name (B-082) and his second
+   address is found by its start before any fill has counted it.
+
+**What it reverses.** B-155's "what was only seen goes first" and the
+one bound of 300. B-162's third group in part: an address only seen is
+no longer found by the start of its address, and B-017's matches within
+are no longer made for it. The share sheet's copy of the book holds the
+seen part too, so it is up to twice the size it was.
+
+**Not changed.** Mail's "SIRI FOUND IN APPS" heading, its avatar and its
+(i): the row is drawn as before (the plan's K13, layout kept). The typed
+part in bold: not built here, as it is the row's drawing in the composer
+and the share sheet, not who is offered; every row, Blackmail's as
+before, has the name in one weight. Which addresses are noted: every address of a listed
+row, as before. Search's people (B-123) are asked of the whole book, so
+a sender kept now is found there too, as one was before the fill.
+
+**Tests.** `SeenSendersTests`, eight, new: a sender noted after a fill
+to the brim kept and offered by name, "zqx", "Rmf", "zqxa r", named as
+the book names it; kept across a reopening; the seen part's own bound
+losing its oldest, the 300 and his own untouched; the 300 losing its
+oldest when he writes to more, none of the seen; never by the address,
+"zqxa.b", "zqxa.b162" and within, nothing for one with no name or an
+address for a name; after the people written to and his Contacts; his own,
+the account's and a second noted from a list, found by the start of the
+address before any fill; and the people written to found by address and
+within as ever. `NameAtOnceTests`' three tests of his own address under
+the name saved ("own") pass unchanged.
+`SentFillTests` changed: the fill keeps the 280 only seen beside the 300,
+the 50 noted after it are kept, his second address noted counts once
+before a fill of nobody, and in the one ranking with his Contacts
+the seen one is found by its name, one with no name not by its address.
+`RecipientBookTests`' threads test counts the seen part's bound.
+Undone by hand, the book's one bound back with what was only seen going
+first, his own no longer counted once, every book entry matched by name
+alone and the seen placed before his Contacts: 15 failures in 7 tests of
+`SeenSendersTests`; then every entry matched by the book's own rules, by
+address and within: 7 in `testNeverByTheAddress`; then restored.
+
+**Not seen.** Nothing of this has been seen on an iPad. No layout
+changed: the list under the field has the same rows, drawn the same; only
+who can be in them changed.

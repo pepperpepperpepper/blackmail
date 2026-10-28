@@ -154,7 +154,8 @@ final class SentFillTests: XCTestCase {
     // MARK: - The book
 
     /// Taken in as written to, best first, as many as the 300 holds beside
-    /// his own addresses in it, both kept; what was only seen goes first.
+    /// his own addresses in it, both kept; what was only seen is kept
+    /// apart, beside the 300 (B-177; until then it went first).
     func testTheFillGoesInWithinTheThreeHundredBesideHisOwn() {
         book.noteOwn(address: "owner@example.com", name: "Owner")
         book.note(address: "second@example.com")
@@ -165,13 +166,15 @@ final class SentFillTests: XCTestCase {
         let taken = book.fill(with: people, besides: mine)
         XCTAssertEqual(taken, 298)
         let all = book.snapshot()
-        XCTAssertEqual(all.count, RecipientBook.capacity)
+        XCTAssertEqual(all.count, RecipientBook.capacity + 280)
+        XCTAssertEqual(all.filter { $0.uses > 0 || mine.contains($0.address) }.count,
+                       RecipientBook.capacity)
         let kept = Set(all.map(\.address))
         XCTAssertTrue(kept.contains("owner@example.com"))
         XCTAssertTrue(kept.contains("second@example.com"))
         XCTAssertTrue(kept.isSuperset(of: (0..<298).map { "p\($0)@example.org" }))
         XCTAssertFalse(kept.contains("p298@example.org"))
-        XCTAssertFalse(kept.contains { $0.hasSuffix("@news.example.com") })
+        XCTAssertTrue(kept.isSuperset(of: (0..<280).map { "seen\($0)@news.example.com" }))
         XCTAssertEqual(all.first { $0.address == "p0@example.org" }?.uses, 400)
     }
 
@@ -196,9 +199,9 @@ final class SentFillTests: XCTestCase {
         XCTAssertGreaterThan(carlo.lastSeen, days(3), "the later of the two")
     }
 
-    /// Filled, the book is all people written to and his own; his own,
+    /// Filled, the 300 are all people written to and his own; his own,
     /// noted at launch and seldom chosen, stay through every address noted
-    /// after, each of which, only seen, is the one to go.
+    /// after, each of which, only seen, is kept apart beside them (B-177).
     func testHisOwnAreNeverPushedOutAfterTheFill() {
         book.keepOwn(mine)
         book.noteOwn(address: "owner@example.com", name: "Owner")
@@ -207,11 +210,11 @@ final class SentFillTests: XCTestCase {
                   besides: mine)
         for n in 0..<50 { book.note(address: "news\(n)@example.com") }
         let kept = Set(book.snapshot().map(\.address))
-        XCTAssertEqual(kept.count, RecipientBook.capacity)
+        XCTAssertEqual(kept.count, RecipientBook.capacity + 50)
         XCTAssertTrue(kept.contains("owner@example.com"))
         XCTAssertTrue(kept.contains("second@example.com"))
         XCTAssertTrue(kept.isSuperset(of: (0..<298).map { "p\($0)@example.org" }))
-        XCTAssertFalse(kept.contains { $0.hasPrefix("news") })
+        XCTAssertTrue(kept.isSuperset(of: (0..<50).map { "news\($0)@example.com" }))
     }
 
     /// His own address first among those that start alike after the fill:
@@ -246,7 +249,8 @@ final class SentFillTests: XCTestCase {
         for _ in 0..<60 { other.used(address: "owner@example.com") }
         other.note(address: "second@example.com")
         other.fill(with: [], besides: mine)
-        XCTAssertEqual(other.snapshot().first { $0.address == "second@example.com" }?.uses, 0)
+        XCTAssertEqual(other.snapshot().first { $0.address == "second@example.com" }?.uses, 1,
+                       "his own, noted, counted once (B-177), and no more by a fill of nobody")
         other.fill(with: [entry("owen@example.org", uses: 40, at: days(1))], besides: mine)
         XCTAssertEqual(other.snapshot().first { $0.address == "owner@example.com" }?.uses, 60)
         XCTAssertEqual(other.snapshot().first { $0.address == "second@example.com" }?.uses, 41)
@@ -255,12 +259,14 @@ final class SentFillTests: XCTestCase {
     /// One ranking with his Contacts (B-162): the book filled from Sent
     /// Mail is written to as before, so of those that start alike its
     /// people come first, his own above them by the fill's one more, then
-    /// his cards in Contacts' order, then the addresses only seen. A card
+    /// his cards in Contacts' order, then the addresses only seen, by
+    /// their names (B-177): one with no name is not offered. A card
     /// naming an address he wrote to names its row, where it stands.
     func testTheFilledBookAndHisContactsMakeOneRanking() {
         book.keepOwn(mine)
         book.noteOwn(address: "owner@example.com", name: "Sam Owner")
-        book.note(address: "owlet@example.net")
+        book.note(address: "owlet@example.net", name: "Owlet Seen")
+        book.note(address: "owl@example.net")
         book.fill(with: [entry("owen@example.org", name: "Owen Example", uses: 40, at: days(1))],
                   besides: mine)
         let cards = [ContactCard(name: "Owain Card", givenName: "Owain", familyName: "Card",
@@ -273,6 +279,9 @@ final class SentFillTests: XCTestCase {
                                               "owain@example.com", "owlet@example.net"])
         XCTAssertEqual(rows[1].name, "Owen Ex", "named as his card names it")
         XCTAssertEqual(rows[1].uses, 40, "and counted as the book counts it")
+        XCTAssertFalse(AddressSuggestions.rank(book: book.snapshot(), contacts: cards, matching: "ow",
+                                               limit: 10).contains { $0.address == "owl@example.net" },
+                       "only seen, with no name: not by its address")
     }
 
     /// The same for a book told his addresses as a repository is made,

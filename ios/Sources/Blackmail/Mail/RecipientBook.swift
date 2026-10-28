@@ -49,6 +49,15 @@ struct KnownRecipient: Codable, Equatable {
 /// go in as written to (`writtenTo`, `fill`), within the 300, his own
 /// addresses never pushed out.
 ///
+/// **The people only seen are kept apart** (B-177). Mail offers someone
+/// whose letter he has only received, by name, under "SIRI FOUND IN
+/// APPS", after his Recents and his Contacts. Filled from Sent Mail, the
+/// 300 held nobody else, and an address noted from a letter went out again
+/// at once to make room. So the addresses only seen have a bound of their
+/// own (`seenCapacity`) beside the 300 of his own and the people he has
+/// written to (`evictIfNeeded`), and the address fields offer them by
+/// their name alone (`AddressSuggestions`).
+///
 /// Stored in `UserDefaults` alongside the account for the same reason the
 /// account is: none of it is secret. It is a list of people he corresponds
 /// with, already sitting in plaintext on the server.
@@ -57,8 +66,15 @@ final class RecipientBook {
     static let shared = RecipientBook()
 
     /// Enough to cover anyone he writes to, small enough that the ranking
-    /// stays instant and `UserDefaults` stays a reasonable home.
+    /// stays instant and `UserDefaults` stays a reasonable home. His own
+    /// addresses and the people he has written to (`uses` above nothing).
     static let capacity = 300
+
+    /// The addresses only seen go past, never chosen and none of his own,
+    /// beside the 300 and bounded apart (B-177): the people whose letters
+    /// he has received, the newest kept. Until then they shared the 300,
+    /// and once the fill from Sent Mail had filled it each went as it came.
+    static let seenCapacity = 300
 
     /// How many rows the composer offers at once.
     static let suggestionLimit = 4
@@ -128,6 +144,10 @@ final class RecipientBook {
     /// going past in a list does not name his address
     /// (`IMAPMailRepository.rows`): an old letter of his carries the name
     /// he had then.
+    ///
+    /// Counted as written to, once at least (B-177): his own address is
+    /// never one only seen, which the address fields offer by its name
+    /// alone, and "own" still finds owner@example.com under his name.
     func noteOwn(address: String, name: String) {
         let keys = Self.keys(for: address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
         guard keys.count == 1, let key = keys.first, key.contains("@"), key.count > 2 else { return }
@@ -137,6 +157,7 @@ final class RecipientBook {
         var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
                                                    lastSeen: .distantPast)
         entry.name = trimmed.isEmpty ? nil : trimmed
+        entry.uses = max(entry.uses, 1)
         entry.lastSeen = Date()
         entries[key] = entry
         evictIfNeeded()
@@ -179,6 +200,10 @@ final class RecipientBook {
                 entry.name = name.trimmingCharacters(in: .whitespaces)
             }
             if chosen { entry.uses += 1 }
+            // His own, as the account lists them, are never only seen
+            // (B-177): his second address is found by its start, as the
+            // people he writes to are.
+            if own.contains(key) { entry.uses = max(entry.uses, 1) }
             entry.lastSeen = seen
             entries[key] = entry
         }
@@ -246,18 +271,39 @@ final class RecipientBook {
         return order.compactMap { filed[$0] }
     }
 
-    /// Drops the least useful when full: never-chosen entries first, oldest
-    /// first within that. Someone he has actually written to survives a
-    /// thousand newsletters. Never one of his own addresses (`own`, B-155).
+    /// Drops the oldest of a part that is over its bound (B-177): the
+    /// people he has written to, with his own, held to the 300 (`capacity`),
+    /// and those only seen to theirs (`seenCapacity`). Someone he has
+    /// actually written to survives a thousand newsletters, and the sender
+    /// of a letter he received survives the fill from his Sent Mail. Never
+    /// one of his own addresses (`own`, B-155), which count in the 300.
     /// The caller holds `lock`.
+    ///
+    /// Until B-177 the book had the one bound, and what was only seen went
+    /// first: filled with the people he wrote to, it kept no one else.
     private func evictIfNeeded() {
-        guard entries.count > Self.capacity else { return }
-        let ordered = entries.values.filter { !own.contains($0.address) }.sorted {
-            if ($0.uses > 0) != ($1.uses > 0) { return $0.uses == 0 }
-            return $0.lastSeen < $1.lastSeen
+        guard entries.count > min(Self.capacity, Self.seenCapacity) else { return }
+        var written: [KnownRecipient] = []
+        var seen: [KnownRecipient] = []
+        var mine = 0
+        for entry in entries.values {
+            if own.contains(entry.address) {
+                mine += 1
+            } else if entry.uses > 0 {
+                written.append(entry)
+            } else {
+                seen.append(entry)
+            }
         }
-        for entry in ordered.prefix(entries.count - Self.capacity) {
-            entries[entry.address] = nil
+        for (part, bound) in [(written, Self.capacity - mine), (seen, Self.seenCapacity)]
+        where part.count > bound {
+            let oldest = part.sorted {
+                if $0.lastSeen != $1.lastSeen { return $0.lastSeen < $1.lastSeen }
+                return $0.address < $1.address
+            }
+            for entry in oldest.prefix(part.count - max(0, bound)) {
+                entries[entry.address] = nil
+            }
         }
     }
 
@@ -484,9 +530,10 @@ final class RecipientBook {
     /// from now as `keepOwn` keeps it). An entry the book has keeps its
     /// name, or takes this one if it has none, and the larger count and
     /// the later date, so a letter sent from the app and counted as it went
-    /// (`used`) is not counted twice. What no longer fits goes as ever:
-    /// what was only seen first, then the oldest. Written out by the
-    /// caller (`flush`). Returns how many were taken in.
+    /// (`used`) is not counted twice. What no longer fits in the 300 goes,
+    /// the oldest first; the addresses only seen are kept apart, beside it
+    /// (`seenCapacity`, B-177). Written out by the caller (`flush`).
+    /// Returns how many were taken in.
     ///
     /// And each of his own in the book counted one more than anyone taken
     /// in, if it was not already. His letters to himself are not counted,

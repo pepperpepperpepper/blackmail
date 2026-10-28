@@ -9377,6 +9377,34 @@ checks below is left as not needed, not open, and none is worth a round.*
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
 
+- [ ] **B-177, a sender only seen offered by name.** On the test iPad,
+      the test account only, from a build of the `bm-cmp-f` worktree
+      (branch `copy-cmp-f`) or of the int it is merged into. Nothing is
+      sent: no Send is tapped, and the letter begun is closed with Cancel
+      and Delete Draft, which keeps nothing. The host makes one letter
+      From "Zqxa Rmfix <zqxa.b162@example.net>", a made-up sender nobody
+      on the account has written to, with a new Message-ID of its own and
+      naming none on the account, and APPENDs it, read (`\Seen`), to the
+      label "Notes", never the Inbox, noting its UID from APPENDUID; it
+      stops if there is none. Zqxa Rmfix is in no card in Contacts.
+      0. *Listed:* in the app, "Notes" opened and its list pulled until
+      the letter's row shows, then the Inbox.
+      1. *By name:* New Message, "zqx" in To: the list under To has the
+      row "Zqxa Rmfix", zqxa.b162@example.net under it, after any row of
+      someone written to or in Contacts. Screenshot. To emptied, "rmf":
+      the same row.
+      2. *Not by address:* To emptied, "zqxa.b": nothing offered.
+      Screenshot.
+      3. *Kept:* Blackmail ended and opened again, New Message, "zqx":
+      the row again.
+      4. *Cancel:* Cancel, Delete Draft: the composer closes; the
+      connection log has no `MAIL FROM`, `RCPT TO`, `DATA` or `APPEND`.
+      5. *Put back:* the host moves the UID it noted, and only it, from
+      "Notes" to the Trash, and deletes in the Trash only the UID that
+      move answered (`COPYUID`). Nothing was sent, and nothing else was
+      written to the account. The book keeps the address, as it keeps
+      any sender listed.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

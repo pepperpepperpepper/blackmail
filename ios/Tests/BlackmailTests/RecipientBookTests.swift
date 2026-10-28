@@ -150,7 +150,8 @@ final class RecipientBookTests: XCTestCase {
     /// crashed the app, every run of this.
     ///
     /// The writer mostly updates, and now and then brings in a newcomer,
-    /// which the full book makes room for by evicting; a flush now and
+    /// which the full book of addresses only seen makes room for by
+    /// evicting (B-177); a flush now and
     /// then copies the entries too.
     func testNotingOnOneThreadWhileAnotherAsksForSuggestionsIsSafe() {
         let suite = UserDefaults(suiteName: #function)!
@@ -176,7 +177,7 @@ final class RecipientBookTests: XCTestCase {
         done.wait()
 
         XCTAssertGreaterThan(asked, 0)
-        XCTAssertEqual(book.suggestions(for: "", limit: 1_000).count, RecipientBook.capacity)
+        XCTAssertEqual(book.suggestions(for: "", limit: 1_000).count, RecipientBook.seenCapacity)
         suite.removePersistentDomain(forName: #function)
     }
 
