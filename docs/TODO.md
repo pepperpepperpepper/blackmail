@@ -9387,8 +9387,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       1. *Nothing ticked:* "Notes" opened, the first letter tapped, then
          Edit: Mark, Move and Trash grey, Select All and Cancel blue, the
          title "Notes"; the letter and its header grey, the buttons above
-         them grey and Flag, Move, Trash and Reply not answering a tap.
-         Screenshot.
+         them grey, and Flag and Reply not answering a tap (only those two
+         are tried, as neither writes anything; if one answers, a tap
+         outside its sheet, or Delete Draft). The circles of the unticked
+         rows grey, not white. Screenshot.
       2. *One ticked:* the third row ticked: the title "1 Selected", the
          row blue with a white tick and white names, its letter in the pane
          in full colour, Mark, Move and Trash blue. Screenshot. The second
@@ -9402,7 +9404,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          beside Cancel, nothing moved. Back to three panes.
       5. *Empty:* an empty folder (Junk, if empty; else any empty one)
          opened: Edit grey, a tap on it does nothing.
-      6. *Put back:* "Notes" left, the Inbox at its top. The host checks
+      6. *A search with no hits:* "Notes" again, Edit, a word none of the
+         letters has typed in the search field: "No results", Cancel blue,
+         Edit mode still on. Cancel: "Edit", grey. The search cancelled:
+         the rows back, "Edit" blue.
+      7. *Put back:* "Notes" left, the Inbox at its top. The host checks
          the three letters' flags unchanged, then moves the UIDs it noted,
          and only them, from "Notes" to the Trash, and deletes in the Trash
          only the UIDs that move answered (`COPYUID`). Nothing was sent,

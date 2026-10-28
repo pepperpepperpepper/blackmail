@@ -236,6 +236,9 @@ struct EditPane {
     /// The letter the pane opened for a tick, `lettersShown`'s first, nil
     /// while no tick has changed the pane.
     private var shownForTick: String?
+    /// The letters the Edit bar's Delete or Move is taking as it ends Edit
+    /// mode (`taking`).
+    private var going: [MessageSummary] = []
 
     /// Edit mode has begun, the pane showing `shown`, in the row `thread`
     /// of the list, if it has one.
@@ -270,14 +273,28 @@ struct EditPane {
         case letters(MessageThread)
     }
 
+    /// The Edit bar's Delete or Move is taking `letters` off the list, and
+    /// ending Edit mode as it does: told before the end, so that the letter
+    /// before is not put back if it is among them. Put back, it was shown
+    /// and its body asked for, and a moment later the batch took it out of
+    /// the pane again (`ListEdit.going`). Nothing out of Edit mode.
+    mutating func taking(_ letters: [MessageSummary]) {
+        guard before != nil else { return }
+        going = letters
+    }
+
     /// Edit mode has ended, the pane showing `shown`: what it goes back
-    /// to. Out of Edit mode afterwards.
+    /// to. Out of Edit mode afterwards. Emptied, as it was before Edit mode
+    /// or as the batch would empty it, where the letter before is among
+    /// the letters the bar is taking (`taking`).
     mutating func end(in threads: [MessageThread], showing shown: [String]) -> Back {
         defer { self = EditPane() }
         guard let before, let tick = shownForTick, shown.first == tick else { return .stay }
         if before.isEmpty { return .empty }
-        if let row = ListEdit.paneRow(in: threads, showing: before) { return .letters(threads[row]) }
-        return beforeThread.map(Back.letters) ?? .stay
+        guard let thread = ListEdit.paneRow(in: threads, showing: before).map({ threads[$0] })
+                ?? beforeThread else { return .stay }
+        if ListEdit.going(thread.messages, with: going) { return .empty }
+        return .letters(thread)
     }
 }
 

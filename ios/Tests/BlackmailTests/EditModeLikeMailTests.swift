@@ -35,14 +35,27 @@ final class EditModeLikeMailTests: XCTestCase {
     }
 
     /// Edit is grey with no rows, Cancel never; Edit mode ends by itself
-    /// when its last row goes, and only then.
+    /// when the folder's last row goes, and only then: not over a search
+    /// with no hits.
     func testEditIsGreyInAnEmptyFolderAndEndsWithTheLastRow() {
         XCTAssertFalse(EditBar.canEdit(rows: 0, editing: false))
         XCTAssertTrue(EditBar.canEdit(rows: 1, editing: false))
         XCTAssertTrue(EditBar.canEdit(rows: 0, editing: true), "Cancel")
-        XCTAssertTrue(EditBar.ends(rows: 0, editing: true))
-        XCTAssertFalse(EditBar.ends(rows: 1, editing: true))
-        XCTAssertFalse(EditBar.ends(rows: 0, editing: false))
+        XCTAssertTrue(EditBar.ends(rows: 0, editing: true, searching: false))
+        XCTAssertFalse(EditBar.ends(rows: 1, editing: true, searching: false))
+        XCTAssertFalse(EditBar.ends(rows: 0, editing: false, searching: false))
+        XCTAssertFalse(EditBar.ends(rows: 0, editing: true, searching: true), "no hits")
+        XCTAssertFalse(EditBar.ends(rows: 1, editing: true, searching: true))
+    }
+
+    /// Edit's button as the last row goes in Edit mode: Edit mode ends
+    /// first, and Edit is grey after it, by the rows and Edit mode as they
+    /// are then. Asked while Edit mode was on, it came out blue.
+    func testEditIsGreyOnceEditModeEndsWithTheLastRow() {
+        var editing = true
+        if EditBar.ends(rows: 0, editing: editing, searching: false) { editing = false }
+        XCTAssertFalse(EditBar.canEdit(rows: 0, editing: editing))
+        XCTAssertTrue(EditBar.canEdit(rows: 0, editing: true), "asked before the end")
     }
 
     /// Dimmed in Edit mode with nothing ticked; in full colour with a tick,
@@ -122,6 +135,52 @@ final class EditModeLikeMailTests: XCTestCase {
         }
     }
 
+    /// The Edit bar's Trash or Move taking the letter before with the
+    /// ticked one: the pane emptied as Edit mode ends, the letter before
+    /// not shown again for a moment, by its own id, any letter of its
+    /// conversation, or a copy under another mailbox's id; and put back
+    /// when it is not among them. Nothing out of Edit mode, and nothing
+    /// left over for the next Edit mode.
+    func testTheLetterBeforeIsNotPutBackWhenTheBarTakesIt() {
+        let threads = self.threads
+        var pane = EditPane()
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        pane.taking([letter(148, thread: "C"), letter(149, thread: "B")])
+        guard case .empty = pane.end(in: threads, showing: ["7/148"]) else {
+            return XCTFail("the letter before goes with them")
+        }
+
+        pane.begin(showing: ["7/150", "7/147"], thread: threads[0])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/150", "7/147"]), 2)
+        pane.taking([letter(148, thread: "C"), letter(147, thread: "A")])
+        guard case .empty = pane.end(in: threads, showing: ["7/148"]) else {
+            return XCTFail("a letter of the conversation before goes")
+        }
+
+        let before = letter(149, thread: "B")
+        let twin = MessageSummary(id: "9/31", mailboxID: "[Gmail]/All Mail", sender: before.sender,
+                                  subject: before.subject, preview: "", date: before.date,
+                                  isRead: true, isFlagged: false, threadID: "B")
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        pane.taking([letter(148, thread: "C"), twin])
+        guard case .empty = pane.end(in: threads, showing: ["7/148"]) else {
+            return XCTFail("its copy from All Mail goes")
+        }
+
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        pane.taking([letter(148, thread: "C")])
+        XCTAssertEqual(ids(pane.end(in: threads, showing: ["7/148"])), ["7/149"], "not among them")
+
+        pane.taking([letter(149, thread: "B")])
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        XCTAssertEqual(ids(pane.end(in: threads, showing: ["7/148"])), ["7/149"],
+                       "nothing taken out of Edit mode, nothing kept")
+    }
+
     /// The pane gone on from the ticked letter, as after its own Delete, is
     /// left; a letter before that the list has lost comes back from the row
     /// it had; and Edit mode, once ended, has nothing more to put back.
@@ -198,11 +257,31 @@ final class EditModeLikeMailTests: XCTestCase {
                  "updateSelectAllTitle()",
                  "if !editing { highlightLetterInPane()"], in: edit)
 
+        // Edit mode ended first, then Edit's button by the rows; then, still
+        // in Edit mode, the bar, the title and the pane by the ticks left.
         let empty = flat(body(after: "private func updateEmptyState()", in: list))
-        inOrder(["navigationItem.rightBarButtonItem?.isEnabled = "
+        inOrder(["if EditBar.ends(rows: rows.count, editing: inEditMode, "
+                    + "searching: letters.isSearching) { editTapped() }",
+                 "navigationItem.rightBarButtonItem?.isEnabled = "
                     + "EditBar.canEdit(rows: rows.count, editing: inEditMode)",
-                 "if EditBar.ends(rows: rows.count, editing: inEditMode) { editTapped() }"],
+                 "if inEditMode { updateSelectAllTitle() paneFollowsTicks() }"],
                 in: empty)
+        XCTAssertEqual(empty.components(separatedBy: "isEnabled = ").count - 1, 1)
+        XCTAssertTrue(flat(list).contains("letters.changed = { [weak self] change in "
+                                          + "self?.regroup(for: change) self?.updateEmptyState() }"))
+        // And as Cancel ends it, a list with no rows, by Edit mode as it is
+        // to be.
+        inOrder(["navigationItem.rightBarButtonItem?.title = editing ? EditBar.cancel : EditBar.edit",
+                 "if editing { deleteItem.title = discardWord }",
+                 "navigationItem.rightBarButtonItem?.isEnabled = "
+                    + "EditBar.canEdit(rows: rows.count, editing: editing)"], in: edit)
+        // The bar's Delete and Move tell the pane what they take before
+        // ending Edit mode (`EditPane.taking`).
+        XCTAssertTrue(flat(list).contains("private func delete(_ chosen: [MessageSummary]) { "
+                                          + "if inEditMode { editPane.taking(chosen) editTapped() }"))
+        XCTAssertTrue(flat(list).contains("if self.inEditMode { self.editPane.taking(chosen) "
+                                          + "self.editTapped() } self.runBatch(.move(to: destination)"))
+        XCTAssertEqual(flat(list).components(separatedBy: "editPane.taking(").count - 1, 2)
         // Every cell drawn with its ticks, made, coming into sight, and in
         // sight as Edit mode begins and ends (`RowParts.ticks`).
         XCTAssertTrue(flat(list).contains("if parts.contains(.ticks) { cell.ticks = inEditMode }"))

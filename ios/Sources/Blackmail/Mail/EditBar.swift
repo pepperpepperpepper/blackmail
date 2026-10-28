@@ -126,8 +126,13 @@ enum EditBar {
     static func canEdit(rows: Int, editing: Bool) -> Bool { editing || rows > 0 }
 
     /// Whether Edit mode ends by itself, as Cancel ends it: its last row
-    /// has gone from the list.
-    static func ends(rows: Int, editing: Bool) -> Bool { editing && rows == 0 }
+    /// has gone from the folder's list (the plan's C2; Mail's own was not
+    /// seen). Not over a search's hits (`searching`): a search with none,
+    /// typed or failed, takes no row of the folder away, and Edit mode
+    /// stays, as before B-174; Mail was not seen there either.
+    static func ends(rows: Int, editing: Bool, searching: Bool) -> Bool {
+        editing && rows == 0 && !searching
+    }
 
     /// Whether the reading pane is dimmed: in Edit mode with nothing ticked,
     /// as Mail greys the letter it shows and the buttons above it (C-03).

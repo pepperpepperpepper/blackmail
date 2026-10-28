@@ -930,7 +930,8 @@ final class ListBatchTests: XCTestCase {
             "private var selectedMessages: [MessageSummary] { ListBatch.letters(ticked: "
                 + "(tableView.indexPathsForSelectedRows ?? []).map(\\.row), in: threads) }",
             "private func delete(_ chosen: [MessageSummary]) { if inEditMode { "
-                + "editTapped() } let kept = self.kept let repository = self.repository "
+                + "editPane.taking(chosen) editTapped() } let kept = self.kept "
+                + "let repository = self.repository "
                 + "for m in chosen { guard let key = LocalDraft.key(ofRow: m.id) else { "
                 + "continue } Task { @MainActor in await kept.delete(key, from: repository) "
                 + "} } let all = allMail let discard = EditBar.discarding(onServer(chosen), "
@@ -955,7 +956,8 @@ final class ListBatchTests: XCTestCase {
             "private func alertHost(in window: UIWindow?) -> UIViewController { guard "
                 + "viewIfLoaded?.window == nil, let root = window?.rootViewController else { "
                 + "return self } return ErrorPresenter.over(root).front(root: root) }",
-            "if self.inEditMode { self.editTapped() } self.runBatch(.move(to: "
+            "if self.inEditMode { self.editPane.taking(chosen) self.editTapped() } "
+                + "self.runBatch(.move(to: "
                 + "destination), on: chosen, saying: StatusLine.moving) }",
         ] {
             XCTAssertTrue(list.contains(line), line)

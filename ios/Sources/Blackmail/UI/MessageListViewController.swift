@@ -2076,11 +2076,22 @@ final class MessageListViewController: UITableViewController {
         // An empty folder must say so. A blank white rectangle is how an app
         // looks broken, and this user cannot tell the two apart.
         emptyLabel.isHidden = !rows.isEmpty
-        // Edit grey in a folder with no rows, as Mail's; and Edit mode
-        // ended, as Cancel ends it, when its last row has gone (B-174).
+        // Edit mode ended, as Cancel ends it, when the folder's last row
+        // has gone; then Edit grey in a folder with no rows, as Mail's
+        // (B-174). In that order: set while Edit mode was still on, Edit
+        // stayed blue in the emptied folder.
+        if EditBar.ends(rows: rows.count, editing: inEditMode, searching: letters.isSearching) {
+            editTapped()
+        }
         navigationItem.rightBarButtonItem?.isEnabled = EditBar.canEdit(rows: rows.count,
                                                                        editing: inEditMode)
-        if EditBar.ends(rows: rows.count, editing: inEditMode) { editTapped() }
+        // A ticked row gone by another way than the bar, the pane's Trash
+        // or a fetch afresh: the bar, the title and the pane as the ticks
+        // left are (B-174).
+        if inEditMode {
+            updateSelectAllTitle()
+            paneFollowsTicks()
+        }
         if !letters.isSearching {
             emptyLabel.text = "No messages"
         } else if searchFailed {
@@ -2545,6 +2556,10 @@ final class MessageListViewController: UITableViewController {
         // folders LIST has named by now: Settings may have changed it since
         // the bar was made (B-167).
         if editing { deleteItem.title = discardWord }
+        // Edit grey as Cancel leaves a list with no rows, a search's with
+        // none (B-174).
+        navigationItem.rightBarButtonItem?.isEnabled = EditBar.canEdit(rows: rows.count,
+                                                                       editing: editing)
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
         // His ticks have gone with Edit mode: what the watch held can go on,
@@ -2727,7 +2742,12 @@ final class MessageListViewController: UITableViewController {
     /// ticked both.
     @MainActor
     private func delete(_ chosen: [MessageSummary]) {
-        if inEditMode { editTapped() }
+        // Edit mode ends, the letter before put back in the pane unless it
+        // goes with them (`EditPane.taking`, B-174).
+        if inEditMode {
+            editPane.taking(chosen)
+            editTapped()
+        }
         let kept = self.kept
         let repository = self.repository
         for m in chosen {
@@ -2900,7 +2920,10 @@ final class MessageListViewController: UITableViewController {
             // mode ends, and "Moving…" is on the status line until the
             // server has answered for each letter. One it did not take
             // comes back, and he is told, as for Delete (B-062).
-            if self.inEditMode { self.editTapped() }
+            if self.inEditMode {
+                self.editPane.taking(chosen)
+                self.editTapped()
+            }
             self.runBatch(.move(to: destination), on: chosen, saying: StatusLine.moving)
         }
         let nav = UINavigationController.formSheet(move)

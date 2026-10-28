@@ -37323,11 +37323,16 @@ tapped in an empty Junk; nothing dimmed.
 1. *C1, the bar* (`EditBar.acts`, `updateSelectAllTitle`): Mark, Move and
    the third button (Trash, Delete inside Trash, Archive where the account
    archives) can be tapped from the first tick, grey before it; at every
-   change of the ticks, as Edit mode begins and after a redraw. Select All
-   as before.
+   change of the ticks, as Edit mode begins and after a redraw, and when a
+   ticked row goes by another way than the bar (the pane's Trash or Move,
+   a fetch afresh): the bar, the title, the dimming and the pane follow
+   the ticks left (`updateEmptyState`). Select All as before.
 2. *C2, Edit* (`EditBar.canEdit`, `EditBar.ends`, `updateEmptyState`): grey
-   with no rows; Cancel always. Edit mode in a list whose last row goes
-   ends as Cancel ends it.
+   with no rows; Cancel always. Edit mode in a folder whose last row goes
+   ends as Cancel ends it, and Edit is greyed after the end, by the rows
+   and Edit mode as they are then; Cancel greys it too in a list with no
+   rows. Only the folder's own list: a search with no hits, typed or
+   failed, leaves Edit mode on, as before this entry.
 3. *C3, the title* (`EditBar.title`): "1 Selected", "3 Selected", by the
    rows ticked; the folder's name with none, and after Edit mode. In two
    panes UIKit cuts it beside Cancel ("1 Sel…"), as Mail's.
@@ -37341,8 +37346,12 @@ tapped in an empty Junk; nothing dimmed.
    showed before Edit mode comes back, by its row as the list has it now
    or the row it had, and an empty pane is emptied again (`onPaneEmptied`);
    only while the pane still shows the letter a tick put in it. So after
-   the bar's Trash or Move the pane is as it was before this entry. Not in
-   Drafts or the Outbox, whose rows open the composer.
+   the bar's Trash or Move the pane is as it was before this entry. Where
+   the letter before is among the letters the bar's Trash or Move takes,
+   the pane is emptied as Edit mode ends (`EditPane.taking`), and the
+   letter is not shown, its body asked for, and taken out again a moment
+   later by the batch. Not in Drafts or the Outbox, whose rows open the
+   composer.
 5. *C5, the dimming* (`EditBar.dimsPane`, `dimForEdit`): in Edit mode with
    nothing ticked, the pane's header and letter are drawn at 0.57 over the
    black (Mail's 146 for white), the bar above them dimmed
@@ -37360,12 +37369,17 @@ tapped in an empty Junk; nothing dimmed.
 **What it reverses.** No earlier entry. B-133's highlight of the pane's
 letter at Cancel is kept, and falls on the letter put back.
 
-**Tests.** `EditModeLikeMailTests`, new, twelve: the title's words, the
-bar's and Edit's rules, the dimming rule; `EditPane` showing one tick's
-letter and putting back the letter or conversation before, an empty pane,
-the row the list has lost, nothing for no tick, two ticks, the row shown,
-Drafts or out of Edit mode, and a pane that went on left alone; and, read
-from the source, the list following the ticks, the container's two calls
+**Tests.** `EditModeLikeMailTests`, new, fourteen: the title's words, the
+bar's and Edit's rules (Edit mode not ended over a search with no hits,
+and Edit grey once Edit mode has ended with the last row), the dimming
+rule; `EditPane` showing one tick's letter and putting back the letter or
+conversation before, an empty pane, the row the list has lost, nothing for
+no tick, two ticks, the row shown, Drafts or out of Edit mode, a pane that
+went on left alone, and the letter before not put back when the bar takes
+it, by its id, its conversation or its copy from All Mail; and, read
+from the source, the list following the ticks (Edit mode ended before
+Edit's button is set, the ticks followed after a row goes, the bar's
+Delete and Move telling the pane what they take), the container's two calls
 from the list on screen, the pane's dimming and the row's colours, drawn
 as every part of a row is (`RowParts.ticks`, in `whole`, and the patch
 `editMode` as Edit mode begins and ends, so a cell made ahead of sight
@@ -37374,7 +37388,8 @@ before it began comes in right). Changed, as the code they read changed:
 patch), `LandedLetterTests`
 and `RecentSearchesTests` (a tick's `paneFollowsTicks`),
 `OpenLetterHighlightTests` (three more reads of the pane's letters),
-`RowSwipesTests` (Edit mode's beginning).
+`RowSwipesTests` (Edit mode's beginning), `ListBatchTests` (the bar's
+Delete and Move telling the pane before Edit mode ends).
 
 Each rule and each wire undone by hand, twelve at once, one for each test
 (the title always the folder's, the bar always on, Edit grey in Edit
@@ -37382,9 +37397,14 @@ mode, the pane dimmed out of Edit mode, the letter put back by the pane's
 letters and not the earlier ones, two ticks taken for one, the untick not
 followed, the pane not undimmed as another folder opens, the buttons not
 held off while dimmed, the tick not white): 15 failures in the 12 tests,
-each at an assertion; then put back.
+each at an assertion; then put back. The follow-up's, in two rounds:
+Edit's button set before Edit mode ends, Edit mode ended over a search
+with no hits, the letter before put back though the bar takes it, then the
+ticks not followed after a row goes, and Edit mode never ending by
+itself: a failure in each of the four tests that pin them, the list's in
+both rounds, each at an assertion; then put back.
 
-The full suite, serially: 3,058 tests, 12 of them this entry's, 6
+The full suite, serially: 3,066 tests, 14 of them this entry's, 6
 skipped, none failing. The release build for the iPad links.
 
 **Not seen.** Mail's side of a conversation row ticked (its count, the
@@ -37392,8 +37412,19 @@ stack it draws for two); whether Mail marks an unread ticked letter read
 (not done here); whether Mail's reply arrows stay grey with one ticked
 (not copied: with a tick the pane is in full colour); Mail's Cancel was
 compared on Mail's side only, Blackmail's pane being empty before Edit in
-the round; Mail on iPadOS 18 (18.4 with categories says "Select"). None of
-this on the test iPad yet: the TODO's B-174 check.
+the round; what Mail's Edit mode does when its last row goes, and over a
+search with no hits (Edit mode ending with the folder's last row is the
+plan's C2, not Mail seen); Mail on iPadOS 18 (18.4 with categories says
+"Select"). None of this on the test iPad yet: the TODO's B-174 check.
+
+**Follow-up, 28 October** (a review of this entry, before it was merged):
+Edit's button was set while Edit mode was still on and stayed blue in the
+emptied folder, and the test pinned that order; Edit mode ended by itself
+over a search with no hits; a ticked row gone by the pane's Trash or a
+fetch afresh left "1 Selected", the bar blue and the pane undimmed; and
+the bar's Trash or Move put the letter before back in the pane for a
+moment when it was among the letters it took. Each fixed as above, in the
+same places; no layout changed.
 
 ## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too
 
