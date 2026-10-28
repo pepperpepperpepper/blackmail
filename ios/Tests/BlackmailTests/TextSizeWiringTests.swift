@@ -95,12 +95,11 @@ final class TextSizeWiringTests: XCTestCase {
     /// Everything put up is known, file by file: the app's sheets, by the
     /// maker; its questions and action sheets, and the Share sheet, each
     /// held as it is put up (`testEveryQuestionAndActionSheetIsHeldAtLarge`);
-    /// and iOS's own controllers, Quick
-    /// Look, the photo and document pickers, the Share sheet and the print
-    /// panel. No presentation style is set anywhere but in the maker and
-    /// on Quick Look, so no sheet is put up as a page sheet, or has its
-    /// style changed after the maker, which would make a new presentation
-    /// without the trait.
+    /// and iOS's own controllers, Quick Look, the photo and document
+    /// pickers and the print panel. No presentation style is set anywhere
+    /// but in the maker and on Quick Look, so no sheet is put up as a page
+    /// sheet, or has its style changed after the maker, which would make a
+    /// new presentation without the trait.
     func testEveryScreenIsHeldAtLarge() throws {
         let reading = try source("Theme/TextSizeReading.swift")
         XCTAssertNotNil(place(of: "static let heldTextSize = "
@@ -240,7 +239,10 @@ final class TextSizeWiringTests: XCTestCase {
     /// `UIActivityViewController` made anywhere in the sources, those there
     /// now and any made later, is made as `let NAME = …(` and held,
     /// `NAME.heldAtLarge()`, as the last thing before it is presented or
-    /// handed back by its maker: one made and not held fails here.
+    /// handed back by its maker: one made and not held fails here. Neither
+    /// type is named in any other way but as a weak var's type or a
+    /// maker's return type, so one made by `.init(`, through a subclass or
+    /// under another name fails here too.
     func testEveryQuestionAndActionSheetIsHeldAtLarge() throws {
         let reading = try source("Theme/TextSizeReading.swift")
         XCTAssertNotNil(place(of: "extension UIViewController { "
@@ -259,16 +261,25 @@ final class TextSizeWiringTests: XCTestCase {
         let files = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
             .compactMap { $0 as? String }.filter { $0.hasSuffix(".swift") }
         XCTAssertGreaterThan(files.count, 50)
-        let made = try NSRegularExpression(pattern: #"(?<![A-Za-z0-9_])(?:UIAlertController|UIActivityViewController)\("#)
-        let named = try NSRegularExpression(
-            pattern: #"let ([A-Za-z_][A-Za-z0-9_]*) = (?:UIAlertController|UIActivityViewController)\("#)
+        // Every time either type is named, in a file's code: made, as a
+        // weak var's type, or as a maker's return type, and in no other
+        // way, so that none is made by `.init(`, by `= .init(` after the
+        // type, by a subclass or under another name, out of this test's
+        // sight.
+        let either = "(?:UIAlertController|UIActivityViewController)"
+        let named = try NSRegularExpression(pattern: #"(?<![A-Za-z0-9_])\#(either)(?![A-Za-z0-9_])"#)
+        let made = try NSRegularExpression(pattern: #"let ([A-Za-z_][A-Za-z0-9_]*) = \#(either)\("#)
+        let kept = try NSRegularExpression(pattern: #"weak var [A-Za-z_][A-Za-z0-9_]*: \#(either)\?"#)
+        let handed = try NSRegularExpression(pattern: #"\) -> \#(either) \{"#)
         var sites: [String] = []
         for file in files {
             let code = try source(file)
             let whole = NSRange(code.startIndex..., in: code)
-            let lets = named.matches(in: code, range: whole)
-            XCTAssertEqual(lets.count, made.numberOfMatches(in: code, range: whole),
-                           "each made as let NAME = …(, \(file)")
+            let lets = made.matches(in: code, range: whole)
+            XCTAssertEqual(named.numberOfMatches(in: code, range: whole),
+                           lets.count + kept.numberOfMatches(in: code, range: whole)
+                               + handed.numberOfMatches(in: code, range: whole),
+                           "each made as let NAME = …(, or named as a weak var's or a maker's type, \(file)")
             for found in lets {
                 let name = String(code[Range(found.range(at: 1), in: code)!])
                 let rest = String(code[Range(found.range, in: code)!.upperBound...])

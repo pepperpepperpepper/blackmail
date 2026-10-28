@@ -87,9 +87,10 @@ extension UIViewController {
     /// did not reach them: on the test iPad, 16.5.1, the bubble menu, the
     /// Reply sheet, the Flag popover and Add Another Email grew at the
     /// larger sizes while every screen under them stayed as at Large
-    /// (B-166, found 2026-10-28). Called on every one the app makes, after
-    /// its popover's place is set and as it is presented, or as its maker
-    /// hands it back (`DiscardConfirmation`); at Large it changes nothing.
+    /// (B-166, found 2026-10-28). Called on every one the app makes, before
+    /// or after its popover's place is set, the popover being the same one
+    /// either way, as it is presented, or as its maker hands it back
+    /// (`DiscardConfirmation`); at Large it changes nothing.
     /// Any trait UIKit put on the presentation itself is kept, the size
     /// alone laid over it.
     @discardableResult func heldAtLarge() -> Self {
