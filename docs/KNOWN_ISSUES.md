@@ -38009,7 +38009,7 @@ opening no composer. NOT COMPARABLE, Markup opened at once with its tools
 out on 16.5.1, where the guides for 17 and 18 go through Quick Look's
 button, Blackmail's way. A drawing in Mail not compared.
 
-## B-172 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, and a picture with no name clipped as Mail clips it the same day, not yet seen there since. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
+## B-172 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, and a picture with no name clipped as Mail clips it the same day, seen there after it the same day. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
 
 Built in the `bm-cmp-a` worktree (branch `copy-cmp-a`), off int20 at
 b9afe64.
@@ -38359,6 +38359,15 @@ its header and Blackmail's starts at its left edge; and in Mail, gap's
 stays as it is, and the paperclip on noname and the control, built as
 "Found on the test iPad, 2026-10-28" says and to be seen on ff47eb6.
 Nothing was sent.
+
+**Seen on the test iPad, 2026-10-28**, on ff47eb6, a build of the
+`fix-j1` branch at its tip then, in round r6-k-fix: the paperclip on
+noname, in the gutter on the name's line, and on the control at its
+subject line's end, its flag 22 points further left and its subject cut
+sooner, as answered's; none on nofile; nothing else on the rows moved;
+and Mail's paperclips and Blackmail's the same on all twelve letters.
+The previews, the quotes and the paper, not changed since, stand as seen
+on 1873724. Nothing was sent.
 
 ## B-173 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 
@@ -38938,7 +38947,7 @@ Trash" after the pane's Delete, each read mark's Undo one STORE on the
 server and Undo Trash's one MOVE back, the letter where it stood. Nothing
 was sent.
 
-## B-176 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, its ring turning from its first frame the same day, not yet seen there since. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
+## B-176 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, its ring turning from its first frame the same day, seen there after it the same day. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
 
 Built in the `bm-cmp-e` worktree (branch `copy-cmp-e`), off int20 at
 b9afe64. Batch E of the comparison plan of 2026-10-27
@@ -39435,6 +39444,30 @@ menu as bf7575a's; E6 but the ring, with the fetches ahead and the tap as
 "Found on the test iPad, 2026-10-28" says. The ring by CSS and a letter's
 own page asking for its files as it is given are to be seen on ff47eb6.
 Nothing was sent.
+
+**Seen on the test iPad, 2026-10-28**, on ff47eb6, a build of the
+`fix-j1` branch at its tip then, in round r6-k-files, recorded at 60
+frames a second: "B-176 large"'s PDF asked as the letter opened, before
+its photos, and drawn while they still came; the ring turning, about
+once a second, from the first frame its tile was drawn, on "large" and
+on "ring", whose tile stays in sight, until the PDF had come, then the
+icon, the name and the size where they were; a tapped tile's ring as
+before. Quick Look over a landed file came up 0.69 to 0.74 s after the
+tap; a second run timed the first Quick Look after a launch at 0.64 s,
+the first after another launch, on a small letter, at 0.65 s, and those
+after it at 0.26 to 0.29 s, the round's tap the first since Blackmail's
+launch and r6-j-files' 0.32 s a later one: iOS starting Quick Look's
+preview, no fix. The whole ring's centroid moved up to about 2.4 px from
+r6-j-files' still frame, as a turning arc's does (two of this round's
+own frames 1.66 px apart, r6-j-files' still ones 0.10 px), the tile's
+box and rows in place: the round's mark of 1 px not met, and not a
+fault. A tap while it says "Downloading" and at once another letter
+could not be made in three tries: the PDF's FETCH, first now, ended
+before the tap on "B-176 pdf" in the first; in the second the letter's
+page was not yet drawn at the tile's tap; in the third its words and a
+photo came at once from memory, the tile out of sight, and the tap fell
+on the photo; nothing opened over "B-176 pdf" or was said, and no copy
+was kept but Quick Look's own (B-063). Nothing was sent.
 
 ## B-177 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 

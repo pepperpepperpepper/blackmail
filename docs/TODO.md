@@ -9577,6 +9577,40 @@ checks below is left as not needed, not open, and none is worth a round.*
       before. Their fix, each question, action sheet and Share sheet held
       as it is put up, is on fix-j1, in int21 at ff47eb6; its re-check
       there is to come. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (ff47eb6), round r6-k-fix,
+      a build of the `fix-j1` branch at its tip then, beside round
+      r6-k-ref's Large shots of the same day on int21 (1873724): 1, 6 and 8
+      passed; 2 and 3 FAILed, the questions' words (KNOWN_ISSUES B-166,
+      "Found on the test iPad, 2026-10-28 (second round)"), the app's own
+      size answered Large since, on fix-j1 at 260aea0, its re-check in
+      round r6-l-fix to come; 4 and 5 not run, passed on 1873724 in
+      r6-j-look; 7 not looked at, as it says; 9 new since; 8 done by a
+      STORE of the Trash's label, no move or delete. In 1 (a) open, its
+      file's held sheet, the Share sheet from it, the bubble's menu with
+      its composer, the Reply sheet, the Flag popover and "Add Another
+      Email…" with Settings the same to the pixel as r6-k-ref's but for the
+      caret; the connection log's Share sheet not possible beside int21,
+      r6-k-ref having taken none, this round's Large shots its reference
+      now (its popover x 534 to 834 and y 122 to 568, its arrow up at
+      Share); Edit mode, the stack, New Message, Swipe Options, Go to Date,
+      the Move sheet and two panes not run, and 2 and 3 not for them,
+      nothing in their code changed since r6-j-look passed them; the int18
+      and bf7575a shots not possible, only one build installed. In 2 and 3,
+      the app left open, the list, (a), the composer, Settings and the
+      log's bar the same to the pixel as at Large but the home indicator,
+      every row 96 points. The two Share sheets, counted by the round as
+      FAILs, kept each popover's anchor, arrow and frame as at Large, only
+      what iOS draws inside them larger: iOS's own, a second run found, and
+      no failure, as 2, 3 and 7 now say. A second run from a fresh launch
+      saw the words of the questions, the action sheets and the bubble's
+      menu larger again at both sizes, as the round had. In 6 the form's
+      captions the same size and place at both sizes, each 20 px from the
+      sheet's left edge; the sheet x 196 to 758 px at Large and 104 to
+      851 px at the largest of the seven, about 703 and 934 points wide,
+      iOS's own, a note in it on 7 lines and on 5 in the wider sheet;
+      Cancel asked nothing at either, so its question's comparison was not
+      possible. In 8 every setting as found, the log with no write. Nothing
+      was sent.*
 - [ ] **B-167, Mail's options in Settings.** On the test iPad, the test
       account only, from a build of the `bm-cm-mailsettings` worktree
       (branch `copy-mailsettings`) or of the int it is merged into.
@@ -10147,7 +10181,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       points, the column's width; its copy's row "m-photo.jpeg — 1.7 MB",
       `image/jpeg`. Nothing was sent.*
 
-- [ ] **B-172, what a row says, plain quotes and paper, as Mail.** On the
+- [x] **B-172, what a row says, plain quotes and paper, as Mail.** On the
       test iPad, the test account only, from a build of the `bm-cmp-a`
       worktree (branch `copy-cmp-a`) or of the int it is merged into.
       Nothing is composed, sent, saved, moved or deleted in the app, and
@@ -10259,6 +10293,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       it, and clipped noname and the control, which int21 did not: fixed on
       fix-j1 (KNOWN_ISSUES B-172, "Found on the test iPad, 2026-10-28"), in
       int21 at ff47eb6, its re-check there to come. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (ff47eb6), round r6-k-fix,
+      a build of the `fix-j1` branch at its tip then: 0, 1, 5 and 6 passed;
+      2 to 4 not run, passed on int21 (1873724) in round r6-j-look and not
+      changed since; 6 done by a STORE of the Trash's label, no move or
+      delete. In 1, beside r6-j-look's shots of the rows, the paperclip in
+      the gutter on the name's line on noname, as on related, web, sig and
+      iphone, none on nofile; the control now as answered, the paperclip at
+      its subject line's end, its flag 22 points further left (558.2 to
+      536.2), its subject's last whole word "subject" where it was "long";
+      nothing else on the rows moved, the times and the round's subjects
+      apart, the lower rows compared by eye, the list stopped at a
+      fractional offset. In 5 Mail clipped related, web, sig, iphone,
+      answered, noname and the control, and not nofile, gap, colon, flowed
+      or plain: Blackmail's rows the same on all twelve; gap's and colon's
+      previews as Blackmail's. A second run found each pass borne out.
+      Every step of the check is now seen. Nothing was sent.*
 
 - [x] **B-173, a letter's colours as Mail's in Dark Mode.** On the test
       iPad, the test account only, from a build of the `bm-cmp-b`
@@ -10455,7 +10505,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       and "Undo Unread". A shake now and then brought nothing, and the next
       the alert. Nothing was sent.*
 
-- [ ] **B-176, files, pictures and links in the pane as Mail has them.** On
+- [x] **B-176, files, pictures and links in the pane as Mail has them.** On
       the test iPad, the test account only, from a build of the `fix-j1`
       branch at its tip (the ring turning by CSS, and a letter's own page
       asking for its files as it opens, 2026-10-28) or of the int it is
@@ -10594,6 +10644,72 @@ checks below is left as not needed, not open, and none is worth a round.*
       designed. "B-176 ring" was made by the second run alone. The ring by
       CSS and the files asked as the letter opens are on fix-j1, in int21
       at ff47eb6; their re-check there is to come. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (ff47eb6), round
+      r6-k-files, a build of the `fix-j1` branch at its tip then, 6
+      recorded at 60 frames a second and its (e), the tile tapped while it
+      says "Downloading" and at once "B-176 pdf", in bursts of about 14 a
+      second: 6 passed but for Quick Look's time over a landed file,
+      counted a FAIL by the round against its mark of 0.6 s and found iOS's
+      own by a second run, and its (e) not possible; 0 to 5 not run, passed
+      on 1873724 in r6-j-files and not changed since, their letters fetched
+      whole but 5's "large" and "huge", whose panes in 6 were as
+      r6-j-files' but the subject lines and the times; 6's (b) and (d),
+      "B-176 pdf" then "large" with its tile tapped at once, and "large"
+      then at once "B-176 pdf", not run, passed on 1873724, what they look
+      for seen again in (e)'s three tries; the build before not on the
+      iPad, r6-j-files' frames and shots standing for it; 7 done by a STORE
+      of the Trash's label, no move or delete. In 6 "B-176 large" opened:
+      its PDF's FETCH asked with no tap 4 ms after its words had come,
+      before both photos', each FETCH asked once the one before had ended,
+      each once; the tile drawn 0.86 s after the row's tap with the ring
+      and "Downloading", the ring turning, 357 degrees a second, in all 36
+      frames until its icon came back, at 1.46 s, 51 ms after the PDF had
+      come, while the photos still came, the name and the size where they
+      were, the last line kept and empty; no "Tap to Download" in any
+      frame. Tapped once it had come: no FETCH, Quick Look "B-176
+      large.pdf" up 0.69 to 0.74 s after the tap, where r6-j-files had
+      0.32 s, the round's FAIL; a second run from a fresh launch timed the
+      first Quick Look after a launch at 0.64 s, 0.65 s on the small letter
+      fetched whole, and each after it at 0.26 to 0.29 s, Quick Look's
+      preview starting at the first, the round's tap the first since
+      Blackmail's launch and r6-j-files' 0.32 s a later one: iOS's own, no
+      fix. Done: no composer. "B-176 ring": its PDF's FETCH asked first as
+      the letter opened; the tile drawn at 0.83 s with the ring turning,
+      359 degrees a second, in all 105 frames until the PDF had come; the
+      icon at 2.58 s, before the photo was laid out, the name and the size
+      unmoved; the photo laid out under the tile at 5.0 s, the tile not
+      moved. "B-176 huge": "Tap to Download" and no FETCH of the PDF until
+      the tap, then the ring turning and "Downloading" until Quick Look at
+      3.05 s, "Tap to Download" again after Done. Two passes a second run
+      contradicted, the ring's on the whole ring's centroid and the tile's
+      on it and on two clusters, written as they were. The round's mark
+      that the whole ring's centroid stay within 1 px of r6-j-files' frame
+      was met in the first three frames alone, 0.66 px off in the first, up
+      to about 2.4 px off in later ones: the turning arc's pixels are fewer
+      than the grey they cover, so the centroid goes round with the arc,
+      where r6-j-files' still arc kept one place (two of this round's own
+      frames 1.66 px apart, two of r6-j-files' 0.10 px): the mark not met,
+      and no fault. And two small clusters at the ends of the word
+      "Downloading", which two of this round's own frames differed by at
+      the same places: a video artefact by its look, a reddish fringe the
+      app does not draw, though that was not proven, for r6-j-files'
+      turning tap ring had none; the box and the rows within 1 px of
+      r6-j-files'. (e) not possible in three tries: in the first the FETCH
+      asked as the letter opened ended 18 ms before the tap on "B-176 pdf",
+      which was not taken, and Quick Look came up over the large letter, a
+      missed tap as the step allows, closed at one Done; in the second the
+      large letter's page was not yet drawn at the tile's tap, and no FETCH
+      of its PDF came; in the third its words and first photo were drawn at
+      once from the copy in memory, the tile pushed out of sight, its PDF's
+      FETCH ended before the tap, and the tap fell on the photo, whose
+      FETCH, on the wire when "B-176 pdf" was shown, was let go. In all
+      three at most one FETCH of the PDF at an opening, nothing opened over
+      "B-176 pdf" or said, and no copy kept but the last Quick Look's own
+      (B-063). The PDF's FETCH now going first and ending soon leaves too
+      short a while, after a tap while it says "Downloading", for "B-176
+      pdf" to be shown before it ends, and nothing for the app to do. Every
+      step of the check is now seen or shown not possible. Nothing was
+      sent.*
 
 - [x] **B-177, a sender only seen offered by name.** On the test iPad,
       the test account only, from a build of the `bm-cmp-f` worktree
@@ -10800,6 +10916,34 @@ checks below is left as not needed, not open, and none is worth a round.*
       the test account's 57,000 listed at launch and Refresh. The row's
       date and Go to Date by arrival are on fix-j1, in int21 at ff47eb6;
       their re-check there is to come. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (ff47eb6), round r6-k-fix,
+      a build of the `fix-j1` branch at its tip then, the steps as numbered
+      now: 0, 1, 6 and 7 passed, and the three jumps of 5 it ran; 2 passed
+      but for the reading pane's header, which FAILed, the header's date
+      (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28 (second
+      round)"), fixed on fix-j1 at 260aea0, its re-check in round r6-l-fix
+      to come; 4, 5's jump to 14 June 2025 and 8 not run, passed on 1873724
+      in r6-j-act, 4 but for the rows' dates, fixed since; 3 and 9 new
+      since; 10 done by a STORE of the Trash's label, no move or delete.
+      "came old" arrived on 8 October at noon, its Date 28 October at 9 am;
+      "dated old" arrived at 10.23 am. In 1 Mail's rows "dated old" first,
+      "10:23 AM", "came old" second, "10/8/26", "lastyear" "6/14/25" under
+      7/17/25; its two headers the arrival, "10:23 AM" and "10/8/26". In 2,
+      after a relaunch, Blackmail's rows the same, order and dates, the
+      dates going down on every shot; one `UID FETCH … (UID INTERNALDATE)`
+      after the `UID SEARCH ALL`, `* FETCH {33 dates}`, then the page's. In
+      5 the jump to 1 March 2024 landed on the first letter of Notes to
+      arrive after it, of 2 August 2024, "Showing August 2, 2024"; today on
+      "dated old" at Notes' top, "Showing October 28"; 8 October on "came
+      old", "Showing October 8"; each jump's SEARCHes `SINCE … BEFORE …`,
+      none `SENTSINCE`; Go to Date's day and scope put back as found. In 6
+      the undone row back second, "10/8/26", after Undo and after a
+      Refresh, under a new UID above every other, its INTERNALDATE kept
+      through both moves, the log's two writes those moves. In 7 the kept
+      rows in 2's order from 0.27 s to 5.9 s, none moving, the Date never
+      shown, "came old"'s grey lines filled from 2.05 s. A second run found
+      each pass borne out, and saw the header's FAIL again on letters of
+      its own. Nothing was sent.*
 
 ## Blocked on the owner
 
