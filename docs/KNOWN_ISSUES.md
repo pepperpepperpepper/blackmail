@@ -37435,10 +37435,10 @@ new letter. Every step of the check passed but the second half of step
 its HEIC photo drawn among the words; held, Markup and Reply, a line
 drawn with a finger, Done: a Reply to the sender alone, "Re: B-171
 heic", one row under Subject, "m-photo.jpeg — 1.7 MB", where the check
-asked for a name ending ".jpg". `letter.json` listed `m-photo.jpeg`, `image/jpeg`, and
-the row's file, pulled to the host, was by `file` a baseline JPEG of
-2304 by 1728 with its Exif kept. Cancel, Delete Draft: nothing kept, no
-`MAIL FROM`, `RCPT TO`, `DATA` or `APPEND`.
+asked for a name ending ".jpg". `letter.json` listed `m-photo.jpeg`,
+`image/jpeg`, and the row's file, pulled to the host, was by `file` a
+baseline JPEG of 2304 by 1728 with its Exif kept. Cancel, Delete Draft:
+nothing kept, no `MAIL FROM`, `RCPT TO`, `DATA` or `APPEND`.
 
 *Why.* On iPadOS 16.5.1 Quick Look hands back its marked-up copy of a
 HEIC already as a JPEG, named with ".jpeg". The app names the copy with
@@ -38584,9 +38584,9 @@ integration (int21, below).
 the integration (int21, above). Nothing moves, appears, stacks or
 disappears on Blackmail's screens: the HEIC is drawn where the photo of
 any other kind is; a title's words; Quick Look's own Markup button inside
-iOS's Quick Look; one item more in a held PDF's menu; and inside a tile, the ring in
-its icon's own box and Mail's word in its last line, which keeps its room
-when the file has come, the box as it was.
+iOS's Quick Look; one item more in a held PDF's menu; and inside a tile,
+the ring in its icon's own box and Mail's word in its last line, which
+keeps its room when the file has come, the box as it was.
 
 **Tests.** `HEICPictureTests`, one new: an attached HEIC drawn as a photo
 from the loader in an HTML and a plain letter, no tile, its map's kind a
@@ -38947,10 +38947,11 @@ test iPad (C-02c, "The list's order"), Mail 16.5.1 against Blackmail
 bf7575a. The round put its letters in the label "Notes" last, the
 highest UIDs there. Mail: "By date: 'R6 B-119 date lastyear rm'
 (2025-06-14) at row 37 of Notes, among Notes' own letters (after
-7/17/25)." Its row, 6/14/25, under Notes' 7/17/25. Mail's list has no words of its own for this: its string tables
-on the iPad have no sort setting, only "Most Recent Message on Top",
-which is a conversation's order (Settings > Mail > Threading). The
-comparison found Mail on 18 sorting by date too.
+7/17/25)." Its row, 6/14/25, under Notes' 7/17/25. Mail's list has no
+words of its own for this: its string tables on the iPad have no sort
+setting, only "Most Recent Message on Top", which is a conversation's
+order (Settings > Mail > Threading). The comparison found Mail on 18
+sorting by date too.
 
 **Which date.** Settled on the test iPad on 2026-10-28 (round r6-j-act,
 "Found on the test iPad, 2026-10-28" below): Mail 16.5.1 lists by the
