@@ -1499,6 +1499,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     // the thing he is trying to read, and the whole point of the
                     // iPad is that it can be as large as the glass.
                     preview.modalPresentationStyle = .fullScreen
+                    // With its bars from iOS 18 too, as on 16 and 17: its
+                    // flag set that it has decided they go
+                    // (`QuickLookBars`). On 16 and 17 nothing is asked.
+                    if ProcessInfo.processInfo.isOperatingSystemAtLeast(
+                        OperatingSystemVersion(majorVersion: 18, minorVersion: 0, patchVersion: 0)),
+                       preview.responds(to: NSSelectorFromString(QuickLookBars.decider)),
+                       class_getInstanceVariable(QLPreviewController.self, QuickLookBars.flag) != nil {
+                        preview.setValue(true, forKey: QuickLookBars.flag)
+                    }
                     if use == .markupAndReply || MarkupReply.marksUp(attachment) {
                         MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
                         marking = (m, attachment)

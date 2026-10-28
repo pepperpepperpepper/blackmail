@@ -606,6 +606,11 @@ final class ExpiryWarningTests: XCTestCase {
                        + "case .quickLook, .markupAndReply, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
+                       + "if ProcessInfo.processInfo.isOperatingSystemAtLeast( OperatingSystemVersion("
+                       + "majorVersion: 18, minorVersion: 0, patchVersion: 0)), "
+                       + "preview.responds(to: NSSelectorFromString(QuickLookBars.decider)), "
+                       + "class_getInstanceVariable(QLPreviewController.self, QuickLookBars.flag) != nil { "
+                       + "preview.setValue(true, forKey: QuickLookBars.flag) } "
                        + "if use == .markupAndReply || MarkupReply.marksUp(attachment) { "
                        + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) } "
                        + "handedOver = true present(preview, animated: true, completion: ready) } ")
