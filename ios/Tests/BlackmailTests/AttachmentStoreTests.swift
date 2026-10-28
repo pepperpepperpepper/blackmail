@@ -307,8 +307,15 @@ final class AttachmentStoreTests: XCTestCase {
                  "UIActivityViewController(activityItems: [url], applicationActivities: nil)",
                  "preview.dataSource = self",
                  "present(preview, animated: true, completion: ready)"], in: code)
-        XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 1)
-        XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 1)
+        // And a large letter's files fetched as it opens (B-176): each
+        // written once it has come, and removed when the pane is given
+        // something else, or as it comes after that; never the preview's.
+        XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 2)
+        XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 3)
+        XCTAssertTrue(code.contains("let url = try? AttachmentStore.write(data, named: file.filename) "
+                                        + "guard ahead.landed(key, at: url) else { "
+                                        + "if let url { AttachmentStore.removeStaged(url) } return }"))
+        XCTAssertTrue(code.contains("for url in ahead.forget() { AttachmentStore.removeStaged(url) }"))
         XCTAssertEqual(code.components(separatedBy: "previewURL = nil").count - 1, 1)
         XCTAssertTrue(code.contains("extension MessageDetailViewController: QLPreviewControllerDataSource {"))
         XCTAssertEqual(code.components(separatedBy: "preview.delegate = self").count - 1, 1)

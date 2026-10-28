@@ -587,8 +587,7 @@ final class ExpiryWarningTests: XCTestCase {
         // no hop to a later turn: the count is let go in the `defer`, after
         // the preview is presented, in the same turn.
         let shown = try part(of: open, from: "let data = try await", to: "} catch {")
-        XCTAssertEqual(shown, "let data = try await repository.fetchAttachmentData( "
-                       + "attachment.id, of: m.id, mailboxID: m.mailboxID) "
+        XCTAssertEqual(shown, "let data = try await fileData(attachment, of: m, shown: shown) "
                        + "guard loads.stillShows(shown) else { return } "
                        + "guard fileTaps.opens(file) else { return } "
                        + "let use = fileTaps.item(of: file) ?? item "

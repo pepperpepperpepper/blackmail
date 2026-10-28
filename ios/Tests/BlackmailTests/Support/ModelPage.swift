@@ -71,9 +71,11 @@ enum ModelPage {
         var link: String? = nil
         var busy: Bool? = nil
         var words: String? = nil
+        var ring: String? = nil
+        var icon: String? = nil
 
         enum CodingKeys: String, CodingKey {
-            case at, action = "do", y, silent, coast, html, before, id, isHTML, link, busy, words
+            case at, action = "do", y, silent, coast, html, before, id, isHTML, link, busy, words, ring, icon
         }
 
         /// A finger lands at `y` on the pane; `silent`, with no touchstart
@@ -125,7 +127,12 @@ enum ModelPage {
         /// as it ends (B-148).
         static func busy(_ at: Int, _ busy: BodyFiles.Busy) -> Step {
             Step(at: at, action: "busy", link: busy.link, busy: busy.busy,
-                 words: busy.arguments["words"] as? String)
+                 words: busy.arguments["words"] as? String, ring: busy.arguments["ring"] as? String)
+        }
+        /// What `BodyFiles.Landed` has the pane run as a file fetched as
+        /// its letter opened comes, or cannot (B-176).
+        static func landed(_ at: Int, _ landed: BodyFiles.Landed) -> Step {
+            Step(at: at, action: "landed", link: landed.link, words: landed.words, icon: landed.icon)
         }
     }
 
@@ -217,6 +224,9 @@ enum ModelPage {
             let href: String
             let style: [String: String]
             let status: String?
+            /// Its first drawing's class, the ring's `bm-file-ring`, "" for
+            /// the icon, which has none, nil for no drawing (B-176).
+            var icon: String? = nil
         }
 
         /// A file's tile held, as the script posts it to the pane.
@@ -301,6 +311,7 @@ enum ModelPage {
             let every: Int
             let shift: String
             let busy: String
+            let landed: String
         }
         let input = try JSONEncoder().encode(Input(
             script: script, html: page, steps: steps, end: end,
@@ -308,7 +319,8 @@ enum ModelPage {
             motion: pane == .silent ? nil : ConversationDocument.Motion.script,
             ticks: pane == .tells,
             every: Int((ConversationDocument.Motion.every * 1_000).rounded()),
-            shift: ConversationDocument.Shift.script, busy: BodyFiles.Busy.script))
+            shift: ConversationDocument.Shift.script, busy: BodyFiles.Busy.script,
+            landed: BodyFiles.Landed.script))
 
         let node = Process()
         node.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -738,8 +750,13 @@ enum ModelPage {
           return;
         case 'busy':
           try {
-            callBody(INPUT.busy, { link: step.link, busy: step.busy, words: step.words });
+            callBody(INPUT.busy, { link: step.link, busy: step.busy, words: step.words, ring: step.ring });
           } catch (e) { errors.push('busy: ' + e.message); }
+          return;
+        case 'landed':
+          try {
+            callBody(INPUT.landed, { link: step.link, icon: step.icon, words: step.words });
+          } catch (e) { errors.push('landed: ' + e.message); }
           return;
         case 'breakOnce': {
           const real = body.insertBefore;
@@ -792,7 +809,9 @@ enum ModelPage {
       const href = el.getAttribute('href');
       if (el.tagName === 'A' && href !== null && href.indexOf('bmfile:') === 0) {
         const status = el.querySelector('.bm-file-status');
-        out.files.push({ href: href, style: el.style.props, status: status ? status.textContent : null });
+        const drawing = el.querySelector('svg');
+        out.files.push({ href: href, style: el.style.props, status: status ? status.textContent : null,
+                         icon: drawing ? drawing.className : null });
       }
     }
     process.stdout.write(JSON.stringify(out));

@@ -160,8 +160,7 @@ final class PaneNavigationTests: XCTestCase {
                                   + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))",
                               in: code))
         XCTAssertFalse(code.contains("setAttachment"))
-        XCTAssertNotNil(place(of: "try await repository.fetchAttachmentData( attachment.id, of: m.id, "
-                                  + "mailboxID: m.mailboxID)", in: code))
+        XCTAssertNotNil(place(of: "try await fileData(attachment, of: m, shown: shown)", in: code))
     }
 
     /// Every navigation is decided by `PaneNavigation`, from what WebKit

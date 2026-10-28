@@ -128,6 +128,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`replyWithMarkup`).
     private var markup = MarkupReply()
     private var marking: (letter: Message, picture: Attachment)?
+    /// A large letter's files fetched as it opens, as Mail fetches them
+    /// (`FilesAhead`, B-176): where each stands, the fetch of each, which a
+    /// tap on it waits for, and the last, which the next waits for, so
+    /// they come one at a time.
+    private var ahead = FilesAhead()
+    private var aheadFetches: [FilesAhead.Key: Task<Void, Never>] = [:]
+    private var aheadLast: Task<Void, Never>?
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -240,6 +247,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // And how a tap on a picture of the letter's own reaches it (B-122),
         // in the same world alone, for the same reason.
         config.userContentController.add(self, contentWorld: .defaultClient, name: PanePictures.handler)
+        // The pane given something else: the files fetched ahead for what
+        // it showed stop, and those that came go (B-176).
+        loads.superseded = { [weak self] in self?.letAheadGo() }
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -411,6 +421,110 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func run(_ busy: BodyFiles.Busy) {
         webView.callAsyncJavaScript(BodyFiles.Busy.script, arguments: busy.arguments,
                                     in: nil, in: .defaultClient)
+    }
+
+    /// A file fetched as its letter opened, come or not, on its tile, by
+    /// script, in the app's content world (`BodyFiles.Landed`, B-176).
+    private func run(_ landed: BodyFiles.Landed) {
+        webView.callAsyncJavaScript(BodyFiles.Landed.script, arguments: landed.arguments,
+                                    in: nil, in: .defaultClient)
+    }
+
+    // MARK: - A large letter's files, as it opens
+
+    /// A letter's page, or its body in the stack, has loaded: each of its
+    /// files fetched as it opens (`FilesAhead.planned`, B-176), as Mail
+    /// fetches a large letter's, one at a time, its tile saying
+    /// "Downloading" with a ring from the start; a file come or failed
+    /// before, its body drawn again, has its tile made so at once. Nothing
+    /// for a letter fetched whole.
+    private func fetchAhead(_ m: Message) {
+        let shown = loads.shown
+        for file in FilesAhead.planned(m) {
+            let key = FilesAhead.Key(letter: m.id, part: file.id)
+            switch ahead.drawn(key) {
+            case .fetch:
+                aheadFetches[key] = fetchAhead(file, of: m, key: key, shown: shown)
+            case .show(let inHand):
+                run(BodyFiles.Landed(file, of: m.id, inHand: inHand))
+            case .nothing:
+                break
+            }
+        }
+    }
+
+    /// The fetch of one file as its letter opened, after the one before
+    /// it: by its section, as a tap fetches it; what comes written to the
+    /// iPad and its tile told (`land`). Not if the pane has been given
+    /// something else, or a tap has taken it, by its turn.
+    private func fetchAhead(_ file: Attachment, of m: Message, key: FilesAhead.Key,
+                            shown: Int) -> Task<Void, Never> {
+        let before = aheadLast
+        let repository = self.repository
+        let fetch = Task { @MainActor [weak self] in
+            await before?.value
+            guard let self, !Task.isCancelled, self.loads.stillShows(shown), self.ahead.turn(key) else { return }
+            do {
+                let data = try await repository.fetchAttachmentData(file.id, of: m.id, mailboxID: m.mailboxID)
+                guard !Task.isCancelled, self.loads.stillShows(shown) else { return }
+                self.land(data, file, of: m, key: key)
+            } catch {
+                guard !Task.isCancelled, self.loads.stillShows(shown) else { return }
+                self.ahead.failed(key)
+                self.run(BodyFiles.Landed(file, of: m.id, inHand: false))
+            }
+        }
+        aheadLast = fetch
+        return fetch
+    }
+
+    /// A file fetched as its letter opened, or for a tap before its turn,
+    /// has come: written to the iPad, out of memory, for a tap to open at
+    /// once, and its tile told; one that cannot be written is as one that
+    /// could not be fetched.
+    private func land(_ data: Data, _ file: Attachment, of m: Message, key: FilesAhead.Key) {
+        let url = try? AttachmentStore.write(data, named: file.filename)
+        guard ahead.landed(key, at: url) else {
+            if let url { AttachmentStore.removeStaged(url) }
+            return
+        }
+        run(BodyFiles.Landed(file, of: m.id, inHand: url != nil))
+    }
+
+    /// The bytes of `file` of `m` for a tap (`openAttachment`): read from
+    /// the iPad when it came as its letter opened, waited for while it is
+    /// coming so, fetched now if its turn had not come or it could not be,
+    /// and then kept as come (B-176); any other file fetched as ever.
+    private func fileData(_ file: Attachment, of m: Message, shown: Int) async throws -> Data {
+        let key = FilesAhead.Key(letter: m.id, part: file.id)
+        var taking = ahead.taking(key)
+        if taking == .wait {
+            await aheadFetches[key]?.value
+            taking = ahead.taking(key)
+        }
+        if case let .read(url) = taking, let data = try? Data(contentsOf: url) { return data }
+        do {
+            let data = try await repository.fetchAttachmentData(file.id, of: m.id, mailboxID: m.mailboxID)
+            if taking == .fetch(lands: true), loads.stillShows(shown) { land(data, file, of: m, key: key) }
+            return data
+        } catch {
+            if taking == .fetch(lands: true), loads.stillShows(shown) {
+                ahead.failed(key)
+                run(BodyFiles.Landed(file, of: m.id, inHand: false))
+            }
+            throw error
+        }
+    }
+
+    /// The pane given something else (`PaneLoads.superseded`): every file
+    /// still to come as its letter opened is called off, and those that
+    /// came are removed from the iPad (B-176).
+    private func letAheadGo() {
+        for fetch in aheadFetches.values { fetch.cancel() }
+        aheadFetches = [:]
+        aheadLast?.cancel()
+        aheadLast = nil
+        for url in ahead.forget() { AttachmentStore.removeStaged(url) }
     }
 
     // MARK: - Toolbar
@@ -995,6 +1109,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func run(_ fill: ConversationDocument.Fill) {
         webView.callAsyncJavaScript(ConversationDocument.Fill.script, arguments: fill.arguments,
                                     in: nil, in: .defaultClient)
+        // A large letter's body in the stack: its files come now (B-176).
+        if let m = loaded.values.first(where: { ConversationDocument.sectionID(for: $0.id) == fill.sectionID })
+            ?? related.letter(inSection: fill.sectionID) {
+            fetchAhead(m)
+        }
     }
 
     /// Calls the stack's `bmInsert` with his letters' sections as arguments
@@ -1257,8 +1376,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 self.run(BodyFiles.Busy(attachment.id, of: m.id, busy: false))
             }
             do {
-                let data = try await repository.fetchAttachmentData(
-                    attachment.id, of: m.id, mailboxID: m.mailboxID)
+                let data = try await fileData(attachment, of: m, shown: shown)
                 // The pane has moved on since the tap: nothing is shown.
                 guard loads.stillShows(shown) else { return }
                 // Another file tapped since, or another letter opened by
@@ -1389,6 +1507,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
         if let dates = finished.dates { run(dates) }
+        // A large letter's own page: its files come now (B-176).
+        if let id = finished.letter, case let .letter(m, _) = document.content, m.id == id { fetchAhead(m) }
     }
 
     /// WebKit's content process has ended, as iOS ends it for memory while

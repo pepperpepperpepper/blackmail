@@ -276,10 +276,12 @@ struct Message: Identifiable {
     var textIsFlowed = false
     /// True for a letter opened without its files, one too large to fetch
     /// whole (`IMAPMailRepository`'s `loadLetterInPartOnce`, B-054): each
-    /// comes from the server alone when he taps it, and its tile in the
-    /// body says "Tap to Download", as Mail's tile says of a file it has
-    /// not downloaded (`BodyFiles`, B-170). A letter fetched whole has its
-    /// files in hand, and its tiles say nothing of it.
+    /// comes from the server alone, as the letter opens, its tile saying
+    /// "Downloading", as Mail's does (`FilesAhead`, B-176), or, too large
+    /// to come unasked, when he taps it, its tile saying "Tap to Download",
+    /// as Mail's tile says of a file it has not downloaded (`BodyFiles`,
+    /// B-170). A letter fetched whole has its files in hand, and its tiles
+    /// say nothing of it.
     var filesLeftOnServer = false
 }
 
