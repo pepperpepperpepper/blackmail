@@ -35948,11 +35948,17 @@ and the Copy, Markup and Print rows, now at Large. Quick Look, UIKit's
 edit menu over the question's field and the print panel were at Large at
 the largest accessibility size. At Large each screen the round took was
 the same to the pixel as r6-k-fix's, and as int21's where there was one,
-but for the subjects' ends. Not run: Bold Text, Per-App Settings and the
-share sheet from Safari, passed on int21 or ff47eb6, the change
-answering Large for a size set for Blackmail alone not seen; the check's
-other screens, which the change does not reach; and iPadOS 18, TODO
-B-166's step 9, still not seen. Nothing was sent.
+but for the subjects' ends, the caret, and the connection log's own
+words and their preview in its Share sheet's header, which the round
+left out. Not run: Bold Text, Per-App Settings and the share sheet from
+Safari, passed on int21 or ff47eb6, the change answering Large for a
+size set for Blackmail alone not seen; the check's other screens, Edit
+mode, the stack, New Message, Swipe Options, Go to Date, the Move sheet
+and two panes, not what the change is for and held at Large before it,
+round r6-j-look having passed them on int21, and Edit mode's circles,
+which the app's size may now have UIKit draw at Large (Not covered,
+above), not looked at on this build; and iPadOS 18, TODO B-166's step 9,
+still not seen. Nothing was sent.
 
 ## B-167 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 

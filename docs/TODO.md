@@ -9617,11 +9617,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       held sheet, the Share sheet from it, the bubble's menu with its
       composer, the Reply sheet, the Flag popover and "Add Another Email…"
       with Settings the same to the pixel as r6-k-fix's (ff47eb6) and
-      r6-k-ref's (int21, 1873724), but for the subjects' ends; the
-      connection log's Share sheet as r6-k-fix's, int21 having none; Edit
-      mode, the stack, New Message, Swipe Options, Go to Date, the Move
-      sheet and two panes not run, nor 2 and 3 for them, the fix not
-      reaching them and r6-j-look having passed them; the int18 and bf7575a
+      r6-k-ref's (int21, 1873724), but for the subjects' ends and the
+      caret; the connection log's Share sheet as r6-k-fix's but for the
+      log's own words and their preview in the sheet's header, left out,
+      int21 having none; Edit mode, the stack, New Message, Swipe Options,
+      Go to Date, the Move sheet and two panes not run, nor 2 and 3 for
+      them: not what the change is for, held at Large before it,
+      r6-j-look having passed them on int21; Edit mode's circles, which
+      the app's size may now have UIKit draw at Large (KNOWN_ISSUES B-166,
+      Not covered), not looked at on this build; the int18 and bf7575a
       shots not possible, only one build installed. In 2 and 3, the app
       left open, every screen of 1 that was run the same to the pixel as at
       Large, frames and words: the held sheet's five items, the Reply
@@ -10747,12 +10751,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       three tries in one launch: passed. "B-176 large" opened: `KEPT-LETTER
       not-kept reason=size`, its BODYSTRUCTURE and words, then its PDF's
       FETCH with no tap before both photos', each once; its tile landed in
-      its place. Tries 2 and 3, not the launch's first Quick Look: "B-176
-      large.pdf" first in Quick Look 0.371 and 0.372 s after the tap was
-      sent, the frame before at 0.302 s, within 0.6 s, as r6-j-files' 0.32
-      s and r6-k-files' second run's later ones, 0.35 to 0.38 s, on
+      its place. Timed from the tap's command, as it was sent; the note
+      above timed the second run's from the tap's end, as touchsim
+      returned, 0.09 s later. Tries 2 and 3, not the launch's first Quick
+      Look: "B-176 large.pdf" first in Quick Look 0.371 and 0.372 s after
+      the tap was sent (0.284 s after its end), the frame before at 0.302
+      s, within 0.6 s, as r6-j-files' 0.32 s and r6-k-files' second run's
+      later ones, 0.35 to 0.38 s on this clock (0.26 to 0.29 s above), on
       ff47eb6. Try 1, the launch's first Quick Look: 0.746 s, between 0.677
-      and 0.746 s, beside the ff47eb6 control's 0.73 and 0.74 s, within the
+      and 0.746 s (0.658 s after the tap's end), beside the ff47eb6
+      control's 0.73 and 0.74 s (0.64 and 0.65 s above), within the
       round's margin of 0.15 s over it: Quick Look's own first presentation
       in a launch, not the landed file's path. The tap's ring turned, about
       355 degrees a second. Each Quick Look with Share, Search, Markup and
@@ -11017,34 +11025,37 @@ checks below is left as not needed, not open, and none is worth a round.*
       its own. Nothing was sent.*
       *Seen on the test iPad 2026-10-28 on int21 (260aea0), round r6-l-fix,
       the steps as numbered now: 0, 1, 2, 9 and 10 passed; 3 FAILed; 4 to 8
-      not run, passed on 1873724 in r6-j-act or on ff47eb6 in r6-k-fix, the
-      change since being the pane's header and the stack's lines, not the
-      rows. "dated old" arrived at 2.15 pm, its Date 1 March 2024 at noon;
-      "came old" arrived on 8 October at noon, its Date that morning at 9
-      am. In 1 Mail's rows "dated old" "2:15 PM", the conversation
-      "Yesterday", "came old" "10/8/26"; its headers "2:15 PM" and
-      "10/8/26", the arrival. In 2, after a relaunch, Blackmail's rows the
-      same, order and dates, "lastyear" 6/14/25 under 7/17/25; one `UID
-      FETCH … (UID INTERNALDATE)` after the `UID SEARCH ALL`, `* FETCH {35
-      dates}`, 35 the letters in Notes, then the page's; the headers "Today
-      at 2:15 PM" and "October 8, 2026 at 12:00 PM" in every frame from
-      0.14 s after the tap and after, the header band as r6-k-fix's but for
-      the date's words, the date line in its place. In 3 Mail printed
-      "Date: Oct 28, 2026 at 2:15:14 PM" and "Date: Oct 8, 2026 at 12:00:00
-      PM" and replied "On Oct 28, 2026, at 2:15 PM, …" and "On Oct 8, 2026,
-      at 12:00 PM, …", the arrival; Blackmail printed and replied by the
-      Dates, "Mar 1, 2024 at 12:00:00 PM" and "Oct 28, 2026 at 9:00:00 AM",
-      as the step then expected, the FAIL (KNOWN_ISSUES B-178, "Found on
-      the test iPad, 2026-10-28 (third round)"); a second run saw the same
-      on letters of its own; fixed on fix-j1 at 206d4af, step 3 corrected,
-      its re-check to come. Nothing printed, each composer cancelled,
-      asking nothing, Drafts and Sent Mail as before. In 9 Mail's letters
-      "Sunday" and "Yesterday", its row "Yesterday", no date for the whole
-      but the row's; Blackmail's header "Yesterday at 9:00 AM" from 0.14 s,
-      the stack's lines "Sunday" and "Yesterday" from 0.20 s, unchanged to
-      8 s. In 10 the letters put back by a STORE of the Trash's label, no
-      move or delete. A letter of his from Sent Mail in a stack: no step
-      has one. Nothing was sent.*
+      not run: 4, 5's jump to 14 June 2025 and 8 passed on 1873724 in
+      r6-j-act, 4 but for the rows' dates, fixed since and seen in 2; 5's
+      other jumps, 6 and 7 on ff47eb6 in r6-k-fix; the change since being
+      the pane's header and the stack's lines, not the rows. "dated old"
+      arrived at 2.15 pm, its Date 1 March 2024 at noon; "came old" arrived
+      on 8 October at noon, its Date that morning at 9 am. In 1 Mail's rows
+      "dated old" "2:15 PM", the conversation "Yesterday", "came old"
+      "10/8/26"; its headers "2:15 PM" and "10/8/26", the arrival. In 2,
+      after a relaunch, Blackmail's rows the same, order and dates, and its
+      "lastyear" 6/14/25 under 7/17/25, as Notes' INTERNALDATEs have it,
+      Mail's not looked for; one `UID FETCH … (UID INTERNALDATE)` after the
+      `UID SEARCH ALL`, `* FETCH {35 dates}`, 35 the letters in Notes, then
+      the page's; the headers "Today at 2:15 PM" and "October 8, 2026 at
+      12:00 PM" in every frame from 0.14 s after the tap and after, the
+      header band as r6-k-fix's but for the date's words, the date line in
+      its place. In 3 Mail printed "Date: Oct 28, 2026 at 2:15:14 PM" and
+      "Date: Oct 8, 2026 at 12:00:00 PM" and replied "On Oct 28, 2026, at
+      2:15 PM, …" and "On Oct 8, 2026, at 12:00 PM, …", the arrival;
+      Blackmail printed and replied by the Dates, "Mar 1, 2024 at 12:00:00
+      PM" and "Oct 28, 2026 at 9:00:00 AM", as the step then expected, the
+      FAIL (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28 (third
+      round)"); a second run saw the same on letters of its own; fixed on
+      fix-j1 at 206d4af, step 3 corrected and Forward added to it, its
+      re-check to come. Nothing printed, each composer cancelled, asking
+      nothing, Drafts and Sent Mail as before. In 9 Mail's letters "Sunday"
+      and "Yesterday", its row "Yesterday", no date for the whole but the
+      row's; Blackmail's header "Yesterday at 9:00 AM" from 0.14 s, the
+      stack's lines "Sunday" and "Yesterday" from 0.20 s, unchanged to 8 s.
+      In 10 the letters put back by a STORE of the Trash's label, no move
+      or delete. A letter of his from Sent Mail in a stack: no step has
+      one. Nothing was sent.*
 
 ## Blocked on the owner
 
