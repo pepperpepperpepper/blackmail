@@ -10416,7 +10416,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       Load All Images brought the picture; the option off again. Nothing
       was sent.*
 
-- [x] **B-174, Edit mode as Mail's.** On the test iPad, the test account
+- [ ] **B-174, Edit mode as Mail's.** On the test iPad, the test account
       only, from a build of the `bm-cmp-cd` worktree (branch
       `copy-cmp-cd`) or of the int it is merged into. Nothing is sent,
       trashed, moved or marked: no Trash, Move or Mark is tapped in Edit
@@ -10476,6 +10476,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       messages", Edit grey, a tap on it nothing. In 6 "No results", Edit
       mode on and its Cancel blue. Beside bf7575a's shots only what the
       entry changed differed. Nothing was sent.*
+      8. *iOS 17.5 and 18.6, on the simulators* (added 2026-10-28,
+      KNOWN_ISSUES B-174, "Found on the iOS 18.6 simulator, 2026-10-28"):
+      a signed-in simulated iPad (7th generation) on each, a build with
+      the change; Edit, a row ticked: the row blue, its tick a white disc,
+      rgb(255, 255, 255), with the check in the row's blue, rgb(10, 132,
+      255), where an unticked row's grey circle is and at its size;
+      unticked, the grey circle alone, no white. Screenshot, the circle
+      cropped and its colours read. Cancel: nothing trashed, moved or
+      marked.
+      9. *16.5.1 unchanged,* between 3 and 7: on the test iPad, a build
+      with the change, steps 1 to 3 again: every shot as round
+      r6-j-act's, the tick a white disc with its check rgb(10, 132, 255)
+      as in that round's shot 05, nothing else differing.
+      *Seen 2026-10-28 on the iOS 17.5 and 18.6 simulators, on a build of
+      `fix-j1` with the change, as 8e27718 has it: 8 passed on both, the
+      disc rgb(255, 255, 255) and the check rgb(10, 132, 255), the disc's
+      light pixels 19 to 61 of an 80-pixel crop and the unticked circle's
+      ring 20 to 60; a second row ticked, the same. 9 not run yet.*
 
 - [x] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
       On the test iPad, the test account only, from a build of the
@@ -10540,7 +10558,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       and "Undo Unread". A shake now and then brought nothing, and the next
       the alert. Nothing was sent.*
 
-- [x] **B-176, files, pictures and links in the pane as Mail has them.** On
+- [ ] **B-176, files, pictures and links in the pane as Mail has them.** On
       the test iPad, the test account only, from a build of the `fix-j1`
       branch at its tip (the ring turning by CSS, and a letter's own page
       asking for its files as it opens, 2026-10-28) or of the int it is
@@ -10768,6 +10786,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       come, across the three taps. The rest of B-176 not run, passed on
       ff47eb6 in r6-k-files and not changed since; the letter put back by a
       STORE of the Trash's label. Nothing was sent.*
+      8. *iOS 17.5 and 18.6, on the simulators* (added 2026-10-28,
+      KNOWN_ISSUES B-176, "Found on the iOS 18.6 simulator, 2026-10-28"):
+      a signed-in simulated iPad (7th generation) on each, a build with
+      the change, a letter with a photo among its words ("R6 B-171 photo"
+      in the Trash, or one made as step 0's are): the photo tapped, Quick
+      Look with its status bar, the file's name, Share, Markup and Done in
+      the first shot, with no tap on the picture; a tap on it hides them,
+      a second brings them back; Done. Held, Markup and Reply: the same
+      bars; Done with nothing drawn, no composer. A PDF's tile tapped: its
+      bars as before; Done.
+      9. *16.5.1 unchanged,* between 6 and 7: on the test iPad, a build
+      with the change, step 2 again: Quick Look of the PDF and of the
+      HEIC's photo with their bars at once, as in round r6-j-files' shots,
+      nothing else differing.
+      *Seen 2026-10-28 on the iOS 18.6 simulator, on a build of `fix-j1`
+      with the change, as 5b8fd34 has it: 8 passed but its PDF, not
+      tapped, "R6 B-171 photo rj"'s photo in the Trash, its Quick Look
+      with the bars in the first shot, 3 s after the tap, the two taps
+      hiding and showing them, Markup and Reply's the same and no composer
+      at Done; on the 17.5 simulator the tap's Quick Look with its bars,
+      as before. 9 not run yet.*
 
 - [x] **B-177, a sender only seen offered by name.** On the test iPad,
       the test account only, from a build of the `bm-cmp-f` worktree

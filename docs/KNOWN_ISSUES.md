@@ -5194,6 +5194,27 @@ its listing's time, at 63 minutes; in the log 118 `STATUS "INBOX"
 (UNSEEN)` about 32 s apart, and nothing else. The shots at 15, 30 and 45
 minutes were not looked at a second time. Nothing was sent.
 
+**Seen on the iOS 18.6 and 17.5 simulators, 2026-10-28** (a run looking
+into what differs on the 18.6 simulator; no code changed for it). On the
+10.2-inch iPad (7th generation) the line under the list wraps, "Updated
+3 / minutes ago" on two lines, on 18.6 and 17.5 alike, and it wrapped so
+on the simulator on 2026-10-25 already. The list pane is 300 points wide
+there, Refresh and Settings leave the line 119, and the line is measured
+against 150 (`showStatus`), the room the 11-inch test iPad gives, where
+"Updated 2 minutes ago" is one line. At 11 points "Updated 2 minutes
+ago" is 122.2 wide and "Updated 59 minutes ago" 129.5; "Updated Just
+Now", "Updated 1 minute ago", "Updated at 12:59 PM" and the unsent
+counts fit. With two lines nothing is cut or overlaps. Worked out from
+the widths, not seen: a wrapped age with a failure on the line under it,
+"Password Needs Updating" (138.1) say, or a wrapped age, an unsent count
+and "No Connection", take four lines, the label holds three
+(`numberOfLines`), and the last would be cut. The age of a folder other
+than the Inbox going on from its own listing, 2 to 17 minutes in Notes,
+is this entry's design: only the Inbox is listed again while the app is
+open. What the line does on the 10.2-inch, his iPad's size (one line
+each at a smaller size, shorter words, or the wrap as it is), is its
+layout, and the owner's to rule on. Not changed.
+
 ---
 
 ## B-052 — CHANGED 2026-09-30, seen on the iPad. A letter that could not be sent lasted only as long as its sheet
@@ -38805,6 +38826,44 @@ ticked unread letter in the pane and left unread, no STORE; "2 Selected";
 the letter before back at Cancel; "1 Sele…" in two panes; Edit grey in an
 empty Junk; Edit mode kept over a search with no hits. Nothing was sent.
 
+**Found on the iOS 18.6 simulator, 2026-10-28.** On iPadOS 18.6 and 17.5
+a ticked row's tick was a white disc with no check: the check, white
+too, was lost on it. The test iPad on 16.5.1 drew a white disc with the
+check in the row's blue, rgb(10,132,255) (round r6-j-act, its shot 05).
+The cause: the row's tint is white in Edit mode (`colour`), and from
+iOS 17 UIKit draws the tick, `checkmark.circle.fill` in its edit
+control, in two colours, the check always white and the disc in the
+tint; on 16 the check is cut out of the disc, and the row's blue shows
+through it. UIKit has no public setting for the check's colour, and its
+private `multiselectCheckmarkColor` turned the whole tick blue, lost on
+the row. Changed (`MessageCell.placeTick`, `drawsOwnTick`): from iOS 17
+alone, by a run-time check of the system's version, a ticked row draws
+its own tick over UIKit's, inside UIKit's edit control, at its frame and
+at its size at every text size, the check in the row's blue on a white
+disc; hidden on a row not ticked; nothing moves, and the white tint is
+kept. On 16 the check is false, and nothing of the row's own tick is
+made or run: the test iPad on 16.5.1 draws as before. The owner's go,
+2026-10-28, for this and B-176's Quick Look, with the test iPad on
+16.5.1 kept exactly as it is.
+
+Seen on the 17.5 and 18.6 simulators, on a build of `fix-j1` with the
+change: the disc rgb(255,255,255) and the check rgb(10,132,255) on both,
+the disc where an unticked row's grey circle is and at its size;
+unticked, the grey circle alone; a second row ticked, the same. 17.0 to
+17.4 were not tried. Nothing was trashed, moved or marked: Cancel.
+
+*Tests.* `EditModeLikeMailTests`, one new,
+`testFromIOS17TheRowDrawsItsOwnTickOverUIKits`, the row read: the check
+of 17, the colours, the tick placed in `layoutSubviews` and shown or
+hidden in `colour` only behind it, made only when first asked for,
+UIKit's frame and size copied and nothing of UIKit's moved, no
+`#available`. Undone by hand, the row as before: 11 failures in the one
+test, each an assertion's; the check of 17 alone taken out of
+`layoutSubviews`: 3, each an assertion's; put back, passing. The full
+suite: 3,160 tests, 6 skipped, none failing; the release build for the
+iPad: "Build complete". Not yet seen on the test iPad: the TODO's B-174
+check, steps 8 and 9.
+
 ## B-175 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`) after B-174, as
@@ -39494,6 +39553,48 @@ page was not yet drawn at the tile's tap; in the third its words and a
 photo came at once from memory, the tile out of sight, and the tap fell
 on the photo; nothing opened over "B-176 pdf" or was said, and no copy
 was kept but Quick Look's own (B-063). Nothing was sent.
+
+**Found on the iOS 18.6 simulator, 2026-10-28.** On iPadOS 18.6 a
+picture's Quick Look, by a tap or by Markup and Reply (B-171), opened
+with its bars hidden: no status bar, title, Share, Markup or Done until
+a tap on the picture brought them. A PDF's opened with them, and on
+17.5, and on the test iPad on 16.5.1, every Quick Look did. Not
+Blackmail's doing: Files on the same simulator opened a picture so, and
+so did a small test app of a plain full-screen `QLPreviewController`.
+The cause, read from QuickLook in the iOS 18.6 runtime: iOS 18's Quick
+Look decides once, as it is presented, to open a picture or a video
+with its bars hidden (`_setDefaultFullscreenStateIfNeeded`), unless its
+flag `_didSetDefaultFullscreenState` says it has decided already; 17.5's
+QuickLook has neither. No public setting reaches it. Changed
+(`openAttachment`, `QuickLookBars`, new): from iOS 18 alone, by a
+run-time check of the system's version, and only where Quick Look has
+both the method and the flag, the pane sets the flag between the
+presentation style and the presentation, in the one place every Quick
+Look is made; nothing else in the presentation changed. On 16 and 17
+the check is false and nothing is asked: the test iPad on 16.5.1 opens
+Quick Look as before. The owner's go, 2026-10-28, for this and B-174's
+tick, with the test iPad on 16.5.1 kept exactly as it is.
+
+Seen on the 18.6 simulator, on a build of `fix-j1` with the change:
+"R6 B-171 photo rj"'s photo, in the Trash, tapped: Quick Look with its
+status bar, "IMG_1220.jpeg", Share, Markup and Done in the first shot,
+3 s after the tap; a tap on the picture hid them and a second brought
+them back; Done. Held, Markup and Reply: the same bars; Done with
+nothing drawn, no composer. On 17.5 the tap's Quick Look with its bars,
+as before. A PDF's Quick Look was not opened on the simulators, and
+Mail's on iOS 18 not seen, the simulator having no Mail.
+
+*Tests.* `QuickLookBarsTests`, new, two: the names, and the pane read:
+the check of 18 and both guards right after the presentation style and
+before the presentation, the flag set once, the names in
+`QuickLookBars` alone, one `QLPreviewController()`, no `#available`.
+Changed, as the code they read changed: `MarkupReplyTests` and
+`ExpiryWarningTests` (the branch quoted whole). Undone by hand, the pane
+as before: 5 failures in the one test, each an assertion's; the check
+of 18 alone taken out: 3, each an assertion's; put back, passing. The
+full suite: 3,160 tests, 6 skipped, none failing; the release build for
+the iPad: "Build complete". Not yet seen on the test iPad: the TODO's
+B-176 check, steps 8 and 9.
 
 ## B-177 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 
