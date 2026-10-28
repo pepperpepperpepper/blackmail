@@ -55,8 +55,9 @@ final class MessageListViewController: UITableViewController {
     /// letters off the list, at the tap: the reading pane empties if it
     /// shows one of them.
     var onLettersLeaving: (([MessageSummary]) -> Void)?
-    /// A Delete or Move from Edit mode or a drag, or a Flag or Unflag from
-    /// a drag or More, that the server has taken, for Mail's Undo (B-157),
+    /// A Delete or Move from Edit mode or a drag, a Flag or Unflag from a
+    /// drag or More, or a read mark from a full drag (B-175), that the
+    /// server has taken, for Mail's Undo (B-157),
     /// with the list's letters it was taken from, which its rows go back to.
     var onUndoable: ((Undoable, ListLetters) -> Void)?
     /// More's Reply, Reply All or Forward on a row (B-156): the letter
@@ -69,6 +70,12 @@ final class MessageListViewController: UITableViewController {
     /// is highlighted again where the table has dropped the highlight with
     /// the letter still open (`highlightLetterInPane`, B-133).
     var lettersInPane: () -> [String] = { [] }
+    /// Edit mode has ended and the reading pane goes back to empty, as it
+    /// was before a tick put a letter in it (`EditPane`, B-174).
+    var onPaneEmptied: (() -> Void)?
+    /// The reading pane dimmed, or not: Edit mode with nothing ticked, as
+    /// Mail greys the letter and its buttons (`EditBar.dimsPane`, B-174).
+    var onPaneDimmed: ((Bool) -> Void)?
     /// The Inbox's pass of letters fetched ahead has ended (B-160).
     var afterFetchAhead: (() -> Void)?
     /// A letter Edit mode moved changed a count the list cannot work out
@@ -118,6 +125,9 @@ final class MessageListViewController: UITableViewController {
     /// those buttons did nothing, and the pane's row lost its highlight
     /// (B-156).
     private var inEditMode = false
+    /// The reading pane through Edit mode: a ticked row's letter in it, and
+    /// the letter before put back as Edit mode ends (`EditPane`, B-174).
+    private var editPane = EditPane()
 
     /// What the container puts in the leading slot in front of the
     /// calendar: in two panes the view button and "< Mailboxes", in three
@@ -1500,6 +1510,9 @@ final class MessageListViewController: UITableViewController {
             if parts.contains(.label) {
                 cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
             }
+            // In Edit mode a selected row is a tick, blue with a white
+            // tick, as Mail's (B-174).
+            if parts.contains(.ticks) { cell.ticks = inEditMode }
         }
     }
 
@@ -2074,6 +2087,22 @@ final class MessageListViewController: UITableViewController {
         // An empty folder must say so. A blank white rectangle is how an app
         // looks broken, and this user cannot tell the two apart.
         emptyLabel.isHidden = !rows.isEmpty
+        // Edit mode ended, as Cancel ends it, when the folder's last row
+        // has gone; then Edit grey in a folder with no rows, as Mail's
+        // (B-174). In that order: set while Edit mode was still on, Edit
+        // stayed blue in the emptied folder.
+        if EditBar.ends(rows: rows.count, editing: inEditMode, searching: letters.isSearching) {
+            editTapped()
+        }
+        navigationItem.rightBarButtonItem?.isEnabled = EditBar.canEdit(rows: rows.count,
+                                                                       editing: inEditMode)
+        // A ticked row gone by another way than the bar, the pane's Trash
+        // or a fetch afresh: the bar, the title and the pane as the ticks
+        // left are (B-174).
+        if inEditMode {
+            updateSelectAllTitle()
+            paneFollowsTicks()
+        }
         if !letters.isSearching {
             emptyLabel.text = "No messages"
         } else if searchFailed {
@@ -2517,8 +2546,19 @@ final class MessageListViewController: UITableViewController {
         // His ticks are his to keep where they are (B-117).
         landed.letGo()
         let editing = !inEditMode
+        // The letter the pane shows as Edit mode begins, to put back as it
+        // ends; put back before the row is highlighted again (B-174).
+        if editing {
+            let shown = lettersInPane()
+            editPane.begin(showing: shown,
+                           thread: ListEdit.paneRow(in: threads, showing: shown).map { threads[$0] })
+        } else {
+            putPaneBack()
+        }
         inEditMode = editing
         tableView.setEditing(editing, animated: true)
+        // A ticked row blue with a white tick, as Mail's (B-174).
+        drawRowsInSight(.editMode)
         // No pull in Edit mode, where the page would drop his ticks (B-103).
         placePull()
         // Mail's word for leaving it (B-144).
@@ -2527,6 +2567,10 @@ final class MessageListViewController: UITableViewController {
         // folders LIST has named by now: Settings may have changed it since
         // the bar was made (B-167).
         if editing { deleteItem.title = discardWord }
+        // Edit grey as Cancel leaves a list with no rows, a search's with
+        // none (B-174).
+        navigationItem.rightBarButtonItem?.isEnabled = EditBar.canEdit(rows: rows.count,
+                                                                       editing: editing)
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
         // His ticks have gone with Edit mode: what the watch held can go on,
@@ -2574,16 +2618,64 @@ final class MessageListViewController: UITableViewController {
             }
         }
         updateSelectAllTitle()
+        paneFollowsTicks()
         // Deselect All is the last tick taken off too.
         landFreshPage()
         showNewsIfAtTop()
     }
 
+    /// The bar, the title and the pane as the ticks are now, at every
+    /// change of them and as Edit mode begins and ends: Select All's word;
+    /// Mark, Move and the third button grey with nothing ticked; the title
+    /// "1 Selected"; the reading pane dimmed with nothing ticked, as Mail's
+    /// (`EditBar`, B-174). Out of Edit mode the selected row is the letter
+    /// in the pane, not a tick: the folder's name, and no dimming.
     private func updateSelectAllTitle() {
         guard let selectAllItem else { return }
         let all = rows.count > 0 && (tableView.indexPathsForSelectedRows?.count ?? 0) == rows.count
         selectAllItem.title = all ? "Deselect All" : "Select All"
         selectAllItem.isEnabled = rows.count > 0
+        let ticked = inEditMode ? (tableView.indexPathsForSelectedRows?.count ?? 0) : 0
+        for item in [markItem, moveItem, deleteItem] { item?.isEnabled = EditBar.acts(ticked: ticked) }
+        title = EditBar.title(ticked: ticked, folder: mailbox.displayName)
+        onPaneDimmed?(EditBar.dimsPane(editing: inEditMode, ticked: ticked))
+    }
+
+    /// The ticks have changed: with exactly one, its letter in the reading
+    /// pane, as a tap would put it there, and not marked read (`EditPane`,
+    /// B-174).
+    @MainActor
+    private func paneFollowsTicks() {
+        let ticked = (tableView.indexPathsForSelectedRows ?? []).map(\.row)
+        guard let row = editPane.ticked(ticked, in: threads, showing: lettersInPane(),
+                                        opens: mailbox.role != .drafts && !isOutbox) else { return }
+        showInPane(threads[row])
+    }
+
+    /// A conversation in the reading pane as a tap on its row puts it
+    /// there (`open`), but for the read mark and the rest of a tap: for Edit
+    /// mode's tick and for the letter put back as it ends.
+    @MainActor
+    private func showInPane(_ thread: MessageThread) {
+        if thread.count > 1 {
+            onSelectThread?(thread, CompleteThreads.thread(
+                toComplete: thread, listedIn: mailbox.role, searching: letters.isSearching,
+                switchedOn: ConversationSettings.completeThreads))
+        } else {
+            onSelectMessage?(thread.newest)
+        }
+    }
+
+    /// Edit mode is ending: the reading pane back to the letter it showed
+    /// before, if a tick put another in it and it still shows that one
+    /// (`EditPane`, B-174).
+    @MainActor
+    private func putPaneBack() {
+        switch editPane.end(in: threads, showing: lettersInPane()) {
+        case .stay: break
+        case .empty: onPaneEmptied?()
+        case .letters(let thread): showInPane(thread)
+        }
     }
 
     /// Ticking a conversation acts on ALL of it, which is what Mail does
@@ -2661,7 +2753,12 @@ final class MessageListViewController: UITableViewController {
     /// ticked both.
     @MainActor
     private func delete(_ chosen: [MessageSummary]) {
-        if inEditMode { editTapped() }
+        // Edit mode ends, the letter before put back in the pane unless it
+        // goes with them (`EditPane.taking`, B-174).
+        if inEditMode {
+            editPane.taking(chosen)
+            editTapped()
+        }
         let kept = self.kept
         let repository = self.repository
         for m in chosen {
@@ -2834,7 +2931,10 @@ final class MessageListViewController: UITableViewController {
             // mode ends, and "Moving…" is on the status line until the
             // server has answered for each letter. One it did not take
             // comes back, and he is told, as for Delete (B-062).
-            if self.inEditMode { self.editTapped() }
+            if self.inEditMode {
+                self.editPane.taking(chosen)
+                self.editTapped()
+            }
             self.runBatch(.move(to: destination), on: chosen, saying: StatusLine.moving)
         }
         let nav = UINavigationController.formSheet(move)
@@ -2908,10 +3008,11 @@ final class MessageListViewController: UITableViewController {
     ///
     /// UIKit tells a button tapped and a full drag apart in no word of its
     /// own: the drag's pan, just ended as its button is done, is what
-    /// tells them apart here, for Ask Before Deleting, which a full drag
-    /// never waits for (`DiscardQuestion.fullDrag`, B-168). Its button's
-    /// width did until the test iPad showed a full drag's Trash never
-    /// stretched past 56 per cent of the row (2026-10-27).
+    /// tells them apart here (`DiscardQuestion.fullDrag`, B-168), for a
+    /// read mark, which is a step of Undo from a full drag (B-175). Its
+    /// button's width did until the test iPad showed a full drag's Trash
+    /// never stretched past 56 per cent of the row (2026-10-27). Neither
+    /// asks under Ask Before Deleting any more (B-175).
     private func swipes(at ip: IndexPath,
                         _ side: KeyPath<RowSwipes.Sides, [RowSwipes.Action]>)
         -> UISwipeActionsConfiguration {
@@ -3004,11 +3105,11 @@ final class MessageListViewController: UITableViewController {
     /// refused (`ListBatch`, `PaneActions`); not while one is on its way
     /// on any of the row's letters, as the pane waits for its own.
     ///
-    /// Under Ask Before Deleting, a Trash or an Archive tapped, a drag's
-    /// button or More's item (`from`), asks first, Mail's sheet over the
-    /// row, "Trash Message", or "Trash Messages" for a conversation of
-    /// more (`DiscardQuestion`, B-168): the row slides back while he is
-    /// asked, and goes if he taps it. A full drag does not ask.
+    /// Under Ask Before Deleting nothing is asked here either, a drag's
+    /// button tapped, More's item or a full drag (`from`), as Mail asked
+    /// for none of them on the test iPad (`DiscardQuestion`, B-175); it
+    /// asked them from B-168 until then. A read mark from a full drag is a
+    /// step of Undo (B-175).
     private func swiped(_ action: RowSwipes.Action, on key: RowKey, from: DiscardQuestion.From) -> Bool {
         guard !inEditMode, let row = lettersOfRow(key), !row.letters.isEmpty else {
             return false
@@ -3040,7 +3141,8 @@ final class MessageListViewController: UITableViewController {
         case .flag, .unflag:
             return mark(.flag(action == .flag), on: key)
         case .markRead, .markUnread:
-            return mark(.read(action == .markRead), on: key)
+            // A step of Undo from the full drag, as Mail's (B-175).
+            return mark(.read(action == .markRead), on: key, undoable: from == .fullDrag)
         case .more:
             showMore(for: key)
             return true
@@ -3048,10 +3150,10 @@ final class MessageListViewController: UITableViewController {
     }
 
     /// A Trash or an Archive of `letters`, the row `key`'s: `go` at once,
-    /// for UIKit to close the row, or, under Ask Before Deleting and not
-    /// from a full drag, Mail's sheet over the row first, and `go` only if
-    /// he taps its red button, the row sliding back meanwhile
-    /// (`DiscardQuestion`, B-168).
+    /// for UIKit to close the row, or, where `DiscardQuestion` asks from
+    /// `from`, Mail's sheet over the row first, and `go` only if he taps
+    /// its red button, the row sliding back meanwhile (B-168). From a row
+    /// it asks nothing since B-175.
     private func discard(_ verb: DiscardQuestion.Verb, _ letters: [MessageSummary], on key: RowKey,
                          from: DiscardQuestion.From, _ go: @escaping () -> Void) -> Bool {
         guard let asked = DiscardQuestion.before(verb, letters: letters.count, from: from) else {
@@ -3070,8 +3172,10 @@ final class MessageListViewController: UITableViewController {
     /// one. The row changes at the tap, the server is told a letter at a
     /// time, and a refusal puts back what it did not take and says why. A
     /// Flag or an Unflag the server took is a step of Mail's Undo (B-157);
-    /// a read mark is not.
-    private func mark(_ action: PaneAction, on key: RowKey) -> Bool {
+    /// a read mark is one where `undoable`, from the full drag to the right,
+    /// "Undo Read" or "Undo Unread" (B-175), and none from More or a button
+    /// tapped, which were not seen to be.
+    private func mark(_ action: PaneAction, on key: RowKey, undoable: Bool = false) -> Bool {
         guard let row = lettersOfRow(key) else { return false }
         let changing = row.letters.filter { letter in
             switch action {
@@ -3089,10 +3193,11 @@ final class MessageListViewController: UITableViewController {
                 action, on: changing, role: { self.role(of: $0) },
                 list: self.letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.requestSweep?() })
-            if let step = UndoableFlag.after(action, took: changing.filter {
-                outcome.taken.contains($0.id)
-            }) {
+            let took = changing.filter { outcome.taken.contains($0.id) }
+            if let step = UndoableFlag.after(action, took: took) {
                 self.onUndoable?(.flag(step), self.letters)
+            } else if undoable, let step = UndoableRead.after(action, took: took) {
+                self.onUndoable?(.read(step), self.letters)
             }
             if let refusal = outcome.refusal {
                 ErrorPresenter.show(reaching: refusal, on: self.alertHost(in: window))
@@ -3128,11 +3233,12 @@ final class MessageListViewController: UITableViewController {
 
     /// More's sheet (`RowMore`), over the row, as Mail's: Reply, Reply All
     /// and Forward of the conversation's newest letter, made by the reading
-    /// pane (`onAnswer`); Trash Message, the drag's own Trash, or inside
-    /// Trash Delete Message, which asks first; Flag or Unflag, Mark as
-    /// Unread or Mark as Read, Move to Junk (Move to Inbox inside Junk,
-    /// B-106) and Move Message, on every letter of the row. Each item acts
-    /// on the row as it is when tapped.
+    /// pane (`onAnswer`); Trash, the drag's own Trash, or inside Trash
+    /// Delete Message, which asks first; Flag or Unflag, Mark as Unread or
+    /// Mark as Read, Move Message…, Archive Message, and Move to Junk (Move
+    /// to Inbox inside Junk, B-106), on every letter of the row, in Mail's
+    /// order (`RowMore`, B-175). Each item acts on the row as it is when
+    /// tapped.
     private func showMore(for key: RowKey) {
         guard let row = lettersOfRow(key), let place = placeOfRow(key) else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -3613,7 +3719,7 @@ final class MessageListViewController: UITableViewController {
         letGoOfVoiceOver()
         // In Edit mode a tap ticks a row rather than opening it, and the
         // Select All button has to keep up with what that leaves selected.
-        guard !inEditMode else { updateSelectAllTitle(); return }
+        guard !inEditMode else { updateSelectAllTitle(); paneFollowsTicks(); return }
         // A letter opened from the results: the search found what he was
         // after, and is kept among his recent ones (B-105).
         if letters.isSearching { keepSearch(searchShown) }
@@ -3638,6 +3744,7 @@ final class MessageListViewController: UITableViewController {
     override func tableView(_ t: UITableView, didDeselectRowAt ip: IndexPath) {
         guard inEditMode else { return }
         updateSelectAllTitle()
+        paneFollowsTicks()
         // The last tick taken off.
         landFreshPage()
         showNewsIfAtTop()
@@ -3658,8 +3765,13 @@ final class MessageListViewController: UITableViewController {
     /// (`ConversationDocument.readAtTheTap`). The pane used to mark the
     /// unread ones one at a time, through `markRead`, and each was a
     /// redraw of the list inside the tap.
+    ///
+    /// `readTaken`, for the letter the pane opens after its Delete
+    /// (`openNext`): called once the server has answered the read marks,
+    /// with the letters it took them on.
     @MainActor
-    private func open(_ thread: MessageThread, at ip: IndexPath) {
+    private func open(_ thread: MessageThread, at ip: IndexPath,
+                      readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         // Drafts never group into a stack: a tap there has to reopen the
         // composer, and there is no reading-pane form of that.
         if mailbox.role == .drafts {
@@ -3677,12 +3789,14 @@ final class MessageListViewController: UITableViewController {
         onSelectThread?(thread, CompleteThreads.thread(
             toComplete: thread, listedIn: mailbox.role, searching: letters.isSearching,
             switchedOn: ConversationSettings.completeThreads))
-        markReadIfNeeded(ConversationDocument.readAtTheTap(thread))
+        markReadIfNeeded(ConversationDocument.readAtTheTap(thread), taken: readTaken)
     }
 
-    /// Opens one letter in the reading pane and marks it read.
+    /// Opens one letter in the reading pane and marks it read; `readTaken`
+    /// as for a conversation.
     @MainActor
-    private func open(_ summary: MessageSummary, at ip: IndexPath) {
+    private func open(_ summary: MessageSummary, at ip: IndexPath,
+                      readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         let m = summary
 
         // In Drafts a tap REOPENS the letter for writing. Everywhere else it
@@ -3700,7 +3814,7 @@ final class MessageListViewController: UITableViewController {
         }
 
         onSelectMessage?(m)
-        markReadIfNeeded(m)
+        markReadIfNeeded([m], taken: readTaken)
     }
 
     /// Marks one letter read locally, tells the server, and bills the
@@ -3731,8 +3845,14 @@ final class MessageListViewController: UITableViewController {
     /// marked, but the rows redrawn once for the lot, highlighting the
     /// first one's. The STOREs go in the line one after another, and
     /// nothing calls them off, as for rows he taps past.
+    ///
+    /// `taken`, when given, is called once every STORE has been answered,
+    /// with the letters the server took the mark on, none left out for a
+    /// refusal: for the step of Undo the read mark after the pane's Delete
+    /// is (`PaneUndoSteps`, B-175). Not called when nothing was unread.
     @MainActor
-    private func markReadIfNeeded(_ summaries: [MessageSummary]) {
+    private func markReadIfNeeded(_ summaries: [MessageSummary],
+                                  taken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         let marked = summaries.filter { !$0.isRead }
         guard let first = marked.first else { return }
         // Held over a listing already on its way, whose flags are from
@@ -3744,16 +3864,26 @@ final class MessageListViewController: UITableViewController {
         // highlighted as the one open in the pane, except in Edit mode; see
         // `ListEdit.selectedRows`.
         regroup(highlighting: first.id)
-        for m in marked { sendRead(m) }
+        let sends = marked.map { sendRead($0) }
+        guard let taken else { return }
+        Task { @MainActor in
+            var took: [MessageSummary] = []
+            for (m, send) in zip(marked, sends) {
+                if await send.value { took.append(m) }
+            }
+            taken(took)
+        }
     }
 
     /// The STORE of one read mark made here, and what its answer does to
-    /// the dot and the folder counts.
+    /// the dot and the folder counts; its task's value says whether the
+    /// server took it.
     @MainActor
-    private func sendRead(_ summary: MessageSummary) {
+    @discardableResult
+    private func sendRead(_ summary: MessageSummary) -> Task<Bool, Never> {
         var m = summary
         m.isRead = true
-        Task { @MainActor in
+        return Task { @MainActor in
             do {
                 try await repository.setRead(true, id: m.id, gmailMessageID: m.gmailMessageID,
                                              mailboxID: m.mailboxID)
@@ -3765,7 +3895,7 @@ final class MessageListViewController: UITableViewController {
                 self.letters.readAnswered(m.id, landed: false)
                 PaneActions.notTheKeptLetter(m, list: self.letters)
                 self.onMessagesChanged?()
-                return
+                return false
             } catch {
                 // Put the dot back. Before the sidebar counter existed a
                 // failed STORE merely left the folder count stale HIGH,
@@ -3776,7 +3906,7 @@ final class MessageListViewController: UITableViewController {
                 // server has actually taken the flag.
                 self.letters.readAnswered(m.id, landed: false)
                 self.regroup()
-                return
+                return false
             }
             self.letters.readAnswered(m.id, landed: true)
             // Once per message, ever. A reload can re-derive `isRead` from
@@ -3784,6 +3914,7 @@ final class MessageListViewController: UITableViewController {
             // back, which re-arms the `!$0.isRead` in `markReadIfNeeded` —
             // so that alone would let one message be billed twice.
             self.letters.read(m)
+            return true
         }
     }
 
@@ -3867,17 +3998,19 @@ final class MessageListViewController: UITableViewController {
     /// scrolled to: it is the row in the place of the one that went, the
     /// one above it, or the conversation's own, which the list draws lower
     /// once its newest has gone. Not in Edit mode, which may have begun
-    /// since.
+    /// since. `readTaken`, after the pane's Delete, is told the letters the
+    /// server took the read mark on, once it has answered, for its step of
+    /// Undo (`PaneUndoSteps`, B-175).
     @MainActor
-    func openNext(_ id: String) {
+    func openNext(_ id: String, readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         guard !inEditMode, let row = rowIndex(showing: id) else { return }
         let ip = IndexPath(row: row, section: 0)
         tableView.selectRow(at: ip, animated: false, scrollPosition: .none)
         switch rows[row] {
         case let .thread(thread) where thread.count > 1:
-            open(thread, at: ip)
+            open(thread, at: ip, readTaken: readTaken)
         case let .thread(thread):
-            open(thread.newest, at: ip)
+            open(thread.newest, at: ip, readTaken: readTaken)
         }
     }
 }

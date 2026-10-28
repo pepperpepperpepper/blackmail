@@ -3,8 +3,9 @@ import XCTest
 
 /// Mail's Ask Before Deleting (B-168): off from the factory, nothing asked
 /// but the erase inside Trash, as before; on, a Trash or an Archive of a
-/// letter asks first, in Mail's words, from the reading pane, the Edit bar,
-/// a drag's button and More, and a full drag goes at once, as Mail's does.
+/// letter asks first, in Mail's words, from the reading pane and the Edit
+/// bar; a drag's button, More and a full drag go at once, as Mail's did on
+/// the test iPad (B-175).
 ///
 /// The sheet is UIKit's and the iPad's to show; the setting, the words, the
 /// rule and the wiring, read from the source, are here.
@@ -56,12 +57,9 @@ final class DiscardQuestionTests: XCTestCase {
             DiscardQuestion.before(verb, letters: count, from: from, asking: true)?.button
         }
         XCTAssertEqual(button(.trash, 1, .pane), "Trash Message")
-        XCTAssertEqual(button(.trash, 1, .rowButton), "Trash Message")
-        XCTAssertEqual(button(.trash, 3, .rowButton), "Trash Messages")
-        XCTAssertEqual(button(.trash, 1, .more), "Trash Message")
-        XCTAssertEqual(button(.trash, 2, .more), "Trash Messages")
-        XCTAssertEqual(button(.archive, 1, .rowButton), "Archive Message")
-        XCTAssertEqual(button(.archive, 4, .more), "Archive Messages")
+        XCTAssertEqual(button(.trash, 3, .pane), "Trash Messages")
+        XCTAssertEqual(button(.archive, 1, .pane), "Archive Message")
+        XCTAssertEqual(button(.archive, 4, .pane), "Archive Messages")
         XCTAssertEqual(button(.trash, 1, .editBar), "Trash 1 Message")
         XCTAssertEqual(button(.trash, 3, .editBar), "Trash 3 Messages")
         XCTAssertEqual(button(.trash, 12, .editBar), "Trash 12 Messages")
@@ -74,10 +72,10 @@ final class DiscardQuestionTests: XCTestCase {
     /// Archive; a button tapped is told from it by the drag's own pan, not
     /// the button's width: done as the pan ends, or within a third of a
     /// second of its lift, a full drag; done with the pan not ended and no
-    /// lift that near, a tap, so a slow drag's button tapped still asks.
-    /// By the width, a full drag on the test iPad asked: its Trash was 53
-    /// to 56 per cent of the row as the finger lifted, under the three
-    /// fifths that counted (2026-10-27).
+    /// lift that near, a tap. By the width, a full drag on the test iPad
+    /// asked: its Trash was 53 to 56 per cent of the row as the finger
+    /// lifted, under the three fifths that counted (2026-10-27). Since
+    /// B-175 neither asks; the tell is kept for a read mark's step of Undo.
     func testAFullDragNeverAsks() {
         for verb: DiscardQuestion.Verb in [.trash, .archive] {
             for count in [1, 3] {
@@ -97,12 +95,13 @@ final class DiscardQuestionTests: XCTestCase {
         XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 0.8))
         XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: 40))
         XCTAssertFalse(DiscardQuestion.fullDrag(panEnded: false, sinceLift: -1))
-        // And so the question: none for the full drag, Mail's for the tap.
-        for (ended, since, asks) in [(true, nil, false), (false, 0.1, false), (false, 1.5, true),
-                                     (false, nil, true)] as [(Bool, Double?, Bool)] {
+        // And so the question: none for the full drag, nor, since B-175,
+        // for the tap.
+        for (ended, since) in [(true, nil), (false, 0.1), (false, 1.5),
+                               (false, nil)] as [(Bool, Double?)] {
             let from: DiscardQuestion.From = DiscardQuestion.fullDrag(panEnded: ended, sinceLift: since)
                 ? .fullDrag : .rowButton
-            XCTAssertEqual(DiscardQuestion.before(.trash, letters: 1, from: from, asking: true) != nil, asks)
+            XCTAssertNil(DiscardQuestion.before(.trash, letters: 1, from: from, asking: true))
         }
     }
 
@@ -157,9 +156,9 @@ final class DiscardQuestionTests: XCTestCase {
 
     /// The pane's Delete and the Edit bar's ask it where the erase question
     /// is not asked, and go at once where neither is; a drag's button and
-    /// More's item ask it over the row, the row sliding back; a full drag
-    /// told by the button's width goes at once. The erase question inside
-    /// Trash is as it was, and the only one there.
+    /// More's item go through the same wire over the row, which asks
+    /// nothing from them since B-175. The erase question inside Trash is as
+    /// it was, and the only one there.
     func testTheWiringAsksWhereMailAsks() throws {
         let sheet = try source("UI/DiscardConfirmation.swift")
         for line in [

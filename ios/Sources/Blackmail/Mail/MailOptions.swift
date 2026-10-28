@@ -75,8 +75,10 @@ enum MailOptions {
     }
 
     /// Messages > Ask Before Deleting. Off from the factory. Built by B-168:
-    /// on, a Trash or an Archive of a letter asks first, with Mail's words,
-    /// but for a full drag on a row, which goes at once (`DiscardQuestion`).
+    /// on, the reading pane's Trash or Archive and the Edit bar's ask
+    /// first, with Mail's words; a drag on a row, its button tapped or a
+    /// full drag, and More's go at once, as Mail's did (`DiscardQuestion`,
+    /// B-175).
     /// Off by third-party guides; Apple's own guide, telling how to turn it
     /// off, reads as if it were on, and his is matched on the day whichever
     /// it is. The question before an erase inside Trash (`EraseQuestion`) is

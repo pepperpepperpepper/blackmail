@@ -454,10 +454,34 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     private func setActionsEnabled(_ enabled: Bool) {
+        // Not while the list's Edit mode dims the pane (`dimForEdit`).
+        let enabled = enabled && !editDimmed
         // Disabled, never hidden. A greyed button still teaches where it is.
         for item in actionItems.values { item.isEnabled = enabled }
         actionItems[.delete]?.isEnabled = enabled && !writes.deleting
         actionItems[.compose]?.isEnabled = true   // compose never depends on a selection
+    }
+
+    /// Whether the list's Edit mode dims the pane (`dimForEdit`).
+    private var editDimmed = false
+
+    /// How much of the letter shows through while dimmed: Mail's white
+    /// name read 146 in its dimmed pane (r6 comparison C-03).
+    private static let editDim: CGFloat = 0.57
+
+    /// The list is in Edit mode with nothing ticked, or no longer
+    /// (`EditBar.dimsPane`, B-174): the letter and its header greyed and
+    /// the buttons above them grey, as Mail dims its pane then, and the
+    /// letter's buttons not to be tapped; Compose can be, grey as Mail's.
+    /// With a row ticked its letter is in the pane in full colour
+    /// (`EditPane`). Colours only: nothing moves, appears or goes.
+    func dimForEdit(_ dim: Bool) {
+        guard dim != editDimmed else { return }
+        editDimmed = dim
+        header.alpha = dim ? Self.editDim : 1
+        webView.alpha = dim ? Self.editDim : 1
+        navigationController?.navigationBar.tintAdjustmentMode = dim ? .dimmed : .automatic
+        setActionsEnabled(summary != nil)
     }
 
     /// What the view button's switch reads of the pane before it takes its

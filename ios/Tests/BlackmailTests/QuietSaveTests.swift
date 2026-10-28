@@ -71,7 +71,7 @@ final class QuietSaveTests: XCTestCase {
             "} catch is MailShelf.NotTheKeptLetter { "
             + "self.letters.readAnswered(m.id, landed: false) "
             + "PaneActions.notTheKeptLetter(m, list: self.letters) "
-            + "self.onMessagesChanged?() return }"))
+            + "self.onMessagesChanged?() return false }"))
     }
 
     /// His Refresh still says when there is no connection: its page is not

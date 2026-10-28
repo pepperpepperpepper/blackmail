@@ -15,9 +15,13 @@ import Foundation
 /// the users who write about it): it goes at once, as it does with the
 /// setting off (`RowSwipes`).
 ///
-/// So here: the reading pane's Delete, the Edit bar's Trash, a button a
-/// slow drag on a row shows, Trash or Archive, and the same in More's
-/// sheet ask; a full drag does not. Inside Trash, where Delete erases,
+/// Mail 16.5.1 on the test iPad, with the setting on, asked only for the
+/// reading pane's Trash: a slow drag's Trash, More's Trash and a full drag
+/// each trashed at once (the side-by-side round r6-i-compare, comparison
+/// C-08, B-175). So here: the reading pane's Delete and the Edit bar's
+/// Trash ask; a button a slow drag on a row shows, Trash or Archive, the
+/// same in More's sheet, and a full drag do not. The Edit bar's was not
+/// compared, and asks as B-168 made it. Inside Trash, where Delete erases,
 /// `EraseQuestion` is asked, as it always has been, setting or none, and
 /// this is not asked as well. Off, as it comes (`MailOptions`), nothing
 /// is asked but that.
@@ -56,18 +60,20 @@ struct DiscardQuestion: Equatable {
     }
 
     /// The question before `verb` of `count` letters from `from`, or nil
-    /// when nothing is asked: Ask Before Deleting off (`asking`), or a full
-    /// drag. A conversation's letters count each, as Edit mode takes them.
+    /// when nothing is asked: Ask Before Deleting off (`asking`), or a drag
+    /// on a row, its button tapped or done by a full drag, or More's item
+    /// (B-175). A conversation's letters count each, as Edit mode takes
+    /// them.
     static func before(_ verb: Verb, letters count: Int, from: From,
                        asking: Bool = MailOptions.askBeforeDeleting) -> DiscardQuestion? {
         guard asking, count > 0 else { return nil }
         let word = verb == .trash ? "Trash" : "Archive"
         switch from {
-        case .fullDrag:
+        case .fullDrag, .rowButton, .more:
             return nil
         case .editBar:
             return DiscardQuestion(button: "\(word) \(count) " + (count == 1 ? "Message" : "Messages"))
-        case .pane, .rowButton, .more:
+        case .pane:
             return DiscardQuestion(button: word + (count == 1 ? " Message" : " Messages"))
         }
     }
@@ -78,8 +84,9 @@ struct DiscardQuestion: Equatable {
     /// turn the finger lifts), or it lifted no more than `liftWindow`
     /// seconds ago (`sinceLift`, nil for none since the list was shown).
     /// A slow drag that leaves the buttons open does nothing as it lifts,
-    /// and a button tapped after it comes with a tap, not the pan, so a
-    /// tap still asks.
+    /// and a button tapped after it comes with a tap, not the pan. Neither
+    /// asks any more (B-175); what tells them apart now is the read mark,
+    /// a step of Undo from a full drag alone (`UndoableRead`).
     ///
     /// It was told by the button's width, a full drag being taken for one
     /// whose button UIKit had stretched over three fifths of the row; on

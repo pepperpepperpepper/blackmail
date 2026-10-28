@@ -44,9 +44,12 @@ struct RowParts: OptionSet, Sendable {
     static let busy = RowParts(rawValue: 1 << 2)
     /// What VoiceOver reads of the row, its date among it.
     static let label = RowParts(rawValue: 1 << 3)
+    /// Whether a selected row is a tick, drawn in Mail's blue with a white
+    /// tick: in Edit mode (`MessageCell.ticks`, B-174).
+    static let ticks = RowParts(rawValue: 1 << 4)
 
     /// Every part: the row as a cell made for it now shows it.
-    static let whole: RowParts = [.lines, .date, .busy, .label]
+    static let whole: RowParts = [.lines, .date, .busy, .label, .ticks]
 
     /// A cell the table makes for a row, in sight or ahead of it.
     static let made: RowParts = .whole
@@ -60,9 +63,13 @@ struct RowParts: OptionSet, Sendable {
     static let datesChanged: RowParts = [.date, .label]
     /// The rows in sight as a draft is tapped or has come: the spinner.
     static let draftSpinners: RowParts = [.busy]
+    /// The rows in sight as Edit mode begins or ends: the ticks' colours
+    /// (B-174). A cell made ahead before it began comes into sight with
+    /// them, as with every patch.
+    static let editMode: RowParts = [.ticks]
 
     /// The patches drawn into the rows in sight alone. Each is drawn as a
     /// row comes into sight too (`comingIntoSight`), so none needs to reach
     /// a cell made ahead.
-    static let patchesInSight: [RowParts] = [previewsLanded, datesChanged, draftSpinners]
+    static let patchesInSight: [RowParts] = [previewsLanded, datesChanged, draftSpinners, editMode]
 }

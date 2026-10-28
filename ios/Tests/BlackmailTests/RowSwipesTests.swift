@@ -95,25 +95,29 @@ final class RowSwipesTests: XCTestCase {
         XCTAssertEqual([RowSwipes.Action.archive, .move].map(\.title), ["Archive", "Move"])
     }
 
-    /// More's sheet: Reply, Reply All, Forward, then Trash Message, then
-    /// Flag or Unflag and Mark as Unread or Mark as Read as the row is, in
-    /// the Flag sheet's words, and Move Message, and Cancel, in the order of
-    /// Mail's sheet. Archive Message in Trash Message's place where the
-    /// account discards into the Archive and there is one; inside Trash
-    /// Delete Message.
+    /// More's sheet: Reply, Reply All, Forward, then Trash, then Flag or
+    /// Unflag and Mark as Unread or Mark as Read as the row is, in the Flag
+    /// sheet's words, Move Message…, Archive Message where the row can be
+    /// archived, and Cancel, in the order of Mail's sheet (B-175). Archive
+    /// Message in the Trash's place where the account discards into the
+    /// Archive and there is one, and not again after Move Message…; inside
+    /// Trash Delete Message.
     func testMoreOpensMailsSheetWithTheActionsBlackmailHas() {
         XCTAssertEqual(RowMore.items(for: row(read: true, flagged: false)).map(\.title),
-                       ["Reply", "Reply All", "Forward", "Trash Message", "Flag", "Mark as Unread",
-                        "Move Message"])
+                       ["Reply", "Reply All", "Forward", "Trash", "Flag", "Mark as Unread",
+                        "Move Message\u{2026}", "Archive Message"])
         XCTAssertEqual(RowMore.items(for: row(read: false, flagged: true)).map(\.title),
-                       ["Reply", "Reply All", "Forward", "Trash Message", "Unflag", "Mark as Read",
-                        "Move Message"])
+                       ["Reply", "Reply All", "Forward", "Trash", "Unflag", "Mark as Read",
+                        "Move Message\u{2026}", "Archive Message"])
         XCTAssertEqual(RowMore.items(for: row(role: .trash))[3], .deleteMessage)
         XCTAssertEqual(RowMore.Item.deleteMessage.title, "Delete Message")
         let archiving = SwipeOptions(swipeLeft: .flag, swipeRight: .mark, discardInto: .archive)
         XCTAssertEqual(RowMore.items(for: row(), options: archiving)[3].title, "Archive Message")
+        XCTAssertEqual(RowMore.items(for: row(), options: archiving).filter { $0 == .archiveMessage }
+                        .count, 1)
         XCTAssertEqual(RowMore.items(for: row(canArchive: false), options: archiving)[3],
                        .trashMessage)
+        XCTAssertFalse(RowMore.items(for: row(canArchive: false)).contains(.archiveMessage))
         XCTAssertEqual(RowMore.items(for: row(role: .trash), options: archiving)[3], .deleteMessage)
         XCTAssertEqual(RowMore.cancel, "Cancel")
     }
@@ -126,10 +130,10 @@ final class RowSwipesTests: XCTestCase {
         let junk = Mailbox(id: "[Gmail]/Spam", name: "Spam", unreadCount: 0, role: .junk)
         let inbox = Mailbox(id: "INBOX", name: "INBOX", unreadCount: 0, role: .inbox)
         XCTAssertEqual(RowMore.items(for: row(), junk: junk, inbox: inbox).map(\.title),
-                       ["Reply", "Reply All", "Forward", "Trash Message", "Flag", "Mark as Unread",
-                        "Move to Junk", "Move Message"])
-        XCTAssertEqual(RowMore.items(for: row(), junk: junk, inbox: inbox)[6], .moveToJunk(junk))
-        XCTAssertEqual(RowMore.items(for: row(role: .junk), junk: junk, inbox: inbox)[6],
+                       ["Reply", "Reply All", "Forward", "Trash", "Flag", "Mark as Unread",
+                        "Move Message\u{2026}", "Archive Message", "Move to Junk"])
+        XCTAssertEqual(RowMore.items(for: row(), junk: junk, inbox: inbox)[8], .moveToJunk(junk))
+        XCTAssertEqual(RowMore.items(for: row(role: .junk), junk: junk, inbox: inbox)[8],
                        .moveToInbox(inbox))
         XCTAssertEqual(RowMore.Item.moveToInbox(inbox).title, "Move to Inbox")
         XCTAssertFalse(RowMore.items(for: row(role: .junk), junk: junk).map(\.title)
@@ -207,7 +211,8 @@ final class RowSwipesTests: XCTestCase {
                 + "fromRow: true) } "
                 + "return false",
             "case .flag, .unflag: return mark(.flag(action == .flag), on: key)",
-            "case .markRead, .markUnread: return mark(.read(action == .markRead), on: key)",
+            "case .markRead, .markUnread: return mark(.read(action == .markRead), on: key, "
+                + "undoable: from == .fullDrag)",
             "case .more: showMore(for: key) return true",
             "guard !changing.isEmpty, !changing.contains(where: { letters.flagOnItsWay($0.id) || "
                 + "letters.dot(on: $0)?.onItsWay == true }) else { return false }",
@@ -264,7 +269,9 @@ final class RowSwipesTests: XCTestCase {
         XCTAssertFalse(list.contains("tableView.isEditing"))
         XCTAssertFalse(list.contains("t.isEditing"))
         XCTAssertTrue(list.contains("private var inEditMode = false"))
-        XCTAssertTrue(list.contains("let editing = !inEditMode inEditMode = editing "
+        XCTAssertTrue(list.contains("let editing = !inEditMode if editing { "
+            + "let shown = lettersInPane() editPane.begin("))
+        XCTAssertTrue(list.contains("} else { putPaneBack() } inEditMode = editing "
             + "tableView.setEditing(editing, animated: true)"))
         XCTAssertEqual(list.components(separatedBy: "inEditMode = ").count - 1, 2,
                        "declared, and set by Edit and Done alone")

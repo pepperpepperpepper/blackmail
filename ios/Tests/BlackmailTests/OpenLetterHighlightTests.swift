@@ -108,7 +108,9 @@ final class OpenLetterHighlightTests: XCTestCase {
             + "scrollPosition: .none) }"))
         // And twice in `runBatch`, for the letter after a row a drag or
         // More puts away (B-156, B-158).
-        XCTAssertEqual(lines(of: list, containing: "lettersInPane()").count, 4)
+        // And three times for Edit mode's pane: as it begins, at a tick,
+        // and as it ends (`EditPane`, B-174).
+        XCTAssertEqual(lines(of: list, containing: "lettersInPane()").count, 7)
 
         let root = flat(try source("UI/RootViewController.swift"))
         XCTAssertTrue(root.contains("list.lettersInPane = { [weak self] in "

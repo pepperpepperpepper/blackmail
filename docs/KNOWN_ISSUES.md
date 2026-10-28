@@ -37764,3 +37764,300 @@ failing. The release build for the iPad links.
   first, and his own wins in what he sends) is grey here, where Mail would
   turn its own colour; a border declared white on one side only has its
   four sides made grey.
+
+## B-174 — FIXED 2026-10-27, not yet seen on the iPad. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
+
+Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`), off int20 at
+b9afe64, as Batch C of the plan of 27 October (items C1 to C6), under the
+owner's rulings of 26 and 27 October: copy Mail's behaviour and words, and
+"I don't want to change the layout of blackmail". No layout changed:
+nothing on any screen moves, appears, stacks or goes. What changed is what
+is enabled, what the title and the pane say, and colours.
+
+**What Mail does** (the side-by-side round r6-i-compare, comparison C-03,
+Mail 16.5.1 on the test iPad, in "Notes"; shots 03-mail-edit,
+03-mail-edit-one, 03-mail-cancel, 03-mail-junk-edit):
+
+- Edit with nothing ticked: "Mark", "Move" and "Trash" grey, rgb(65,65,65),
+  "Select All" and "Cancel" blue. The letter in the pane and its header
+  greyed (its white name read 146), and the buttons above it grey.
+- One row ticked: the title "1 Selected" (`MESSAGES_SELECTED_FORMAT`,
+  "%1$lu Selected" for every count); the row blue, rgb(10,132,255), its
+  tick a white disc, its name and subject white, its grey lines see-through
+  grey, (145,194,249) on the blue; the ticked letter opened in the pane, in
+  full colour; Mark, Move and Trash blue (Trash not red).
+- Cancel: the bar back, and the pane back to the letter shown before.
+- Junk, empty: Edit grey.
+
+**What Blackmail did** (03-bm-edit, 03-bm-edit-one, 03-bm-junk-edit): Mark,
+Move and Trash blue with nothing ticked; the title stayed "Notes"; a ticked
+row grey with a blue tick; the pane did not follow the tick; Edit could be
+tapped in an empty Junk; nothing dimmed.
+
+**Changed.**
+
+1. *C1, the bar* (`EditBar.acts`, `updateSelectAllTitle`): Mark, Move and
+   the third button (Trash, Delete inside Trash, Archive where the account
+   archives) can be tapped from the first tick, grey before it; at every
+   change of the ticks, as Edit mode begins and after a redraw, and when a
+   ticked row goes by another way than the bar (the pane's Trash or Move,
+   a fetch afresh): the bar, the title, the dimming and the pane follow
+   the ticks left (`updateEmptyState`). Select All as before.
+2. *C2, Edit* (`EditBar.canEdit`, `EditBar.ends`, `updateEmptyState`): grey
+   with no rows; Cancel always. Edit mode in a folder whose last row goes
+   ends as Cancel ends it, and Edit is greyed after the end, by the rows
+   and Edit mode as they are then; Cancel greys it too in a list with no
+   rows. Only the folder's own list: a search with no hits, typed or
+   failed, leaves Edit mode on, as before this entry.
+3. *C3, the title* (`EditBar.title`): "1 Selected", "3 Selected", by the
+   rows ticked; the folder's name with none, and after Edit mode. In two
+   panes UIKit cuts it beside Cancel ("1 Sel…"), as Mail's.
+4. *C4, the pane* (`EditPane`, new, in `ListEdit.swift`;
+   `paneFollowsTicks`, `showInPane`, `putPaneBack`): with exactly one row
+   ticked, its letter or conversation goes in the pane as a tap puts it
+   there, through the same `onSelectMessage` and `onSelectThread`, with
+   no read mark; with two or more the pane stays as it is. As Edit mode
+   ends, by Cancel or any other way (the bar's Trash, Move or Mark, a
+   return after a while away, the last row gone), the letter the pane
+   showed before Edit mode comes back, by its row as the list has it now
+   or the row it had, and an empty pane is emptied again (`onPaneEmptied`);
+   only while the pane still shows the letter a tick put in it. So after
+   the bar's Trash or Move the pane is as it was before this entry. Where
+   the letter before is among the letters the bar's Trash or Move takes,
+   the pane is emptied as Edit mode ends (`EditPane.taking`), and the
+   letter is not shown, its body asked for, and taken out again a moment
+   later by the batch. Not in Drafts or the Outbox, whose rows open the
+   composer.
+5. *C5, the dimming* (`EditBar.dimsPane`, `dimForEdit`): in Edit mode with
+   nothing ticked, the pane's header and letter are drawn at 0.57 over the
+   black (Mail's 146 for white), the bar above them dimmed
+   (`tintAdjustmentMode`), and the letter's buttons off, whatever shows or
+   empties the pane meanwhile; Compose still works. Undone at a tick and as
+   Edit mode ends, and when another folder opens. From the list on the
+   screen alone (`bound === self.list`).
+6. *C6, the row* (`MessageCell.ticks`, `colour`): in Edit mode a ticked row
+   is Mail's blue, the tick white (the cell's tint), the date, the preview,
+   the paperclip and the arrow in Mail's see-through grey, the names and
+   subject white as always. The unread dot and the conversation's mark,
+   blue like the row, are white on it: Mail's ticked row had neither, so
+   that is not seen. Out of Edit mode the letter in the pane keeps its grey.
+
+**What it reverses.** No earlier entry. B-133's highlight of the pane's
+letter at Cancel is kept, and falls on the letter put back.
+
+**Tests.** `EditModeLikeMailTests`, new, fourteen: the title's words, the
+bar's and Edit's rules (Edit mode not ended over a search with no hits,
+and Edit grey once Edit mode has ended with the last row), the dimming
+rule; `EditPane` showing one tick's letter and putting back the letter or
+conversation before, an empty pane, the row the list has lost, nothing for
+no tick, two ticks, the row shown, Drafts or out of Edit mode, a pane that
+went on left alone, and the letter before not put back when the bar takes
+it, by its id, its conversation or its copy from All Mail; and, read
+from the source, the list following the ticks (Edit mode ended before
+Edit's button is set, the ticks followed after a row goes, the bar's
+Delete and Move telling the pane what they take), the container's two calls
+from the list on screen, the pane's dimming and the row's colours, drawn
+as every part of a row is (`RowParts.ticks`, in `whole`, and the patch
+`editMode` as Edit mode begins and ends, so a cell made ahead of sight
+before it began comes in right). Changed, as the code they read changed:
+`RowComingIntoSightTests` and `DatesRedrawnTests` (the new part and
+patch), `LandedLetterTests`
+and `RecentSearchesTests` (a tick's `paneFollowsTicks`),
+`OpenLetterHighlightTests` (three more reads of the pane's letters),
+`RowSwipesTests` (Edit mode's beginning), `ListBatchTests` (the bar's
+Delete and Move telling the pane before Edit mode ends).
+
+Each rule and each wire undone by hand, twelve at once, one for each test
+(the title always the folder's, the bar always on, Edit grey in Edit
+mode, the pane dimmed out of Edit mode, the letter put back by the pane's
+letters and not the earlier ones, two ticks taken for one, the untick not
+followed, the pane not undimmed as another folder opens, the buttons not
+held off while dimmed, the tick not white): 15 failures in the 12 tests,
+each at an assertion; then put back. The follow-up's, in two rounds:
+Edit's button set before Edit mode ends, Edit mode ended over a search
+with no hits, the letter before put back though the bar takes it, then the
+ticks not followed after a row goes, and Edit mode never ending by
+itself: a failure in each of the four tests that pin them, the list's in
+both rounds, each at an assertion; then put back.
+
+The full suite, serially: 3,066 tests, 14 of them this entry's, 6
+skipped, none failing. The release build for the iPad links.
+
+**Not seen.** Mail's side of a conversation row ticked (its count, the
+stack it draws for two); whether Mail marks an unread ticked letter read
+(not done here); whether Mail's reply arrows stay grey with one ticked
+(not copied: with a tick the pane is in full colour); Mail's Cancel was
+compared on Mail's side only, Blackmail's pane being empty before Edit in
+the round; what Mail's Edit mode does when its last row goes, and over a
+search with no hits (Edit mode ending with the folder's last row is the
+plan's C2, not Mail seen); Mail on iPadOS 18 (18.4 with categories says
+"Select"). None of this on the test iPad yet: the TODO's B-174 check.
+
+**Follow-up, 28 October** (a review of this entry, before it was merged):
+Edit's button was set while Edit mode was still on and stayed blue in the
+emptied folder, and the test pinned that order; Edit mode ended by itself
+over a search with no hits; a ticked row gone by the pane's Trash or a
+fetch afresh left "1 Selected", the bar blue and the pane undimmed; and
+the bar's Trash or Move put the letter before back in the pane for a
+moment when it was among the letters it took. Each fixed as above, in the
+same places; no layout changed.
+
+## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
+
+Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`) after B-174, as
+Batch D of the plan of 27 October (items D1 to D5, and its question Q1,
+decided on 27 October: Undo's order after the pane's Delete as Mail's),
+under the owner's rulings of 26 and 27 October: copy Mail's behaviour and
+words, and "I
+don't want to change the layout of blackmail". No layout changed: More's
+list keeps its look and place, and only its words and their order
+change; what is asked and what Undo names change; nothing moves, appears
+or goes on any screen but an item more in More's list where Mail has it.
+
+**What Mail does** (the side-by-side round r6-i-compare, Mail 16.5.1 on
+the test iPad, fixtures "R6 B-156 mail 1 to 6 rm" in "Notes"):
+
+- *More* (C-04, shots 04-mail-more, 04-mail-more2, 04-mail-more3): a card
+  whose four big buttons are Reply, Reply All, Forward and "Trash", then
+  Flag, Mark as Unread, "Move Message…", Move to "All Mail", "Archive
+  Message", Move to Junk, Mute, Notify Me, Block Sender. Mail's strings:
+  `MOVE_MESSAGE` = "Move Message…", `TRASH` = "Trash".
+- *Ask Before Deleting on* (C-08, shots 08-mail-abd-*): the pane's Trash
+  asks, a popover with one red "Trash Message"; "A slow drag's Trash,
+  More's Trash and a full drag do NOT ask: each trashed at once."
+- *Undo* (C-07b, shots 07-mail-flagged, 07-mail-unread,
+  07-mail-undo-which, 07-mail-undone): a Flag by a slow drag, then a read
+  mark by a full drag to the right ("Unread"): the shake's alert named the
+  last, "Undo Unread" (`OPERATION_UNREAD_DESC`; "Read" for the other).
+  Undo cleared the dot in Mail's list, but the server kept the letter
+  unread: Mail's slip, not copied.
+- *Undo after the pane's Delete* (C-06a, C-06b, shots 06-mail-after2,
+  06-mail-undo, 06-mail-undo2): the pane's Trash opened the letter below,
+  which Mail then marked read, and the shake's alert said "Undo Read",
+  Cancel, Undo: its top step was that read mark, not the Trash. Answered
+  Cancel there, so what its Undo does was not seen.
+
+**What Blackmail did** (04-bm-more, 08-bm-abd-*, 07-bm-undo-which): More
+read Reply, Reply All, Forward, "Trash Message", Flag, Mark as Unread,
+Move to Junk, "Move Message"; under Ask Before Deleting the slow drag's
+Trash and More's "Trash Message" asked (B-168, and 09fd116's "a Trash
+tapped as soon as a slow drag's row stops still asks"); a read mark was no
+step of Undo, so the shake named the Flag before it, "Undo Flag"; and
+after the pane's Delete the shake named "Undo Trash" (06-bm-undo).
+
+**Changed.**
+
+1. *D1* (`RowMore.Item.trashMessage`): its word is the Edit bar's,
+   "Trash". "Archive Message" and, inside Trash, "Delete Message" stay.
+   Ask Before Deleting's own sheet still says "Trash Message", as Mail's.
+2. *D2* (`RowMore.items`): Reply, Reply All, Forward, Trash, Flag or
+   Unflag, Mark as Unread or Mark as Read, "Move Message…", then Archive
+   Message (B-167's Archive into All Mail) where the row can be archived
+   (`SwipeOptions.archives`: an All Mail to file it in, the row not from
+   it, nor from Drafts, the Outbox or the Trash) and it is not already the
+   fourth item, then Move to Junk or Move to Inbox. Mail's Move to a
+   folder it suggests, Mute, Notify Me and Block Sender are left out by
+   the decision of 27 October (new features with lasting effects, not
+   now); More's card, with the letter's header, stays Blackmail's list
+   (the menus' looks are layout, kept).
+3. *D3, D4* (`DiscardQuestion.before`): nil from a slow drag's button,
+   More's item and a full drag, Trash or Archive, as from a full drag
+   before; the pane's Delete and the Edit bar still ask, the Edit bar's
+   not having been compared. Delete Message inside Trash still asks the
+   erase question (`EraseQuestion`), setting or none.
+4. *D5* (`UndoableRead`, new; `Undoable.read`; `UndoMoves.run` for it;
+   the list's `mark`; the container's `undo`): a read or unread mark the
+   server took from a full drag to the right (`from == .fullDrag`, the
+   drag's own pan, B-168's tell) is a step of Undo named "Read" or
+   "Unread", of the letters taken, not a letter kept on the iPad. Its Undo
+   sets the other mark back as a Flag's Undo does: the rows' dots at once,
+   a STORE a letter at a time, the first failure stopping the rest and
+   putting back what was not taken, said in the alert and a step again;
+   nothing sent while a read mark on one of its letters is on its way;
+   the counts billed once per letter (`ReadBilling`), and swept where the
+   list has gone. Unlike Mail's, it reaches the server.
+5. *Q1, Undo after the pane's Delete* (`PaneUndoSteps`, new, in
+   `UndoMoves.swift`; the list's `openNext`, `open` and
+   `markReadIfNeeded`, whose `sendRead` now says whether the server took
+   the mark; the container's `perform`, `canUndoAlone` and
+   `undoGroupClosed`): after a Delete from the pane that the server took
+   and made a step of, the read mark of the letter B-158 opens after it,
+   once the server has taken it, is a step "Read" on top of the Trash's,
+   of the letters it took it on; a mark the server takes before the Trash
+   waits for it. So the first shake says "Undo Read", whose Undo marks the
+   letter unread again, on the server too, its dot back and one back on
+   the counts, the letter left in the pane; the second says "Undo Trash".
+   Each its own step: UIKit's undo manager makes one group of every step
+   added in a pass of the run loop, undone by one Undo under the last
+   one's name, so the read mark waits for the group the Trash went into
+   to close (`NSUndoManagerDidCloseUndoGroup`) before it is added.
+6. *Comments* that still told the old way were reworded: `DiscardQuestion`
+   (a tap no longer asks), `DiscardConfirmation`, `MailOptions` (only the
+   pane and the Edit bar ask), `UndoableMove.after` and the container's
+   Undo notes (a read mark is a step of its own where Mail was seen to
+   make one).
+
+**What it reverses.** B-168's question from a slow drag's button and from
+More (and 09fd116's pin of the slow drag's), and B-157's "a read mark is
+no step of Undo", for the full drag's mark and the mark of the letter
+opened after the pane's Delete. Not the full drag's "never asks" (fix-i1,
+2589e63), which stands, nor B-158's opening of that letter.
+
+**Not changed, and not seen.** More's mark, the Flag button's sheet's,
+Edit mode's Mark, a slow drag's button tapped and the read mark of a
+letter he opens himself make no step: only the full drag's and the one
+after the pane's Delete were seen as steps. After a Move from the pane, a
+Delete refused, or one inside Trash, which erases, the next letter's
+read mark is no step either: not seen. Mail's Undo of that "Undo Read"
+was cancelled in the round, so what it does, and what its second shake
+names, were not seen; here the second names the Trash. The undo
+manager's grouping, and its close, are UIKit's on the iPad and not run
+on the host. The Edit bar's question under Ask Before Deleting was not
+compared and is kept. Mail on iPadOS 18: not seen; its sheet for a
+Google account may differ.
+
+**Tests.** `DragsLikeMailTests`, new, eight: More's words and order, Archive
+Message where the row can be archived and once, only the pane and the Edit
+bar asking, a read mark a step in Mail's words and of what, and, read from
+the source, the full drag's alone made one and the container undoing it;
+after the pane's Delete, the read mark on top of the Trash whichever the
+server answers first, no step where the Delete made none or for a Move,
+and, read from the source, the container adding it as a step of its own
+and the list handing up what the server took. `UndoMovesTests`, two new:
+a full drag's Unread undone on the scripted server, one STORE, `\Seen`
+back, the counts once, a failure put back and left as a step, a mark on
+its way leaving the step unsent, and the counts swept with the list gone;
+and the pane's Delete then the next letter's read mark, "Read" on top of
+"Trash", its Undo one STORE, `\Seen` off, the dot and one count back, and
+the Trash's Undo under it bringing the letter back. Changed, as the rules
+and code they read changed: `RowSwipesTests` (More's lists, the full
+drag's read mark), `DiscardQuestionTests` (no question from a row's
+button or More), `UndoMovesTests` (a read mark a step of its own, the
+container's `canUndo` eight times and the undo manager read four, the
+pane's step), `NextLetterTests` and `ConversationOrderTests` (the read
+marks' answer handed up from `openNext`), `QuietSaveTests` (`sendRead`
+saying what the server did).
+
+Each rule and wire undone by hand, six at once, one for each new test
+("Move Message" without the dots, Archive Message offered a second time
+under the Archive, a row's button and More asking again, the step always
+"Read", the full drag's flag dropped so every drag's mark was a step, and
+the Undo setting the same mark again): 13 failures in the 5 tests of
+`DragsLikeMailTests` and 6 in `UndoMovesTests`, its new test and the
+renamed one, each at an assertion; then put back. The follow-up's, in
+two rounds: a waiting mark kept after a Delete with no step, the read mark
+added straight away rather than as a step of its own, and the Undo of a
+read mark setting the same mark again; then a mark taken before the
+Trash not waiting for it: a failure in each of the new tests, at an
+assertion, and in the container's count of `canUndo`; then put back.
+
+The full suite, serially: 3,070 tests, 10 of them this entry's, 6
+skipped, none failing. The release build for the iPad links.
+
+**Follow-up, 28 October** (a review of this entry, before it was merged):
+the plan's Q1 had been left out, read as "do not build" from the heading
+it was listed under; its ruling is "as Mail's", so it is built (item 5).
+Comments still telling the old asking and read-mark rules were reworded
+(item 6). More's Archive Message stays: the plan's D2 orders it, and part
+3 of the plan counts More's words and order as copied, its look as kept.
+No layout changed.

@@ -9376,61 +9376,6 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
-- [ ] **B-173, a letter's colours as Mail's in Dark Mode.** On the test
-      iPad, the test account only, from a build of the `bm-cmp-b`
-      worktree (branch `copy-cmp-b`) or of the int it is merged into.
-      Nothing is composed, sent, saved, moved or deleted in the app. The
-      host makes the letters, each from another address, with a new
-      Message-ID of its own and naming none on the account, and APPENDs
-      them, read (`\Seen`), to the label "Notes", never the Inbox, noting
-      each UID from its APPENDUID; it stops if one has none. The picture
-      from the web is on a host the round controls, by https. The iPad in
-      Dark Mode, three panes; full-size screenshots, colours sampled from
-      them, as the comparison of 2026-10-27 sampled Mail's.
-      1. *The letters:* "B-173 web picture", an HTML letter with no
-         scheme, a few paragraphs, a link and one picture from the web
-         among the words (drawn light); "B-173 signature", a letter as this
-         app sends one with the account's signature, its sheet
-         (`bm-signature`) and its table, its cells' borders declared white,
-         `border: 0.99609pt solid rgb(255, 255, 255)`, as his signature's
-         are (the host checks the markup has them before the APPEND, and
-         stops if not), the logo a dark picture on transparency by `cid:`;
-         "B-173 thread 1" and "B-173 thread 2", one
-         conversation, the first with the web picture letter's body and the
-         second with the signature letter's; "B-173 inverted held", an
-         HTML letter with no scheme whose only reference to the web is a
-         `<link rel="stylesheet">` in its body (drawn inverted).
-      2. *The light letter:* "B-173 web picture" opened: white from under
-         the header to the letter's foot, inside black margins left, right
-         and above, as wide as the words, the words where they were: the
-         first line's left edge at the x of the subject in the header above
-         it, as in the round of 2026-10-27. Screenshot.
-      3. *His signature:* "B-173 signature" opened: under the signature a
-         grey sheet, about rgb(51, 51, 51), as wide as the words, its words
-         white, the links blue, the logo visible on the grey; the words
-         above it on the black as before. No dark lines or grid inside the
-         grey sheet, round the logo or the words: one plain grey, as in
-         Mail's shot of 2026-10-27 (r6-i-compare-11-mail-sig); a cell's
-         edge sampled on the full-size shot, about rgb(51, 51, 51), not
-         black. Screenshot.
-      4. *In a conversation:* "B-173 thread 2" listed, both letters open:
-         the first's white inside black margins, the second's grey sheet
-         under the signature with the logo, no lines in it. Screenshot.
-      5. *Block All Remote Content:* Blackmail's Settings, Block All Remote
-         Content on. "B-173 web picture" opened: the line under the header,
-         one line as before, "Message contains unloaded images." white and
-         "Load All Images" about rgb(10, 132, 255), on black, the rule under
-         it, the white sheet starting under the line. "B-173 inverted held":
-         the same words white on black, the button about rgb(14, 144, 248)
-         (the nearest the invert gives). The thread: the line over the
-         first letter in the same colours. Screenshots. Load All Images on
-         "B-173 web picture": the picture comes, as before. Then Block All
-         Remote Content off again, as it comes from the factory.
-      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
-         UIDs it noted, and only them, from "Notes" to the Trash, and
-         deletes in the Trash only the UIDs that move answered
-         (`COPYUID`). Nothing was sent, and nothing else was written to
-         the account.
 
 - [ ] **B-172, what a row says, plain quotes and paper, as Mail.** On the
       test iPad, the test account only, from a build of the `bm-cmp-a`
@@ -9510,6 +9455,142 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
+
+- [ ] **B-173, a letter's colours as Mail's in Dark Mode.** On the test
+      iPad, the test account only, from a build of the `bm-cmp-b`
+      worktree (branch `copy-cmp-b`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app. The
+      host makes the letters, each from another address, with a new
+      Message-ID of its own and naming none on the account, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, noting
+      each UID from its APPENDUID; it stops if one has none. The picture
+      from the web is on a host the round controls, by https. The iPad in
+      Dark Mode, three panes; full-size screenshots, colours sampled from
+      them, as the comparison of 2026-10-27 sampled Mail's.
+      1. *The letters:* "B-173 web picture", an HTML letter with no
+         scheme, a few paragraphs, a link and one picture from the web
+         among the words (drawn light); "B-173 signature", a letter as this
+         app sends one with the account's signature, its sheet
+         (`bm-signature`) and its table, its cells' borders declared white,
+         `border: 0.99609pt solid rgb(255, 255, 255)`, as his signature's
+         are (the host checks the markup has them before the APPEND, and
+         stops if not), the logo a dark picture on transparency by `cid:`;
+         "B-173 thread 1" and "B-173 thread 2", one
+         conversation, the first with the web picture letter's body and the
+         second with the signature letter's; "B-173 inverted held", an
+         HTML letter with no scheme whose only reference to the web is a
+         `<link rel="stylesheet">` in its body (drawn inverted).
+      2. *The light letter:* "B-173 web picture" opened: white from under
+         the header to the letter's foot, inside black margins left, right
+         and above, as wide as the words, the words where they were: the
+         first line's left edge at the x of the subject in the header above
+         it, as in the round of 2026-10-27. Screenshot.
+      3. *His signature:* "B-173 signature" opened: under the signature a
+         grey sheet, about rgb(51, 51, 51), as wide as the words, its words
+         white, the links blue, the logo visible on the grey; the words
+         above it on the black as before. No dark lines or grid inside the
+         grey sheet, round the logo or the words: one plain grey, as in
+         Mail's shot of 2026-10-27 (r6-i-compare-11-mail-sig); a cell's
+         edge sampled on the full-size shot, about rgb(51, 51, 51), not
+         black. Screenshot.
+      4. *In a conversation:* "B-173 thread 2" listed, both letters open:
+         the first's white inside black margins, the second's grey sheet
+         under the signature with the logo, no lines in it. Screenshot.
+      5. *Block All Remote Content:* Blackmail's Settings, Block All Remote
+         Content on. "B-173 web picture" opened: the line under the header,
+         one line as before, "Message contains unloaded images." white and
+         "Load All Images" about rgb(10, 132, 255), on black, the rule under
+         it, the white sheet starting under the line. "B-173 inverted held":
+         the same words white on black, the button about rgb(14, 144, 248)
+         (the nearest the invert gives). The thread: the line over the
+         first letter in the same colours. Screenshots. Load All Images on
+         "B-173 web picture": the picture comes, as before. Then Block All
+         Remote Content off again, as it comes from the factory.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+         UIDs it noted, and only them, from "Notes" to the Trash, and
+         deletes in the Trash only the UIDs that move answered
+         (`COPYUID`). Nothing was sent, and nothing else was written to
+         the account.
+
+- [ ] **B-174, Edit mode as Mail's.** On the test iPad, the test account
+      only, from a build of the `bm-cmp-cd` worktree (branch
+      `copy-cmp-cd`) or of the int it is merged into. Nothing is sent,
+      trashed, moved or marked: no Trash, Move or Mark is tapped in Edit
+      mode. The host makes three letters from made-up senders, each with a
+      new Message-ID of its own and naming none on the account, and
+      APPENDs them, read (`\Seen`), to the label "Notes", noting each UID
+      from its APPENDUID; it stops if one has none. Three panes.
+      1. *Nothing ticked:* "Notes" opened, the first letter tapped, then
+         Edit: Mark, Move and Trash grey, Select All and Cancel blue, the
+         title "Notes"; the letter and its header grey, the buttons above
+         them grey, and Flag and Reply not answering a tap (only those two
+         are tried, as neither writes anything; if one answers, a tap
+         outside its sheet, or Delete Draft). The circles of the unticked
+         rows grey, not white. Screenshot.
+      2. *One ticked:* the third row ticked: the title "1 Selected", the
+         row blue with a white tick and white names, its letter in the pane
+         in full colour, Mark, Move and Trash blue. Screenshot. The second
+         ticked too: "2 Selected", the pane as it was. The third unticked:
+         "1 Selected", the second's letter in the pane.
+      3. *Unticked, then Cancel:* the second unticked: Mark, Move and Trash
+         grey again, the pane dimmed. Cancel: "Edit", the title "Notes", the
+         first letter back in the pane, its row highlighted, nothing dimmed.
+         Screenshot.
+      4. *Two panes:* the same with one ticked: the title cut ("1 Sel…")
+         beside Cancel, nothing moved. Back to three panes.
+      5. *Empty:* an empty folder (Junk, if empty; else any empty one)
+         opened: Edit grey, a tap on it does nothing.
+      6. *A search with no hits:* "Notes" again, Edit, a word none of the
+         letters has typed in the search field: "No results", Cancel blue,
+         Edit mode still on. Cancel: "Edit", grey. The search cancelled:
+         the rows back, "Edit" blue.
+      7. *Put back:* "Notes" left, the Inbox at its top. The host checks
+         the three letters' flags unchanged, then moves the UIDs it noted,
+         and only them, from "Notes" to the Trash, and deletes in the Trash
+         only the UIDs that move answered (`COPYUID`). Nothing was sent,
+         and nothing else was written to the account.
+- [ ] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
+      On the test iPad, the test account only, from a build of the
+      `bm-cmp-cd` worktree (branch `copy-cmp-cd`) or of the int it is
+      merged into. Nothing is sent. The host makes five letters from
+      made-up senders, each with a new Message-ID of its own and naming
+      none on the account, and APPENDs them, read (`\Seen`), to the label
+      "Notes", noting each UID from its APPENDUID; it stops if one has
+      none. Only those five are trashed, flagged or marked, each put back.
+      Three panes; the connection log read after each step.
+      1. *More:* a slow drag left on the first, More: Reply, Reply All,
+         Forward, Trash, Flag, Mark as Unread, Move Message…, Archive
+         Message, Move to Junk, then Cancel, in that order, in the list as
+         before. Screenshot. Cancel (a tap outside): nothing written.
+      2. *Ask on:* Settings > Mail, Ask Before Deleting on. A slow drag
+         left on the second, Trash: it goes at once, no question; shake:
+         "Undo Trash", Undo: back in "Notes". More on the third, Trash: at
+         once, no question; shake, Undo. A full drag left on the fourth: at
+         once; shake, Undo (also fix-i1's 2589e63). The first opened in the
+         pane, its Trash: "Trash Message" asked; a tap outside: nothing
+         goes. The host's view after each: the letter in the Trash, then
+         back in "Notes" under a new UID, noted.
+      3. *Undo Unread:* a slow drag left on the fifth, Flag. A full drag
+         right on it: its dot comes, "Unread". Shake: "Undo Unread" (not
+         "Undo Flag"). Screenshot. Undo: the dot goes; the host's FLAGS for
+         it have `\Seen` again, and the log one `UID STORE` for it. Shake
+         again: "Undo Flag"; Undo: unflagged on the server.
+      4. *Undo after the pane's Delete:* a full drag right on the fourth:
+         its dot comes, "Unread". The third opened in the pane, its Trash,
+         "Trash Message" tapped: the third goes, and the fourth opens in
+         the pane, highlighted, its dot gone; the host's FLAGS for it have
+         `\Seen`. Shake: "Undo Read" (not "Undo Trash"). Screenshot. Undo:
+         the fourth's dot back, the fourth still in the pane; the host's
+         FLAGS for it without `\Seen`, the log one `UID STORE` for it.
+         Shake again: "Undo Trash"; Undo: the third back in "Notes" under a
+         new UID, noted. Shake again: "Undo Unread"; Undo: the fourth's dot
+         goes, `\Seen` on the server.
+      5. *Ask off again:* Settings > Mail, Ask Before Deleting off.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+         UIDs it noted last for the five, and only them, from "Notes" to the
+         Trash, and deletes in the Trash only the UIDs that move answered
+         (`COPYUID`). Nothing was sent, and nothing else was written to the
+         account.
 
 ## Blocked on the owner
 
