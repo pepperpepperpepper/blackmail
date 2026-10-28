@@ -37426,11 +37426,13 @@ the bar's Trash or Move put the letter before back in the pane for a
 moment when it was among the letters it took. Each fixed as above, in the
 same places; no layout changed.
 
-## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too
+## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`) after B-174, as
-Batch D of the plan of 27 October (items D1 to D5), under the owner's
-rulings of 26 and 27 October: copy Mail's behaviour and words, and "I
+Batch D of the plan of 27 October (items D1 to D5, and its question Q1,
+decided on 27 October: Undo's order after the pane's Delete as Mail's),
+under the owner's rulings of 26 and 27 October: copy Mail's behaviour and
+words, and "I
 don't want to change the layout of blackmail". No layout changed: More's
 list keeps its look and place, and only its words and their order
 change; what is asked and what Undo names change; nothing moves, appears
@@ -37453,13 +37455,19 @@ the test iPad, fixtures "R6 B-156 mail 1 to 6 rm" in "Notes"):
   last, "Undo Unread" (`OPERATION_UNREAD_DESC`; "Read" for the other).
   Undo cleared the dot in Mail's list, but the server kept the letter
   unread: Mail's slip, not copied.
+- *Undo after the pane's Delete* (C-06a, C-06b, shots 06-mail-after2,
+  06-mail-undo, 06-mail-undo2): the pane's Trash opened the letter below,
+  which Mail then marked read, and the shake's alert said "Undo Read",
+  Cancel, Undo: its top step was that read mark, not the Trash. Answered
+  Cancel there, so what its Undo does was not seen.
 
 **What Blackmail did** (04-bm-more, 08-bm-abd-*, 07-bm-undo-which): More
 read Reply, Reply All, Forward, "Trash Message", Flag, Mark as Unread,
 Move to Junk, "Move Message"; under Ask Before Deleting the slow drag's
 Trash and More's "Trash Message" asked (B-168, and 09fd116's "a Trash
 tapped as soon as a slow drag's row stops still asks"); a read mark was no
-step of Undo, so the shake named the Flag before it, "Undo Flag".
+step of Undo, so the shake named the Flag before it, "Undo Flag"; and
+after the pane's Delete the shake named "Undo Trash" (06-bm-undo).
 
 **Changed.**
 
@@ -37492,33 +37500,67 @@ step of Undo, so the shake named the Flag before it, "Undo Flag".
    nothing sent while a read mark on one of its letters is on its way;
    the counts billed once per letter (`ReadBilling`), and swept where the
    list has gone. Unlike Mail's, it reaches the server.
+5. *Q1, Undo after the pane's Delete* (`PaneUndoSteps`, new, in
+   `UndoMoves.swift`; the list's `openNext`, `open` and
+   `markReadIfNeeded`, whose `sendRead` now says whether the server took
+   the mark; the container's `perform`, `canUndoAlone` and
+   `undoGroupClosed`): after a Delete from the pane that the server took
+   and made a step of, the read mark of the letter B-158 opens after it,
+   once the server has taken it, is a step "Read" on top of the Trash's,
+   of the letters it took it on; a mark the server takes before the Trash
+   waits for it. So the first shake says "Undo Read", whose Undo marks the
+   letter unread again, on the server too, its dot back and one back on
+   the counts, the letter left in the pane; the second says "Undo Trash".
+   Each its own step: UIKit's undo manager makes one group of every step
+   added in a pass of the run loop, undone by one Undo under the last
+   one's name, so the read mark waits for the group the Trash went into
+   to close (`NSUndoManagerDidCloseUndoGroup`) before it is added.
+6. *Comments* that still told the old way were reworded: `DiscardQuestion`
+   (a tap no longer asks), `DiscardConfirmation`, `MailOptions` (only the
+   pane and the Edit bar ask), `UndoableMove.after` and the container's
+   Undo notes (a read mark is a step of its own where Mail was seen to
+   make one).
 
 **What it reverses.** B-168's question from a slow drag's button and from
 More (and 09fd116's pin of the slow drag's), and B-157's "a read mark is
-no step of Undo", for the full drag's mark. Not the full drag's "never
-asks" (fix-i1, 2589e63), which stands.
+no step of Undo", for the full drag's mark and the mark of the letter
+opened after the pane's Delete. Not the full drag's "never asks" (fix-i1,
+2589e63), which stands, nor B-158's opening of that letter.
 
 **Not changed, and not seen.** More's mark, the Flag button's sheet's,
-Edit mode's Mark, a slow drag's button tapped and the read mark of
-opening a letter make no step: only the full drag's was seen as one.
-Question Q1 of the plan (after a Delete in the pane, Mail's top step was
-its read mark of the next letter, "Undo Read") is not built here. The
-Edit bar's question under Ask Before Deleting was not compared and is
-kept. Mail on iPadOS 18: not seen; its sheet for a Google account may
-differ.
+Edit mode's Mark, a slow drag's button tapped and the read mark of a
+letter he opens himself make no step: only the full drag's and the one
+after the pane's Delete were seen as steps. After a Move from the pane, a
+Delete refused, or one inside Trash, which erases, the next letter's
+read mark is no step either: not seen. Mail's Undo of that "Undo Read"
+was cancelled in the round, so what it does, and what its second shake
+names, were not seen; here the second names the Trash. The undo
+manager's grouping, and its close, are UIKit's on the iPad and not run
+on the host. The Edit bar's question under Ask Before Deleting was not
+compared and is kept. Mail on iPadOS 18: not seen; its sheet for a
+Google account may differ.
 
-**Tests.** `DragsLikeMailTests`, new, five: More's words and order, Archive
+**Tests.** `DragsLikeMailTests`, new, eight: More's words and order, Archive
 Message where the row can be archived and once, only the pane and the Edit
 bar asking, a read mark a step in Mail's words and of what, and, read from
-the source, the full drag's alone made one and the container undoing it.
-`UndoMovesTests`, one new: a full drag's Unread undone on the scripted
-server, one STORE, `\Seen` back, the counts once, a failure put back and
-left as a step, a mark on its way leaving the step unsent, and the counts
-swept with the list gone. Changed, as the rules and code they read
-changed: `RowSwipesTests` (More's lists, the full drag's read mark),
-`DiscardQuestionTests` (no
-question from a row's button or More), `UndoMovesTests` (a read mark a
-step of its own, the container's `canUndo` seven times, the list's step).
+the source, the full drag's alone made one and the container undoing it;
+after the pane's Delete, the read mark on top of the Trash whichever the
+server answers first, no step where the Delete made none or for a Move,
+and, read from the source, the container adding it as a step of its own
+and the list handing up what the server took. `UndoMovesTests`, two new:
+a full drag's Unread undone on the scripted server, one STORE, `\Seen`
+back, the counts once, a failure put back and left as a step, a mark on
+its way leaving the step unsent, and the counts swept with the list gone;
+and the pane's Delete then the next letter's read mark, "Read" on top of
+"Trash", its Undo one STORE, `\Seen` off, the dot and one count back, and
+the Trash's Undo under it bringing the letter back. Changed, as the rules
+and code they read changed: `RowSwipesTests` (More's lists, the full
+drag's read mark), `DiscardQuestionTests` (no question from a row's
+button or More), `UndoMovesTests` (a read mark a step of its own, the
+container's `canUndo` eight times and the undo manager read four, the
+pane's step), `NextLetterTests` and `ConversationOrderTests` (the read
+marks' answer handed up from `openNext`), `QuietSaveTests` (`sendRead`
+saying what the server did).
 
 Each rule and wire undone by hand, six at once, one for each new test
 ("Move Message" without the dots, Archive Message offered a second time
@@ -37526,7 +37568,20 @@ under the Archive, a row's button and More asking again, the step always
 "Read", the full drag's flag dropped so every drag's mark was a step, and
 the Undo setting the same mark again): 13 failures in the 5 tests of
 `DragsLikeMailTests` and 6 in `UndoMovesTests`, its new test and the
-renamed one, each at an assertion; then put back.
+renamed one, each at an assertion; then put back. The follow-up's, in
+two rounds: a waiting mark kept after a Delete with no step, the read mark
+added straight away rather than as a step of its own, and the Undo of a
+read mark setting the same mark again; then a mark taken before the
+Trash not waiting for it: a failure in each of the new tests, at an
+assertion, and in the container's count of `canUndo`; then put back.
 
-The full suite, serially: 3,064 tests, 6 of them this entry's, 6
+The full suite, serially: 3,070 tests, 10 of them this entry's, 6
 skipped, none failing. The release build for the iPad links.
+
+**Follow-up, 28 October** (a review of this entry, before it was merged):
+the plan's Q1 had been left out, read as "do not build" from the heading
+it was listed under; its ruling is "as Mail's", so it is built (item 5).
+Comments still telling the old asking and read-mark rules were reworded
+(item 6). More's Archive Message stays: the plan's D2 orders it, and part
+3 of the plan counts More's words and order as copied, its look as kept.
+No layout changed.

@@ -3754,8 +3754,13 @@ final class MessageListViewController: UITableViewController {
     /// (`ConversationDocument.readAtTheTap`). The pane used to mark the
     /// unread ones one at a time, through `markRead`, and each was a
     /// redraw of the list inside the tap.
+    ///
+    /// `readTaken`, for the letter the pane opens after its Delete
+    /// (`openNext`): called once the server has answered the read marks,
+    /// with the letters it took them on.
     @MainActor
-    private func open(_ thread: MessageThread, at ip: IndexPath) {
+    private func open(_ thread: MessageThread, at ip: IndexPath,
+                      readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         // Drafts never group into a stack: a tap there has to reopen the
         // composer, and there is no reading-pane form of that.
         if mailbox.role == .drafts {
@@ -3773,12 +3778,14 @@ final class MessageListViewController: UITableViewController {
         onSelectThread?(thread, CompleteThreads.thread(
             toComplete: thread, listedIn: mailbox.role, searching: letters.isSearching,
             switchedOn: ConversationSettings.completeThreads))
-        markReadIfNeeded(ConversationDocument.readAtTheTap(thread))
+        markReadIfNeeded(ConversationDocument.readAtTheTap(thread), taken: readTaken)
     }
 
-    /// Opens one letter in the reading pane and marks it read.
+    /// Opens one letter in the reading pane and marks it read; `readTaken`
+    /// as for a conversation.
     @MainActor
-    private func open(_ summary: MessageSummary, at ip: IndexPath) {
+    private func open(_ summary: MessageSummary, at ip: IndexPath,
+                      readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         let m = summary
 
         // In Drafts a tap REOPENS the letter for writing. Everywhere else it
@@ -3796,7 +3803,7 @@ final class MessageListViewController: UITableViewController {
         }
 
         onSelectMessage?(m)
-        markReadIfNeeded(m)
+        markReadIfNeeded([m], taken: readTaken)
     }
 
     /// Marks one letter read locally, tells the server, and bills the
@@ -3827,8 +3834,14 @@ final class MessageListViewController: UITableViewController {
     /// marked, but the rows redrawn once for the lot, highlighting the
     /// first one's. The STOREs go in the line one after another, and
     /// nothing calls them off, as for rows he taps past.
+    ///
+    /// `taken`, when given, is called once every STORE has been answered,
+    /// with the letters the server took the mark on, none left out for a
+    /// refusal: for the step of Undo the read mark after the pane's Delete
+    /// is (`PaneUndoSteps`, B-175). Not called when nothing was unread.
     @MainActor
-    private func markReadIfNeeded(_ summaries: [MessageSummary]) {
+    private func markReadIfNeeded(_ summaries: [MessageSummary],
+                                  taken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         let marked = summaries.filter { !$0.isRead }
         guard let first = marked.first else { return }
         // Held over a listing already on its way, whose flags are from
@@ -3840,16 +3853,26 @@ final class MessageListViewController: UITableViewController {
         // highlighted as the one open in the pane, except in Edit mode; see
         // `ListEdit.selectedRows`.
         regroup(highlighting: first.id)
-        for m in marked { sendRead(m) }
+        let sends = marked.map { sendRead($0) }
+        guard let taken else { return }
+        Task { @MainActor in
+            var took: [MessageSummary] = []
+            for (m, send) in zip(marked, sends) {
+                if await send.value { took.append(m) }
+            }
+            taken(took)
+        }
     }
 
     /// The STORE of one read mark made here, and what its answer does to
-    /// the dot and the folder counts.
+    /// the dot and the folder counts; its task's value says whether the
+    /// server took it.
     @MainActor
-    private func sendRead(_ summary: MessageSummary) {
+    @discardableResult
+    private func sendRead(_ summary: MessageSummary) -> Task<Bool, Never> {
         var m = summary
         m.isRead = true
-        Task { @MainActor in
+        return Task { @MainActor in
             do {
                 try await repository.setRead(true, id: m.id, gmailMessageID: m.gmailMessageID,
                                              mailboxID: m.mailboxID)
@@ -3861,7 +3884,7 @@ final class MessageListViewController: UITableViewController {
                 self.letters.readAnswered(m.id, landed: false)
                 PaneActions.notTheKeptLetter(m, list: self.letters)
                 self.onMessagesChanged?()
-                return
+                return false
             } catch {
                 // Put the dot back. Before the sidebar counter existed a
                 // failed STORE merely left the folder count stale HIGH,
@@ -3872,7 +3895,7 @@ final class MessageListViewController: UITableViewController {
                 // server has actually taken the flag.
                 self.letters.readAnswered(m.id, landed: false)
                 self.regroup()
-                return
+                return false
             }
             self.letters.readAnswered(m.id, landed: true)
             // Once per message, ever. A reload can re-derive `isRead` from
@@ -3880,6 +3903,7 @@ final class MessageListViewController: UITableViewController {
             // back, which re-arms the `!$0.isRead` in `markReadIfNeeded` —
             // so that alone would let one message be billed twice.
             self.letters.read(m)
+            return true
         }
     }
 
@@ -3963,17 +3987,19 @@ final class MessageListViewController: UITableViewController {
     /// scrolled to: it is the row in the place of the one that went, the
     /// one above it, or the conversation's own, which the list draws lower
     /// once its newest has gone. Not in Edit mode, which may have begun
-    /// since.
+    /// since. `readTaken`, after the pane's Delete, is told the letters the
+    /// server took the read mark on, once it has answered, for its step of
+    /// Undo (`PaneUndoSteps`, B-175).
     @MainActor
-    func openNext(_ id: String) {
+    func openNext(_ id: String, readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {
         guard !inEditMode, let row = rowIndex(showing: id) else { return }
         let ip = IndexPath(row: row, section: 0)
         tableView.selectRow(at: ip, animated: false, scrollPosition: .none)
         switch rows[row] {
         case let .thread(thread) where thread.count > 1:
-            open(thread, at: ip)
+            open(thread, at: ip, readTaken: readTaken)
         case let .thread(thread):
-            open(thread.newest, at: ip)
+            open(thread.newest, at: ip, readTaken: readTaken)
         }
     }
 }

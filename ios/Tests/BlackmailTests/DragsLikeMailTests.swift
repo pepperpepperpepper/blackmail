@@ -150,6 +150,117 @@ final class DragsLikeMailTests: XCTestCase {
         }
     }
 
+    // MARK: - Undo after the pane's Delete (the plan's Q1)
+
+    private func trashStep(of row: MessageSummary) -> UndoableMove {
+        UndoableMove(kind: .trash, letters: [UndoableMove.Letter(
+            row: row, landing: MoveLanding(folder: "[Gmail]/Trash", id: "9/41", letter: 7))])
+    }
+
+    /// After a Delete the server took, the next letter's read mark is a
+    /// step on top of the Trash's, whichever the server answers first: a
+    /// mark taken first waits for the Trash and comes with it, after it; a
+    /// mark taken after it comes at once. "Read", of the letters taken, not
+    /// one kept on the iPad.
+    @MainActor
+    func testAfterThePanesDeleteTheReadMarkGoesOnTopOfTheTrash() throws {
+        let gone = letter("1/10"), next = letter("1/11", read: false)
+        let after = PaneUndoSteps(after: .delete)
+        XCTAssertEqual(after.answered(trashStep(of: gone)), nil, "nothing waiting")
+        let read = try XCTUnwrap(after.readTaken([next]))
+        XCTAssertEqual(read, UndoableRead(read: true, letters: [next]))
+        XCTAssertEqual(Undoable.read(read).actionName, "Read")
+
+        let first = PaneUndoSteps(after: .delete)
+        XCTAssertNil(first.readTaken([next]), "waits for the Trash")
+        XCTAssertEqual(first.answered(trashStep(of: gone)), UndoableRead(read: true, letters: [next]))
+        XCTAssertNil(first.answered(trashStep(of: gone)), "answered once")
+
+        let kept = PaneUndoSteps(after: .delete)
+        _ = kept.answered(trashStep(of: gone))
+        XCTAssertNil(kept.readTaken([letter("local:abc")]))
+        XCTAssertNil(kept.readTaken([]))
+        XCTAssertEqual(kept.readTaken([letter("local:abc"), next])?.letters, [next])
+    }
+
+    /// Only as seen: no step for the read mark after a Delete refused, or
+    /// one with no step (an erase inside Trash), whether the mark came
+    /// before the answer or after it; nor after a Move, a Flag or a read
+    /// mark from the pane.
+    @MainActor
+    func testTheReadMarkIsNoStepWhereTheDeleteMadeNone() {
+        let gone = letter("1/10"), next = letter("1/11", read: false)
+        let refusedFirst = PaneUndoSteps(after: .delete)
+        XCTAssertNil(refusedFirst.answered(nil))
+        XCTAssertNil(refusedFirst.readTaken([next]))
+
+        let markFirst = PaneUndoSteps(after: .delete)
+        XCTAssertNil(markFirst.readTaken([next]))
+        XCTAssertNil(markFirst.answered(nil), "the waiting mark dropped")
+        XCTAssertNil(markFirst.readTaken([next]))
+
+        let notes = Mailbox(id: "Notes", name: "Notes", unreadCount: 0, role: nil)
+        for action: PaneAction in [.move(to: notes), .flag(true), .read(false)] {
+            let steps = PaneUndoSteps(after: action)
+            XCTAssertNil(steps.readTaken([next]), "\(action)")
+            XCTAssertNil(steps.answered(trashStep(of: gone)), "\(action)")
+            XCTAssertNil(steps.readTaken([next]), "\(action)")
+        }
+    }
+
+    /// The container: the Trash's step added as before, then the read
+    /// mark's, from `PaneUndoSteps`, each a step of its own once the undo
+    /// manager's open group has closed; a refusal answers it with none.
+    /// The list hands the container the letters the server took the mark
+    /// on, once every STORE is answered, from the letter it opens after
+    /// the pane's Delete alone.
+    func testThePanesDeleteMakesTheReadMarkAStepOfItsOwn() throws {
+        let root = try source("UI/RootViewController.swift")
+        for line in [
+            "let letters = list.letters let steps = PaneUndoSteps(after: action)",
+            "if let step { self?.canUndo(.move(step), from: letters) } "
+                + "if let read = steps.answered(step) { self?.canUndoAlone(.read(read), from: letters) }",
+            "taken: { guard let next else { return } list.openNext(next, readTaken: { "
+                + "[weak self, weak letters] took in if let read = steps.readTaken(took) { "
+                + "self?.canUndoAlone(.read(read), from: letters) } }) })",
+            "if refused != nil { _ = steps.answered(nil) }",
+            "private func canUndoAlone(_ step: Undoable, from letters: ListLetters?) { "
+                + "guard undos.groupingLevel > 0 else { return canUndo(step, from: letters) } "
+                + "waitingSteps.append(UndoStep(step, from: letters)) }",
+            "NotificationCenter.default.addObserver(self, selector: #selector(undoGroupClosed), "
+                + "name: .NSUndoManagerDidCloseUndoGroup, object: undos)",
+            "@objc private func undoGroupClosed() { guard !waitingSteps.isEmpty else { return } "
+                + "Task { @MainActor [weak self] in guard let self else { return } "
+                + "let waiting = self.waitingSteps self.waitingSteps = [] "
+                + "for box in waiting { self.canUndoAlone(box.step, from: box.letters) } } }",
+        ] {
+            XCTAssertTrue(root.contains(line), line)
+        }
+        XCTAssertEqual(root.components(separatedBy: "PaneUndoSteps(").count - 1, 1)
+        XCTAssertEqual(root.components(separatedBy: "readTaken: ").count - 1, 1)
+
+        let list = try source("UI/MessageListViewController.swift")
+        for line in [
+            "let sends = marked.map { sendRead($0) } guard let taken else { return } "
+                + "Task { @MainActor in var took: [MessageSummary] = [] "
+                + "for (m, send) in zip(marked, sends) { if await send.value { took.append(m) } } "
+                + "taken(took) } }",
+            "private func sendRead(_ summary: MessageSummary) -> Task<Bool, Never> {",
+            "self.letters.read(m) return true } }",
+        ] {
+            XCTAssertTrue(list.contains(line), line)
+        }
+        XCTAssertTrue(list.contains("self.onMessagesChanged?() return false } catch {"))
+        XCTAssertTrue(list.contains("self.letters.readAnswered(m.id, landed: false) self.regroup() "
+                                    + "return false }"))
+        // Passed on from `openNext` alone; a tap on a row passes none.
+        XCTAssertEqual(list.components(separatedBy: "readTaken: readTaken").count - 1, 2)
+        XCTAssertEqual(list.components(separatedBy: "taken: readTaken").count - 1, 2)
+        XCTAssertTrue(list.contains("open(thread, at: ip) case let .thread(thread): "
+                                    + "open(thread.newest, at: ip) } } override func "
+                                    + "tableView(_ t: UITableView, didDeselectRowAt"))
+    }
+
     // MARK: - Reading the source
 
     private func source(_ path: String) throws -> String {

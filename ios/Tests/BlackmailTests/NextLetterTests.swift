@@ -475,10 +475,11 @@ final class NextLetterTests: XCTestCase {
             "let role = folders.role(of: letter.mailboxID)",
             "let list = self.list let next = self.detail.lettersShown.isEmpty "
                 + "? list.letterAfter(letter, action, onLetterIn: role) : nil",
-            "let letters = list.letters let refused = await PaneActions.refusal( running: action, "
+            "let letters = list.letters let steps = PaneUndoSteps(after: action) "
+                + "let refused = await PaneActions.refusal( running: action, "
                 + "on: letter, inFolderWithRole: role, list: letters, repository: self.repository, "
                 + "requestSweep: { [weak self] in self?.refreshMailboxes() }, landed: {",
-            "taken: { if let next { list.openNext(next) } })",
+            "taken: { guard let next else { return } list.openNext(next, readTaken: {",
             "list.onLettersLeaving = { [weak self] letters in "
                 + "self?.detail.clearIfShowing(any: letters) }",
         ] {
@@ -495,12 +496,14 @@ final class NextLetterTests: XCTestCase {
                 + "guard NextLetter.action == .viewNextMessage, !inEditMode else "
                 + "{ return nil } return NextLetter.after(letter, action, onLetterIn: role, "
                 + "in: threads, listedIn: mailbox.role, olderToCome: !reachedOldestMessage) }",
-            "func openNext(_ id: String) { guard !inEditMode, "
+            "func openNext(_ id: String, readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) "
+                + "{ guard !inEditMode, "
                 + "let row = rowIndex(showing: id) else { return } "
                 + "let ip = IndexPath(row: row, section: 0) "
                 + "tableView.selectRow(at: ip, animated: false, scrollPosition: .none) "
                 + "switch rows[row] { case let .thread(thread) where thread.count > 1: "
-                + "open(thread, at: ip) case let .thread(thread): open(thread.newest, at: ip) } }",
+                + "open(thread, at: ip, readTaken: readTaken) case let .thread(thread): "
+                + "open(thread.newest, at: ip, readTaken: readTaken) } }",
         ] {
             XCTAssertTrue(list.contains(line), line)
         }
@@ -508,7 +511,7 @@ final class NextLetterTests: XCTestCase {
         XCTAssertTrue(list.contains("open(thread, at: ip) case let .thread(thread): "
                                     + "open(thread.newest, at: ip) } } override func "
                                     + "tableView(_ t: UITableView, didDeselectRowAt"))
-        XCTAssertTrue(list.contains("onSelectMessage?(m) markReadIfNeeded(m) }"))
+        XCTAssertTrue(list.contains("onSelectMessage?(m) markReadIfNeeded([m], taken: readTaken) }"))
         XCTAssertFalse(try source("Mail/ListBatch.swift").contains("NextLetter"))
         // A drag on the row of the letter open in the pane, or More's sheet
         // over it, opens the letter after the row once the row is off, into

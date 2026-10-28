@@ -6,8 +6,10 @@
 import UIKit
 
 /// Puts `DiscardQuestion` in front of him before a Trash or an Archive
-/// under Ask Before Deleting (B-168): the reading pane's Delete, the Edit
-/// bar's Trash, a drag's button tapped and More's.
+/// under Ask Before Deleting (B-168): the reading pane's Delete and the
+/// Edit bar's Trash. A drag's button tapped and More's asked too until
+/// B-175, and go at once now, as Mail's did; `DiscardQuestion` asks
+/// nothing for them, so the row's form below puts nothing up.
 ///
 /// An action sheet, as Mail's is, from the button tapped or over the row:
 /// on the iPad a popover, whose Cancel UIKit leaves out, to be answered by

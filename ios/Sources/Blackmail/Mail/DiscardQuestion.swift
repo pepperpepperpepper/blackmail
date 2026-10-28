@@ -84,8 +84,9 @@ struct DiscardQuestion: Equatable {
     /// turn the finger lifts), or it lifted no more than `liftWindow`
     /// seconds ago (`sinceLift`, nil for none since the list was shown).
     /// A slow drag that leaves the buttons open does nothing as it lifts,
-    /// and a button tapped after it comes with a tap, not the pan, so a
-    /// tap still asks.
+    /// and a button tapped after it comes with a tap, not the pan. Neither
+    /// asks any more (B-175); what tells them apart now is the read mark,
+    /// a step of Undo from a full drag alone (`UndoableRead`).
     ///
     /// It was told by the button's width, a full drag being taken for one
     /// whose button UIKit had stretched over three fifths of the row; on

@@ -740,6 +740,69 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(swept, 1, "no list to bill: the counts swept")
     }
 
+    /// After the reading pane's Delete (B-175; r6 comparison C-06b, the
+    /// plan's question Q1): the Trash a step, and the read mark of the
+    /// letter opened after it a step on top, "Undo Read" before "Undo
+    /// Trash", as `PaneUndoSteps` orders them for the container. Undone,
+    /// the top one marks that letter unread again on the server, one STORE
+    /// and nothing else, its dot back and one back on the counts, once; the
+    /// Trash's step under it still brings the deleted letter back.
+    @MainActor
+    func testAfterThePanesDeleteTheNextLettersReadMarkIsUndoneFirst() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, counts) = makeList(folder: rows)
+        let folders = self.folders
+        let deleted = try XCTUnwrap(rows.first { $0.isRead })
+        let next = try XCTUnwrap(rows.first { !$0.isRead })
+        let steps = PaneUndoSteps(after: .delete)
+        var made: [Undoable] = []
+        let refused = await PaneActions.refusal(
+            running: .delete, on: deleted, inFolderWithRole: .inbox, list: list,
+            repository: repository, requestSweep: {},
+            landed: { landing, before in
+                // As the container adds them (`RootViewController`).
+                let step = landing.flatMap { landing in
+                    UndoableMove.after(.delete, took: [before], landings: [before.id: landing],
+                                       role: { folders.role(of: $0) })
+                }
+                if let step { made.append(.move(step)) }
+                if let read = steps.answered(step) { made.append(.read(read)) }
+            })
+        XCTAssertNil(refused)
+        // The letter after it opened in the pane, marked read as
+        // `markReadIfNeeded` and `sendRead` mark it, the server taking it.
+        list.reading(next, read: true)
+        try await repository.setRead(true, id: next.id, gmailMessageID: next.gmailMessageID,
+                                     mailboxID: next.mailboxID)
+        list.readAnswered(next.id, landed: true)
+        var read = next
+        read.isRead = true
+        list.read(read)
+        if let step = steps.readTaken([next]) { made.append(.read(step)) }
+        XCTAssertEqual(made.map(\.actionName), ["Trash", "Read"], "Read on top")
+        XCTAssertTrue(server.flags(uid: uid(next.id), in: Server.inbox).contains("\\Seen"))
+        let on = counts.on.count
+
+        guard case .read(let top) = made[1], case .move(let under) = made[0] else {
+            return XCTFail("the steps")
+        }
+        server.clearLog()
+        let unread = await UndoMoves.run(top, repository: repository, list: list, requestSweep: {})
+        XCTAssertNil(unread.refusal)
+        XCTAssertEqual(unread.back, [next.id])
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.verb).filter { $0 != "UID FETCH" },
+                       ["UID STORE"])
+        XCTAssertFalse(server.flags(uid: uid(next.id), in: Server.inbox).contains("\\Seen"))
+        XCTAssertEqual(list.letter(next.id)?.isRead, false, "the dot back")
+        XCTAssertEqual(counts.on.count, on + 1, "one back on, once")
+
+        let back = await UndoMoves.run(under, repository: repository, list: list, requestSweep: {})
+        XCTAssertNil(back.refusal)
+        XCTAssertEqual(back.back, [deleted.id])
+        XCTAssertNotNil(list.shown.first { $0.gmailMessageID == deleted.gmailMessageID })
+    }
+
     /// The reading pane's Delete and Move hear where the letter went once
     /// the server has taken it, and nothing for a Flag or a read mark, nor
     /// for a refusal.
@@ -822,17 +885,17 @@ final class UndoMovesTests: XCTestCase {
             "list.onUndoable = { [weak self] step, letters in self?.canUndo(step, from: letters) }",
             // The pane's Delete or Move as the list's copy had the letter at
             // the tap, not the pane's (`testThePanesUndoPutsTheRowBackAsTheListHadIt`).
-            "landed: { [weak self, weak letters] landing, before in guard let landing, let step = "
-                + "UndoableMove.after( action, took: [before], landings: [before.id: landing], "
-                + "role: { folders.role(of: $0) }) else { return } self?.canUndo(.move(step), "
-                + "from: letters) },",
+            "landed: { [weak self, weak letters] landing, before in let step = landing.flatMap "
+                + "{ landing in UndoableMove.after( action, took: [before], landings: "
+                + "[before.id: landing], role: { folders.role(of: $0) }) } if let step { "
+                + "self?.canUndo(.move(step), from: letters) }",
             "self.returnedFromAway() self.takeUndo()",
         ] {
             XCTAssertTrue(root.contains(line), line)
         }
-        XCTAssertEqual(count("canUndo(", in: root), 7,
+        XCTAssertEqual(count("canUndo(", in: root), 8,
                        "the pane's Move and Flag, the list's, a step left of each of the three, "
-                       + "and itself")
+                       + "itself, and a step of its own once no group is open (B-175)")
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains(
             "let took = chosen.filter { outcome.taken.contains($0.id) } if let step = "
@@ -843,7 +906,8 @@ final class UndoMovesTests: XCTestCase {
         for kept in ["UserDefaults", "FileManager", "write(to", "MailShelf", "Codable"] {
             XCTAssertFalse(steps.contains(kept), kept)
         }
-        XCTAssertEqual(count("undos.", in: root), 3, "made, added to, and named; never written down")
+        XCTAssertEqual(count("undos.", in: root), 4,
+                       "made, added to, named, and asked for an open group; never written down")
 
         // A Flag or an Unflag from the pane, a drag or More is a step of
         // its own, undone by `UndoMoves`; a read mark is one only from a

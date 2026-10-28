@@ -120,8 +120,10 @@ final class RootViewController: UIViewController {
     private var notice: MailAlert?
 
     /// Mail's Undo (B-157): each Trash or Move the server has taken, from a
-    /// drag, Edit mode or the reading pane, one step (`UndoableMove`), and
-    /// each Flag or Unflag from a drag, More or the pane (`UndoableFlag`).
+    /// drag, Edit mode or the reading pane, one step (`UndoableMove`); each
+    /// Flag or Unflag from a drag, More or the pane (`UndoableFlag`); and a
+    /// read mark from a full drag to the right, or on the letter the pane
+    /// opens after its Delete (`UndoableRead`, B-175).
     /// The screens' undo manager, on the responder chain, where a shake of
     /// the iPad (with Shake to Undo on, as it comes), iPadOS's three-finger
     /// gestures and Command-Z look for it; the text fields' typing goes on
@@ -294,6 +296,11 @@ final class RootViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
                                                name: UIAccessibility.elementFocusedNotification,
                                                object: nil)
+        // A step of Undo that is to be one of its own, after the undo
+        // manager's group of the pass it came in has closed (B-175).
+        NotificationCenter.default.addObserver(self, selector: #selector(undoGroupClosed),
+                                               name: .NSUndoManagerDidCloseUndoGroup,
+                                               object: undos)
         // A refused password's alert opens Settings at the password, from
         // whichever pane it was put over. A turn later, once the alert has
         // gone.
@@ -457,11 +464,11 @@ final class RootViewController: UIViewController {
         becomeFirstResponder()
     }
 
-    /// A Trash, a Move, a Flag or an Unflag the server has taken, one step
-    /// of Undo, under Mail's name for it, "Trash", "Move" or "Flag": "Undo
-    /// Trash" in UIKit's alert at a shake. `letters`, the list's letters it
-    /// was taken from, weakly: gone with that list when another folder
-    /// replaces it.
+    /// A Trash, a Move, a Flag or an Unflag, or a read mark, the server has
+    /// taken, one step of Undo, under Mail's name for it, "Trash", "Move",
+    /// "Flag", "Read" or "Unread": "Undo Trash" in UIKit's alert at a shake.
+    /// `letters`, the list's letters it was taken from, weakly: gone with
+    /// that list when another folder replaces it.
     ///
     /// By a selector and the step in a box (`UndoStep`), where the step's
     /// own closure would be called outside the main actor as far as the
@@ -471,6 +478,35 @@ final class RootViewController: UIViewController {
                            object: UndoStep(step, from: letters))
         undos.setActionName(step.actionName)
         takeUndo()
+    }
+
+    /// `step` a step of its own, on top of the one added before it, which
+    /// it is not to be undone with (`PaneUndoSteps`, B-175). UIKit's undo
+    /// manager makes one group of every step added in one pass of the run
+    /// loop (`groupsByEvent`), undone by one Undo under the last one's name:
+    /// added in the pass the Trash was, the read mark's Undo would have
+    /// brought the Trash back too. So while a group is open the step waits
+    /// for it to close (`undoGroupClosed`).
+    private func canUndoAlone(_ step: Undoable, from letters: ListLetters?) {
+        guard undos.groupingLevel > 0 else { return canUndo(step, from: letters) }
+        waitingSteps.append(UndoStep(step, from: letters))
+    }
+
+    /// Steps of Undo waiting for the undo manager's open group to close
+    /// (`canUndoAlone`), the oldest first. In memory, as the steps are.
+    private var waitingSteps: [UndoStep] = []
+
+    /// The undo manager has closed a group: the steps waiting for it added,
+    /// each its own, a turn later, once the close is over. One added there
+    /// opens a group of its own, which the next waits for in turn.
+    @objc private func undoGroupClosed() {
+        guard !waitingSteps.isEmpty else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let waiting = self.waitingSteps
+            self.waitingSteps = []
+            for box in waiting { self.canUndoAlone(box.step, from: box.letters) }
+        }
     }
 
     /// Undo tapped in UIKit's alert, or three fingers swiped left.
@@ -1153,19 +1189,33 @@ final class RootViewController: UIViewController {
             // What the server took is a step of Mail's Undo (B-157), with
             // the list it was taken from: a Delete or a Move as the list's
             // copy of the letter was at the tap, which its row comes back
-            // as; a Flag on the letter.
+            // as; a Flag on the letter. After a Delete, the read mark of the
+            // letter opened after it a step of its own on top, "Undo Read",
+            // as Mail's (`PaneUndoSteps`, B-175).
             let letters = list.letters
+            let steps = PaneUndoSteps(after: action)
             let refused = await PaneActions.refusal(
                 running: action, on: letter, inFolderWithRole: role,
                 list: letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.refreshMailboxes() },
                 landed: { [weak self, weak letters] landing, before in
-                    guard let landing, let step = UndoableMove.after(
+                    let step = landing.flatMap { landing in UndoableMove.after(
                         action, took: [before], landings: [before.id: landing],
-                        role: { folders.role(of: $0) }) else { return }
-                    self?.canUndo(.move(step), from: letters)
+                        role: { folders.role(of: $0) }) }
+                    if let step { self?.canUndo(.move(step), from: letters) }
+                    if let read = steps.answered(step) {
+                        self?.canUndoAlone(.read(read), from: letters)
+                    }
                 },
-                taken: { if let next { list.openNext(next) } })
+                taken: {
+                    guard let next else { return }
+                    list.openNext(next, readTaken: { [weak self, weak letters] took in
+                        if let read = steps.readTaken(took) {
+                            self?.canUndoAlone(.read(read), from: letters)
+                        }
+                    })
+                })
+            if refused != nil { _ = steps.answered(nil) }
             if refused == nil, let step = UndoableFlag.after(action, took: [letter]) {
                 self.canUndo(.flag(step), from: letters)
             }
@@ -1294,8 +1344,9 @@ final class RootViewController: UIViewController {
             guard let self, self.fillBookAfterAhead else { return }
             self.fillBookOnce()
         }
-        // A Delete or Move the server took from Edit mode or a drag, or a
-        // Flag from a drag or More: a step of Mail's Undo (B-157).
+        // A Delete or Move the server took from Edit mode or a drag, a Flag
+        // from a drag or More, or a full drag's read mark: a step of Mail's
+        // Undo (B-157, B-175).
         list.onUndoable = { [weak self] step, letters in
             self?.canUndo(step, from: letters)
         }

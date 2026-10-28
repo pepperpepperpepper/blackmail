@@ -453,22 +453,26 @@ final class ConversationOrderTests: XCTestCase {
     /// It was a redraw of the list for each unread letter, inside the tap.
     func testTheListMarksTheTapsLettersWithOneRedraw() throws {
         let list = try source("UI/MessageListViewController.swift")
-        let open = try section(of: list, from: "private func open(_ thread: MessageThread, at ip: IndexPath) {",
+        let open = try section(of: list, from: "private func open(_ thread: MessageThread, at ip: IndexPath, "
+                                   + "readTaken: (@MainActor ([MessageSummary]) -> Void)? = nil) {",
                                to: "private func open(_ summary: MessageSummary")
         XCTAssertTrue(open.contains("onSelectThread?(thread, CompleteThreads.thread( "
                                     + "toComplete: thread, listedIn: mailbox.role, "
                                     + "searching: letters.isSearching, "
                                     + "switchedOn: ConversationSettings.completeThreads)) "
-                                    + "markReadIfNeeded(ConversationDocument.readAtTheTap(thread)) }"), open)
+                                    + "markReadIfNeeded(ConversationDocument.readAtTheTap(thread), "
+                                    + "taken: readTaken) }"), open)
         let one = try section(of: list, from: "private func markReadIfNeeded(_ summary: MessageSummary) {",
-                              to: "private func markReadIfNeeded(_ summaries: [MessageSummary]) {")
+                              to: "private func markReadIfNeeded(_ summaries: [MessageSummary],")
         XCTAssertTrue(one.contains("markReadIfNeeded([summary]) }"), one)
-        let lot = try section(of: list, from: "private func markReadIfNeeded(_ summaries: [MessageSummary]) {",
+        let lot = try section(of: list, from: "private func markReadIfNeeded(_ summaries: [MessageSummary], "
+                                  + "taken: (@MainActor ([MessageSummary]) -> Void)? = nil) {",
                               to: "private func sendRead(")
         for wiring in [
             "let marked = summaries.filter { !$0.isRead } guard let first = marked.first else { return }",
             "for m in marked { letters.reading(m, read: true) }",
-            "regroup(highlighting: first.id) for m in marked { sendRead(m) } }",
+            "regroup(highlighting: first.id) let sends = marked.map { sendRead($0) } "
+                + "guard let taken else { return }",
         ] {
             XCTAssertTrue(lot.contains(wiring), wiring)
         }

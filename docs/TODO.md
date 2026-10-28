@@ -9439,8 +9439,18 @@ checks below is left as not needed, not open, and none is worth a round.*
          "Undo Flag"). Screenshot. Undo: the dot goes; the host's FLAGS for
          it have `\Seen` again, and the log one `UID STORE` for it. Shake
          again: "Undo Flag"; Undo: unflagged on the server.
-      4. *Ask off again:* Settings > Mail, Ask Before Deleting off.
-      5. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      4. *Undo after the pane's Delete:* a full drag right on the fourth:
+         its dot comes, "Unread". The third opened in the pane, its Trash,
+         "Trash Message" tapped: the third goes, and the fourth opens in
+         the pane, highlighted, its dot gone; the host's FLAGS for it have
+         `\Seen`. Shake: "Undo Read" (not "Undo Trash"). Screenshot. Undo:
+         the fourth's dot back, the fourth still in the pane; the host's
+         FLAGS for it without `\Seen`, the log one `UID STORE` for it.
+         Shake again: "Undo Trash"; Undo: the third back in "Notes" under a
+         new UID, noted. Shake again: "Undo Unread"; Undo: the fourth's dot
+         goes, `\Seen` on the server.
+      5. *Ask off again:* Settings > Mail, Ask Before Deleting off.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
          UIDs it noted last for the five, and only them, from "Notes" to the
          Trash, and deletes in the Trash only the UIDs that move answered
          (`COPYUID`). Nothing was sent, and nothing else was written to the
