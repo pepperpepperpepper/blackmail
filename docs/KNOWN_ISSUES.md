@@ -38703,15 +38703,25 @@ SMIL is gone. The drawing's box, size and place, its circle and its arc
 are as they were, and nothing else in the tile changed. On paper no ring
 is drawn, as before.
 
-*Not changed: the files after the pictures.* The PDF waited for the
-photos too, its FETCH after both of theirs: the fetches ahead are asked
-when the letter's page has finished loading (`webView(_:didFinish:)`,
-`fetchAhead`). That is as E6 has it, the files fetched "as such a
+*Not changed: the files after the pictures, on a letter's own page.* The
+PDF waited for the photos too, its FETCH after both of theirs: on a
+letter's own page the fetches ahead are asked when the page has finished
+loading (`webView(_:didFinish:)`, `fetchAhead`), which waits for its
+pictures. That is as E6's *Changed* has it, the files fetched "as such a
 letter's own page has loaded", a picture not among them because the page
-asks for it: the words, then the pictures, then the files, one at a time
-on the one connection. Whether Mail asks its files before its pictures
-was not compared: in C-13e, at +3 s, Mail had the PDF and one photo
-drawn while the other photo still came.
+asks for it: on a letter's own page the words, then the pictures, then
+the files, one at a time on the one connection. In a stack it is not so:
+a body put into the stack has its files asked for as it goes in
+(`run(_ fill:)` calls `fetchAhead` as it hands `bmFill` to WebKit,
+before WebKit has asked the loader for the body's pictures), so the
+first file usually joins the client's line ahead of them, and a file can
+come before its pictures. B-176's heading and E6's say the files come
+"as it opens"; whether Mail asks its files before its pictures was not
+compared, but in C-13e, at +3 s, Mail had the PDF and one photo drawn
+while the other photo still came. *Left for the owner:* whether a
+letter's own page should ask for its files as it opens, before its
+pictures have come, as the stack does and as Mail seems to. The code is
+as it was.
 
 *The tap and the next letter* (step 6, the PDF's tile tapped while it
 said "Downloading", then at once "B-176 pdf"). The round wrote "no FETCH
@@ -38740,19 +38750,35 @@ letter's PDF after 'B-176 pdf''s words" was wrong for a tap made while
 the photos came: it now allows that one FETCH, the tap's, and nothing
 else of the large letter.
 
+*And from the tap* (the same day). The test that pinned it read only
+`fileData`, and a wait put before it in `openAttachment`'s task, for the
+files ahead say, would have passed: begun once the pane had moved on,
+the tap would have fetched for a letter he had left, ahead of the next
+letter's body, which is what 60d5671 stopped. Now nothing is awaited
+from the tap to `fileData`, as a comment there says, and `fileData`
+checks the pane first as well as after its wait, with nothing awaited
+between either check and the fetch: a tap whose task begins on a pane
+given something else, which can only be in the moment between the tap
+and its task, takes and fetches nothing and is let go with nothing said.
+A fetch already asked ends, as before. Nothing the round saw changes.
+
 *Tests.* `FilesAheadTests`, two new: the ring turned by its own CSS, no
 SMIL, no script, its box, circle and arc as before, the same drawing on
 a letter's page, in a stack's body and in a tap's script, the tap's run
 on the model of the page, none on paper; and, read from the pane, a tap
 before the page finished asked of the repository with nothing awaited
-but a fetch ahead's wait, its task kept by nothing, and only the fetches
-ahead called off. `testItsTileSaysDownloadingWithTheRing` reads the CSS
-turn where it read SMIL's repeat. Undone by hand, the ring as it was: 7
-failures in 2 tests, each an assertion's; the tap's fetch made to wait a
-turn first and the tap's task called off with the fetches ahead: 4
-failures in 2 tests, each an assertion's. Put back, passing. The full
-suite: 3,146 tests, 6 skipped, none failing; the release build for the
-iPad: "Build complete".
+but a fetch ahead's wait, nothing awaited from the tap to `fileData`,
+`fileData` checking the pane first, its task kept by nothing, and only
+the fetches ahead called off. `testItsTileSaysDownloadingWithTheRing`
+reads the CSS turn where it read SMIL's repeat. Undone by hand, the ring
+as it was: 7 failures in 2 tests, each an assertion's; the tap's fetch
+made to wait a turn first and the tap's task called off with the fetches
+ahead: 4 failures in 2 tests, each an assertion's; a wait for the files
+ahead put before `fileData` in the tap's task: 2 failures in the one
+test, a yield at the start of the task: 1, and `fileData`'s first check
+taken out: 1, each an assertion's. Put back, passing. The full suite:
+3,146 tests, 6 skipped, none failing; the release build for the iPad:
+"Build complete".
 
 *Layout.* None changed: the ring is drawn where it was, at its size, and
 turns.
