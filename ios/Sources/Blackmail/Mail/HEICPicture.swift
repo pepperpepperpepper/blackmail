@@ -7,8 +7,9 @@ import Foundation
 /// test iPad runs, an `<img>` of one is a small box with WebKit's broken
 /// picture in it: so it was on the test iPad (2026-10-27), for a photo an
 /// iPhone put among a letter's words by `cid:`, its part `image/heic`. A
-/// HEIC the letter does not show among its words is a tile (`BodyFiles`,
-/// B-170), so this is only for one it shows. Below iPadOS 17 the loader
+/// HEIC the letter does not show among its words, attached, was a tile
+/// (`BodyFiles`, B-170), and is drawn as a photo since B-176, as Mail
+/// draws it on 16.5.1, by the same loader. Below iPadOS 17 the loader
 /// (`InlineImageLoader`) serves such a part as a JPEG made of it, drawn at
 /// most `maxPixels` on its longer side by ImageIO's thumbnail, one at a
 /// time (`turns`), and none for a request WebKit has stopped; from 17 as it

@@ -137,7 +137,7 @@ final class TextSizeWiringTests: XCTestCase {
             "UI/LetterPrint.swift": ["from: anchor"],
             "UI/MessageDetailViewController.swift": [
                 "UIDocumentPickerViewController(forExporting: [url], asCopy: true)", "share",
-                "preview", "preview", "sheet", "nav", "sheet", "nav", "sheet", "sheet", "nav"],
+                "preview", "sheet", "nav", "sheet", "nav", "sheet", "sheet", "nav"],
             "UI/MessageListViewController.swift": ["nav", "sheet", "nav", "nav", "sheet", "nav", "nav", "nav"],
             "UI/RecipientField.swift": ["menu"],
             "UI/SettingsViewController.swift": ["ask", "alert"],
@@ -157,9 +157,11 @@ final class TextSizeWiringTests: XCTestCase {
             case "Theme/TextSizeReading.swift":
                 XCTAssertEqual(count("modalPresentationStyle", in: code), 1, file)
             case "UI/MessageDetailViewController.swift":
-                XCTAssertEqual(count("modalPresentationStyle", in: code), 2, file)
-                XCTAssertEqual(count("let preview = QLPreviewController() preview.dataSource = self", in: code), 2, file)
-                XCTAssertEqual(count("preview.modalPresentationStyle = .fullScreen", in: code), 2, file)
+                // One Quick Look for a tap, the held menu and Markup and
+                // Reply (B-176).
+                XCTAssertEqual(count("modalPresentationStyle", in: code), 1, file)
+                XCTAssertEqual(count("let preview = QLPreviewController() preview.dataSource = self", in: code), 1, file)
+                XCTAssertEqual(count("preview.modalPresentationStyle = .fullScreen", in: code), 1, file)
             default:
                 XCTAssertFalse(code.contains("modalPresentationStyle"), file)
             }

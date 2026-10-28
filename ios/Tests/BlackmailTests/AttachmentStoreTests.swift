@@ -311,8 +311,9 @@ final class AttachmentStoreTests: XCTestCase {
         XCTAssertEqual(code.components(separatedBy: "removeStaged").count - 1, 1)
         XCTAssertEqual(code.components(separatedBy: "previewURL = nil").count - 1, 1)
         XCTAssertTrue(code.contains("extension MessageDetailViewController: QLPreviewControllerDataSource {"))
-        XCTAssertEqual(code.components(separatedBy: "preview.delegate = self").count - 1, 2)
-        XCTAssertTrue(code.contains("case .markupAndReply: let preview = QLPreviewController() "
+        XCTAssertEqual(code.components(separatedBy: "preview.delegate = self").count - 1, 1)
+        XCTAssertTrue(code.contains("case .quickLook, .markupAndReply, .saveImage, .copy: "
+                                        + "let preview = QLPreviewController() "
                                         + "preview.dataSource = self preview.delegate = self"))
         let delegate = try XCTUnwrap(code.components(
             separatedBy: "extension MessageDetailViewController: QLPreviewControllerDelegate {").dropFirst().first)
@@ -320,6 +321,27 @@ final class AttachmentStoreTests: XCTestCase {
         XCTAssertFalse(delegate.contains("previewURL"))
         XCTAssertFalse(code.contains("previewControllerWillDismiss"))
         XCTAssertFalse(code.contains("previewURL!"))
+    }
+
+    /// Quick Look's title over a file the pane opens is its name as sent,
+    /// extension and all, as Mail's is ("R6 B-170 pdf.pdf", the test iPad,
+    /// 2026-10-27), where an `NSURL` alone was titled "R6 B-170 pdf"
+    /// (B-176): the name `write` gave it, the sent one made safe. The
+    /// pane, read: its one item is a `PreviewFile` titled so, for every
+    /// preview it opens, and no `NSURL`.
+    func testQuickLooksTitleIsTheFilesNameWithItsExtension() throws {
+        for (sent, title) in [("R6 B-170 pdf.pdf", "R6 B-170 pdf.pdf"), ("IMG_1220.jpeg", "IMG_1220.jpeg"),
+                              ("Rechnung März.PDF", "Rechnung März.PDF"), ("notes", "notes"),
+                              ("../../x.pdf", "x.pdf"), ("", "attachment")] {
+            let url = try AttachmentStore.write(Data([1]), named: sent)
+            XCTAssertEqual(AttachmentStore.title(of: url), title, sent)
+        }
+        let code = try source("MessageDetailViewController.swift")
+        XCTAssertTrue(code.contains("let url = previewURL ?? AttachmentStore.root "
+                                        + "return PreviewFile(url: url, title: AttachmentStore.title(of: url))"))
+        XCTAssertTrue(code.contains("private final class PreviewFile: NSObject, QLPreviewItem { "
+                                        + "let previewItemURL: URL? let previewItemTitle: String?"))
+        XCTAssertFalse(code.contains("as NSURL"))
     }
 
     /// The composer: each file the intake stages and puts in the letter

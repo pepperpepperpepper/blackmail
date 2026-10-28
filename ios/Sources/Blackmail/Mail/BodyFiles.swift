@@ -189,11 +189,14 @@ enum BodyFiles {
     }
 
     /// The kinds of picture drawn at their size: those WebKit draws on
-    /// iPadOS 16 and 18 alike. HEIC is drawn only from iPadOS 17, and is a
-    /// tile here, as is any other picture.
-    static let pictureKinds: Set<String> = [
+    /// iPadOS 16 and 18 alike, and HEIC, an iPhone's photo, as Mail draws
+    /// it on 16.5.1 as on 17 and 18 (B-176). WebKit draws HEIC only from
+    /// iPadOS 17; below it the loader serves a JPEG made of it
+    /// (`HEICPicture`, B-171), as for one the letter shows by `cid:`. Any
+    /// other picture, a TIFF say, is a tile.
+    static let pictureKinds = Set([
         "image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif", "image/webp", "image/bmp",
-    ]
+    ]).union(HEICPicture.kinds)
 
     /// Whether `file` is drawn as a picture.
     static func isPicture(_ file: Attachment) -> Bool {

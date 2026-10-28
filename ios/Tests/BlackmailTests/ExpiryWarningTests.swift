@@ -604,13 +604,11 @@ final class ExpiryWarningTests: XCTestCase {
                        + "applicationActivities: nil) share.popoverPresentationController?.sourceView = webView "
                        + "share.popoverPresentationController?.sourceRect = pictureSpot handedOver = true "
                        + "present(share, animated: true, completion: ready) "
-                       + "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
-                       + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
-                       + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
-                       + "handedOver = true present(preview, animated: true, completion: ready) "
-                       + "case .quickLook, .saveImage, .copy: "
+                       + "case .quickLook, .markupAndReply, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
+                       + "if use == .markupAndReply || MarkupReply.marksUp(attachment) { "
+                       + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) } "
                        + "handedOver = true present(preview, animated: true, completion: ready) } ")
         XCTAssertEqual(shown.components(separatedBy: "await").count - 1, 1, shown)
         for hop in ["DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {

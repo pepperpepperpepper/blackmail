@@ -68,16 +68,18 @@ final class MarkupReplyTests: XCTestCase {
 
     /// Markup and Reply on every picture of the letter's own held: one
     /// shown by `cid:`, a picture file drawn at its size in the body
-    /// (B-170), and a picture drawn as a tile, a HEIC; never on a file that
-    /// is no picture, whose menu is B-150's as B-170 gives it. A picture
-    /// from the web keeps WebKit's menu: the pane's script wires none.
-    /// Integration, int19.
+    /// (B-170), and a picture drawn as a tile, a TIFF; and on a PDF held,
+    /// second, as Mail's menu has it (B-176); never on any other file,
+    /// whose menu is B-150's as B-170 gives it. A picture from the web
+    /// keeps WebKit's menu: the pane's script wires none. Integration,
+    /// int19.
     func testMarkupAndReplyIsOnEveryPictureOfTheLettersOwn() throws {
         func menu(_ kind: String) -> [PanePictures.Item] {
             PanePictures.menu(for: Attachment(id: "3", filename: "a", mimeType: kind, size: 1))
         }
         XCTAssertEqual(Array(menu("image/heic").prefix(2)), [.quickLook, .markupAndReply])
-        XCTAssertEqual(menu("application/pdf"), [.quickLook, .saveToFiles, .share, .copy])
+        XCTAssertEqual(Array(menu("image/tiff").prefix(2)), [.quickLook, .markupAndReply])
+        XCTAssertEqual(menu("application/pdf"), [.quickLook, .markupAndReply, .saveToFiles, .share, .copy])
         XCTAssertFalse(menu("text/calendar").contains(.markupAndReply))
 
         let photo = Attachment(id: "2", filename: "roses.jpg", mimeType: "image/jpeg", size: 200_000)
@@ -230,17 +232,17 @@ final class MarkupReplyTests: XCTestCase {
         XCTAssertEqual(markup.state, .closed(preview: second, since: date))
     }
 
-    /// Markup is the preview's the picture was last opened in for Markup
-    /// and Reply, while it is up, and no other's: a tap's Quick Look, or
-    /// the held menu's, has none (`marks`, which the pane's delegate
-    /// answers by). With no delegate, a tap's Quick Look showed its Markup
-    /// button on the test iPad (2026-10-27).
-    func testOnlyMarkupAndRepliesPreviewHasMarkup() {
+    /// Markup is the preview's a file was last opened in for it, while it
+    /// is up, and no other's (`marks`, which the pane's delegate answers
+    /// by): a Quick Look of a picture or a PDF tapped, or Markup and
+    /// Reply's (B-176), begun as each opens; an earlier one, or one of a
+    /// file Quick Look marks nothing on, never begun, has none.
+    func testOnlyThePreviewOpenedForMarkupHasMarkup() {
         var markup = MarkupReply()
         XCTAssertFalse(markup.marks(in: first), "none under way")
         _ = markup.begin(first)
         XCTAssertTrue(markup.marks(in: first))
-        XCTAssertFalse(markup.marks(in: second), "a tap's Quick Look")
+        XCTAssertFalse(markup.marks(in: second), "a preview never begun")
         _ = markup.saved(copy(1), from: first, at: date)
         XCTAssertTrue(markup.marks(in: first), "a copy saved, still up")
         XCTAssertEqual(markup.closed(first, at: date + 1), copy(1))
@@ -338,6 +340,71 @@ final class MarkupReplyTests: XCTestCase {
         MarkupReply.letGo(nil)
     }
 
+    // MARK: - A file tapped, a PDF held (B-176)
+
+    /// Quick Look of a picture or a PDF has Markup, tapped or held, as
+    /// Mail's tapped Quick Look had its Markup button on the test iPad
+    /// (round r6-i-compare, C-13b), and what he draws there goes in a Reply
+    /// as Markup and Reply's does: a picture of any kind, a PDF by its
+    /// kind, with a parameter or in any case, or sent with no kind but its
+    /// name. Any other file has none, as before.
+    func testATappedPictureOrPDFIsMarkedUp() {
+        func file(_ type: String, _ name: String = "a") -> Attachment {
+            Attachment(id: "2", filename: name, mimeType: type, size: 1)
+        }
+        for f in [file("image/jpeg"), file("image/heic"), file("IMAGE/PNG"), file("image/tiff"),
+                  file("application/pdf"), file("Application/PDF; name=\"R6 B-170 pdf.pdf\""),
+                  file("application/octet-stream", "R6 B-170 pdf.PDF")] {
+            XCTAssertTrue(MarkupReply.marksUp(f), f.mimeType)
+        }
+        for f in [file("application/msword", "a.doc"), file("text/calendar", "a.ics"), file("video/mp4"),
+                  file("application/octet-stream", "a.docx"), file("application/zip", "a.pdf.zip"), file("")] {
+            XCTAssertFalse(MarkupReply.marksUp(f), f.mimeType + " " + f.filename)
+        }
+        XCTAssertEqual(PanePictures.pdfMenu.map(\.title),
+                       ["Quick Look", "Markup and Reply", "Save to Files", "Share", "Copy"])
+        XCTAssertEqual(PanePictures.menu(for: file("application/octet-stream", "scan.pdf")), PanePictures.pdfMenu)
+        XCTAssertEqual(PanePictures.menu(for: file("application/msword", "a.doc")), PanePictures.fileMenu)
+    }
+
+    /// A PDF marked up goes in the reply as it came from Quick Look, a PDF
+    /// under its own name and kind, a file of the letter: no JPEG is made
+    /// of it, as one is of a HEIC. Its row is no picture of the letter's,
+    /// so it goes as a file, and her own PDF is not sent back.
+    func testAMarkedUpPDFGoesInTheReplyAsAFile() throws {
+        let lookup: (String) -> String? = { [kinds] in
+            $0.lowercased() == "pdf" ? "application/pdf" : kinds[$0.lowercased()]
+        }
+        let saved = directory.appendingPathComponent("R6 B-170 pdf.pdf")
+        try Data("%PDF marked".utf8).write(to: saved)
+        let made = MarkupReply.picture(original: "R6 B-170 pdf.pdf", originalType: "application/pdf",
+                                       copy: saved, lookup: lookup)
+        XCTAssertEqual(made, .init(name: "R6 B-170 pdf.pdf", mimeType: "application/pdf", jpegName: nil))
+        XCTAssertEqual(MarkupReply.picture(original: "scan", originalType: "application/pdf",
+                                           copy: directory.appendingPathComponent("scan"), lookup: lookup),
+                       .init(name: "scan", mimeType: "application/pdf", jpegName: nil), "no extension")
+        let row = try MarkupReply.stage(saved, as: made, jpeg: { _ in
+            XCTFail("no JPEG of a PDF")
+            return Data("jpeg".utf8)
+        })
+        defer { MarkupReply.letGo(row) }
+        guard case let .localFile(url) = row.source else { return XCTFail("\(row.source)") }
+        XCTAssertEqual(try Data(contentsOf: url), Data("%PDF marked".utf8))
+        XCTAssertEqual(row.filename, "R6 B-170 pdf.pdf")
+        XCTAssertEqual(row.mimeType, "application/pdf")
+        XCTAssertFalse(row.isBodyPicture)
+
+        let m = original()
+        var reply = Draft.replying(to: m, all: false, mine: OwnAddresses(["sam@example.com"]), signature: sig)
+        reply.attachments.append(row)
+        let account = MailAccount(address: "sam@example.com", username: "sam@example.com",
+                                  displayName: "Sam Example", signature: sig, signatureHTML: "")
+        let letter = AppleMailHTML.letter(for: reply, account: account, pictureID: { "PHOTO-1" })
+        XCTAssertEqual(letter.files, [row])
+        XCTAssertEqual(letter.bodyPictures, [])
+        XCTAssertTrue(letter.pictures.isEmpty, "her own picture is not sent back")
+    }
+
     // MARK: - The reply
 
     /// The reply is the app's own Reply to the letter, as the pane makes it
@@ -394,8 +461,9 @@ final class MarkupReplyTests: XCTestCase {
 
     /// The pane, read: the item opens Quick Look full screen with the pane
     /// as its delegate, as a tap's is, the marking up begun in it
-    /// and the letter and picture held; its editing makes a copy, and any
-    /// other preview's is off, so a tap's has no Markup button; each copy
+    /// and the letter and picture held, as in a tap's of a picture or a
+    /// PDF (B-176); its editing makes a copy, and any other preview's is
+    /// off; each copy
     /// is staged with the kind its name says, a JPEG made at the share
     /// sheet's quality, and goes through `MarkupReply` with the Quick Look
     /// it came from; Quick Look closed, the reply. The reply is
@@ -406,20 +474,16 @@ final class MarkupReplyTests: XCTestCase {
     func testThePaneOpensMarkupAndHandsTheCopyToAReply() throws {
         let pane = try source("Sources/Blackmail/UI/MessageDetailViewController.swift")
         for wiring in [
-            "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
-                + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
-                + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
-                + "handedOver = true present(preview, animated: true, completion: ready) "
-                + "case .quickLook, .saveImage, .copy:",
+            "case .quickLook, .markupAndReply, .saveImage, .copy: let preview = QLPreviewController() "
+                + "preview.dataSource = self preview.delegate = self preview.modalPresentationStyle = .fullScreen "
+                + "if use == .markupAndReply || MarkupReply.marksUp(attachment) { "
+                + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) } "
+                + "handedOver = true present(preview, animated: true, completion: ready) }",
             "case .quickLook, .markupAndReply, .saveToFiles, .share: break",
             "extension MessageDetailViewController: QLPreviewControllerDelegate { "
                 + "func previewController(_ controller: QLPreviewController, "
                 + "editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode { "
                 + "markup.marks(in: ObjectIdentifier(controller)) ? .createCopy : .disabled }",
-            // A tap's Quick Look has the pane as its delegate too, which
-            // gives it no Markup (found on the test iPad, 2026-10-27).
-            "case .quickLook, .saveImage, .copy: let preview = QLPreviewController() preview.dataSource = self "
-                + "preview.delegate = self preview.modalPresentationStyle = .fullScreen",
             "guard let picture = marking?.picture else { return } "
                 + "let made = MarkupReply.picture(original: picture.filename, originalType: picture.mimeType, "
                 + "copy: modifiedContentsURL, lookup: { UTType(filenameExtension: $0)?.preferredMIMEType })",
@@ -443,9 +507,10 @@ final class MarkupReplyTests: XCTestCase {
         ] {
             XCTAssertTrue(pane.contains(wiring), wiring)
         }
-        XCTAssertEqual(count("preview.delegate = self", in: pane), 2, "Markup and Reply's preview, and a tap's")
-        XCTAssertEqual(count(".createCopy", in: pane), 1, "Markup to Markup and Reply's preview alone")
-        XCTAssertEqual(count("QLPreviewController()", in: pane), 2)
+        XCTAssertEqual(count("preview.delegate = self", in: pane), 1, "every preview's, one branch")
+        XCTAssertEqual(count(".createCopy", in: pane), 1, "Markup to the preview `marks` names alone")
+        XCTAssertEqual(count("QLPreviewController()", in: pane), 1)
+        XCTAssertEqual(count("markup.begin(", in: pane), 1)
         XCTAssertEqual(count("PanePictures.menu", in: pane), 2,
                        "a held picture's menu, and a held tile's (B-170; int19)")
         XCTAssertEqual(count("landing: [copy]", in: pane), 1)

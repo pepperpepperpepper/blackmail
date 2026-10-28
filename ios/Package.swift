@@ -39,6 +39,9 @@ let package = Package(
                 // reads the one it was opened with. Named for the reason
                 // the overlay above is.
                 .linkedFramework("Intents", .when(platforms: [.iOS])),
+                // SafariServices, for Add to Reading List in a held link's
+                // menu (B-176, `LinkMenu`): Safari's Reading List.
+                .linkedFramework("SafariServices", .when(platforms: [.iOS])),
             ]
         ),
         .executableTarget(

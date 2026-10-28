@@ -154,6 +154,18 @@ enum AttachmentStore {
         #endif
     }
 
+    /// The title Quick Look shows over a file written here (B-176): its
+    /// name as the letter sent it, made safe, extension and all, as Mail's
+    /// Quick Look shows "R6 B-170 pdf.pdf" (the test iPad, 2026-10-27).
+    /// Handed only a URL, Quick Look showed the name without its extension.
+    /// The name `write` gave the file, which is the sent one made safe
+    /// (`safeFilename`); nil for a URL with none, which Quick Look titles
+    /// as it would.
+    static func title(of written: URL) -> String? {
+        let name = written.lastPathComponent
+        return name.isEmpty || name == "/" ? nil : name
+    }
+
     /// Where a file of that name is to be written, in a directory of its
     /// own made for it, as `write` and `copy` place theirs: for a file
     /// written straight onto the disk by someone else, the share

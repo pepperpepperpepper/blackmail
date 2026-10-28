@@ -3,7 +3,11 @@ import Foundation
 /// Markup and Reply on a picture held in a letter (B-171), as Mail's menu
 /// for a file of the letter's has it, second, after Quick Look: the picture
 /// opened in iOS's own Markup, and what he draws on it put in a Reply to
-/// the letter, under his words, as a photo he adds goes (B-109).
+/// the letter, under his words, as a photo he adds goes (B-109). And, as
+/// Mail has them (B-176), on a PDF held, the marked-up PDF going in the
+/// Reply as a file, and in the Quick Look of a picture or a PDF tapped,
+/// with its Markup button, what he draws going in a Reply as Markup and
+/// Reply's does (`marksUp`).
 ///
 /// Mail's own is the private MarkupUI, which MobileMailUI soft-links for
 /// its "Markup and Reply" (`MARKUP_DOCUMENT`, iOS 18.6); an app has no way
@@ -67,10 +71,13 @@ struct MarkupReply: Equatable {
         return unused
     }
 
-    /// Whether Quick Look `preview` has Markup: the one a picture was
-    /// opened in for Markup and Reply (`begin`), while it is up. Any other,
-    /// a tap's or the held menu's Quick Look, has none, as Mail's Quick
-    /// Look of a picture in a letter has none (B-171).
+    /// Whether Quick Look `preview` has Markup: the one a file was last
+    /// opened in for it (`begin`), while it is up: a picture or a PDF
+    /// tapped, or held and opened in Quick Look, as Mail's Quick Look of a
+    /// file tapped in a letter has its Markup button (the test iPad,
+    /// 2026-10-27, B-176), or opened for Markup and Reply. Any other has
+    /// none. fix-i1 had it for Markup and Reply's alone (B-171), from the
+    /// belief that Mail's tapped Quick Look had none.
     func marks(in preview: ObjectIdentifier) -> Bool {
         if case let .marking(open, _) = state { return open == preview }
         return false
@@ -128,6 +135,21 @@ struct MarkupReply: Equatable {
         }
     }
 
+    /// Whether Quick Look marks up `file`, and a tap's Quick Look of it has
+    /// Markup, what he draws going in a Reply as Markup and Reply's does
+    /// (B-176): a picture, or a PDF, by its kind or, sent with no kind of
+    /// its own, by its name. Any other file, a Word document say, opens in
+    /// Quick Look as it did, with no Markup.
+    static func marksUp(_ file: Attachment) -> Bool {
+        let kind = file.mimeType.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false).first
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() } ?? ""
+        if kind.hasPrefix("image/") || kind == pdf { return true }
+        return kind == AttachmentStore.octetStream && file.filename.lowercased().hasSuffix(".pdf")
+    }
+
+    /// A PDF's kind.
+    static let pdf = "application/pdf"
+
     // MARK: - The copy
 
     /// What the copy goes in the reply as: its name and its kind as it
@@ -145,10 +167,12 @@ struct MarkupReply: Equatable {
     /// (`lookup`), or the picture's own where it names none.
     ///
     /// A JPEG, PNG or GIF goes as it is, and in the letter under his words
-    /// (`DraftAttachment.isBodyPicture`); any other kind, a HEIC say, is
+    /// (`DraftAttachment.isBodyPicture`); any other picture, a HEIC say, is
     /// made a JPEG of first, under the same name ending ".jpg", so that it
     /// goes there too, where every mail program shows it, as his Apple
-    /// Mail letters' pictures went (B-109).
+    /// Mail letters' pictures went (B-109). A PDF marked up (B-176), or any
+    /// other file that is no picture, goes as it is, a file, under its
+    /// name and kind: no JPEG is made of a page.
     static func picture(original: String, originalType: String, copy: URL,
                         lookup: (String) -> String?) -> Picture {
         let base = AttachmentStore.safeFilename(original)
@@ -159,6 +183,7 @@ struct MarkupReply: Equatable {
         if type == AttachmentStore.octetStream { type = originalType }
         let kind = type.trimmingCharacters(in: .whitespaces).lowercased()
         let goes = DraftAttachment.bodyPictureTypes.contains(kind)
+        guard goes || kind.hasPrefix("image/") else { return Picture(name: name, mimeType: type, jpegName: nil) }
         return Picture(name: name, mimeType: goes ? kind : type, jpegName: goes ? nil : stem + ".jpg")
     }
 

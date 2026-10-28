@@ -8,6 +8,7 @@ import WebKit
 import QuickLook
 import Photos
 import UniformTypeIdentifiers
+import SafariServices
 
 /// The right column. Never navigates — it only ever swaps content, so nothing
 /// in it moves between one message and the next.
@@ -251,6 +252,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.translatesAutoresizingMaskIntoConstraints = false
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
+        // A link held: WebKit's menu, with Mail's Add to Reading List
+        // (`LinkMenu`, B-176). The only thing the pane asks of it.
+        webView.uiDelegate = self
         webView.scrollView.backgroundColor = Theme.canvas
         webView.backgroundColor = Theme.canvas
         webView.isOpaque = false
@@ -1297,33 +1301,26 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     share.popoverPresentationController?.sourceRect = pictureSpot
                     handedOver = true
                     present(share, animated: true, completion: ready)
-                case .markupAndReply:
-                    // iOS's own Markup on it, in Quick Look, full screen as
-                    // a tap opens it, a copy made of what he draws and the
-                    // picture left as it came (B-171). The pane its
+                case .quickLook, .markupAndReply, .saveImage, .copy:
+                    // A tap's Quick Look, the held menu's, or Markup and
+                    // Reply's (B-171); Save Image and Copy present nothing
+                    // and never come here (`presents`). The pane its
                     // delegate (`QLPreviewControllerDelegate` below), which
-                    // gives Markup to this preview alone.
+                    // gives Quick Look's Markup button to a picture or a
+                    // PDF, as Mail's Quick Look has it (B-176), and what he
+                    // draws goes in a Reply, the picture or the PDF left as
+                    // it came (`MarkupReply`).
                     let preview = QLPreviewController()
                     preview.dataSource = self
-                    preview.delegate = self
-                    preview.modalPresentationStyle = .fullScreen
-                    MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
-                    marking = (m, attachment)
-                    handedOver = true
-                    present(preview, animated: true, completion: ready)
-                case .quickLook, .saveImage, .copy:
-                    // A tap's Quick Look, or the held menu's; Save Image and
-                    // Copy present nothing and never come here (`presents`).
-                    let preview = QLPreviewController()
-                    preview.dataSource = self
-                    // The pane its delegate too, which says it has no
-                    // Markup: with none, Quick Look shows its Markup button
-                    // for the file written here (B-171).
                     preview.delegate = self
                     // Full screen, not a sheet. A scanned letter or a receipt is
                     // the thing he is trying to read, and the whole point of the
                     // iPad is that it can be as large as the glass.
                     preview.modalPresentationStyle = .fullScreen
+                    if use == .markupAndReply || MarkupReply.marksUp(attachment) {
+                        MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
+                        marking = (m, attachment)
+                    }
                     handedOver = true
                     present(preview, animated: true, completion: ready)
                 }
@@ -2192,6 +2189,37 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 }
 
+/// A link held in a letter (B-176): WebKit's own menu, the items it
+/// suggests and its card above them, with Mail's "Add to Reading List"
+/// put in after Open Link (`LinkMenu`), for a page Safari's Reading List
+/// can keep, as Mail's menu has it. Anything else held that WebKit gives a
+/// menu, a picture from the web say, has WebKit's items as they were. No
+/// preview of the delegate's own: WebKit's card is left to WebKit.
+extension MessageDetailViewController: WKUIDelegate {
+
+    func webView(_ webView: WKWebView, contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
+                 completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) {
+        let link = elementInfo.linkURL
+        completionHandler(UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { suggested in
+            var items = suggested
+            let titles = items.map { ($0 as? UIAction)?.title ?? "" }
+            if let link, let at = LinkMenu.place(among: titles, for: link, supports: SSReadingList.supportsURL) {
+                items.insert(UIAction(title: LinkMenu.addToReadingList,
+                                      image: UIImage(systemName: LinkMenu.symbol)) { _ in
+                    // Safari's list, as Mail's item adds to it; a page it
+                    // will not take is said in the log alone.
+                    do {
+                        try SSReadingList.default()?.addItem(with: link, title: nil, previewText: nil)
+                    } catch {
+                        Diagnostics.log(.note, "reading list: not added")
+                    }
+                }, at: at)
+            }
+            return UIMenu(title: "", children: items)
+        })
+    }
+}
+
 /// WebKit's kind of navigation, for `PaneNavigation`: the pane's and a
 /// printed letter's (`LetterPrint`).
 extension PaneNavigation.Kind {
@@ -2220,32 +2248,47 @@ extension MessageDetailViewController: QLPreviewControllerDataSource {
 
     func previewController(_ controller: QLPreviewController,
                            previewItemAt index: Int) -> QLPreviewItem {
-        // `NSURL` conforms to QLPreviewItem already. Never nil while a
-        // preview is up: it is set before one is presented and cleared only
-        // while none is. Not force-unwrapped all the same: asked with none,
-        // QuickLook is handed the empty store, where there is nothing to
-        // show, rather than the app ending.
-        (previewURL ?? AttachmentStore.root) as NSURL
+        // Never nil while a preview is up: it is set before one is
+        // presented and cleared only while none is. Not force-unwrapped all
+        // the same: asked with none, QuickLook is handed the empty store,
+        // where there is nothing to show, rather than the app ending.
+        // Titled with the file's name, extension and all, as Mail's Quick
+        // Look is (B-176): an `NSURL` alone was titled without it.
+        let url = previewURL ?? AttachmentStore.root
+        return PreviewFile(url: url, title: AttachmentStore.title(of: url))
+    }
+}
+
+/// A file Quick Look shows, with its title (`AttachmentStore.title`,
+/// B-176): the URL alone, as `NSURL` is an item, had Quick Look title it
+/// with its name less the extension.
+private final class PreviewFile: NSObject, QLPreviewItem {
+    let previewItemURL: URL?
+    let previewItemTitle: String?
+
+    init(url: URL, title: String?) {
+        previewItemURL = url
+        previewItemTitle = title
     }
 }
 
 /// The delegate of every Quick Look the pane opens (`openAttachment`, B-171):
 /// a tap's, the held menu's Quick Look and Markup and Reply's. Markup, a
 /// copy made of what he draws, only in the preview `MarkupReply.marks`
-/// names, the one opened for Markup and Reply, and none in any other; the
-/// other methods act on that preview alone. What he draws is saved as a
-/// copy, the picture itself left as it came, and the copy goes in the
-/// reply as Quick Look closes (`MarkupReply`). Nothing here touches the
-/// file Quick Look shows (`previewURL`), which goes only as the next file
-/// is written (B-063).
+/// names, the last opened for a picture or a PDF, or for Markup and Reply
+/// (B-176), and none in any other; the other methods act on that preview
+/// alone. What he draws is saved as a copy, the file itself left as it
+/// came, and the copy goes in the reply as Quick Look closes
+/// (`MarkupReply`). Nothing here touches the file Quick Look shows
+/// (`previewURL`), which goes only as the next file is written (B-063).
 extension MessageDetailViewController: QLPreviewControllerDelegate {
 
-    /// Markup on, a copy made of what he draws, in Markup and Reply's
-    /// preview alone: Quick Look's Markup button, as Mail's composer has
-    /// Quick Look's for a file. Any other preview, a tap's, has none
-    /// (`MarkupReply.marks`). With no delegate, as a tap's had none, Quick
-    /// Look on iPadOS 16.5.1 showed its Markup button for the picture
-    /// written to the iPad, editable (the test iPad, 2026-10-27).
+    /// Markup on, a copy made of what he draws, in the preview of a
+    /// picture or a PDF, tapped or held, or opened for Markup and Reply:
+    /// Quick Look's Markup button, as Mail's Quick Look of a file tapped in
+    /// a letter has it (the test iPad, 2026-10-27, round r6-i-compare,
+    /// B-176), where fix-i1 had taken it off a tap's. Any other preview,
+    /// of a file Quick Look marks nothing on, has none (`MarkupReply.marks`).
     func previewController(_ controller: QLPreviewController,
                            editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode {
         markup.marks(in: ObjectIdentifier(controller)) ? .createCopy : .disabled
