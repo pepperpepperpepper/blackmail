@@ -1474,15 +1474,33 @@ actor IMAPMailRepository: MailRepository {
         let jump = IMAPDate.jump(from: date, now: now(), timeZone: calendar.timeZone)
         let previous = orders[name]?.order
         let today = now()
+        let dayStart = calendar.startOfDay(for: date)
+        let notAfter = calendar.date(byAdding: .day, value: IMAPDate.arrivalSlack + 1,
+                                     to: today) ?? today
         let opened = try await client.page(in: name, searching: [jump.pageSearch, "ALL"]) {
             found, asking in
             var order = ArrivalOrder(validity: found[1].validity, listing: found[1].uids,
                                      carrying: previous)
-            guard let anchor = PageWindow.anchor(forMatches: found[0].uids, in: found[1].uids),
+            guard var anchor = PageWindow.anchor(forMatches: found[0].uids, in: found[1].uids),
                   try await order.reach(anchor, asking: asking) else {
                 return (Jumped(order: order, anchor: nil), [])
             }
             try await order.reachDown(below: anchor, count: limit, asking: asking)
+            // Where every row of the window below the letter found arrived
+            // on or after his day, the first of them to arrive is further
+            // down: the window is cut from its lowest row instead, the
+            // order widened below it, and so on, in the same hold
+            // (`PageWindow.anchor(below:…)`). A span's lowest UID in a
+            // label can be that far above the first of its letters to
+            // arrive. Nothing more is asked where the window holds it.
+            for _ in 0..<PageWindow.lowerAnchorsAtMost {
+                guard let lower = PageWindow.anchor(below: anchor, in: order.ascending,
+                                                    limit: limit, arrival: order.arrival(of:),
+                                                    dayStart: dayStart, notAfter: notAfter)
+                else { break }
+                anchor = lower
+                try await order.reachDown(below: anchor, count: limit, asking: asking)
+            }
             try await order.reachUp(above: anchor,
                                     count: PageWindow.newerRowsAboveAnchor + limit,
                                     now: today, asking: asking)
@@ -1518,16 +1536,14 @@ actor IMAPMailRepository: MailRepository {
         // midnight, as the rows show when each arrived (`PageWindow.landing`,
         // `MessageSummary.listDate`, B-178). The anchor is the first to
         // arrive of his day's letters, or the lowest UID of a span's after
-        // it (B-115), so this moves it down from that to the first of the
-        // span's to arrive, where the folder's UIDs do not follow its
-        // arrivals; and up from a letter that says it arrived more than a
-        // week ahead, or for a day a week or more ahead, asked as before.
+        // it (B-115), or the row the hold moved it down to, so this moves
+        // it down from that to the first of the span's to arrive, where
+        // the folder's UIDs do not follow its arrivals; and up from a
+        // letter that says it arrived more than a week ahead, or for a day
+        // a week or more ahead, asked as before.
         // By the Date, the day's letters that were dated another day were
         // dropped and a span's letter dated long before was landed short
         // of the day, and the jump said "No mail on or after" (2026-10-28).
-        let dayStart = calendar.startOfDay(for: date)
-        let notAfter = calendar.date(byAdding: .day, value: IMAPDate.arrivalSlack + 1,
-                                     to: now()) ?? now()
         let landedIndex = PageWindow.landing(
             dates: rows.map(\.listDate), anchor: anchorRow,
             dayStart: dayStart, notAfter: notAfter)

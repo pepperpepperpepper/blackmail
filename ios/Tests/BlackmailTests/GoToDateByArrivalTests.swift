@@ -168,6 +168,56 @@ final class GoToDateByArrivalTests: XCTestCase {
         XCTAssertEqual(all.map(\.listDate), all.map(\.listDate).sorted(by: >))
     }
 
+    /// The same with a window that holds one row below the letter the span
+    /// found: that row is "labelled late", which arrived on the 9th, and
+    /// the landing stopped on it, "Showing October 9", the window going no
+    /// further. The window is cut lower in the jump's hold, down to "came
+    /// old", which arrived on the 8th, and the pages either side are in
+    /// order, every letter once.
+    func testADayWithNoMailLandsOnTheFirstToArriveBelowTheWindow() async throws {
+        let repository = makeRepository()
+        let found = try await repository.messages(around: picked("2026-10-03"), in: "inbox", limit: 3)
+        let window = try XCTUnwrap(found)
+        XCTAssertEqual(window.messages[window.anchorIndex].subject, "came old")
+        XCTAssertEqual(day(window.landedOn), 8)
+        let rows = MessageThread.rows(for: window.messages, grouped: true)
+        let opened = try XCTUnwrap(ListOpening.dayRow(in: rows, for: window))
+        XCTAssertEqual(rows[opened.row].subject, "came old")
+        XCTAssertEqual(day(opened.shown), 8)
+        let above = try await repository.listMessages(in: "inbox", afterUID: window.messages.first!.id,
+                                                      limit: 50)
+        let below = try await repository.listMessages(in: "inbox", beforeUID: window.messages.last!.id,
+                                                      limit: 50)
+        let all = above + window.messages + below
+        XCTAssertEqual(all.count, 38)
+        XCTAssertEqual(Set(all.map(\.id)).count, 38)
+        XCTAssertEqual(all.map(\.listDate), all.map(\.listDate).sorted(by: >))
+    }
+
+    /// Where the window is cut lower: from its lowest row, only where that
+    /// row and the letter found both arrived on or after his day and no
+    /// later than a week ahead; never with no row below the letter in it.
+    func testTheWindowIsCutLowerOnlyWhereItsLowestRowArrivedOnOrAfterTheDay() {
+        let arrived: [UInt32: Date] = [1: instant("2026-09-30T12:00:00Z"),
+                                       2: instant("2026-10-08T16:00:00Z"),
+                                       3: instant("2026-10-09T15:00:00Z"),
+                                       4: instant("2026-10-10T15:00:00Z"),
+                                       5: instant("2026-11-30T15:00:00Z")]
+        let ascending: [UInt32] = [1, 2, 3, 4, 5]
+        let dayStart = Self.newYork.startOfDay(for: picked("2026-10-03"))
+        let notAfter = instant("2026-11-05T13:30:00Z")
+        func lower(_ anchor: UInt32, limit: Int) -> UInt32? {
+            PageWindow.anchor(below: anchor, in: ascending, limit: limit,
+                              arrival: { arrived[$0] }, dayStart: dayStart, notAfter: notAfter)
+        }
+        XCTAssertEqual(lower(4, limit: 3), 3)
+        XCTAssertEqual(lower(3, limit: 3), 2)
+        XCTAssertNil(lower(2, limit: 3), "the row below arrived before the day")
+        XCTAssertNil(lower(4, limit: 1), "no row below the letter in the window")
+        XCTAssertNil(lower(1, limit: 3), "the letter found is the oldest, no row below it")
+        XCTAssertNil(lower(5, limit: 3), "the letter found arrived more than a week ahead")
+    }
+
     /// On the wire, his day by arrival: `SINCE` and `BEFORE`, Gmail's 28th
     /// and 29th, which hold his 28th, and nothing by the Date; one SEARCH
     /// and one FETCH of its letter's dates.

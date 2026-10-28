@@ -206,6 +206,39 @@ enum PageWindow {
         return ascending.first { $0 >= oldestMatch }
     }
 
+    /// How many times a jump moves its anchor down a window towards the
+    /// first letter to arrive on or after the day (`anchor(below:in:limit:
+    /// arrival:dayStart:notAfter:)`): at a page of fifty, thirty-nine rows
+    /// a time, so as far as 780 rows below the letter the SEARCH found,
+    /// each move widening the order as a page below does, in the jump's
+    /// hold.
+    static let lowerAnchorsAtMost = 20
+
+    /// Where a jump's window is cut from in place of `anchor`, the letter
+    /// its SEARCH found, in `ascending`, the order the letters arrived in
+    /// (B-178): the lowest row of the window around `anchor`, when it and
+    /// `anchor` arrived on or after his midnight, `dayStart`, and no later
+    /// than `notAfter`, a week after today. In that order every row between
+    /// the two arrived on or after his day as well, and the first of them
+    /// to arrive, where `landing` goes down to, can be further down than
+    /// the window goes. A span's lowest UID can be that far above it in a
+    /// label, its UIDs going by when the label was put on: the landing
+    /// stopped at the window's last row, and "Showing" named a later day.
+    /// Nil where the window holds a row below `anchor` that arrived before
+    /// his day, which is the first to arrive's, or no row below it.
+    static func anchor(below anchor: UInt32, in ascending: [UInt32], limit: Int,
+                       arrival: (UInt32) -> Date?, dayStart: Date,
+                       notAfter: Date) -> UInt32? {
+        func onOrAfterHisDay(_ uid: UInt32) -> Bool {
+            guard let arrived = arrival(uid) else { return false }
+            return arrived >= dayStart && arrived <= notAfter
+        }
+        let around = window(around: anchor, in: ascending, limit: limit)
+        guard let lowest = around.uids.last, lowest != anchor,
+              onOrAfterHisDay(anchor), onOrAfterHisDay(lowest) else { return nil }
+        return lowest
+    }
+
     /// Where the anchor is among the rows the jump's FETCH brought, `fetched`
     /// their UIDs, newest first as the window has them: the anchor's own
     /// row, or with the server having left it out of the FETCH, the nearest
@@ -249,10 +282,13 @@ enum PageWindow {
     /// none is below it. Of a span's after it, the anchor is the lowest UID
     /// matched, which in a label or a folder with letters moved in can have
     /// arrived after others the span matched, which are below it in the
-    /// list: the landing goes down to the first of them to arrive, as far
-    /// as the window goes below. It went down only over his first hours
-    /// east of Greenwich while a jump went by the Date, a row below dated
-    /// later being one dated wrong; by arrival a row is where it arrived.
+    /// list: the landing goes down to the first of them to arrive, the
+    /// window having been cut lower where that is further down than the
+    /// window around the anchor went (`anchor(below:in:limit:arrival:
+    /// dayStart:notAfter:)`), as far as `lowerAnchorsAtMost` windows
+    /// down. It went down only over his first hours east of Greenwich
+    /// while a jump went by the Date, a row below dated later being one
+    /// dated wrong; by arrival a row is where it arrived.
     ///
     /// Gmail counts a day from midnight UTC, not from his midnight (B-058,
     /// seen on the iPad). An anchor that arrived before his day, which the
