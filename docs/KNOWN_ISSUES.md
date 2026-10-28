@@ -38351,7 +38351,7 @@ Comments still telling the old asking and read-mark rules were reworded
 3 of the plan counts More's words and order as copied, its look as kept.
 No layout changed.
 
-## B-176 — FIXED 2026-10-27, not yet seen on the iPad. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
+## B-176 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, its ring turning from its first frame the same day, not yet seen there since. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
 
 Built in the `bm-cmp-e` worktree (branch `copy-cmp-e`), off int20 at
 b9afe64. Batch E of the comparison plan of 2026-10-27
@@ -38663,6 +38663,99 @@ connection, are let in between two files and never cut into one, and
 nothing is fetched twice; B-170's tiles are the ones drawn, in B-169's
 and B-173's colours; the tiles of a letter in a pane dimmed by B-174's
 Edit mode are as any of its words, dimmed with it.
+
+**Found on the test iPad, 2026-10-28**, in round r6-j-files, on the
+int21 build (1873724), steps 1 to 7 of the check, step 6 recorded at 60
+frames a second; one FAIL, a PASS its audit contradicted, and the FAIL
+seen again in a second run from a fresh launch on new letters.
+
+*The ring stood still* (step 6, "B-176 large" opened). The log had its
+structure, its words, its two photos and then its PDF's section, with no
+tap, and the PDF's tile was drawn 0.48 s after the row's tap with the
+ring in its icon's place and "Downloading", no "Tap to Download" in any
+frame. But the ring's arc was the same, pixel for pixel, in every frame
+of the second the tile was in sight, until photo 1, laid out at 1.57 s,
+pushed the tile below the pane; and so at each of the four openings
+recorded. The ring a tap draws turned, once a second. The second run
+made a letter whose tile stays in sight, its PDF before its photo: its
+ring stood still for 1.5 s while the photo came, and turned from the
+frame the photo was laid out, once in 0.98 s, until the PDF had come,
+the icon then back and the name and the size unmoved.
+
+*The cause.* The ring (`BodyFiles.ring`) turned by SMIL, an
+`<animateTransform>` on its arc. WebKit starts the animations of SVG
+parsed with a page only at the page's load event, and the page's load
+waits for the letter's pictures, which the loader answers only once each
+part has been fetched, 1.1 to 1.4 s each there; a ring a tap puts in by
+script (`bmFileBusy`), after the load, starts by itself. So the ring
+stood still for as long as it was in sight.
+
+*Changed.* The ring turns by CSS: its drawing's own `<style>` holds the
+keyframes of a rotation, `bm-file-turn` (`BodyFiles.ringTurn`), and the
+rule that gives the drawing `animation: bm-file-turn 1s linear
+infinite`, which runs as soon as the tile is styled, the load event or
+not. In the drawing, so the ring drawn with a letter's page or a stack's
+body and the one a tap puts in by script both carry them, and no page's
+head needs a rule. The whole drawing turns about its middle, the
+circle's centre (18.5, 24 in its 37 by 48 box), so the grey circle
+turned looks as it was and the arc turns as before, once a second; the
+SMIL is gone. The drawing's box, size and place, its circle and its arc
+are as they were, and nothing else in the tile changed. On paper no ring
+is drawn, as before.
+
+*Not changed: the files after the pictures.* The PDF waited for the
+photos too, its FETCH after both of theirs: the fetches ahead are asked
+when the letter's page has finished loading (`webView(_:didFinish:)`,
+`fetchAhead`). That is as E6 has it, the files fetched "as such a
+letter's own page has loaded", a picture not among them because the page
+asks for it: the words, then the pictures, then the files, one at a time
+on the one connection. Whether Mail asks its files before its pictures
+was not compared: in C-13e, at +3 s, Mail had the PDF and one photo
+drawn while the other photo still came.
+
+*The tap and the next letter* (step 6, the PDF's tile tapped while it
+said "Downloading", then at once "B-176 pdf"). The round wrote "no FETCH
+of the large PDF section at all"; its own log has one. The tile was
+tapped at 06:27:04.6, at its early place, while the FETCH of photo 1 was
+on the wire; photo 2's went at 04.654, as photo 1's ended; "B-176 pdf"
+was shown at 05.098, from the copy kept on the iPad; photo 2's ended at
+06.175, and the large letter's PDF section was asked at 06.176, 1.1 s
+after the other letter was shown, and came in 0.2 s. Nothing opened over
+"B-176 pdf", nothing was said, and `tmp/Attachments` had no copy of the
+PDF.
+
+*Why: as designed.* That FETCH was the tap's, asked before the pane
+moved on. Tapped before its letter's page had finished, the file was one
+to come not yet asked for (`FilesAhead.taking(_:planned:)`,
+`.fetch(lands: true)`), and `fileData` asked the repository for it at
+once, with nothing awaited before; the client put the command in its
+interactive line behind photo 2's, which the page had asked for first,
+and sent it as photo 2's ended. A tap's download is not called off when
+the pane moves on (B-122): it ends and is let go, nothing shown, written
+or said, as here. What 60d5671 stopped is a fetch begun after a wait for
+a fetch ahead once the pane has moved on; the fetches ahead are
+themselves called off (`letAheadGo`), and a command of theirs still
+waiting leaves the client's line. The check's "no FETCH of the large
+letter's PDF after 'B-176 pdf''s words" was wrong for a tap made while
+the photos came: it now allows that one FETCH, the tap's, and nothing
+else of the large letter.
+
+*Tests.* `FilesAheadTests`, two new: the ring turned by its own CSS, no
+SMIL, no script, its box, circle and arc as before, the same drawing on
+a letter's page, in a stack's body and in a tap's script, the tap's run
+on the model of the page, none on paper; and, read from the pane, a tap
+before the page finished asked of the repository with nothing awaited
+but a fetch ahead's wait, its task kept by nothing, and only the fetches
+ahead called off. `testItsTileSaysDownloadingWithTheRing` reads the CSS
+turn where it read SMIL's repeat. Undone by hand, the ring as it was: 7
+failures in 2 tests, each an assertion's; the tap's fetch made to wait a
+turn first and the tap's task called off with the fetches ahead: 4
+failures in 2 tests, each an assertion's. Put back, passing. The full
+suite: 3,146 tests, 6 skipped, none failing; the release build for the
+iPad: "Build complete".
+
+*Layout.* None changed: the ring is drawn where it was, at its size, and
+turns.
 
 ## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 
