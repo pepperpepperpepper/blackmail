@@ -414,6 +414,59 @@ final class EditModeLikeMailTests: XCTestCase {
         XCTAssertTrue(flat(cell).contains("selectedBackgroundView = selectedGround"))
     }
 
+    /// From iOS 17 UIKit draws the tick's check white on a disc in the
+    /// tint, white on white in a ticked row's white tint, so the row draws
+    /// its own over it: the check in the row's blue on a white disc,
+    /// inside UIKit's edit control at UIKit's frame and size, hidden on a
+    /// row not ticked, moving nothing (B-174, the iOS 17.5 and 18.6
+    /// simulators). Behind a run-time check of 17, so 16 runs the old path
+    /// alone: the white tint and nothing else.
+    func testFromIOS17TheRowDrawsItsOwnTickOverUIKits() throws {
+        let cell = try source("UI/MessageCell.swift")
+        let code = flat(cell)
+        XCTAssertFalse(cell.contains("#available"))
+        XCTAssertTrue(code.contains("private static let drawsOwnTick = ProcessInfo.processInfo"
+                                    + ".isOperatingSystemAtLeast( OperatingSystemVersion(majorVersion: 17, "
+                                    + "minorVersion: 0, patchVersion: 0))"))
+        XCTAssertTrue(code.contains("private static let tickPalette = "
+                                    + "UIImage.SymbolConfiguration(paletteColors: [Theme.tintBlue, .white])"),
+                      "[check, disc]: the row's blue on white")
+        XCTAssertTrue(code.contains("private lazy var tickMark: UIImageView = { let mark = UIImageView() "
+                                    + "mark.isUserInteractionEnabled = false mark.isHidden = true return mark }()"),
+                      "made only when first asked for, so never on 16")
+
+        let layout = flat(body(after: "override func layoutSubviews()", in: cell))
+        XCTAssertTrue(layout.hasPrefix("{ super.layoutSubviews() if Self.drawsOwnTick { placeTick() } "))
+        let colour = flat(body(after: "private func colour()", in: cell))
+        XCTAssertTrue(colour.contains("tintColor = ticks ? .white : nil if Self.drawsOwnTick { "
+                                      + "tickMark.isHidden = !ticked setNeedsLayout() } let grey = self.grey"),
+                      "the tint as on 16, and the tick shown or hidden before the early return")
+
+        let place = flat(body(after: "private func placeTick()", in: cell))
+        inOrder(["guard ticked, let control = subviews.first(where: { $0 is UIControl }),",
+                 "let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark }) "
+                    + "as? UIImageView else { tickMark.isHidden = true return }",
+                 "if tickMark.superview !== control { control.addSubview(tickMark) } "
+                    + "else { control.bringSubviewToFront(tickMark) }",
+                 "tickMark.preferredSymbolConfiguration = drawn.preferredSymbolConfiguration",
+                 "tickMark.image = UIImage(systemName: \"checkmark.circle.fill\", "
+                    + "withConfiguration: Self.tickPalette)",
+                 "tickMark.frame = drawn.frame",
+                 "tickMark.isHidden = false"], in: place)
+        for moved in ["drawn.frame =", "control.frame", "drawn.isHidden", "drawn.image ="] {
+            XCTAssertFalse(place.contains(moved), "nothing of UIKit's is touched: \(moved)")
+        }
+
+        // Everything of the row's own tick is behind the check: the tick
+        // reached in `colour` and `placeTick` alone, `placeTick` called in
+        // `layoutSubviews` alone, each behind `drawsOwnTick`.
+        XCTAssertEqual(count("placeTick()", in: code), 2, "its declaration and its one call")
+        XCTAssertEqual(count("if Self.drawsOwnTick {", in: code), 2)
+        XCTAssertEqual(count("tickMark", in: code), count("tickMark", in: place) + 2,
+                       "its declaration and colour's one use besides placeTick's")
+        XCTAssertEqual(count("drawsOwnTick", in: code), 3)
+    }
+
     // MARK: - Reading the source
 
     private func source(_ file: String) throws -> String {
@@ -447,6 +500,10 @@ final class EditModeLikeMailTests: XCTestCase {
         }
         XCTFail("unclosed \(opener)", file: file, line: line)
         return ""
+    }
+
+    private func count(_ needle: String, in text: String) -> Int {
+        text.components(separatedBy: needle).count - 1
     }
 
     private func flat(_ text: String) -> String {
