@@ -439,6 +439,14 @@ enum BodyFiles {
     /// fetched. The ring the tile was drawn with gives way to the icon. A
     /// tile shown coming for a tap meanwhile (`Busy`) is left as it is, and
     /// is put back so.
+    ///
+    /// A letter's own page asks for its files as WebKit is given it, and a
+    /// file can come before the page's own script has run, at its
+    /// document's end: `bmFileLanded` is not yet defined, and the call
+    /// would throw and be lost. So the script, finding no `bmFileLanded`,
+    /// keeps what it was given in `bmFilesWaiting`, and the page's script
+    /// tells those tiles as it ends (`ConversationDocument.script`). Before
+    /// WebKit has committed the page, the pane holds it (`PaneDocument.tile`).
     struct Landed: Equatable {
         let link: String
         let icon: String
@@ -451,7 +459,8 @@ enum BodyFiles {
         }
 
         /// What `callAsyncJavaScript` runs, in the app's content world.
-        static let script = "bmFileLanded(link, icon, words)"
+        static let script = "if (typeof bmFileLanded === 'function') bmFileLanded(link, icon, words); "
+            + "else (window.bmFilesWaiting = window.bmFilesWaiting || []).push([link, icon, words]);"
 
         var arguments: [String: Any] { ["link": link, "icon": icon, "words": words] }
     }

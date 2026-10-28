@@ -57,7 +57,10 @@ import Foundation
 /// script's own pins, read from its source, still hold it.
 enum ModelPage {
 
-    /// One thing done to the page at `at` milliseconds.
+    /// One thing done to the page at `at` milliseconds; at less than 0,
+    /// before the page's own script has run, in their order, as the pane's
+    /// script can run once WebKit has committed the page and before its
+    /// document's end, where the user script is put in (B-176).
     struct Step: Encodable {
         let at: Int
         let action: String
@@ -779,11 +782,13 @@ enum ModelPage {
     const meta = /<meta name="bm-opens" content="([^"]*)">/.exec(page);
     if (meta) head.appendChild(new Element('meta', { name: 'bm-opens', content: meta[1] }));
     body.innerHTML = page.slice(page.indexOf('<body>') + 6, page.lastIndexOf('</body>'));
+    for (const step of INPUT.steps.filter(function (s) { return s.at < 0; })
+                                  .sort(function (a, b) { return a.at - b.at; })) act(step);
     vm.runInThisContext(INPUT.script);
     dispatch('load', {});
     frame();
 
-    const steps = INPUT.steps.slice().sort(function (a, b) { return a.at - b.at; });
+    const steps = INPUT.steps.filter(function (s) { return s.at >= 0; }).sort(function (a, b) { return a.at - b.at; });
     let nextFrame = FRAME;
     for (let turns = 0; ; turns++) {
       if (turns > 100000) throw new Error('the page never settles');

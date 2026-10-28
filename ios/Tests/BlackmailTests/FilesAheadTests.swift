@@ -92,7 +92,9 @@ final class FilesAheadTests: XCTestCase {
         XCTAssertEqual(landed.words, "\u{00A0}", "says nothing, its line kept")
         XCTAssertEqual(BodyFiles.saysNothing.unicodeScalars.map(\.value), [0xA0], "a no-break space, never collapsed")
         XCTAssertEqual(BodyFiles.Landed(pdf, of: m.id, inHand: false).words, "Tap to Download")
-        XCTAssertEqual(BodyFiles.Landed.script, "bmFileLanded(link, icon, words)")
+        XCTAssertEqual(BodyFiles.Landed.script,
+                       "if (typeof bmFileLanded === 'function') bmFileLanded(link, icon, words); "
+                       + "else (window.bmFilesWaiting = window.bmFilesWaiting || []).push([link, icon, words]);")
     }
 
     /// The ring turns from its first frame, the one drawn with the page
@@ -271,7 +273,7 @@ final class FilesAheadTests: XCTestCase {
         let pane = try source("UI/MessageDetailViewController.swift")
         for wiring in [
             "loads.superseded = { [weak self] in self?.letAheadGo() }",
-            "if let id = finished.letter, case let .letter(m, _) = document.content, m.id == id { fetchAhead(m) }",
+            "load(page, as: .letter(m, page: page)) fetchAhead(m) }",
             "if let m = loaded.values.first(where: { ConversationDocument.sectionID(for: $0.id) == fill.sectionID }) "
                 + "?? related.letter(inSection: fill.sectionID) { fetchAhead(m) }",
             "for file in FilesAhead.planned(m) { let key = FilesAhead.Key(letter: m.id, part: file.id) "
@@ -299,7 +301,8 @@ final class FilesAheadTests: XCTestCase {
                 + "ErrorPresenter.show(.attachmentFailed, on: self) }",
             "for fetch in aheadFetches.values { fetch.cancel() } aheadFetches = [:] aheadLast?.cancel() "
                 + "aheadLast = nil for url in ahead.forget() { AttachmentStore.removeStaged(url) }",
-            "private func run(_ landed: BodyFiles.Landed) { "
+            "private func run(_ landed: BodyFiles.Landed) { guard let landed = document.tile(landed) "
+                + "else { return } tell(landed) } private func tell(_ landed: BodyFiles.Landed) { "
                 + "webView.callAsyncJavaScript(BodyFiles.Landed.script, arguments: landed.arguments, "
                 + "in: nil, in: .defaultClient) }",
         ] {
@@ -309,8 +312,6 @@ final class FilesAheadTests: XCTestCase {
                        "the ahead fetch, a tap's in fileData, and the loader's")
         let loads = try source("Mail/PaneLoads.swift")
         XCTAssertTrue(loads.contains("running = [:] for task in called { task.cancel() } superseded?() }"))
-        let document = try source("Mail/PaneDocument.swift")
-        XCTAssertTrue(document.contains("if case let .letter(m, _) = content { letter = m.id }"))
     }
 
     /// A tile tapped while it says "Downloading", before its letter's page
@@ -365,16 +366,160 @@ final class FilesAheadTests: XCTestCase {
                                     + "guard loads.stillShows(shown) else { return }"))
     }
 
-    /// The page's document finished: a letter's own page names its letter,
-    /// for its files; a stack's names none.
-    func testALettersPageFinishedNamesItsLetter() {
+    /// A letter's own page asks for its files as its words go in, as a
+    /// stack's body does, and not once the page has loaded, which waits
+    /// for its pictures (found on the test iPad, 2026-10-28: the large
+    /// letter's PDF was FETCHed after both of its photos; Mail, C-13e, had
+    /// the PDF drawn while a photo still came). Read from the pane: the
+    /// loader pointed at the letter's pictures, the page given to WebKit,
+    /// and its files asked for at once, the first file's FETCH before the
+    /// page has finished, before WebKit has asked for a picture, for
+    /// nothing is awaited before it but the file before it; then each in
+    /// its turn on the one line, first come first served with the pictures
+    /// (`ExchangeGateTests`), so B-160's and B-151's go between two files;
+    /// the page finished asks for nothing. Only these two ask for files.
+    func testALettersOwnPageAsksForItsFilesAsItsWordsGoIn() throws {
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(pane.contains("private func draw(_ m: Message, page: String?) { prepareInlineImages(for: [m]) "
+                                    + "guard let page else { renderNotice(MailText.emptyBodyNotice) return } "
+                                    + "load(page, as: .letter(m, page: page)) fetchAhead(m) }"))
+        XCTAssertEqual(pane.components(separatedBy: "fetchAhead(m)").count - 1, 2, "the page given, and a body in")
+        XCTAssertTrue(pane.contains("webView.callAsyncJavaScript(ConversationDocument.Fill.script, "
+                                    + "arguments: fill.arguments, in: nil, in: .defaultClient)"))
+
+        let finish = try XCTUnwrap(pane.range(of: "func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {"))
+        let finishEnd = try XCTUnwrap(pane.range(of: "func webViewWebContentProcessDidTerminate(",
+                                                 range: finish.upperBound..<pane.endIndex))
+        let finished = String(pane[finish.upperBound..<finishEnd.lowerBound])
+        XCTAssertFalse(finished.contains("fetchAhead"), finished)
+        XCTAssertTrue(finished.contains("for landed in finished.tiles { tell(landed) } }"), finished)
+
+        // From the page given to the first file's FETCH, nothing awaited
+        // but the file before it, which the first has none of.
+        let ahead = try XCTUnwrap(pane.range(of: "let fetch = Task { @MainActor [weak self] in"))
+        let asked = try XCTUnwrap(pane.range(of: "let data = try await repository.fetchAttachmentData(",
+                                             range: ahead.upperBound..<pane.endIndex))
+        let before = String(pane[ahead.upperBound..<asked.lowerBound])
+        XCTAssertEqual(before.components(separatedBy: "await").count - 1, 1, before)
+        XCTAssertTrue(before.hasPrefix(" await before?.value guard let self, !Task.isCancelled, "
+                                       + "self.loads.stillShows(shown), self.ahead.turn(key) else { return } do { "),
+                      before)
+        XCTAssertTrue(pane.contains("let before = aheadLast let repository = self.repository"))
+
+        // WebKit's order for a letter's page, on the pane's document: the
+        // page given, the files asked for then (`drawn`, as `fetchAhead`
+        // asks it), and the page's load ending after; asked again as the
+        // page is drawn again, nothing more.
         final class Navigation {}
+        let page = Navigation()
+        let m = letter([pdf, file("5", "notes.docx", "application/octet-stream", size: 9_000)])
         var document = PaneDocument()
-        let first = Navigation(), second = Navigation()
-        document.loaded(.letter(letter([pdf]), page: "<p>x</p>"), navigation: ObjectIdentifier(first))
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(first)).letter, "7/3")
-        document.loaded(.conversation([]), navigation: ObjectIdentifier(second))
-        XCTAssertNil(document.didFinish(ObjectIdentifier(second)).letter)
+        var files = FilesAhead()
+        var line: [String] = []
+        document.loaded(.letter(m, page: "<p>x</p>"), navigation: ObjectIdentifier(page))
+        for f in FilesAhead.planned(m) where files.drawn(.init(letter: m.id, part: f.id)) == .fetch {
+            line.append("FETCH " + f.id)
+        }
+        line.append("FETCH picture 2")
+        XCTAssertEqual(document.didCommit(ObjectIdentifier(page)), [])
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(page)), PaneDocument.Finished())
+        line.append("loaded")
+        XCTAssertEqual(line, ["FETCH 4", "FETCH 5", "FETCH picture 2", "loaded"])
+        XCTAssertEqual(FilesAhead.planned(m).map { files.drawn(.init(letter: m.id, part: $0.id)) },
+                       [.nothing, .nothing], "drawn again: asked once")
+    }
+
+    /// A file asked for as its letter's page goes in can come before
+    /// WebKit has committed the page, when a script would run in the page
+    /// before it and its tile say "Downloading" for good, or before the
+    /// page's own script has run, at its document's end, with no
+    /// `bmFileLanded` to call. Neither is lost. The pane holds the tile's
+    /// script until the page given last is committed, and hands it back
+    /// then, once, in its order (`PaneDocument.tile`, `didCommit`), or at
+    /// its end should the commit not be heard; another page given first
+    /// takes the held ones with it, its tiles told afresh as the pane
+    /// gives it (`FilesAhead.drawn`); a page with no navigation, or one
+    /// committed, runs it at once; WebKit's process lost, held. And the
+    /// script, run before the page's own, keeps it, which the page's script
+    /// tells as it ends: on the model of the page the tile has its icon and
+    /// says nothing, or "Tap to Download", as when it lands later, a tap
+    /// after it as ever. The pane, read: every tile's script through the
+    /// hold, told at the commit and at the end.
+    func testAFileLandingBeforeThePageIsReadyIsDrawnOnceItIs() throws {
+        final class Navigation {}
+        let m = letter([pdf])
+        let landed = BodyFiles.Landed(pdf, of: m.id, inHand: true)
+        let other = BodyFiles.Landed(file("5", "notes.docx", "application/octet-stream", size: 9), of: m.id,
+                                     inHand: false)
+        let first = Navigation(), second = Navigation(), third = Navigation()
+        var document = PaneDocument()
+        XCTAssertEqual(document.tile(landed), landed, "nothing given yet: at once")
+        document.loaded(.letter(m, page: "<p>x</p>"), navigation: ObjectIdentifier(first))
+        XCTAssertNil(document.tile(landed), "not committed: held")
+        XCTAssertNil(document.tile(other))
+        XCTAssertEqual(document.didCommit(ObjectIdentifier(second)), [], "another page's")
+        XCTAssertEqual(document.didCommit(ObjectIdentifier(first)), [landed, other], "in their order")
+        XCTAssertEqual(document.didCommit(ObjectIdentifier(first)), [], "once")
+        XCTAssertEqual(document.tile(landed), landed, "committed: at once")
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(first)), PaneDocument.Finished())
+
+        document.loaded(.letter(m, page: "<p>x</p>"), navigation: ObjectIdentifier(second))
+        XCTAssertNil(document.tile(landed))
+        document.loaded(.letter(m, page: "<p>y</p>"), navigation: ObjectIdentifier(third))
+        XCTAssertEqual(document.didCommit(ObjectIdentifier(third)), [], "gone with the page it was held for")
+        document.loaded(.letter(m, page: "<p>x</p>"), navigation: ObjectIdentifier(first))
+        XCTAssertNil(document.tile(other))
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(first)).tiles, [other], "the commit not heard")
+        XCTAssertEqual(document.tile(landed), landed)
+
+        document.loaded(.notice(["Loading…"]), navigation: nil)
+        XCTAssertEqual(document.tile(landed), landed, "no navigation: at once")
+        document.loaded(.letter(m, page: "<p>x</p>"), navigation: ObjectIdentifier(second))
+        _ = document.didCommit(ObjectIdentifier(second))
+        document.contentProcessEnded()
+        XCTAssertNil(document.tile(landed), "WebKit's process lost: held for no page")
+
+        // Before the page's own script: kept, and told as it ends.
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        let link = BodyFiles.link("4", of: m.id)
+        let inHand = ModelPage.Run.File(href: link, style: [:], status: "\u{00A0}", icon: "")
+        let failed = ModelPage.Run.File(href: link, style: [:], status: "Tap to Download", icon: "")
+        let coming = ModelPage.Run.File(href: link, style: [:], status: "Downloading", icon: "bm-file-ring")
+        var run = try model(page, [.landed(-1, landed)])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files, [inHand])
+        run = try model(page, [.landed(-1, BodyFiles.Landed(pdf, of: m.id, inHand: false))])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files, [failed])
+        run = try model(page, [.landed(-2, BodyFiles.Landed(pdf, of: m.id, inHand: false)), .landed(-1, landed)])
+        XCTAssertEqual(run.files, [inHand], "in their order")
+        run = try model(page, [.landed(-1, BodyFiles.Landed(pdf, of: "7/9", inHand: true))])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files, [coming], "another letter's")
+        let tap = BodyFiles.Busy("4", of: m.id, busy: true), done = BodyFiles.Busy("4", of: m.id, busy: false)
+        run = try model(page, [.landed(-1, landed), .busy(50, tap)])
+        XCTAssertEqual(run.files, [coming], "tapped after: the ring")
+        run = try model(page, [.landed(-1, landed), .busy(50, tap), .busy(100, done)])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files, [inHand])
+        let script = ConversationDocument.script
+        XCTAssertTrue(script.hasSuffix("""
+            (function () {
+              var waiting = window.bmFilesWaiting;
+              window.bmFilesWaiting = null;
+              if (!waiting) return;
+              for (var i = 0; i < waiting.length; i++) bmFileLanded(waiting[i][0], waiting[i][1], waiting[i][2]);
+            })();
+            """), "told as the script ends, with everything it needs defined")
+
+        // The pane, read.
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(pane.contains("func webView(_ w: WKWebView, didCommit navigation: WKNavigation!) { "
+                                    + "guard let navigation else { return } "
+                                    + "paneCover.committed(ObjectIdentifier(navigation)) "
+                                    + "for landed in document.didCommit(ObjectIdentifier(navigation)) { tell(landed) } }"))
+        XCTAssertEqual(pane.components(separatedBy: "tell(landed)").count - 1, 3, "the hold, the commit, the end")
+        XCTAssertEqual(pane.components(separatedBy: "BodyFiles.Landed.script").count - 1, 1)
     }
 
     // MARK: - Helpers

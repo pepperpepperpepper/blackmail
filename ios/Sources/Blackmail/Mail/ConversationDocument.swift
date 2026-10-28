@@ -623,7 +623,10 @@ enum ConversationDocument {
     /// when the file has come, or could not; a tile shown coming for a tap
     /// meanwhile is left so, and put back to them. On any page, in a
     /// letter's own or a body `bmFill` put in; a link with no tile on the
-    /// page changes nothing, and neither ever throws.
+    /// page changes nothing, and neither ever throws. A tile told before
+    /// this script had run, as the page's words went in, was kept in
+    /// `bmFilesWaiting` (`BodyFiles.Landed.script`), and is told as the
+    /// script ends, in the order it came.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -1054,6 +1057,12 @@ enum ConversationDocument {
       });
       window.addEventListener('load', bmKeep);
       bmKeep();
+    })();
+    (function () {
+      var waiting = window.bmFilesWaiting;
+      window.bmFilesWaiting = null;
+      if (!waiting) return;
+      for (var i = 0; i < waiting.length; i++) bmFileLanded(waiting[i][0], waiting[i][1], waiting[i][2]);
     })();
     """
 

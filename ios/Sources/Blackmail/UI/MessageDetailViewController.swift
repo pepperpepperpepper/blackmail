@@ -420,19 +420,32 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// A file fetched as its letter opened, come or not, on its tile, by
-    /// script, in the app's content world (`BodyFiles.Landed`, B-176).
+    /// script, in the app's content world (`BodyFiles.Landed`, B-176): now,
+    /// or once WebKit has committed the page given last, as a letter's own
+    /// page asks for its files as it is given and one can come first
+    /// (`PaneDocument.tile`, `didCommit`).
     private func run(_ landed: BodyFiles.Landed) {
+        guard let landed = document.tile(landed) else { return }
+        tell(landed)
+    }
+
+    private func tell(_ landed: BodyFiles.Landed) {
         webView.callAsyncJavaScript(BodyFiles.Landed.script, arguments: landed.arguments,
                                     in: nil, in: .defaultClient)
     }
 
     // MARK: - A large letter's files, as it opens
 
-    /// A letter's page, or its body in the stack, has loaded: each of its
-    /// files fetched as it opens (`FilesAhead.planned`, B-176), as Mail
-    /// fetches a large letter's, one at a time, its tile saying
+    /// A letter's page has been given to WebKit, or its body to the stack:
+    /// each of its files fetched as it opens (`FilesAhead.planned`, B-176),
+    /// as Mail fetches a large letter's, one at a time, its tile saying
     /// "Downloading" with a ring from the start; a file come or failed
-    /// before, its body drawn again, has its tile made so at once. Nothing
+    /// before, its body drawn again, has its tile made so at once. Asked
+    /// for as the words go in, not once the page has loaded, which waits
+    /// for its pictures: each file takes its turn on the one connection
+    /// with the pictures as WebKit asks for them, first come first served,
+    /// and the first file is usually asked before them, as in a stack, and
+    /// as Mail drew a large letter's PDF while a photo still came. Nothing
     /// for a letter fetched whole.
     private func fetchAhead(_ m: Message) {
         let shown = loads.shown
@@ -490,8 +503,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The bytes of `file` of `m` for a tap (`openAttachment`): read from
     /// the iPad when it came as its letter opened, waited for while it is
     /// coming so, fetched now if its turn had not come or it could not be,
-    /// or if it is one to come and the page has not finished loading to
-    /// ask for it, and then kept as come (B-176); any other file fetched
+    /// or if it is one to come that the pane has not asked for yet, and
+    /// then kept as come (B-176); any other file fetched
     /// as ever. Waited for, and the pane given something else meanwhile:
     /// nothing more is fetched, for a letter he has left, on the one
     /// connection the next letter's body is coming on; the tap is let go,
@@ -989,9 +1002,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// WebKit has committed a document: the one the cover waits for, if it
     /// is the one the pane gave it last.
+    /// And the tiles told of their files before it was, now that a script
+    /// runs in it (`PaneDocument.didCommit`, B-176).
     func webView(_ w: WKWebView, didCommit navigation: WKNavigation!) {
         guard let navigation else { return }
         paneCover.committed(ObjectIdentifier(navigation))
+        for landed in document.didCommit(ObjectIdentifier(navigation)) { tell(landed) }
     }
 
     /// WebKit's word of what it has painted (`PaneCover.callback`), private
@@ -1531,6 +1547,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         load(page, as: .letter(m, page: page))
+        // A large letter's own page: its files asked for now, as its words
+        // go in, as a stack's body has them asked for (B-176).
+        fetchAhead(m)
     }
 
     /// A document has finished loading: his letters from Sent Mail and the
@@ -1544,8 +1563,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
         if let dates = finished.dates { run(dates) }
-        // A large letter's own page: its files come now (B-176).
-        if let id = finished.letter, case let .letter(m, _) = document.content, m.id == id { fetchAhead(m) }
+        for landed in finished.tiles { tell(landed) }
     }
 
     /// WebKit's content process has ended, as iOS ends it for memory while

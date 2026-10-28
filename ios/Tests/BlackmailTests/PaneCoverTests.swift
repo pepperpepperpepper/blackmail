@@ -244,7 +244,9 @@ final class PaneCoverTests: XCTestCase {
                 + "Diagnostics.log(.note, \"pane: cover lifted by its limit\") } }"))
         XCTAssertTrue(code.contains("func webView(_ w: WKWebView, didCommit navigation: WKNavigation!) { "
                                         + "guard let navigation else { return } "
-                                        + "paneCover.committed(ObjectIdentifier(navigation)) }"))
+                                        + "paneCover.committed(ObjectIdentifier(navigation)) "
+                                        + "for landed in document.didCommit(ObjectIdentifier(navigation)) "
+                                        + "{ tell(landed) } }"))
         XCTAssertTrue(code.contains("@objc(\(PaneCover.callback)) "
                                         + "func webView(_ w: WKWebView, renderingProgressDidChange events: UInt) { "
                                         + "if paneCover.rendered(events) { cover.isHidden = true } }"))

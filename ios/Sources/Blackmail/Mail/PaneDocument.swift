@@ -94,6 +94,13 @@ struct PaneDocument {
     /// the iPad's form or day changed while it loaded, and it may have been
     /// written in the old one.
     private var waitingDates = false
+    /// Whether WebKit has committed the document given last, so that a
+    /// script run now runs in it and not in the one before.
+    private var committed = true
+    /// A file's tile told by script that its file has come, or could not
+    /// be, before the document had been committed (B-176), to be told as
+    /// it is (`didCommit`).
+    private var waitingTiles: [BodyFiles.Landed] = []
     /// The document went with WebKit's process and has not been drawn
     /// again. `content` is still what it held, and bodies that come
     /// meanwhile are kept in it for the redraw.
@@ -133,9 +140,11 @@ struct PaneDocument {
         self.content = content
         self.navigation = navigation
         finished = navigation == nil
+        committed = navigation == nil
         waiting = []
         waitingInserts = []
         waitingDates = false
+        waitingTiles = []
         lost = false
         drawn = redrawing ? .again(finished: finished ? now() : nil) : .byPane
         redrawing = false
@@ -246,6 +255,35 @@ struct PaneDocument {
         return ConversationDocument.Dates(entries)
     }
 
+    /// A file's tile to be told by script that its file has come, or could
+    /// not be (`BodyFiles.Landed`, B-176): returned to run now when the
+    /// document given last has been committed, and held otherwise, to be
+    /// handed back as it is (`didCommit`). A letter's own page asks for its
+    /// files as it is given to WebKit, as a stack's body does as it goes in,
+    /// and a file can come before WebKit has committed the page: run then,
+    /// the script would run in the page before it, and the tile would say
+    /// "Downloading" for good. Committed, the page has its words or is
+    /// taking them in, and the script itself waits for the page's own
+    /// script if that has not run yet (`BodyFiles.Landed.script`). Held
+    /// ones go with the document when another replaces it: the pane tells
+    /// the new page's tiles afresh as it gives it (`FilesAhead.drawn`).
+    mutating func tile(_ landed: BodyFiles.Landed) -> BodyFiles.Landed? {
+        guard committed else {
+            waitingTiles.append(landed)
+            return nil
+        }
+        return landed
+    }
+
+    /// WebKit has committed a document: when it is the one given last, the
+    /// tiles held for it, in the order they came (`tile`).
+    mutating func didCommit(_ navigation: ObjectIdentifier) -> [BodyFiles.Landed] {
+        guard navigation == self.navigation, !committed else { return [] }
+        committed = true
+        defer { waitingTiles = [] }
+        return waitingTiles
+    }
+
     /// A document has finished loading. When it is the one on screen, what
     /// was waiting for it, each in the order it came: his letters from Sent
     /// Mail to go in, then the bodies; then its dates written again, if the
@@ -253,19 +291,19 @@ struct PaneDocument {
     mutating func didFinish(_ navigation: ObjectIdentifier) -> Finished {
         guard navigation == self.navigation, !finished else { return Finished() }
         finished = true
+        committed = true
         if case .again(nil) = drawn { drawn = .again(finished: now()) }
         defer {
             waiting = []
             waitingInserts = []
             waitingDates = false
+            waitingTiles = []
         }
         var dates: ConversationDocument.Dates?
         if waitingDates, case .conversation(let entries) = content {
             dates = ConversationDocument.Dates(entries)
         }
-        var letter: String?
-        if case let .letter(m, _) = content { letter = m.id }
-        return Finished(inserts: waitingInserts, fills: waiting, dates: dates, letter: letter)
+        return Finished(inserts: waitingInserts, fills: waiting, dates: dates, tiles: waitingTiles)
     }
 
     /// What `didFinish` hands back.
@@ -274,10 +312,9 @@ struct PaneDocument {
         var fills: [ConversationDocument.Fill] = []
         /// The stack's dates, written again (B-139); nil for none.
         var dates: ConversationDocument.Dates? = nil
-        /// The id of the letter whose own page it is, for its files
-        /// fetched as it opens (`FilesAhead`, B-176); nil for any other
-        /// document.
-        var letter: String? = nil
+        /// Tiles still held for it, its commit never heard (`tile`,
+        /// B-176): none, as WebKit tells the commit first.
+        var tiles: [BodyFiles.Landed] = []
     }
 
     /// WebKit's content process has ended and taken the document with it.
@@ -298,9 +335,11 @@ struct PaneDocument {
         }
         navigation = nil
         finished = false
+        committed = false
         waiting = []
         waitingInserts = []
         waitingDates = false
+        waitingTiles = []
         drawn = .byPane
         switch content {
         case .nothing, .blank:

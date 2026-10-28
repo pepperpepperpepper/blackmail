@@ -528,9 +528,8 @@ final class DatesRedrawnTests: XCTestCase {
         XCTAssertTrue(pane.contains("for insert in finished.inserts { run(insert) } "
                                     + "for fill in finished.fills { run(fill) } "
                                     + "if let dates = finished.dates { run(dates) } "
-                                    + "if let id = finished.letter, case let .letter(m, _) = document.content, "
-                                    + "m.id == id { fetchAhead(m) } }"),
-                      "a stack that loaded after the change, last of the stack's; then a large letter's files (B-176)")
+                                    + "for landed in finished.tiles { tell(landed) } }"),
+                      "a stack that loaded after the change, last of the stack's; then a large letter's tiles held (B-176)")
 
         // The header's date has one writer, from the letter's own date, as
         // the letter is shown and again, and VoiceOver's words with it.
