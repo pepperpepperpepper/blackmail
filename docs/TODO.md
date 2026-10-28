@@ -9391,8 +9391,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          scheme, a few paragraphs, a link and one picture from the web
          among the words (drawn light); "B-173 signature", a letter as this
          app sends one with the account's signature, its sheet
-         (`bm-signature`) and its table, the logo a dark picture on
-         transparency by `cid:`; "B-173 thread 1" and "B-173 thread 2", one
+         (`bm-signature`) and its table, its cells' borders declared white,
+         `border: 0.99609pt solid rgb(255, 255, 255)`, as his signature's
+         are (the host checks the markup has them before the APPEND, and
+         stops if not), the logo a dark picture on transparency by `cid:`;
+         "B-173 thread 1" and "B-173 thread 2", one
          conversation, the first with the web picture letter's body and the
          second with the signature letter's; "B-173 inverted held", an
          HTML letter with no scheme whose only reference to the web is a
@@ -9405,10 +9408,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. *His signature:* "B-173 signature" opened: under the signature a
          grey sheet, about rgb(51, 51, 51), as wide as the words, its words
          white, the links blue, the logo visible on the grey; the words
-         above it on the black as before. Screenshot.
+         above it on the black as before. No dark lines or grid inside the
+         grey sheet, round the logo or the words: one plain grey, as in
+         Mail's shot of 2026-10-27 (r6-i-compare-11-mail-sig); a cell's
+         edge sampled on the full-size shot, about rgb(51, 51, 51), not
+         black. Screenshot.
       4. *In a conversation:* "B-173 thread 2" listed, both letters open:
          the first's white inside black margins, the second's grey sheet
-         under the signature with the logo. Screenshot.
+         under the signature with the logo, no lines in it. Screenshot.
       5. *Block All Remote Content:* Blackmail's Settings, Block All Remote
          Content on. "B-173 web picture" opened: the line under the header,
          one line as before, "Message contains unloaded images." white and
