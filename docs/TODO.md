@@ -8903,7 +8903,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          stack; New Message, then Cancel; Reply All on (a), then a bubble
          in To tapped, its menu, closed with a tap beside it, then Cancel;
          the pane's Reply button on (a), its sheet, closed with a tap
-         beside it, and the pane's Flag button the same; Settings, then
+         beside it, and the pane's Flag button the same; (a)'s PDF tile
+         held, its sheet, closed with a tap beside it, then held again,
+         Share, the Share sheet, closed with a tap beside it, nothing
+         chosen; Settings, then
          its "Add Another Email…" question, then Cancel, nothing typed;
          Mail's Swipe Options pushed in Settings, nothing chosen, then
          back, and Settings closed with Cancel, nothing saved; Go to Date
@@ -8915,7 +8918,12 @@ checks below is left as not needed, not open, and none is worth a round.*
          are now put up held and the window limited. The first three on
          the int18 build (26740c2) as well: the same to the pixel but for
          the clock, and for (a)'s two files, tiles after its words on a
-         build with B-170 and not rows in the header.
+         build with B-170 and not rows in the header. And every one of
+         them on the int21 build (1873724) or beside round r6-j-look's
+         Large references of 2026-10-28: the same to the pixel but for the
+         clock, the questions, the action sheets, the bubble's menu and
+         the Share sheet among them, which are held on their own now
+         (`heldAtLarge`) and change nothing at Large.
       2. *The largest of the seven, while the app is open.* With (a) open
          and "Notes" scrolled so its row is in sight a few rows down,
          leave the app; Text Size dragged to its right end; back in the
@@ -8929,9 +8937,17 @@ checks below is left as not needed, not open, and none is worth a round.*
          Edit mode's circles, their size as in 1 and the rows' words where
          they were, their column a little lower, as B-071 saw under the
          same trait (about 1 point two steps above Large; three not
-         measured): how much, written down, or that it did not move. A
-         question, a sheet or a menu larger than in 1: the window's limits
-         do not reach it, written down, and B-166 opened again.
+         measured): how much, written down, or that it did not move. The
+         bubble's menu, the Reply and Flag sheets, (a)'s file's held sheet
+         and "Add Another Email…" the same as in 1 to the pixel: on the
+         int21 build, round r6-j-look, 2026-10-28, the first, second and
+         fourth of them and the Flag popover were larger, the window's
+         limits not reaching them, and each is held now by its own
+         presentation and view. A question, a sheet or a menu larger than
+         in 1: which, written down, and B-166 opened again. The Share
+         sheet from the file's sheet: its popover's place and size as in
+         1; what iOS draws inside it larger than in 1, written down as
+         iOS's own, not a failure.
       3. *The largest accessibility size.* Larger Text, Larger Accessibility
          Sizes on, the slider at its right end, back in the app: every
          screen of 1 again, each the same as in 1 to the pixel but for the
@@ -8940,8 +8956,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          the gutter; the Mailboxes' icons in one column and their names on
          one line each, as in 1; the conversation's lines as in 1; (a)'s
          words and tiles as in 1; the bubble's menu's, the Reply and Flag
-         sheets' and "Add Another Email…"'s words and buttons as in 1, its
-         Cancel and Add side by side, never one under the other; Swipe
+         sheets', the file's held sheet's and "Add Another Email…"'s words
+         and buttons as in 1 to the pixel, its title in sight, its Cancel
+         and Add side by side, never one under the other (on 2026-10-28
+         the popovers reached halfway down the screen and the question's
+         title was scrolled away); the Share sheet as in 2; Swipe
          Options as in 1. Edit mode's circles their size in 1 and the
          rows' words where they were, the column about 12.5 points lower,
          as B-071 saw: how much, written down, or that it did not move.
@@ -8968,14 +8987,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *The share sheet.* Text Size at its middle step: Safari, any
          page, Share, Blackmail, the form taken; Cancel, and should it ask,
          its question taken, then Delete Draft. Text Size at its right end,
-         and the same again: the form and the question as at the middle
-         step to the pixel, "To:", "Cc/Bcc" and "Subject:" and the link in
-         the body as they were. Nothing is sent.
+         and the same again: the form's content as at the middle step,
+         not its frame. The sheet's frame is iOS's own, as Safari draws
+         it, and is wider at the larger sizes (704 points at Large and
+         about 934 at the right end on the 11-inch, round r6-j-look,
+         2026-10-28; KI B-166): written down, its width and edges, not a
+         failure. Inside it, the type of "To:", "Cc/Bcc", "Subject:", the
+         fields and the body the size it is at the middle step, each line
+         as high, each caption the same distance from the sheet's left
+         edge, and the Cancel question's words and buttons as at the
+         middle step to the pixel; a line of words broken at other places
+         in the wider sheet, written down. Nothing is sent.
       7. *What stays iOS's.* A file's Quick Look, the photo and document
-         pickers, the print panel, the iPad's own Share sheet, and the
-         keyboard with its bar, the composer's paperclip and its menu among
-         them, are iOS's own, at the iPad's size as before B-166, and are
-         not looked at here.
+         pickers, the print panel, WebKit's own menus in a letter, UIKit's
+         menus on the bars, what iOS draws inside the Share sheet (its
+         popover the app's and held, looked at in 2 and 3), the share
+         sheet's frame (6), and the keyboard with its bar, the composer's
+         paperclip and its menu among them, are iOS's own, at the iPad's
+         size as before B-166, and are not looked at here.
       8. *Put back:* Text Size at its middle step, Bold Text off, Larger
          Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
@@ -9419,19 +9448,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       sender's name and address in angle brackets, then "wrote:", a blank
       line, and "> Lunch on Sunday?"; "B-172 answered", the same letter as
       related, APPENDed with `\Seen \Answered \Flagged`, so a row has the
-      paperclip beside the reply arrow and the flag. "Notes" opened in the
+      paperclip beside the reply arrow and the flag; "B-172 control", the
+      same letter as noname, its picture with no filename and no name,
+      APPENDed with the same three flags. "Notes" opened in the
       app.
-      1. *The paperclip:* on the rows of related, web, sig and iphone, in
-      the place the paperclip has on a read row with a PDF and no arrow
-      (left of the name); none on noname or nofile. Beside the int20
-      screenshot nothing else on those rows has moved: the name, the time,
-      the subject and the two grey lines where they were. On answered, as
+      1. *The paperclip:* on the rows of related, web, sig, iphone and
+      noname, in the place the paperclip has on a read row with a PDF and
+      no arrow (left of the name); none on nofile. Noname's is new since
+      round r6-j-look (2026-10-28), where Mail clipped noname and the
+      control and the int21 build (1873724) did not. Beside the int20
+      screenshot, and for noname and the control beside an int21 one,
+      nothing else on those rows has moved: the name, the time, the
+      subject and the two grey lines where they were. On answered, as
       on a row with a PDF answered and flagged (D-020, not changed): the
       reply arrow left of the name, the paperclip at the end of the
       subject's line, the flag left of the paperclip and the subject cut
       sooner, where the int20 screenshot has no paperclip, the flag at the
-      right edge and the subject longer. Written down: the subject's last
-      word on both, and how far the flag moved.
+      right edge and the subject longer. The control the same as answered
+      now, beside an int21 screenshot, where it has no paperclip and its
+      flag at the right edge. Written down: the subject's last word on
+      each, and how far the flag moved.
       2. *The previews:* plain reads "Yes, Sunday. Sam"; flowed "Yes.";
       colon "See below: Above it."; gap "Sounds good! On Mon, Oct 27,
       2026 at 1:25 PM" and the rest of its "wrote:" line, as far as the
@@ -9460,7 +9496,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       tapped, and a screenshot: gap's and colon's previews written down as
       Mail shows them. If Mail leaves out gap's "wrote:" line too, that is
       a B-number of its own: `PlainQuotes.isAttribution`'s "directly
-      above" to cross one blank line (the plan's A3 note). Mail left on
+      above" to cross one blank line (the plan's A3 note). And the
+      paperclips: on 2026-10-28 Mail clipped related, web, sig, iphone,
+      answered, noname and the control, and not nofile; Blackmail's rows
+      the same as Mail's, written down, or which differ. Mail left on
       its mailbox list.
       6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes

@@ -34841,7 +34841,7 @@ changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
 
-## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
+## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27 and 2026-10-28, its questions and action sheets held on their own the second day. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -35351,6 +35351,109 @@ grow with the iPad's size still, WebKit sizing those by the app's size and
 not the pane's held trait, as before B-166; rare in mail, and not seen.
 The pane's own notice (`PaneNotice`) names `-apple-system-body` on its
 block only, its lines at 17 pixels of their own. The TODO's B-166 check.
+
+**Found on the test iPad, 2026-10-28**, in round r6-j-look, on the int21
+build (1873724), and reproduced by a second run, after a fresh launch
+and again with the app started at the larger size. Steps 2 and 3, the
+largest of the seven sizes and the largest accessibility size: the
+panes, the rows, the composers, Settings, Swipe Options, Go to Date and
+the Move sheet the same to the pixel as at Large, Edit mode's circles
+lower as B-071 saw (1 point, then 12.5), and four things larger than at
+Large: the bubble's menu in To, its name on two lines and its address
+broken; the Reply sheet; the Flag popover; and Settings' "Add Another
+Email" question. At the largest accessibility size the two popovers
+reached about halfway down the screen, "Mark as / Unread" and "Move /
+to Junk" on two lines each, and the question's title was scrolled out
+of sight, its Cancel and Add still side by side. The cause: the
+window's limits of Large (`AppDelegate`) do not reach the traits of a
+presented `UIAlertController` on iPadOS 16.5.1, an alert or an action
+sheet's popover alike, the risk "Not covered" named as believed and not
+written by Apple. Only what a trait of Large is put on kept Large: the
+panes, through their container, and the sheets, through their own
+presentation.
+
+*Changed.* Every question, action sheet and Share sheet the app puts up
+is held as it is put up, through one helper
+(`UIViewController.heldAtLarge`, `TextSizeReading.swift`): the trait of
+Large on its presentation, which on the iPad is an action sheet's
+popover, any trait UIKit put there kept under it, as the sheets are held
+(`UINavigationController.formSheet`); and its own view, with what is in
+it, limited to Large, the least and the most, should an alert's
+presentation not hand its trait on, which the host, with no UIKit,
+cannot tell (read from the source, not run). It is called after a
+popover's place is set and as each is put up: at the fifteen places that
+make a `UIAlertController`, the bubble menu (`RecipientField`); the
+Reply sheet, the Flag sheet, a held picture's or file's sheet and the
+question about a reply's files (`MessageDetailViewController`); Edit
+mode's Mark sheet and a drag's More (`MessageListViewController`); the
+composer's Cancel question; the Trash and Archive question
+(`DiscardConfirmation`, as its maker hands it back); the erase question;
+the two error alerts (`ErrorPresenter`); Settings' "Add Another Email"
+and its other question; and the share sheet's Cancel question; and at the
+two that put up the iPad's Share sheet, a held picture's or file's Share
+and the connection log's, whose popover is the app's. The window's
+limits stay, for the setup form, which no presentation holds. At Large
+the trait and the limits are the size already there: nothing changes.
+
+*Looked for, the rest the app puts up that UIKit sizes by the text
+size:* no context menu of the app's own (none is made anywhere in the
+sources), no popover but the action sheets and the Share sheet, and no
+toast or window of the app's own: one window, the new-mail banners
+being iOS's notifications, and a drag's buttons inside the list, which
+the panes' trait holds. The one menu the app makes, the composer's
+paperclip in the keyboard's shortcut bar (`UIMenu`, B-154), is drawn by
+iOS from the keyboard's bar, in a window of its own that nothing the app
+sets reaches: not held. iOS's own, at the iPad's size as before B-166,
+and not changed: Quick Look, the photo and document pickers, the print
+panel, WebKit's own menus in a letter (a held link's, the text
+selection's), UIKit's own menus on the bars (the Back button's held
+menu), the keyboard and its bar, and what iOS draws inside the Share
+sheet's held popover, which may or may not take its trait (the TODO's
+check looks).
+
+*Tests.* `TextSizeWiringTests.testEveryQuestionAndActionSheetIsHeldAtLarge`,
+new: the helper as written; every `UIAlertController` and
+`UIActivityViewController` in the sources, those there now and any made
+later, made as `let NAME = …(` and `NAME.heldAtLarge()` the last thing
+before it is presented or handed back by its maker, seventeen.
+`testTheWindowsAreHeldAtLarge` takes the helper's two limits as the one
+other. The wiring lines of `DiscardQuestionTests`, `ExpiryWarningTests`
+(two), `FileListedOnceTests`, `FlagMenuTests`, `PrintWiringTests` and
+`ReplyFilesWiringTests` follow the code. Undone by hand, then put back
+and passing: the bubble menu's call and the helper's upper limit taken
+out, 4 failures in 2 tests (the new test's helper and the menu, and the
+windows' count); an alert made in `DiscardConfirmation` and not held, 2
+failures in the new test. The full suite, serially: 3,132 tests, 6
+skipped, none failing. The release build for the iPad links. In TODO,
+B-166's steps 1 to 3 have a file's held sheet and the Share sheet from
+it, and their questions and menus held by their own presentation, and
+step 7 the Share sheet's popover held.
+
+**Found on the test iPad, 2026-10-28**, the same round, step 6, the
+share sheet, from Safari: at Large the form sheet 704 points wide (view
+x 196 to 758) and about 744 high on the 11-inch iPad in landscape; at the
+largest of the seven about 934 wide (x 104 to 851), its top and bottom
+the same. The form's type was held, but "Cc/Bcc", "Subject:" and the
+link moved left with the sheet's edge and the line under the fields was
+broken at other words. The cause: Safari presents the sheet, at Safari's
+text size, and iPadOS widens a form sheet at the larger sizes; the
+form's trait of Large and the extension's window limits are inside the
+sheet, not on Safari's presentation of it, and the extension asks no
+size.
+
+*Not changed, on purpose.* All the extension can do about the sheet's
+frame is ask for a size (`preferredContentSize`), and UIKit publishes no
+rule for a form sheet's size at Large: 704 by 744 is one iPad's
+measurement, the 11-inch on 16.5.1. His is a 10.2-inch on iPadOS 18,
+whose sheet at Large is not known, and the extension, inside Safari's
+sheet, cannot read what Safari's presentation would give at Large. Asked
+at every size it could change his sheet at Large; asked only above
+Large, it would be a number from another iPad, which on his could make
+the sheet at the larger sizes narrower, wider or taller than his at
+Large. So the sheet's frame at the larger sizes is iOS's own, as the
+app that shares draws it, as Quick Look's and the print panel's are;
+the form inside it is held at Large. In TODO, B-166's step 6 compares
+the form's content, not the sheet's frame.
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
@@ -37289,7 +37392,7 @@ turns given back; and the loader's pin takes the turn, the stopped
 request and the turn given back. Every request let through at once, 2
 failures in the new test; then restored.
 
-## B-172 — FIXED 2026-10-27, not yet seen on the iPad. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
+## B-172 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, and a picture with no name clipped as Mail clips it the same day. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
 
 Built in the `bm-cmp-a` worktree (branch `copy-cmp-a`), off int20 at
 b9afe64.
@@ -37524,8 +37627,9 @@ ios165`) links.
 
 - Not seen on the test iPad (the TODO's B-172 check).
 - Only what was seen, each marked UNSURE in the plan: a picture by `cid:`
-  with no name, or outside multipart/related, has no paperclip, as
-  before; whether Mail clips one was not seen. A line above a quote that
+  outside multipart/related has no paperclip, as before; whether Mail
+  clips one was not seen. (One with no name inside multipart/related was
+  UNSURE here too, until Mail was seen to clip it on 2026-10-28, below.) A line above a quote that
   does not end "wrote:" (one ending ":" alone, "See below:"), one with a
   blank line between it and the quote, Gmail's way, or one in another
   language ("schrieb:"), stays outside the quote and in the preview, as
@@ -37585,6 +37689,48 @@ moves. On screen nothing changed. `PrintPageTests`, one new,
 `testTheHeaderKeepsItsLinesUnderTheSendersTableStyles`, an HTML letter
 with such a style, the header's rules read; without the change, 8
 failures, each an assertion's; passing with it. Not seen on paper.
+
+**Found on the test iPad, 2026-10-28**, in round r6-j-look, on the int21
+build (1873724). Steps 0 to 4 as the check says: the paperclip on
+related, web, sig and iphone, in the gutter on the name's line, none on
+noname or nofile, nothing else on the rows moved; answered's flag 22
+points left of the control's. Step 5, Mail 16.5.1 on the test account's
+"Notes": the paperclip on related, web, sig, iphone and answered, as
+Blackmail, and also on noname and on the control ("answered, noname",
+from Cal Control), whose one picture, a JPEG by `cid:` inside
+multipart/related, sent `Content-Disposition: inline` with a
+`Content-ID`, has no filename and no name; none on nofile, plain words
+alone, in either. Not covered had this UNSURE: Mail clips a picture with
+no name. The cause: `hasAttachment` counted a named picture alone
+(`isNamedPicture`), the shape of every picture seen on 2026-10-27.
+
+*Changed.* Every `image/*` leaf of a multipart/related counts, named or
+not (`IMAPMailRepository.isRelatedPicture`, in place of
+`isNamedPicture`): the list's rows, and so Sent's and Drafts' as listed
+from the server, the search's and the new-mail banner's as before. The
+paperclip goes where D-020 puts it, not changed: in the gutter, left of
+the name, on a read row with no arrow, as noname's now has it; at the end
+of the subject's line on an unread row or one with an arrow, the subject
+there cut 22 points sooner and a flag 22 points further left, as on
+every row with a file, as the control's now has it. Nothing else on a
+row moves. A draft kept on the iPad (`LocalDraft.hasPaperclip`) needs
+nothing: every picture the app sends goes named, one with no name of its
+own as "inline.png" (`RFC5322Builder`), so its row and its copy's agree
+as before. A picture by `cid:` outside multipart/related, still not
+seen in Mail, has none, as before. What the pane draws is not changed:
+such a picture is no file and no tile. A row kept on the iPad takes the
+paperclip the next time its folder is listed.
+
+*Tests.* `RowQuotesPaperLikeMailTests`: the shape "related, a photo with
+no name", the round's noname, turned round, clipped, its part no file
+in the pane and with no name; the list's row of it through the shipping
+repository and the scripted server, clipped, beside the named one's and
+a plain letter's, which has none; the test renamed
+`testAPictureTheLetterShowsGivesItsRowThePaperclip`. Undone by hand, the
+name asked for again: 3 failures in 2 tests, each an assertion's; put
+back and passing. The full suite, serially: 3,132 tests, 6 skipped, none
+failing. In TODO, B-172's step 1 has the paperclip on noname and on the
+control, and step 5 what Mail was seen to do.
 
 ## B-173 — FIXED 2026-10-27, not yet seen on the iPad. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 

@@ -1300,6 +1300,13 @@ grey (`Theme.secondaryText`, 142 on black) so he can see it: the
 inversion of Mail's, about 59 on black, would be too dim. B-102's device
 step 6 sets the two side by side, on the iPadOS 18.6 simulator.
 
+**Which letters have the paperclip** is not this decision's, only where
+it goes; seen in Mail 16.5.1 on the test iPad: on a letter whose only
+file is a picture it shows by `cid:` inside multipart/related, named
+(2026-10-27) or with no filename and no name (2026-10-28), and on none
+with no picture. Blackmail's rows clip the same letters since B-172, in
+the places above, which did not change.
+
 ---
 
 ## D-021 — Complete Threads: his own letters in Inbox conversations, read only, never kept
