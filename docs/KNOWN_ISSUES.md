@@ -38062,7 +38062,7 @@ Comments still telling the old asking and read-mark rules were reworded
 3 of the plan counts More's words and order as copied, its look as kept.
 No layout changed.
 
-## B-176 — FIXED 2026-10-27, not yet seen on the iPad. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held offers Add to Reading List; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
+## B-176 — FIXED 2026-10-27, not yet seen on the iPad. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
 
 Built in the `bm-cmp-e` worktree (branch `copy-cmp-e`), off int20 at
 b9afe64. Batch E of the comparison plan of 2026-10-27
@@ -38073,9 +38073,11 @@ Mail's own string tables (iOS 18.6). The owner's rulings: copy Mail's
 behaviour and words, and change nothing of Blackmail's layout ("I don't
 want to change the layout of blackmail. The layout is very important.",
 2026-10-27). Nothing in this entry moves, appears, stacks or disappears on
-Blackmail's screens: the six are a picture where a picture was asked for
-and Mail draws one, a title's words, a button inside iOS's own Quick Look,
-an item in each of two menus, and a tile's own icon and last line.
+Blackmail's screens: the five kept are a picture where a picture was
+asked for and Mail draws one, a title's words, a button inside iOS's own
+Quick Look, an item in a held PDF's menu, and a tile's own icon and last
+line; the sixth, E5, an item in a held link's menu, was taken out at the
+integration (int21, below).
 
 **E1. An attached HEIC.**
 
@@ -38184,6 +38186,14 @@ an item in each of two menus, and a tile's own icon and last line.
   the card is not there, E5 is taken out (the pane no delegate again,
   `LinkMenu` and its two tests with it) and Add to Reading List recorded
   as a difference kept for the layout.
+- *Taken out at the integration (int21), before any merge into master:*
+  the pane is no `WKUIDelegate` again, `LinkMenu` and SafariServices are
+  gone, and a held link's menu is exactly as WebKit draws it, the card
+  "Tap to show preview" above Open Link, Copy Link and Share…, as B-145
+  left it. A menu's look is layout by the owner's rule, and by WebKit's
+  source the delegate's menu would most likely lose the card; Add to
+  Reading List is a difference kept for the layout. Everything above in
+  E5 says what was built and is no longer in the app.
 
 **E6. A large letter's files, as it opens.**
 
@@ -38280,11 +38290,11 @@ an item in each of two menus, and a tile's own icon and last line.
   passing. The full suite, serially: 3,058 tests, 6 skipped, none
   failing. The release build for the iPad: "Build complete".
 
-**No layout changed**, but for E5's card, not seen and held out of any
-merge until it is (above). Nothing moves, appears, stacks or disappears on
-Blackmail's screens: the HEIC is drawn where the photo of any other kind
-is; a title's words; Quick Look's own Markup button inside iOS's Quick
-Look; one item more in each of two menus; and inside a tile, the ring in
+**No layout changed**: E5, whose card most likely went, was taken out at
+the integration (int21, above). Nothing moves, appears, stacks or
+disappears on Blackmail's screens: the HEIC is drawn where the photo of
+any other kind is; a title's words; Quick Look's own Markup button inside
+iOS's Quick Look; one item more in a held PDF's menu; and inside a tile, the ring in
 its icon's own box and Mail's word in its last line, which keeps its room
 when the file has come, the box as it was.
 
@@ -38328,18 +38338,33 @@ skipped (none of this entry's), none failing. The release build for the
 iPad: links ("Build complete").
 
 **Not seen on the iPad** (the TODO's B-176 check): every part. In
-particular: whether WebKit keeps its card "Tap to show preview" when the
-pane answers its menu with no preview provider, which by WebKit's source
-it does not (if the card goes, E5 is taken out, above); a `mailto:` link
-held, its menu and card as before B-176;
+particular: a link held, a page's or a `mailto:`, its menu and card as
+before B-176, E5 having been taken out (above);
 Quick Look's Markup button on a tapped PDF and photo with `createCopy`, and
 what its Done does; the ring turning in a tile and "Downloading" giving way
-to the icon; Reading List taking the link. Not built, as decided: Open in
+to the icon. Not built, as decided: Open in
 New Window, the held menus' lifted previews (Q4), Mail's ring filling as
 the file comes. The marked-up PDF goes in the Reply as a file, after the
 letter's words, where Mail's composer may place it among them; not
 compared. On iPadOS 18 Mail's limit for fetching unasked may differ; not
 known.
+
+**Integration (int21, with B-176).** E5 taken out before any merge into
+master, in one commit of its own: `LinkMenu.swift` gone, the pane's
+`webView.uiDelegate` and its `WKUIDelegate` extension gone, SafariServices
+no longer linked (`Package.swift`), `SteadyChromeTests`' line for the
+item's symbol gone, and `LinkAtOnceTests`' two tests of the item replaced
+by one, `testAHeldLinksMenuIsWebKitsAsItDrawsIt`: the pane no delegate,
+nothing of `contextMenuConfigurationForElement`, `SSReadingList` or
+`LinkMenu` in it, SafariServices not linked. Undone by hand, the pane
+made a `WKUIDelegate` again with nothing in it: 2 failures, both
+assertions; restored, passing. Amended in
+this entry for it: the title, the five kept in its opening, E5's
+*Taken out* line, the layout paragraph and the not-seen paragraph; the
+Tests and E1-to-E5 counts above are the branch's, before the take-out.
+In the TODO: B-176's check, its step 0's screenshots and its step 4, now
+a check that both links' menus are as before; B-145's step 6 and B-141's
+step 0 pointers say so.
 
 ## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 

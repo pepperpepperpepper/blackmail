@@ -137,10 +137,6 @@ final class SteadyChromeTests: XCTestCase {
             "attachmentIcon.image = UIImage(systemName: \"paperclip\")",
             "flagIcon.image = UIImage(systemName: \"flag.fill\")",
             "let icon = UIImageView(image: UIImage(systemName: \"magnifyingglass\"))",
-            // Add to Reading List in a held link's menu (B-176): an item
-            // of WebKit's menu, its symbol sized by the menu as WebKit's
-            // own items' beside it are, on no screen of the app's.
-            "UIAction(title: LinkMenu.addToReadingList, image: UIImage(systemName: LinkMenu.symbol))",
         ]
         for file in ["MailboxListViewController", "MessageListViewController", "MessageDetailViewController",
                      "MessageHeaderView", "MessageCell", "SearchHeaderView", "RootViewController",

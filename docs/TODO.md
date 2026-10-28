@@ -7220,7 +7220,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       hundred bytes, so the letter is over 5 MiB and opened in parts
       (since B-176 note.txt, under 5 MB, is fetched with no tap as A's body
       goes in: an unasked FETCH of it in the log, and in 3 it opens from
-      the iPad with no FETCH after the tap; see B-176's check). On a
+      the iPad with no FETCH after the tap; see B-176's check, step 6, its
+      E6; its E5 was taken out at int21). On a
       build with B-148 the PDF has no row in the header: its one row is
       the one among A's words, which shows it coming, dimmed with
       "Loading…" after its name, where the header's row had its spinner.
@@ -7727,8 +7728,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *A conversation:* "Re: B-145 stack", (d)'s line opened if it is
       closed, its link tapped: Safari at once; back: the stack where it
       was, (d) open.
-      6. *Held* (since B-176 Add to Reading List second, and whether the
-      card stays is B-176's step 4; see its check): a finger held on (a)'s
+      6. *Held* (B-176's Add to Reading List was taken out at int21, so
+      the menu is WebKit's as below, as B-176's step 4 checks too): a
+      finger held on (a)'s
       first link: WebKit's menu, Open Link, Copy Link and Share…, under a
       card with "Tap to show preview", the site and the link's address, as
       before (decided 2026-10-01); on
@@ -9625,7 +9627,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       6 MB, over 5 MB. "Notes" opened. First, on the build on the iPad
       before this one, without B-176 (int20 at b9afe64 or earlier): "B-176
       link", a finger held on the `mailto:` link, a screenshot of its whole
-      menu and card; a tap outside. Then this build installed.
+      menu and card; a tap outside; the same for the https link. Then this
+      build installed.
       1. *HEIC (E1):* "B-176 heic": the photo under the words, upright, as
       wide as the letter at most, no tile marked "HEIC". Held: Quick Look,
       Markup and Reply, Save Image, Save to Files, Share, Copy; a tap
@@ -9646,21 +9649,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       Quick Look with its Markup button; Done with nothing drawn: no
       composer. Again, a line drawn, Done: a Reply with "B-176 pdf.pdf"
       under Subject; Cancel, Delete Draft.
-      4. *A link held (E5), the gate for E5:* "B-176 link", a finger held
-      on the https link: the card "Tap to show preview", "example.com" and
-      the address, beside or above Open Link, Add to Reading List, Copy
-      Link, Share…, in that order; screenshot. Written down: whether the
-      card is there as in the round of 2026-10-27, and the symbol on the
-      new item. By WebKit's source the card most likely goes (KNOWN_ISSUES,
-      B-176, E5). **If the card is not there, or anything of the menu's
-      look differs from the round's but the one item, E5 is taken out and
-      kept out of every merge; Add to Reading List is then a difference
-      kept for the layout.** Add to Reading List: nothing over the pane.
-      In Safari, the Reading List has the link: removed there with a
-      swipe. The `mailto:` link held: no Add to Reading List, and its whole
-      menu and card as in the screenshot taken before this build, item for
-      item and in the same place; screenshot beside it. Any difference
-      there is E5's to undo as well.
+      4. *A link held (E5 taken out at int21):* "B-176 link", a finger
+      held on the https link, then on the `mailto:` link: each whole menu
+      and card exactly as in the screenshot taken before this build, item
+      for item and in the same place, the card "Tap to show preview" above
+      Open Link, Copy Link and Share… for the https link, and no Add to
+      Reading List; screenshots beside them. Any difference is a fault of
+      the take-out (KNOWN_ISSUES, B-176, E5).
       5. *Nothing else changed:* each letter's header, words and tiles
       where they were in the round of 2026-10-27, in a screenshot beside
       it.

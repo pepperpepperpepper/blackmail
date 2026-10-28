@@ -8,7 +8,6 @@ import WebKit
 import QuickLook
 import Photos
 import UniformTypeIdentifiers
-import SafariServices
 
 /// The right column. Never navigates — it only ever swaps content, so nothing
 /// in it moves between one message and the next.
@@ -262,11 +261,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.translatesAutoresizingMaskIntoConstraints = false
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
-        // A link held that Safari's Reading List can keep: WebKit's menu,
-        // with Mail's Add to Reading List (`LinkMenu`, B-176); anything
-        // else held, WebKit's own as it was. The only thing the pane asks
-        // of it.
-        webView.uiDelegate = self
         webView.scrollView.backgroundColor = Theme.canvas
         webView.backgroundColor = Theme.canvas
         webView.isOpaque = false
@@ -2338,44 +2332,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         compose.landing = landing
         let nav = UINavigationController.formSheet(compose)
         present(nav, animated: true)
-    }
-}
-
-/// A link held in a letter (B-176): for a page Safari's Reading List can
-/// keep (`LinkMenu.answered`), WebKit's suggested items with Mail's "Add
-/// to Reading List" put in after Open Link where they lack it
-/// (`LinkMenu.place`), as Mail's menu has it; for anything else held that
-/// WebKit gives a menu, a `mailto:` link or a picture say, nil, which
-/// WebKit takes as it takes no delegate: its menu, or DataDetectors', as
-/// it was. Not seen on the iPad: whether the card "Tap to show preview"
-/// stays above the menu answered, which has no preview of its own; by
-/// WebKit's source it most likely goes (`LinkMenu`), and then this is
-/// taken out.
-extension MessageDetailViewController: WKUIDelegate {
-
-    func webView(_ webView: WKWebView, contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
-                 completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) {
-        guard let link = LinkMenu.answered(elementInfo.linkURL, supports: SSReadingList.supportsURL) else {
-            completionHandler(nil)
-            return
-        }
-        completionHandler(UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { suggested in
-            var items = suggested
-            let titles = items.map { ($0 as? UIAction)?.title ?? "" }
-            if let at = LinkMenu.place(among: titles, for: link, supports: SSReadingList.supportsURL) {
-                items.insert(UIAction(title: LinkMenu.addToReadingList,
-                                      image: UIImage(systemName: LinkMenu.symbol)) { _ in
-                    // Safari's list, as Mail's item adds to it; a page it
-                    // will not take is said in the log alone.
-                    do {
-                        try SSReadingList.default()?.addItem(with: link, title: nil, previewText: nil)
-                    } catch {
-                        Diagnostics.log(.note, "reading list: not added")
-                    }
-                }, at: at)
-            }
-            return UIMenu(title: "", children: items)
-        })
     }
 }
 
