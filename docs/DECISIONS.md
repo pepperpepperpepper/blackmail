@@ -1659,3 +1659,94 @@ settings page. The text size and Bold Text are his iPad's own; one set
 for Mail alone in Per-App Settings is matched for Blackmail on the day.
 The rest of TODO's "His iPad's own settings" is still read before the
 last build, and until then the factory values stand.
+
+---
+
+## D-025 — Blackmail's layout does not change: Mail's behaviour and words copied only where nothing on its screens moves, and the exact layout at every text size, for now
+
+**Decided 2026-10-27 by the owner**, in three rulings the same day: "I
+don't want to change the layout of blackmail. The layout is very
+important."; asked whether Blackmail should keep its exact layout at every
+text size or follow the iPad's text size, "Let's keep the exact layout for
+now"; and, of the side-by-side comparison with Mail made that day (round
+r6-i-compare, Mail 16.5.1 on the test iPad against Blackmail bf7575a, and
+the plan made from it, `mail-compare-plan-2026-10-27.md`), "just fix these
+discrepancies". The rulings of 26 October (D-024) stand: Mail's behaviour
+and words are still copied, now inside the layout.
+
+**The rule.** The layout is Blackmail's, as built. A difference from Mail
+is copied only when nothing on Blackmail's screens moves, appears, stacks
+or disappears, unless the owner asks for it by name. A menu's look counts
+as layout: the lifted previews of a held photo, PDF or link, and More's
+card, as well as the rows and bars. What changes under the rule is what a
+thing says, its colour, what is enabled, what is asked, the order of a
+list's items and of its rows, and what happens on a tap. Each entry built
+under it says what it left as layout, and checks on the test iPad that
+nothing moved.
+
+**The exact layout at every text size, for now.** Blackmail is drawn at
+Large, the size an iPad comes with, whatever the iPad's text size or a
+size set for it alone in Per-App Settings says: the list, the Mailboxes,
+the reading pane and its letter, a file's tiles, the conversation's stack,
+the composer, the share sheet and Settings, and what UIKit draws in them.
+Bold Text, which changes no size and no row's height, is still followed,
+as Mail follows it (B-166, Changed 2026-10-27). "For now": following the
+text size waits for the owner to ask for it.
+
+**Copied under "just fix these discrepancies"**, the plan's part 2,
+Batches A to G, all 2026-10-27, none yet seen on his iPad or the test
+iPad:
+
+- B-172 (A): a row's preview without quotes or their "wrote:" line, the
+  paperclip on a letter whose only files are pictures it shows, the
+  "wrote:" line and a `>From` line inside a plain letter's quote, and the
+  printed header and date as Mail prints them.
+- B-173 (B): a light letter's white to its column in the dark pane, his
+  signature on Mail's grey sheet, and the "unloaded images" line in
+  Mail's colours.
+- B-174 (C): Edit mode as Mail's: Mark, Move and Trash grey until a row
+  is ticked, Edit grey in an empty folder, the title "1 Selected", a
+  ticked row's letter in the pane and the letter before put back as Edit
+  mode ends, the pane dimmed with nothing ticked, a ticked row blue with
+  a white tick.
+- B-175 (D): More's words and order with Archive Message, Ask Before
+  Deleting asking only for the pane's Trash and the Edit bar, a full
+  drag's read mark a step of Undo, and after the pane's Delete "Undo
+  Read" first, as Mail's (the plan's question 1, decided the same day).
+- B-176 (E): an attached HEIC drawn as a photo, Quick Look's title with
+  the file's extension and its Markup button on a tapped picture or PDF,
+  Markup and Reply on a held PDF, and a large letter's files fetched as
+  it opens, each tile with a ring and "Downloading".
+- B-177 (F): a sender he has only received from offered by name in To,
+  Cc and Bcc, after the people he writes to and his Contacts.
+- B-178 (G): the list in date order, the newest first by when each
+  letter arrived.
+
+**Kept as Blackmail's layout**, not copied:
+
+- The plan's part 3, fourteen differences: the "[Gmail]" group, VIP and
+  the account heading, Select All's place, More's card, the place of
+  "Move discarded messages into", the grey line under Complete Threads,
+  Mail's other Settings rows, the "unloaded images" line's place and
+  shape, the lifted previews of a held photo's and a held PDF's menus,
+  the header's date, the address list's heading, avatar and (i), and
+  Print's place.
+- Batch H, Mail's rounded drag tiles: not built.
+- Open in New Window for a photo or a file (the plan's question 2): not
+  built.
+- A held link's menu: Add to Reading List was built (B-176's E5) and taken
+  out at the integration (int21) before any merge into master, so the
+  menu and its card "Tap to show preview" are exactly as WebKit draws
+  them, as decided 2026-10-01 and as B-145 left them.
+
+**Not built** (the plan's question 3): Mail's Mute, Notify Me, Block
+Sender and Move to a folder it suggests, in More's list. Each is a new
+feature with lasting effects and no settings page to undo it; More keeps
+the items it had, in Mail's words and order (B-175).
+
+**What it reverses.** D-024's "follow the iPad's Text Size ... while the
+app is open" for B-166: the text size is Large again, as D-007 had it,
+with Bold Text followed. D-024's "the text size and Bold Text are his
+iPad's own": his Display & Text Size need not be read before the last
+build; only a Bold Text set for Mail alone in Per-App Settings is matched
+on the day. Nothing else of D-024 changes.

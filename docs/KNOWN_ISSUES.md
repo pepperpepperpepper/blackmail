@@ -38227,7 +38227,8 @@ integration (int21, below).
   left it. A menu's look is layout by the owner's rule, and by WebKit's
   source the delegate's menu would most likely lose the card; Add to
   Reading List is a difference kept for the layout. Everything above in
-  E5 says what was built and is no longer in the app.
+  E5, and E5's line under "Narrowed and fixed after the first build"
+  below, says what was built and is no longer in the app.
 
 **E6. A large letter's files, as it opens.**
 
