@@ -37353,12 +37353,46 @@ the subject in bold, "October 27, 2026 at 1:25 PM", a rule.
    `Content-Disposition` or its `Content-Type`
    (`MIMEDecoder.decodedFilename`) gives the row its paperclip. Keyed on
    the name, as every picture seen had one. The paperclip is the row's
-   own, in its place (D-020's, left of the name, kept); what the pane
-   draws is not changed: such a picture is still no file and no tile
-   (`isListedFile`, B-170). A row kept on the iPad has its paperclip as it
-   was listed, and takes the new one the next time its folder is listed.
-   The comment on `MIMEPart.isAttachment` that said Mail puts no paperclip
-   on such a letter is corrected.
+   own and goes where D-020 puts it, which is not changed: in the gutter,
+   left of the name, on a read row with no reply or forward arrow; at the
+   end of the subject's line on an unread row or one with an arrow, where
+   the subject is cut 22 points sooner and a flag stands 22 points further
+   left, as on any row with a file. What the pane draws is not changed:
+   such a picture is still no file and no tile (`isListedFile`, B-170). A
+   row kept on the iPad has its paperclip as it was listed, and takes the
+   new one the next time its folder is listed. The comment on
+   `MIMEPart.isAttachment` that said Mail puts no paperclip on such a
+   letter is corrected.
+
+   What he sees from it: every letter of his own that went with markup
+   while his signature has pictures carries them, each a named picture
+   in multipart/related (`RFC5322Builder`, `SignatureImages`), so each
+   such row in Sent, and each draft of his in Drafts saved so, now has
+   the paperclip, as Mail's row had it for the signature's logo of "R6
+   B-146 signature" (Sig Example). So have his letters sent from Mail
+   with such a signature, whose pictures come in that shape
+   (`RFC5322Builder.inlineHeaders`), and every letter to him whose
+   sender's signature sends its logo the same way. A letter of his with
+   no markup (plain words, no quote, a signature with no markup) carries
+   no picture and has none.
+
+   A draft kept on the iPad (`LocalDraft.hasPaperclip`,
+   `AppleMailHTML.makesMarkup`, both new): its row in Drafts, under "On
+   this iPad only" and as the copy it became until Drafts is next fetched,
+   has the paperclip that copy's row will have. Before, it counted his
+   files alone, while the copy carries the signature's pictures and a
+   draft reopened from it does not list them (`Draft.reopening`, B-046):
+   with signature pictures in Settings, a row had no paperclip until
+   Drafts was next listed, then had one, with nothing done. Now a file of
+   his or a photo among his words gives it, as before, and with neither, a
+   letter that goes with markup when the signature has a picture that
+   goes (`SignatureImages.parts`); the account as Settings saved it and
+   the pictures are read as the list draws Drafts
+   (`MessageListViewController.keptSigning`), as the repository reads them
+   for each letter. Whether a letter goes with markup is asked without
+   making it (`makesMarkup`, the same two tests as
+   `AppleMailHTML.letter`): making it for each row would carry a quote's
+   markup, up to 4 MB, through `QuotedMarkup` each time Drafts is drawn.
 2. *A2* (`PreviewText.fromPlainText`, `withoutQuotes`, new): before the
    lines are made one run of words, every line whose first character is
    `>` is left out, a `>From ` line among them, and a line ending "wrote:"
@@ -37366,9 +37400,10 @@ the subject in bold, "October 27, 2026 at 1:25 PM", a rule.
    The list's rows, the search's and the new-mail banner's lines (B-161)
    all take it, through `IMAPMailRepository.preview(from:part:)`; so do
    his own drafts' and the Outbox's rows, which are written as plain text
-   with a reply's quote under his words, so that a draft's row reads the
-   same before and after it is on the server. A preview kept with a row
-   is made again when the row is next fetched.
+   with a reply's quote under his words, so that a draft's preview reads
+   the same before and after it is on the server (its paperclip too,
+   since 1). A preview kept with a row is made again when the row is next
+   fetched.
 3. *A3* (`PlainQuotes.html`): a line that is no quote, ending "wrote:"
    (spaces, tabs and a carriage return after it aside), directly above a
    line begun `>`, is drawn at the quote's first level, as its first
@@ -37408,44 +37443,59 @@ draws it", with its "To: me" for nobody in To and the date written out by
 `fullTimestamp`.
 
 **No layout changed.** The paperclip is the row's own, shown on more
-rows in its own place; the preview is the row's two grey lines, other
+rows, in the places D-020 gives it, which are not changed: on a read row
+with no arrow in the gutter, left of the name; on an unread row or one
+with an arrow at the end of the subject's line, the subject there cut 22
+points sooner and a flag 22 points further left, as on every row with a
+file. Those rows now look as a row with a file always has; no rule,
+place or size is new. The preview is the row's two grey lines, other
 words in them; the quotes are the letter's lines, drawn where they were,
 two of them beside a bar; the printed header is on paper, which is no
-Blackmail screen. Nothing on a screen moves, appears, stacks or
-disappears. AirPrint's panel is as it was: Mail's has Orientation and
-Scaling rows, which Blackmail's, a PDF already made at Letter size, does
-not; adding them would put two rows on a panel he sees, and they would
-change nothing the PDF can do, so it is not built.
+Blackmail screen. Beyond the paperclip on more rows, nothing on a screen
+moves, appears, stacks or disappears. AirPrint's panel is as it was:
+Mail's has Orientation and Scaling rows, which Blackmail's, a PDF
+already made at Letter size, does not; adding them would put two rows on
+a panel he sees, and they would change nothing the PDF can do, so it is
+not built.
 
 **New words.** None of the app's own. "From:", "Subject:", "Date:",
 "To:" and "Cc:" on paper are Mail's.
 
-**Tests.** `RowQuotesPaperLikeMailTests`, eight, new. A1: the round's
+**Tests.** `RowQuotesPaperLikeMailTests`, ten, new. A1: the round's
 shapes, a named picture by `cid:` in multipart/related (alone, beside an
-iPhone's plain words, named by its type alone) clipped, one with no name,
-one outside multipart/related and a plain letter with no file not, none
-of them a file listed or drawn; and through the shipping repository and
-the scripted server, the list's row of the first with its paperclip and a
-plain letter's without. A2: the round's two letters previewed "Yes,
-Sunday. Sam" and "Yes.", with CRLF too, and through
-`IMAPMailRepository.preview(from:part:)`; a line ending otherwise, one
-with a blank line between, a mark after a space or in a line, a text of
-nothing but quotes, an HTML letter's quote and a letter with no quote as
-before. A3 and A4: the round's letter drawn as Mail drew it, a `>From `
-line a quote flowed or not, the "wrote:" line above a second level at
-the first, with spaces and a carriage return after it; a line ending
-otherwise, one with a blank line between and one with no quote under it
-as before. A5: the same two lines inside the quote on paper, no ">From"
-printed. A6 and A7: the header's lines, labels and people, in words too,
-and the date the medium form with its seconds, not the pane's.
-Changed, as the behaviour they pinned changed: `PlainQuoteBarsTests`
-(the "wrote:" line inside, `>From` a quote, the as-before test renamed
-`testLinesThatAreNoQuoteAreAsBefore`), `MIMEDecoderTests` (the related
-letter with a named logo now clipped), `PrintPageTests` (the header's
-table, no To line for nobody, the date's form, the words' lines, the
-sizes), `PrintWiringTests` (the header read from the letter as Mail's)
-and `DatesTheIPadsWayTests` (the print's date through
-`printedTimestamp`, with the iPad's locale).
+iPhone's plain words, named by its type alone) clipped, one with no
+name, one outside multipart/related and a plain letter with no file not,
+none of them a file listed or drawn; and through the shipping repository
+and the scripted server, the list's row of the first with its paperclip
+and a plain letter's without. A draft kept on the iPad: seven drafts
+saved by the shipping repository to the scripted server's Drafts, their
+copies' bytes read as the list reads a structure, and each one's row
+under "On this iPad only", as the copy it became, and reopened from that
+copy, with the copy's paperclip: signed with markup and the logo,
+clipped; with no pictures, the signature taken off, a signature with no
+markup, or a picture that will not decode, not; a reply with a signature
+with no markup, clipped; a picture kept with no picture's type, clipped,
+as it goes as a file. `makesMarkup` against the letter made, for seven
+drafts under a signature with markup and without. A2: the round's two
+letters previewed "Yes, Sunday. Sam" and "Yes.", with CRLF too, and
+through `IMAPMailRepository.preview(from:part:)`; a line ending
+otherwise, one with a blank line between, a mark after a space or in a
+line, a text of nothing but quotes, an HTML letter's quote and a letter
+with no quote as before. A3 and A4: the round's letter drawn as Mail
+drew it, a `>From ` line a quote flowed or not, the "wrote:" line above
+a second level at the first, with spaces and a carriage return after it;
+a line ending otherwise, one with a blank line between and one with no
+quote under it as before. A5: the same two lines inside the quote on
+paper, no ">From" printed. A6 and A7: the header's lines, labels and
+people, in words too, and the date the medium form with its seconds, not
+the pane's. Changed, as the behaviour they pinned changed:
+`PlainQuoteBarsTests` (the "wrote:" line inside, `>From` a quote, the
+as-before test renamed `testLinesThatAreNoQuoteAreAsBefore`),
+`MIMEDecoderTests` (the related letter with a named logo now clipped),
+`PrintPageTests` (the header's table, no To line for nobody, the date's
+form, the words' lines, the sizes), `PrintWiringTests` (the header read
+from the letter as Mail's) and `DatesTheIPadsWayTests` (the print's date
+through `printedTimestamp`, with the iPad's locale).
 
 Each part undone by hand, each failure read back to its part by the
 assertion that failed, then put back and passing, counted as failures in
@@ -37460,9 +37510,13 @@ return, paper, and `PlainQuoteBarsTests`' first); A6, every address
 dropped from the header, 25 in 6, five of them `PrintPageTests`'. Then,
 two at once: A4, the `>From ` exception put back, 7 in 3; A7, the
 printed date the pane's long form again, 9 in 3 (the header test, the
-date's form, the region's date in `DatesTheIPadsWayTests`).
+date's form, the region's date in `DatesTheIPadsWayTests`). Then the
+kept draft's row, one at a time: its paperclip his files alone again, 9
+in 1 (each of the three rows of the three clipped drafts); `makesMarkup`
+without his photos among his words, 2 in 1 (the photo's draft, each
+signature).
 
-The full suite, serially: 3,054 tests, 8 of them this entry's, 6
+The full suite, serially: 3,056 tests, 10 of them this entry's, 6
 skipped, none failing. The release build for the iPad (`--swift-sdk
 ios165`) links.
 
@@ -37479,6 +37533,30 @@ ios165`) links.
   part. A letter of nothing but quotes previews as before, its quotes
   with their marks. An HTML letter's preview is as it was: no HTML
   preview with a quote was compared.
+- Gmail's own shape, "On Mon, … <address> wrote:", a blank line, then
+  the quote, which `previewPart` takes from Gmail's plain part and is the
+  commonest in his mail, previews with its quote left out and its
+  "wrote:" line kept: "Sounds good! On Mon, Oct 27, 2026 at 1:25 PM Sam
+  <…> wrote:". That is neither the old row nor, probably, Mail's, but
+  Mail was not seen with it, so nothing more is built. The TODO's check
+  puts the "gap" letter, in that shape, in front of Mail too; if Mail
+  drops the line, `PlainQuotes.isAttribution`'s "directly above" is to
+  cross one blank line, a B-number of its own.
+- Offline search over the kept copy (`KeptSearch.hits`) matches a row's
+  preview, which no longer has a plain letter's quoted lines or its
+  "wrote:" line. A word only in that quote, in a letter not kept whole,
+  is no longer found there with no connection; Gmail's search with one
+  still finds it. Not changed: the shown preview and the words search
+  sees would have to be kept apart.
+- The Outbox's row has the paperclip for his files alone, as before: it
+  is no copy on the server, nor replaced in place by one, and Mail's
+  Outbox was not compared. Gone, the letter's row in Sent has the
+  paperclip when it went with the signature's pictures (1).
+- A draft kept on the iPad is not seen in the TODO's check, which
+  composes and saves nothing; the host tests cover its row. A draft's row
+  takes the signature's pictures as they are when Drafts is drawn: ones
+  changed in Settings between a save and the next listing would differ,
+  as the copy is made with what was there as it went.
 - Mail 16.5.1 was compared; his is iPadOS 18. The plan takes 18 to do
   the same (18.6's converter read for B-147); not seen on 18.
 - The printed header's look beyond what the comparison wrote down (the
