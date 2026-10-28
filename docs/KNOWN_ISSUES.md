@@ -35122,7 +35122,7 @@ its two lines in about 1.7 s, first and in sight, Drafts at its top, with
 no Refresh. Steps 1 to 3 and 5 had passed on 0625046 too. Nothing was
 sent.
 
-## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27/28, its questions and action sheets held on their own the second day, and their words, believed to follow the app's own text size, by that size answered Large after the second round that day, not yet seen there or on iPadOS 18. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
+## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27/28, its questions and action sheets held on their own the second day, and their words, believed to follow the app's own text size, by that size answered Large after the second round that day, seen there after it the same day, the override seen to reach them on 16.5.1, not yet seen on iPadOS 18. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -35933,6 +35933,26 @@ assertion's; the override answering `super.preferredContentSizeCategory`,
 iOS's own, 3 failures in the new test, each an assertion's. The full
 suite, serially: 3,148 tests, 6 skipped, none failing. The release build
 for the iPad: "Build complete".
+
+**Seen on the test iPad, 2026-10-28, on 260aea0**, int21 with the app's
+size answered Large at its root (above), round r6-l-fix. At the largest
+of the seven and the largest accessibility size, the app left open,
+every question, action sheet and menu the check looks at was the same to
+the pixel as at Large, its frame and its words: a file's held sheet, the
+Reply sheet, the Flag popover, its items on one line each, the bubble's
+menu and "Add Another Email…", its title in sight and its Cancel and Add
+side by side. So the override reaches their words on 16.5.1 (Not
+covered, above). The two Share sheets were as at Large inside as well,
+what r6-k-fix saw larger in them, AirDrop's, Messages' and Mail's names
+and the Copy, Markup and Print rows, now at Large. Quick Look, UIKit's
+edit menu over the question's field and the print panel were at Large at
+the largest accessibility size. At Large each screen the round took was
+the same to the pixel as r6-k-fix's, and as int21's where there was one,
+but for the subjects' ends. Not run: Bold Text, Per-App Settings and the
+share sheet from Safari, passed on int21 or ff47eb6, the change
+answering Large for a size set for Blackmail alone not seen; the check's
+other screens, which the change does not reach; and iPadOS 18, TODO
+B-166's step 9, still not seen. Nothing was sent.
 
 ## B-167 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
