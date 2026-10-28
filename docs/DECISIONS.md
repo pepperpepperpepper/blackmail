@@ -1729,7 +1729,8 @@ iPad:
 - B-177 (F): a sender he has only received from offered by name in To,
   Cc and Bcc, after the people he writes to and his Contacts.
 - B-178 (G): the list in date order, the newest first by when each
-  letter arrived.
+  letter arrived; each row shows that date and Go to Date goes by it, as
+  Mail's row was seen to on the test iPad on 2026-10-28.
 
 **Kept as Blackmail's layout**, not copied:
 

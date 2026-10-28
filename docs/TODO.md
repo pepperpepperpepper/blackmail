@@ -9795,8 +9795,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       any sender listed.
 
 - [ ] **B-178, the list in date order.** On the test iPad, the test
-      account only, from a build of the `bm-cmp-g` worktree (branch
-      `copy-cmp-g`) or of the int it is merged into. Nothing is sent and
+      account only, from a build of the `fix-j1` branch at its tip (the
+      row's date and Go to Date by arrival, 2026-10-28) or of the int it
+      is merged into; the round of 2026-10-28 ran steps 0 to 8 on int21
+      (1873724), and its two failures, steps 2 and 4, are what this build
+      changes (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28").
+      Nothing is sent and
       nothing is saved to Drafts: no Send, Reply or New Message is tapped.
       The host makes the letters, each from a made-up address, with a new
       Message-ID of its own and naming none on the account, and APPENDs
@@ -9808,31 +9812,47 @@ checks below is left as not needed, not open, and none is worth a round.*
       2025 noon, as the round's; "B-178 came old", INTERNALDATE twenty days
       ago, its Date today at 9 am; "B-178 dated old", INTERNALDATE now, its
       Date 1 March 2024. Over IMAP, each UID above every other in Notes.
-      1. *Mail first:* Mail on the iPad, Notes, scrolled: the row and the
-      rows above and below each of the three, written down, a screenshot of
-      each. Mail by date received has "dated old" at the top and "came old"
-      among the letters of twenty days ago; by date sent, "came old" at the
-      top and "dated old" in March 2024. Written down which, in KNOWN_ISSUES
-      under B-178: it settles which date to go by. Written down too the
-      date Mail's row shows for "came old" (today's 9 am, or twenty days
-      ago) and for "dated old" (3/1/24, or today's time), so a row of
-      Blackmail's showing the other date is caught in this round.
+      1. *Mail first:* Mail on the iPad, Notes, pulled to refresh, scrolled:
+      the row and the rows above and below each of the three, written down,
+      a screenshot of each. Seen on 2026-10-28: by date received, "dated
+      old" at the top, its row today's time ("4:12 AM" then), and "came
+      old" among the letters of twenty days ago, its row that day's date
+      ("10/8/26"). Written down if Mail shows anything else. Then each of
+      the two opened in Mail, read already, nothing tapped in it: the date
+      its reading pane's header shows, the Date ("March 1, 2024" and
+      today's 9 am) or the arrival, written down with a screenshot of the
+      header; never Reply, Forward or a composer.
       2. *Blackmail:* the app quit and opened again, then Notes opened, so
       that this launch lists Notes afresh (one that has listed it already,
       in an earlier check of the round, carries its dates, and the three
       come with the page's FETCH, with no dates FETCH:
       `ArrivalOrder.foldedPage`): the three where Mail had them, by
-      arrival: "dated old" first, its row's date 3/1/24; "came old" among
-      the rows of twenty days ago, its time today's; "lastyear" under
-      7/17/25. The log: one `UID FETCH … (UID INTERNALDATE)` after the
+      arrival, and each row's date the one Mail's row showed in step 1:
+      "dated old" first, its row's date today's time, not 3/1/24; "came
+      old" among the rows of twenty days ago, its row's date that day's
+      (10/8/26 then), not today's 9 am; "lastyear" 6/14/25 under 7/17/25;
+      the dates going down the list all the way. Then each of the two
+      opened in Blackmail: its header's date written down beside Mail's
+      from step 1. Blackmail's header shows the Date; if Mail's showed the
+      arrival, that is written down under B-178 "Not seen" as a
+      difference for the owner, not a failure of this step. The log: one
+      `UID FETCH … (UID INTERNALDATE)` after the
       `UID SEARCH ALL`, read as `* FETCH {N dates}`, N the letters in Notes,
       then the page's FETCH. Screenshot of each place.
       3. *To the end:* scrolled to the foot of Notes: every row once, the
       dates going down all the way, Notes' oldest last, nothing drawn
       twice, no row missing against the count over IMAP.
       4. *Go to Date:* 14 June 2025: the list opens on "lastyear", 7/17/25
-      above it; then today: the top rows. Scrolled up and down from 14 June
-      2025: the dates in order.
+      above it, "Showing June 14, 2025". Then today, Current Mailbox: the
+      list goes to Notes' top, "dated old" the top row, the foot "Showing"
+      today (it read "No mail on or after October 28" and did not move on
+      2026-10-28). Then the day "came old" arrived, twenty days back: the
+      list opens on "came old", the foot "Showing" that day. Then 1 March
+      2024, "dated old"'s Date: the list opens on the first letter of Notes
+      to arrive after it, not on "dated old". Each jump's log: its
+      SEARCHes `SINCE … BEFORE …`, none `SENTSINCE`. Scrolled up and down
+      from 14 June 2025: the dates in order. Go to Date's day and scope put
+      back as found at the end (Notes, the Inbox at its top after).
       5. *Undo:* "came old" dragged left full: it goes. A shake, Undo
       Trash: it is back where it stood. Refresh: still there, not at the
       top. Over IMAP its new UID is above every other in Notes.
