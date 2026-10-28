@@ -37974,8 +37974,8 @@ pane was compared by eye, C-03); a link in it opens as before.
 `EditModeLikeMailTests`, one new,
 `testTheDimmedLettersFilesAndPicturesAreNotToBeTapped`, the pane read;
 without the change, 3 failures, each an assertion's; the pane's source
-read by `PaneNavigationTests`, `FileListedOnceTests` and
-`PictureHoldTests` quotes the guards. The device check (TODO) puts the
+read by `PaneNavigationTests`, `FileListedOnceTests`,
+`PictureTapTests` and `PictureHoldTests` quotes the guards. The device check (TODO) puts the
 third row's letter in unread and reads the connection log after a tick:
 its unread dot still there, no `\Seen`, no `UID STORE`, as plan C4 has
 an unread ticked letter not marked read; the check APPENDed all three
@@ -38830,8 +38830,6 @@ failures, each an assertion's. The device check's step 2 (TODO) has the
 app quit and opened again first: a launch that has listed Notes in an
 earlier check carries its dates, and the three new letters' come with
 the page's FETCH (`foldedPage`), with no dates FETCH for the step to
-find.
-
-The full suite after the integration, B-172 to B-178 with E5 taken out
+find. The full suite after the integration, B-172 to B-178 with E5 taken out
 and the changes after it: 3,131 tests, 6 skipped, none failing; the
 release build for the iPad: "Build complete".
