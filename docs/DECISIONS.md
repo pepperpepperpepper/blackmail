@@ -1695,10 +1695,12 @@ nothing moved.
 Large, the size an iPad comes with, whatever the iPad's text size or a
 size set for it alone in Per-App Settings says: the list, the Mailboxes,
 the reading pane and its letter, a file's tiles, the conversation's stack,
-the composer, the share sheet and Settings, and what UIKit draws in them.
-Bold Text, which changes no size and no row's height, is still followed,
-as Mail follows it (B-166, Changed 2026-10-27). "For now": following the
-text size waits for the owner to ask for it.
+the composer, the share sheet's form and Settings, and what UIKit draws
+in them; the share sheet's frame at the larger sizes is as the app that
+shares draws it (B-166, 2026-10-28). Bold Text, which changes no size and
+no row's height, is still followed, as Mail follows it (B-166, Changed
+2026-10-27). "For now": following the text size waits for the owner to
+ask for it.
 
 **Copied under "just fix these discrepancies"**, the plan's part 2,
 Batches A to G, all 2026-10-27, none yet seen on his iPad or the test

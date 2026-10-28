@@ -35380,20 +35380,30 @@ popover, any trait UIKit put there kept under it, as the sheets are held
 (`UINavigationController.formSheet`); and its own view, with what is in
 it, limited to Large, the least and the most, should an alert's
 presentation not hand its trait on, which the host, with no UIKit,
-cannot tell (read from the source, not run). It is called after a
-popover's place is set and as each is put up: at the fifteen places that
-make a `UIAlertController`, the bubble menu (`RecipientField`); the
-Reply sheet, the Flag sheet, a held picture's or file's sheet and the
-question about a reply's files (`MessageDetailViewController`); Edit
+cannot tell (read from the source, not run). It is called before or
+after a popover's place is set, the popover being the same one either
+way, as each is put up or handed back by its maker: at the fifteen
+places that make a `UIAlertController`, the bubble menu
+(`RecipientField`); the Reply sheet, the Flag sheet, a held picture's or
+file's sheet and the question about a reply's files
+(`MessageDetailViewController`); Edit
 mode's Mark sheet and a drag's More (`MessageListViewController`); the
 composer's Cancel question; the Trash and Archive question
 (`DiscardConfirmation`, as its maker hands it back); the erase question;
 the two error alerts (`ErrorPresenter`); Settings' "Add Another Email"
 and its other question; and the share sheet's Cancel question; and at the
 two that put up the iPad's Share sheet, a held picture's or file's Share
-and the connection log's, whose popover is the app's. The window's
-limits stay, for the setup form, which no presentation holds. At Large
-the trait and the limits are the size already there: nothing changes.
+and the connection log's, whose popover's anchor is the app's and its
+size iOS's, from what iOS puts in it. The window's limits stay, for the
+setup form, which no presentation holds. At Large the trait and the
+limits are the size already there: nothing changes. Item 3 of Changed
+2026-10-27 chose the window's limits over a trait on each question's
+presentation, so as not to make the presentation before UIKit does;
+that reason is set aside now that the limits are seen not to reach the
+questions. Making each presentation and each view before it is put up
+is checked on the iPad alone, by the TODO's step 1, the questions (Add
+Another Email for an alert) and the Share sheet the same at Large to the
+pixel as on the int21 build; the host's test reads the source only.
 
 *Looked for, the rest the app puts up that UIKit sizes by the text
 size:* no context menu of the app's own (none is made anywhere in the
@@ -35401,21 +35411,35 @@ sources), no popover but the action sheets and the Share sheet, and no
 toast or window of the app's own: one window, the new-mail banners
 being iOS's notifications, and a drag's buttons inside the list, which
 the panes' trait holds. The one menu the app makes, the composer's
-paperclip in the keyboard's shortcut bar (`UIMenu`, B-154), is drawn by
-iOS from the keyboard's bar, in a window of its own that nothing the app
-sets reaches: not held. iOS's own, at the iPad's size as before B-166,
-and not changed: Quick Look, the photo and document pickers, the print
-panel, WebKit's own menus in a letter (a held link's, the text
-selection's), UIKit's own menus on the bars (the Back button's held
-menu), the keyboard and its bar, and what iOS draws inside the Share
-sheet's held popover, which may or may not take its trait (the TODO's
-check looks).
+paperclip in the keyboard's shortcut bar (`UIMenu`, B-154), is believed
+to be drawn by iOS from the keyboard's bar, in a window of its own that
+nothing the app sets reaches (not seen; the TODO's step 7 does not
+look): not held. iOS's own, at the iPad's size as before B-166, and not
+changed: Quick Look, the photo and document pickers, the print panel,
+WebKit's own menus in a letter (a held link's, the text selection's),
+UIKit's own menus on the bars (the Back button's held menu), UIKit's
+edit menu on text (Cut, Copy, Paste, Replace and the rest) in the
+composer's words, its To, Cc, Bcc and Subject fields, the search field
+and Settings' fields, UIKit's Undo alert after a shake ("Undo Trash",
+"Undo Move" or "Undo Flag", with Cancel and Undo, B-157), an alert
+UIKit makes and puts up itself, where `heldAtLarge` cannot reach it,
+iPadOS's undo banner after three fingers, the keyboard
+and its bar, and what iOS draws inside the Share sheet's popover and the
+size that gives it, which may or may not take the held trait (the
+TODO's check looks). The edit menu and the Undo alert are drawn over
+Blackmail's own screens and may grow at the larger sizes as the app's
+questions did; the TODO's step 7 counts none of these as a failure or
+as held.
 
 *Tests.* `TextSizeWiringTests.testEveryQuestionAndActionSheetIsHeldAtLarge`,
 new: the helper as written; every `UIAlertController` and
 `UIActivityViewController` in the sources, those there now and any made
 later, made as `let NAME = …(` and `NAME.heldAtLarge()` the last thing
-before it is presented or handed back by its maker, seventeen.
+before it is presented or handed back by its maker, seventeen; and
+either type named in no other way but as a weak var's type or a maker's
+return type, so that none is made by `.init(`, by `= .init(` after the
+type, through a subclass or under another name, out of the test's
+sight.
 `testTheWindowsAreHeldAtLarge` takes the helper's two limits as the one
 other. The wiring lines of `DiscardQuestionTests`, `ExpiryWarningTests`
 (two), `FileListedOnceTests`, `FlagMenuTests`, `PrintWiringTests` and
@@ -35424,10 +35448,22 @@ and passing: the bubble menu's call and the helper's upper limit taken
 out, 4 failures in 2 tests (the new test's helper and the menu, and the
 windows' count); an alert made in `DiscardConfirmation` and not held, 2
 failures in the new test. The full suite, serially: 3,132 tests, 6
-skipped, none failing. The release build for the iPad links. In TODO,
+skipped, none failing. The release build for the iPad links. Then the
+other names: an alert made by `UIAlertController.init(` in the
+connection log, one by `: UIAlertController = .init(` in the erase
+question and a subclass of `UIAlertController` in `ErrorPresenter`,
+none of them held, passed the test as first written; with the other
+names counted, 3 failures in the new test, one for each file, each an
+assertion's; taken out, passing. The bubble menu's call taken out again
+still fails it, 1 failure. The full suite, serially: 3,132 tests, 6
+skipped, none failing; the release build for the iPad links. In TODO,
 B-166's steps 1 to 3 have a file's held sheet and the Share sheet from
-it, and their questions and menus held by their own presentation, and
-step 7 the Share sheet's popover held.
+it, and their questions and menus held by their own presentation, the
+file's sheet and the Share sheet with a Large shot of their own taken on
+the int21 build first, round r6-j-look having none; step 2 the Share
+sheet's popover's anchor the app's and its size, with what iOS draws in
+it, iOS's; and step 7 UIKit's edit menu, its shake's Undo alert and
+iPadOS's undo banner iOS's too.
 
 **Found on the test iPad, 2026-10-28**, the same round, step 6, the
 share sheet, from Safari: at Large the form sheet 704 points wide (view

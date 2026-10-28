@@ -8877,7 +8877,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       typed, sent, saved, moved or deleted in the app: every composer is
       opened untouched and closed with Cancel, which asks nothing for an
       untouched letter (B-069), every sheet closed with Cancel or Done,
-      and every action sheet and menu with a tap beside it, nothing chosen.
+      and every action sheet and menu with a tap beside it, nothing chosen
+      but Share on (a)'s file's held sheet in step 1, its Share sheet
+      closed with a tap beside it, nothing chosen in it.
       The iPad's own settings are changed and put back. The host APPENDs, read
       (`\Seen`), to the label "Notes", never the Inbox, five letters, each
       from another address with a new Message-ID of its own and naming
@@ -8919,11 +8921,22 @@ checks below is left as not needed, not open, and none is worth a round.*
          the int18 build (26740c2) as well: the same to the pixel but for
          the clock, and for (a)'s two files, tiles after its words on a
          build with B-170 and not rows in the header. And every one of
-         them on the int21 build (1873724) or beside round r6-j-look's
-         Large references of 2026-10-28: the same to the pixel but for the
-         clock, the questions, the action sheets, the bubble's menu and
-         the Share sheet among them, which are held on their own now
-         (`heldAtLarge`) and change nothing at Large.
+         them on the int21 build (1873724), or beside round r6-j-look's
+         Large references of 2026-10-28 for those it took: the same to the
+         pixel but for the clock, the questions, the action sheets and the
+         bubble's menu among them, which are held on their own now
+         (`heldAtLarge`) and change nothing at Large. Two have no
+         reference of r6-j-look's, whose step 02 took neither: (a)'s
+         file's held sheet and the Share sheet from it, where the change
+         does the most (the Share sheet's view made before it is put up
+         and limited, its popover's traits set). Their Large shots are
+         taken on the int21 build (1873724), installed first, before the
+         build with this change goes on; then on this build the same to
+         the pixel but for the clock. Without the int21 shots these two do
+         not pass this step: written down as not checked, not passed. The
+         Share sheet, in each comparison, but for iOS's row of
+         suggestions, the people and apps it offers, which change from one
+         time to the next.
       2. *The largest of the seven, while the app is open.* With (a) open
          and "Notes" scrolled so its row is in sight a few rows down,
          leave the app; Text Size dragged to its right end; back in the
@@ -8940,14 +8953,17 @@ checks below is left as not needed, not open, and none is worth a round.*
          measured): how much, written down, or that it did not move. The
          bubble's menu, the Reply and Flag sheets, (a)'s file's held sheet
          and "Add Another Email…" the same as in 1 to the pixel: on the
-         int21 build, round r6-j-look, 2026-10-28, the first, second and
-         fourth of them and the Flag popover were larger, the window's
+         int21 build, round r6-j-look, 2026-10-28, the bubble's menu, the
+         Reply sheet, the Flag popover and "Add Another Email…" were
+         larger (the file's held sheet was not looked at), the window's
          limits not reaching them, and each is held now by its own
          presentation and view. A question, a sheet or a menu larger than
          in 1: which, written down, and B-166 opened again. The Share
-         sheet from the file's sheet: its popover's place and size as in
-         1; what iOS draws inside it larger than in 1, written down as
-         iOS's own, not a failure.
+         sheet from the file's sheet: its popover's anchor and arrow as in
+         1. Its size and what iOS draws in it, if larger than in 1
+         together, written down as iOS's own, not a failure, the popover's
+         size coming from what iOS puts in it; the popover larger while
+         what is in it stays as in 1, a failure, and B-166 opened again.
       3. *The largest accessibility size.* Larger Text, Larger Accessibility
          Sizes on, the slider at its right end, back in the app: every
          screen of 1 again, each the same as in 1 to the pixel but for the
@@ -9000,11 +9016,19 @@ checks below is left as not needed, not open, and none is worth a round.*
          in the wider sheet, written down. Nothing is sent.
       7. *What stays iOS's.* A file's Quick Look, the photo and document
          pickers, the print panel, WebKit's own menus in a letter, UIKit's
-         menus on the bars, what iOS draws inside the Share sheet (its
-         popover the app's and held, looked at in 2 and 3), the share
-         sheet's frame (6), and the keyboard with its bar, the composer's
-         paperclip and its menu among them, are iOS's own, at the iPad's
-         size as before B-166, and are not looked at here.
+         menus on the bars, UIKit's edit menu on text (Cut, Copy, Paste,
+         Replace and the rest) in the composer's words, its To, Cc, Bcc
+         and Subject fields, the search field and Settings' fields,
+         UIKit's Undo alert after a shake ("Undo Trash", "Undo Move" or
+         "Undo Flag", with Cancel and Undo, B-157), which UIKit makes and
+         puts up itself, iPadOS's undo banner after three fingers, what
+         iOS draws inside the Share sheet and the size it gives its
+         popover (the popover's anchor the app's, looked at in 2 and 3),
+         the share sheet's frame (6), and the keyboard with its bar, the
+         composer's paperclip and its menu among them, are iOS's own, at
+         the iPad's size as before B-166, and are not looked at here:
+         one seen larger at the larger sizes is not a failure of B-166,
+         nor counted as held.
       8. *Put back:* Text Size at its middle step, Bold Text off, Larger
          Accessibility Sizes off, no Per-App entry for Blackmail; "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
@@ -9430,7 +9454,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       notes each UID from its APPENDUID, and stops if one has none. Three
       panes; the app's connection log read after each step; a screenshot
       of each step, and one of "Notes" from an int20 build first, to set
-      beside it.
+      beside it, and for noname and the control one from the int21 build
+      (1873724), or round r6-j-look's shots of the rows of 2026-10-28
+      (its steps 14 and 15), where neither had the paperclip.
       0. *The letters:* "B-172 related", an HTML letter with a JPEG shown
       by `cid:`, sent inline with a filename, in multipart/related, as
       the round's "R6 B-169 plain html"; "B-172 web", the same with a
@@ -9447,10 +9473,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       good!", a blank line, "On Mon, Oct 27, 2026 at 1:25 PM" and its
       sender's name and address in angle brackets, then "wrote:", a blank
       line, and "> Lunch on Sunday?"; "B-172 answered", the same letter as
-      related, APPENDed with `\Seen \Answered \Flagged`, so a row has the
+      related, its subject long enough to be cut at its line's end ("B-172
+      answered, a subject long enough to be cut at its line's end"),
+      APPENDed with `\Seen \Answered \Flagged`, so a row has the
       paperclip beside the reply arrow and the flag; "B-172 control", the
-      same letter as noname, its picture with no filename and no name,
-      APPENDed with the same three flags. "Notes" opened in the
+      same letter as answered, its subject answered's with ", noname"
+      after it, so that both are cut before their end, but its picture as
+      noname's, with no filename and no name, APPENDed with the same
+      three flags, as round r6-j-look made it. "Notes" opened in the
       app.
       1. *The paperclip:* on the rows of related, web, sig, iphone and
       noname, in the place the paperclip has on a read row with a PDF and
