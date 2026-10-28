@@ -48,9 +48,54 @@ enum PreviewText {
 
     /// Line breaks and runs of spaces become single spaces, because the row
     /// has two lines of its own and the body's own wrapping has nothing to do
-    /// with them.
+    /// with them. The quotes are left out first (`withoutQuotes`, B-172).
     static func fromPlainText(_ text: String) -> String {
-        condense(text)
+        condense(withoutQuotes(text))
+    }
+
+    /// `text` without its quoted lines, as Mail previews a plain letter
+    /// (B-172): every line whose first character is `>`, a `>From ` line
+    /// among them, and a line ending "wrote:" directly above one
+    /// (`PlainQuotes.isAttribution`). Seen on the test iPad, Mail 16.5.1,
+    /// 2026-10-27 (round r6-i-compare, C-02b): a letter of "Yes, Sunday.",
+    /// "On Monday, Carlo wrote:", seven quoted lines and "Sam" previews
+    /// "Yes, Sunday. Sam"; a flowed one of "Yes." and three quoted lines,
+    /// "Yes.". Until B-172 the row read "Yes, Sunday. On Monday, Carlo
+    /// wrote: > Lunch on Sunday? > > Or Saturday? >>…".
+    ///
+    /// Only what was seen. A line above a quote that does not end
+    /// "wrote:", or with a blank line between, stays, as before. A text of
+    /// nothing but quotes, which Mail was not seen to preview, is as it
+    /// was, rather than a row with no grey lines. An HTML letter's quotes
+    /// are as they were (`fromHTML`): none was compared. His own drafts and
+    /// the Outbox's rows, written as plain text with a reply's quote under
+    /// them, are previewed the same way, as the same draft's row is once it
+    /// is on the server.
+    static func withoutQuotes(_ text: String) -> String {
+        // The common letter has no quote: not split at all.
+        guard text.utf8.contains(0x3E) else { return text }
+        let bytes = Array(text.utf8)
+        var kept: [UInt8] = []
+        kept.reserveCapacity(bytes.count)
+        var dropped = false
+        var start = 0
+        while start < bytes.count {
+            var end = start
+            while end < bytes.count, bytes[end] != 0x0A { end += 1 }
+            let next = end + 1
+            let isQuote = start < end && bytes[start] == 0x3E
+            let isAttribution = !isQuote && next < bytes.count && bytes[next] == 0x3E
+                && PlainQuotes.isAttribution(bytes, from: start, to: end)
+            if isQuote || isAttribution {
+                dropped = true
+            } else {
+                kept.append(contentsOf: bytes[start..<min(next, bytes.count)])
+            }
+            start = next
+        }
+        guard dropped else { return text }
+        let left = String(decoding: kept, as: UTF8.self)
+        return left.allSatisfy(\.isWhitespace) ? text : left
     }
 
     /// The same, from HTML.

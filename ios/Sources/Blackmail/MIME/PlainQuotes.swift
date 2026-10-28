@@ -20,10 +20,25 @@ import Foundation
 /// `> > ` is two, as `>> ` is. One space after the last mark goes with the
 /// marks; any more are the words'.
 ///
-/// **Not a quote.** A line begun `>From `, which is how a mail store keeps
-/// a line its sender began "From " (mbox), is drawn as it came, as before,
-/// its mark and all. So is a line whose first character is not `>`, a
-/// space before it included.
+/// **Not a quote.** A line whose first character is not `>`, a space
+/// before it included, is drawn as it came.
+///
+/// **`>From `** is a quote, as any line begun `>` is (B-172). A mail store
+/// writes `>From ` for a line its sender began "From " (mbox), and until
+/// B-172 such a line was drawn as it came, its mark and all, a choice of
+/// the 26 Oct build plan's; Mail draws it as a quote of one level, its
+/// mark not shown: "From the store's line." beside the bar, in the bar's
+/// colour, seen on the test iPad, Mail 16.5.1, 2026-10-27 (round
+/// r6-i-compare, C-11c), and on paper the same (C-17c).
+///
+/// **The line before a quote.** A line that is no quote and ends
+/// "wrote:", directly above a quote, is drawn inside it, as its first
+/// line at the first level (`isAttribution`, B-172): "On Monday, Carlo
+/// wrote:" beside the bar of the quote under it, in its colour, as Mail
+/// draws it (C-11c, C-17c). Until B-172 it was drawn outside, as the
+/// letter's own words. Only such a line, as only that was seen: whether
+/// Mail takes in any line above a quote, or one ending ":" alone, or
+/// with a blank line between, was not seen, and they are as before.
 ///
 /// **As it was.** The words are escaped as the page has always escaped
 /// them, and links are made where they were made (`TextLinks`), on a
@@ -55,16 +70,28 @@ enum PlainQuotes {
     }
 
     private static let gt: UInt8 = 0x3E, space: UInt8 = 0x20, lf: UInt8 = 0x0A
-    private static let mbox = Array(">From ".utf8)
+    private static let tab: UInt8 = 0x09, cr: UInt8 = 0x0D
+    private static let wrote = Array("wrote:".utf8)
+
+    /// Whether the line from `start` of `bytes` to `end` ends "wrote:",
+    /// spaces, tabs and a carriage return after it aside: the line Mail
+    /// draws inside the quote directly under it (B-172), and leaves out of
+    /// a row's preview with the quote (`PreviewText.fromPlainText`). Only
+    /// for a line that is no quote; the caller asks that.
+    static func isAttribution(_ bytes: [UInt8], from start: Int, to end: Int) -> Bool {
+        var last = end
+        while last > start, bytes[last - 1] == space || bytes[last - 1] == tab || bytes[last - 1] == cr {
+            last -= 1
+        }
+        return last - start >= wrote.count && bytes[(last - wrote.count)..<last].elementsEqual(wrote)
+    }
 
     /// The quote of the line from `start` of `bytes` to `end`, its break
     /// or the text's end: how deep it is, nought for a line that is no
     /// quote, and where its words begin, past its marks.
     static func quote(_ bytes: [UInt8], from start: Int, to end: Int,
                       flowed: Bool) -> (depth: Int, words: Int) {
-        guard start < end, bytes[start] == gt,
-              !(end - start >= mbox.count && bytes[start..<start + mbox.count].elementsEqual(mbox))
-        else { return (0, start) }
+        guard start < end, bytes[start] == gt else { return (0, start) }
         var depth = 0
         var p = start
         while p < end, bytes[p] == gt, depth < deepest {
@@ -106,12 +133,18 @@ enum PlainQuotes {
             depth = level
         }
         // One line at a time: its quote, then its words past its marks,
-        // and its break.
+        // and its break. A line ending "wrote:" directly above a quote
+        // goes in at the quote's first level (B-172).
         var start = 0
         while start < bytes.count {
             var end = start
             while end < bytes.count, bytes[end] != lf { end += 1 }
-            let line = quote(bytes, from: start, to: end, flowed: flowed)
+            var line = quote(bytes, from: start, to: end, flowed: flowed)
+            // The next line is a quote when its first character is a mark.
+            if line.depth == 0, end + 1 < bytes.count, bytes[end + 1] == gt,
+               isAttribution(bytes, from: start, to: end) {
+                line.depth = 1
+            }
             moveTo(line.depth)
             guard markup <= allowed else { return TextLinks.plain(text, escaping: escaping) }
             let next = min(end + 1, bytes.count)

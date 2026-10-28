@@ -370,10 +370,15 @@ struct MIMEPart {
     ///
     /// `inline` is deliberately NOT an attachment — that is the shape of a
     /// picture the body references by `cid:`, and this app renders those in
-    /// the body flow. Listing them as well would put a "sig-logo.png" row
-    /// and a paperclip on every letter the signature's images ship with,
-    /// which Mail does not do either. (An earlier comment here said inline
-    /// images count "because the spec wants them listed"; that was written
+    /// the body flow. Listing them as well would put a "sig-logo.png" file
+    /// on every letter the signature's images ship with, which Mail does
+    /// not do either. It does put its paperclip on such a letter's row,
+    /// which this comment said it did not until B-172: seen on the test
+    /// iPad, Mail 16.5.1, 2026-10-27; the row's paperclip counts a named
+    /// picture of multipart/related for it
+    /// (`IMAPMailRepository.hasAttachment`), and this is unchanged. (An
+    /// earlier comment here said inline images count "because the spec
+    /// wants them listed"; that was written
     /// before anything could resolve a `cid:`, when listing was the only
     /// way the picture was reachable at all.)
     ///
@@ -391,7 +396,8 @@ struct MIMEPart {
     /// Whether this part is a file of the letter's, one the reading pane
     /// draws in the body as a file (B-170), for the paperclip on the list's
     /// row (`IMAPMailRepository.hasAttachment`), from the BODYSTRUCTURE
-    /// alone (B-101).
+    /// alone (B-101); the paperclip counts a named picture the body shows
+    /// by `cid:` as well, which this leaves out (B-172).
     ///
     /// `isAttachment` with one change: a part sent inline is a file too,
     /// unless it is a picture the body shows by `cid:`, or the words of a

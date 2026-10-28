@@ -410,6 +410,8 @@ final class MIMEDecoderTests: XCTestCase {
                   words: "Here it is.", isAttachment: true, isListedFile: true),
             // A multipart sent inline is not a file: what it holds is
             // looked at in its turn, here the HTML and the logo it shows.
+            // No file, and since B-172 the paperclip, as Mail clips a
+            // letter whose picture by `cid:` is named.
             Shape(name: "multipart/related, inline, the HTML and a logo with a Content-ID",
                   raw: Self.header + "Content-Type: multipart/alternative; boundary=\"A\"\r\n\r\n"
                     + "--A\r\n" + words + "\r\n"
@@ -421,7 +423,7 @@ final class MIMEDecoderTests: XCTestCase {
                     + "Content-ID: <logo@example.com>\r\nContent-Disposition: inline; filename=\"logo.png\"\r\n"
                     + "\r\niVBORw0K\r\n"
                     + "--R--\r\n--A--\r\n",
-                  part: "2", listed: [], kept: ["logo.png"], clip: false,
+                  part: "2", listed: [], kept: ["logo.png"], clip: true,
                   words: "Here it is.", isAttachment: false, isListedFile: false),
             // Apple Mail's own shape for a PDF put among the words: the
             // plain words whole, and the HTML split around the file.
