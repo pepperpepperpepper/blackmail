@@ -348,7 +348,10 @@ enum ConversationDocument {
           .bm-html [style*="background-image"] {
                      filter: \(SignatureSheet.invert); }
           /* A signature's white sheet is inverted with the rest of its
-             letter, as Mail draws it: no rule of its own (B-146). */
+             letter (B-146), grey under the invert so it is Mail's grey
+             sheet, its logo showing on it, its white borders lost in it
+             (SignatureSheet, B-173). */
+          \(SignatureSheet.css(in: ".bm-html"))
           /* Mail's bars beside quoted text (B-101): a letter's HTML in its
              light colours, which the invert turns; a plain letter's quotes,
              Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
@@ -366,8 +369,10 @@ enum ConversationDocument {
              colours. One that declares the dark, in its own colours, words
              white on the pane's black, its style for the dark in its body,
              Mail's bars in its dark colours. Their links' colour weighs no
-             more than the letter's own rule for links (:where). */
-          .bm-light { background: #fff; color: #000; color-scheme: light only; }
+             more than the letter's own rule for links (:where). A light
+             letter's white is a sheet in its column, as Mail's is (B-173):
+             the body's margin is the pane's black, and nothing moves. */
+          .bm-light { background: #fff; background-clip: content-box; color: #000; color-scheme: light only; }
           :where(.bm-light) a { color: #007AFF; }
           .bm-own { color: #fff; color-scheme: light dark; }
           :where(.bm-own) a { color: #0A84FF; }
@@ -381,10 +386,14 @@ enum ConversationDocument {
           .bm-letter:not(.bm-open) > .bm-found { display: none; }
           /* Mail's line over a letter whose pictures from the web are held
              back, at the body's size whatever the letter's own rules say
-             (B-166, B-168), and in Mail's dark colours over a letter in
-             its own (B-169). */
+             (B-166, B-168), and in Mail's colours, white words and its blue
+             on the pane's black, whatever the letter: under the invert for
+             a letter inverted, Mail's own for one light or in its own
+             colours (B-173). */
           \(RemoteContent.sizeRule(in: "body", pointSize: bodyPointSize))
-          \(RemoteContent.darkRule(in: ".bm-own"))
+          \(RemoteContent.colourRule(in: ".bm-html", inverted: true))
+          \(RemoteContent.colourRule(in: ".bm-light", inverted: false))
+          \(RemoteContent.colourRule(in: ".bm-own", inverted: false))
           /* A file's tile at the pane's text size, as Mail's grows with it
              (B-166, B-170); nothing at Large or below. */
           \(BodyFiles.sizeRule(bodyPointSize: bodyPointSize))\(stacked ? stackedLines : "")

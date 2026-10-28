@@ -27,8 +27,13 @@ import Foundation
 ///   CSS escapes, goes out then; with the list on it is blocked.
 ///
 /// The words are Mail's, from its strings (`REMOTE_IMAGES_BLOCKED_OTHER`,
-/// `LOAD_REMOTE_IMAGES_OTHER`, iOS 18.6); how Mail lays the line out on an
-/// iPad was not seen, and its look here is the pane's own.
+/// `LOAD_REMOTE_IMAGES_OTHER`, iOS 18.6). Mail's line was seen on the test
+/// iPad (iPadOS 16.5.1, 2026-10-27) over one letter, a light one: white
+/// words over a blue "Load All Images" on its dark card, above the header.
+/// It sits outside the letter, on Mail's card, so it is most likely the
+/// same whatever the letter (over a letter Mail turns dark: not seen). Its
+/// colours are Mail's (B-173); its place, under the header, and its shape,
+/// one line with a rule under it, are the pane's own, its layout.
 ///
 /// Pure, out of the controllers, so the suite on Linux can test it.
 enum RemoteContent {
@@ -59,13 +64,17 @@ enum RemoteContent {
 
     /// The line over a letter whose pictures from the web are held back,
     /// its button a link naming `id`, the letter's on a page of its own,
-    /// its entry's in a stack (`ConversationDocument.Entry.id`). Inside the
-    /// letter's own block, which the pane inverts for an HTML letter, and
-    /// only an HTML letter asks the web for anything: so in the light
-    /// colours the invert turns dark, as the letter's links are (`#007AFF`)
-    /// and the pane's own grey line over a shortened letter is
-    /// (`PanePage.shortenedLine`). A rule under it, the colour of the
-    /// stack's own between letters once inverted.
+    /// its entry's in a stack (`ConversationDocument.Entry.id`). In Mail's
+    /// colours whatever the letter (B-173): white words and Mail's blue
+    /// button, `#0A84FF`, on the pane's black, a rule under it the colour
+    /// of the stack's own between letters. Inside the letter's own block,
+    /// which the pane inverts for a letter Mail turns to the dark: written
+    /// here in the colours the invert turns to those (`underInvert`), and
+    /// in the head in Mail's own for a letter drawn light or in its own
+    /// colours, which is not inverted (`colourRule`). Only an HTML letter
+    /// asks the web for anything. Until B-173 the line had grey words and
+    /// the light blue on the letter's white, and on an inverted letter what
+    /// the invert made of them.
     ///
     /// Its class, `lineClass`, is for the page's head to size it: at the
     /// pane's body size, 17 at Large, the size the app is drawn at whatever
@@ -76,11 +85,36 @@ enum RemoteContent {
     /// they came, has the line at the new size.
     static func line(for id: String) -> String {
         "<div class=\"" + lineClass + "\" style=\"display: flex; align-items: baseline; gap: 12px; margin: 0 0 1em 0; "
-            + "padding: 0 0 10px 0; border-bottom: 0.5px solid #c7c7c5; white-space: normal;\">"
-            + "<span style=\"flex: 1 1 auto; color: #8e8e93;\">" + unloaded + "</span>"
-            + "<a href=\"" + link(for: id) + "\" style=\"flex: 0 0 auto; color: #007AFF; "
+            + "padding: 0 0 10px 0; border-bottom: 0.5px solid " + underInvert.rule + "; "
+            + "background-color: " + underInvert.ground + "; white-space: normal;\">"
+            + "<span style=\"flex: 1 1 auto; color: " + underInvert.words + ";\">" + unloaded + "</span>"
+            + "<a href=\"" + link(for: id) + "\" style=\"flex: 0 0 auto; color: " + underInvert.button + "; "
             + "text-decoration: none;\">" + loadAll + "</a></div>"
     }
+
+    /// The line's colours: its words, its button, the rule under it, and
+    /// what is behind it.
+    struct Colours: Equatable {
+        let words: String
+        let button: String
+        let rule: String
+        let ground: String
+    }
+
+    /// Mail's, as the test iPad showed them (B-173): white words, its blue
+    /// button, on the pane's black, which stands for Mail's dark card as
+    /// the pane does (D-010); the rule the stack's between letters.
+    static let mail = Colours(words: "#fff", button: "#0A84FF", rule: "#38383a", ground: "#000")
+
+    /// What goes under the pane's invert, `SignatureSheet.invert`, for
+    /// `mail` to come out of it: black for white, white for black, and the
+    /// rule's grey for the stack's, `#c7c7c9`, which the invert and the
+    /// half turn of the hue make `#38383a` exactly (`#c7c7c5`, its plain
+    /// invert, would come out rgb(56, 56, 54)). Mail's blue cannot be had:
+    /// the invert gives no blue that full and that dark at once, and `#1597FF` is the
+    /// nearest, about rgb(14, 144, 248) once inverted, as the letter's own
+    /// links are a lighter blue than Mail's there.
+    static let underInvert = Colours(words: "#000", button: "#1597FF", rule: "#c7c7c9", ground: "#fff")
 
     /// The line's class (`line`).
     static let lineClass = "bm-unloaded"
@@ -93,13 +127,20 @@ enum RemoteContent {
             + "font-family: -apple-system, sans-serif !important; }"
     }
 
-    /// The head's rule for the line over a letter drawn in its own colours
-    /// on the pane's black (`LetterScheme.own`, B-169), not inverted: Mail's
-    /// dark colours for its rule and its button, as the invert makes them
-    /// over a letter turned to the dark (int19).
-    static func darkRule(in scope: String) -> String {
-        "\(scope) .\(lineClass) { border-bottom-color: #38383a !important; } "
-            + "\(scope) .\(lineClass) a { color: #0A84FF !important; }"
+    /// The head's rule for the line's colours inside `scope`, the page's
+    /// letter or a body in the stack, over a sender's own rules for a
+    /// `div`, a `span` or an `a`: Mail's (`mail`, B-173) for a letter not
+    /// inverted, drawn light on its own white (`LetterScheme.light`) or in
+    /// its own colours on the pane's black (`LetterScheme.own`), and what
+    /// the invert turns to Mail's (`underInvert`) for one `inverted`. Until
+    /// B-173 a letter in its own colours alone had a rule, Mail's dark
+    /// colours for the line's rule and its button (int19).
+    static func colourRule(in scope: String, inverted: Bool) -> String {
+        let c = inverted ? underInvert : mail
+        return "\(scope) .\(lineClass) { background-color: \(c.ground) !important; "
+            + "border-bottom-color: \(c.rule) !important; } "
+            + "\(scope) .\(lineClass) span { color: \(c.words) !important; } "
+            + "\(scope) .\(lineClass) a { color: \(c.button) !important; }"
     }
 
     /// The button's link: `bmimages:?letter=<id>`, the id escaped as a

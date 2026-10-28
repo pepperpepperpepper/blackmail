@@ -9376,6 +9376,61 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
+- [ ] **B-173, a letter's colours as Mail's in Dark Mode.** On the test
+      iPad, the test account only, from a build of the `bm-cmp-b`
+      worktree (branch `copy-cmp-b`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app. The
+      host makes the letters, each from another address, with a new
+      Message-ID of its own and naming none on the account, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, noting
+      each UID from its APPENDUID; it stops if one has none. The picture
+      from the web is on a host the round controls, by https. The iPad in
+      Dark Mode, three panes; full-size screenshots, colours sampled from
+      them, as the comparison of 2026-10-27 sampled Mail's.
+      1. *The letters:* "B-173 web picture", an HTML letter with no
+         scheme, a few paragraphs, a link and one picture from the web
+         among the words (drawn light); "B-173 signature", a letter as this
+         app sends one with the account's signature, its sheet
+         (`bm-signature`) and its table, its cells' borders declared white,
+         `border: 0.99609pt solid rgb(255, 255, 255)`, as his signature's
+         are (the host checks the markup has them before the APPEND, and
+         stops if not), the logo a dark picture on transparency by `cid:`;
+         "B-173 thread 1" and "B-173 thread 2", one
+         conversation, the first with the web picture letter's body and the
+         second with the signature letter's; "B-173 inverted held", an
+         HTML letter with no scheme whose only reference to the web is a
+         `<link rel="stylesheet">` in its body (drawn inverted).
+      2. *The light letter:* "B-173 web picture" opened: white from under
+         the header to the letter's foot, inside black margins left, right
+         and above, as wide as the words, the words where they were: the
+         first line's left edge at the x of the subject in the header above
+         it, as in the round of 2026-10-27. Screenshot.
+      3. *His signature:* "B-173 signature" opened: under the signature a
+         grey sheet, about rgb(51, 51, 51), as wide as the words, its words
+         white, the links blue, the logo visible on the grey; the words
+         above it on the black as before. No dark lines or grid inside the
+         grey sheet, round the logo or the words: one plain grey, as in
+         Mail's shot of 2026-10-27 (r6-i-compare-11-mail-sig); a cell's
+         edge sampled on the full-size shot, about rgb(51, 51, 51), not
+         black. Screenshot.
+      4. *In a conversation:* "B-173 thread 2" listed, both letters open:
+         the first's white inside black margins, the second's grey sheet
+         under the signature with the logo, no lines in it. Screenshot.
+      5. *Block All Remote Content:* Blackmail's Settings, Block All Remote
+         Content on. "B-173 web picture" opened: the line under the header,
+         one line as before, "Message contains unloaded images." white and
+         "Load All Images" about rgb(10, 132, 255), on black, the rule under
+         it, the white sheet starting under the line. "B-173 inverted held":
+         the same words white on black, the button about rgb(14, 144, 248)
+         (the nearest the invert gives). The thread: the line over the
+         first letter in the same colours. Screenshots. Load All Images on
+         "B-173 web picture": the picture comes, as before. Then Block All
+         Remote Content off again, as it comes from the factory.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+         UIDs it noted, and only them, from "Notes" to the Trash, and
+         deletes in the Trash only the UIDs that move answered
+         (`COPYUID`). Nothing was sent, and nothing else was written to
+         the account.
 
 - [ ] **B-172, what a row says, plain quotes and paper, as Mail.** On the
       test iPad, the test account only, from a build of the `bm-cmp-a`

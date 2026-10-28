@@ -497,9 +497,10 @@ final class PrintPageTests: XCTestCase {
     /// A signature's white sheet prints as written, as it did: the paper
     /// has no invert and no filter, so the sheet's own white and black,
     /// declared in its markup, and its logo as drawn, the body being the
-    /// pane's, byte for byte, the logo decoded as it is drawn. Neither has
-    /// the pane's page a rule for it since B-146, where it is inverted
-    /// with the rest, as Mail draws it.
+    /// pane's, byte for byte, the logo decoded as it is drawn. The pane's
+    /// page inverts it with the rest (B-146) and has a rule for its colour
+    /// alone, Mail's grey sheet once inverted (B-173), which the paper
+    /// has not.
     func testASignaturesSheetPrintsAsWritten() throws {
         let logo = Attachment(id: "2", filename: "logo.png", mimeType: "image/png", size: 900,
                               contentID: "sig-logo", isInline: true)
@@ -518,7 +519,7 @@ final class PrintPageTests: XCTestCase {
                                        + AppleMailHTML.signatureTableStyle + "\"><tr><td>"
                                        + "<img decoding=sync src=\"bmcid://sig-logo\" width=\"70\">"), printed)
         let pane = try XCTUnwrap(PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17, lineHeight: 1.41)))
-        XCTAssertFalse(try self.sheet(pane).contains("bm-signature"))
+        XCTAssertTrue(try self.sheet(pane).contains(SignatureSheet.css(in: "#bm")))
     }
 
     // MARK: - In words
