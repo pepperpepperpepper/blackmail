@@ -179,11 +179,13 @@ final class FilesAheadTests: XCTestCase {
         XCTAssertEqual(ahead.taking(c), .fetch(lands: false), "not planned")
         XCTAssertEqual(ahead.states[c], nil)
 
-        // Tapped before its letter's page finished loading: the tap's, and
-        // not fetched again when the page has finished.
+        // Tapped before the pane asked for it: the tap's, and not fetched
+        // again when the pane asks for its letter's files. A guard: the
+        // pane asks for them as it gives the page or the body, before a
+        // tile can be tapped.
         let d = FilesAhead.Key(letter: "7/3", part: "7")
         XCTAssertEqual(ahead.taking(d, planned: true), .fetch(lands: true), "planned, not yet asked for")
-        XCTAssertEqual(ahead.drawn(d), .nothing, "the page finished: coming, the tap's")
+        XCTAssertEqual(ahead.drawn(d), .nothing, "the pane asks for its letter's files: coming, the tap's")
         XCTAssertFalse(ahead.turn(d))
         XCTAssertTrue(ahead.landed(d, at: nil))
         XCTAssertEqual(ahead.drawn(d), .show(inHand: false))
@@ -372,12 +374,13 @@ final class FilesAheadTests: XCTestCase {
     /// letter's PDF was FETCHed after both of its photos; Mail, C-13e, had
     /// the PDF drawn while a photo still came). Read from the pane: the
     /// loader pointed at the letter's pictures, the page given to WebKit,
-    /// and its files asked for at once, the first file's FETCH before the
-    /// page has finished, before WebKit has asked for a picture, for
-    /// nothing is awaited before it but the file before it; then each in
-    /// its turn on the one line, first come first served with the pictures
+    /// and its files asked for at once, nothing awaited before the first
+    /// file's fetch, so it is asked before the page has finished and
+    /// usually before WebKit has asked for a picture; then each in its turn
+    /// on the one line, first come first served with the pictures
     /// (`ExchangeGateTests`), so B-160's and B-151's go between two files;
     /// the page finished asks for nothing. Only these two ask for files.
+    /// And on the pane's document, each file asked once.
     func testALettersOwnPageAsksForItsFilesAsItsWordsGoIn() throws {
         let pane = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(pane.contains("private func draw(_ m: Message, page: String?) { prepareInlineImages(for: [m]) "
@@ -406,25 +409,23 @@ final class FilesAheadTests: XCTestCase {
                       before)
         XCTAssertTrue(pane.contains("let before = aheadLast let repository = self.repository"))
 
-        // WebKit's order for a letter's page, on the pane's document: the
-        // page given, the files asked for then (`drawn`, as `fetchAhead`
-        // asks it), and the page's load ending after; asked again as the
-        // page is drawn again, nothing more.
+        // Asked once, and not again when drawn again: a letter's page
+        // given to the pane's document, each of its files asked for as
+        // `fetchAhead` asks (`drawn`); the page committed and finished
+        // handing nothing back to ask for; drawn again, nothing more. The
+        // order, the files asked before the page's load ends, is pinned
+        // from the pane's source above, not here.
         final class Navigation {}
         let page = Navigation()
         let m = letter([pdf, file("5", "notes.docx", "application/octet-stream", size: 9_000)])
         var document = PaneDocument()
         var files = FilesAhead()
-        var line: [String] = []
         document.loaded(.letter(m, page: "<p>x</p>"), navigation: ObjectIdentifier(page))
-        for f in FilesAhead.planned(m) where files.drawn(.init(letter: m.id, part: f.id)) == .fetch {
-            line.append("FETCH " + f.id)
-        }
-        line.append("FETCH picture 2")
+        XCTAssertEqual(FilesAhead.planned(m).map { files.drawn(.init(letter: m.id, part: $0.id)) },
+                       [.fetch, .fetch], "the page given: each asked")
         XCTAssertEqual(document.didCommit(ObjectIdentifier(page)), [])
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(page)), PaneDocument.Finished())
-        line.append("loaded")
-        XCTAssertEqual(line, ["FETCH 4", "FETCH 5", "FETCH picture 2", "loaded"])
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(page)), PaneDocument.Finished(),
+                       "the page finished: nothing handed back")
         XCTAssertEqual(FilesAhead.planned(m).map { files.drawn(.init(letter: m.id, part: $0.id)) },
                        [.nothing, .nothing], "drawn again: asked once")
     }

@@ -133,7 +133,9 @@ struct FilesAhead: Equatable {
     /// and kept as come, and any other file fetched as ever. A file
     /// `planned` (`fetches`) that the pane has not asked for yet is
     /// fetched now and kept as come as well, so it is not fetched a second
-    /// time when the pane asks for its letter's files (`drawn`).
+    /// time when the pane asks for its letter's files (`drawn`): a guard,
+    /// as the pane asks for them as it gives the page or the body, before
+    /// a tile can be tapped.
     mutating func taking(_ key: Key, planned: Bool = false) -> Taking {
         switch states[key] {
         case let .landed(url)?:
