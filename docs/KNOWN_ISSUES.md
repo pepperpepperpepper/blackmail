@@ -34841,7 +34841,7 @@ changes and regrouping by it, and `keptMove` reading `newsPlace`. Undone
 by hand, then put back and passing: `keptDrawn` always `.stay`, and
 `keptChanged` back to `regroup()`, 3 failures in 1 test.
 
-## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27 and 2026-10-28, its questions and action sheets held on their own the second day. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
+## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27 and 2026-10-28, its questions and action sheets held on their own the second day, and their words by the app's own text size answered Large after the second round that day, not yet seen there. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -35490,6 +35490,107 @@ Large. So the sheet's frame at the larger sizes is iOS's own, as the
 app that shares draws it, as Quick Look's and the print panel's are;
 the form inside it is held at Large. In TODO, B-166's step 6 compares
 the form's content, not the sheet's frame.
+
+**Found on the test iPad, 2026-10-28 (second round)**, in round
+r6-k-fix, on a build of the `fix-j1` branch at ff47eb6, int21's tip
+then, with the questions held on their own (above). Step 1, at Large:
+the panes, the file's held sheet, the Share sheet from it, the bubble's
+menu and the composer, the Reply sheet, the Flag popover, "Add Another
+Email…" and the Settings sheet the same to the pixel as on int21 (round
+r6-k-ref), but for the caret. Steps 2 and 3, the largest of the seven
+and the largest accessibility size, the app left open: the list, the
+composer, the Settings sheet and the log's bar the same to the pixel as
+at Large; and every question, action sheet and menu with its frame
+held and its words larger. At the largest of the seven the file's held
+sheet, the Reply sheet and the Flag popover kept their boxes and arrows,
+each word larger; the bubble's menu had its name on two lines, its
+address broken and the popover grown downward; "Add Another Email…"
+was taller (its box from y 81 to 263, against 99 to 245 at Large), the
+keyboard where it was. At the largest accessibility size the file's
+sheet had its items on two lines and Copy cut off, the popover grown up
+nearly to the top of the screen; the Reply sheet and the Flag popover reached
+halfway down, "Mark as / Unread" and "Move / to Junk" on two lines each;
+the bubble's menu reached nearly to the foot of the screen; and the question's
+title was scrolled out of sight, its Cancel and Add still side by side.
+The two Share sheets, the held file's and the connection log's, kept
+their popovers' boxes and arrows as at Large, but inside them some of
+what iOS draws was larger, AirDrop's, Messages' and Mail's names and
+the Copy, Markup and Print rows, or Copy and Edit Actions, while
+"Blackmail" and the other rows stayed at Large and were pushed down.
+The share sheet's form, from Safari, as before: its captions the same
+size and place at both sizes, its frame Safari's (step 6).
+
+The cause: a trait of Large on the presentation and views limited to
+Large (`heldAtLarge`) reach a `UIAlertController`'s frame and not its
+words: on 16.5.1 UIKit sizes an alert's and an action sheet's labels by
+the text size iOS hands the app, `UIApplication.preferredContentSizeCategory`,
+and not by the traits of the screen they are on. The host's test read
+only that the helper was called.
+
+*Changed.* The app's own text size is Large at its root: the app is
+launched as a subclass of `UIApplication` of its own
+(`BlackmailApplication`, App/BlackmailApplication.swift), named as the
+principal class in `main.swift`, which passed nil until then, and its
+one override, `preferredContentSizeCategory`, answers `.large` whatever
+the iPad's size or a size set for Blackmail alone in Per-App Settings.
+What UIKit sizes by the app's size, an alert's labels among them, has
+nothing larger to follow. Bold Text is its own switch and is followed
+as before. The window's limits, the traits of Large on the panes and the
+sheets and `heldAtLarge` on every question, action sheet and Share sheet
+stay as they were, each holding what it held. At Large the answer is the
+one iOS gives: nothing changes. What else reads the app's size, or
+hears it change, was looked for: `TextSizes.app`, which reads
+`UIApplication.shared.preferredContentSizeCategory` at launch and at
+iOS's `UIContentSizeCategory.didChangeNotification`, now reads Large
+whatever iOS says, so a change of size draws nothing (only Bold Text
+says `didChange`); no screen of the app's has a `traitCollectionDidChange`
+of its own or uses `UIFont.preferredFont` or `UIFontMetrics`; the one
+handler of a change of traits is the share sheet's, in the extension. A
+letter whose own HTML sets its type by WebKit's text-style keywords
+(`-apple-system-body` and the rest), which "Not covered" above believed
+to grow with the iPad's size, may be held by it too, WebKit being
+believed to read the app's size where it sizes them: not seen. That
+UIKit reads this override, and not a value of its own, where it sizes
+an alert's words is believed from how the app's size is documented and
+not shown on iOS 16 to 18 by anything the host can run: the TODO's
+steps 2 and 3 look.
+
+The share extension runs inside the app that shares, whose application
+it cannot replace: its form is held by its own traits and window as
+before, and its frame is that app's (step 6, above).
+
+*The two Share sheets*, a held file's and the connection log's
+(`UIActivityViewController`): their popovers' anchor, arrow and frame
+are held, as round r6-k-fix saw. What iOS draws inside, the people and
+devices, the apps' names and the rows of actions, is iOS's own: the
+activity sheet's rows are drawn by iOS, partly out of process, in a
+view the app does not make and whose size it cannot set. What draws
+in the app's process now has Large to read; what is drawn out of it is
+believed to keep the iPad's size, as the rows that grew in r6-k-fix
+(AirDrop's, Messages' and Mail's names, Copy, Markup and Print) may
+have been. Whatever of it is still larger than at Large after this
+change is iOS's own, as Quick Look's and the print panel's are, and
+not a failure of B-166, so long as the popover's anchor, arrow and frame
+stay as at Large. In TODO, B-166's steps 2, 3 and 7 say so.
+
+*Tests.* `TextSizeWiringTests.testTheAppsOwnSizeIsLargeAtItsRoot`, new:
+the subclass and its one override answering `.large`, as written;
+`main.swift` naming it the principal class beside `AppDelegate`, in its
+one `UIApplicationMain`; the share extension's `main.swift` naming
+neither; Large the step the app is drawn at for every size iOS has,
+Bold Text either way (`TextSize.drawn`); and, file by file, no other
+subclass of `UIApplication`, the app's size read in `TextSizes.app`
+alone, iOS's word of a change heard there and in the share sheet only,
+and `traitCollectionDidChange` in the share sheet only.
+`testEveryQuestionAndActionSheetIsHeldAtLarge` now also asks for the
+principal class in `main.swift`, the questions' words being held there;
+`testEveryScreenIsHeldAtLarge` takes the override as the one other
+place that names the size. Undone by hand, then put back and passing:
+`main.swift` passing nil again, 4 failures in the 2 tests, each an
+assertion's; the override answering `super.preferredContentSizeCategory`,
+iOS's own, 3 failures in the new test, each an assertion's. The full
+suite, serially: 3,148 tests, 6 skipped, none failing. The release build
+for the iPad: "Build complete".
 
 ## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
@@ -38996,7 +39097,7 @@ without the changes, 5 failures and 2, each an assertion's.
 `RepositoryTrafficTests` counts the book's writes without Spam's, which
 now notes nobody.
 
-## B-178 — FIXED 2026-10-27, fixed again 2026-10-28 after the test iPad, not yet seen there since. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does, each row shows when its letter arrived, as Mail's row does, and Go to Date goes by it
+## B-178 — FIXED 2026-10-27, fixed again 2026-10-28 after the test iPad, and the reading pane's header after the second round that day, not yet seen there since. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does, each row shows when its letter arrived, as Mail's row does, and Go to Date goes by it; the reading pane's header shows it too, as Mail's header does, in Blackmail's own words
 
 Built in the `bm-cmp-g` worktree (branch `copy-cmp-g`), off int20 at
 b9afe64. Batch G of the comparison plan of 2026-10-27 (item G1).
@@ -39167,7 +39268,8 @@ the iPad links.
 **Not seen.** Which date Mail's reading pane header shows for a letter
 whose two dates differ: the round of 2026-10-28 looked at Mail's rows
 alone (the device check's steps 1 and 2 now open the two letters in
-Mail and in Blackmail). The rest of this paragraph as written on
+Mail and in Blackmail; the second round that day saw it: the arrival,
+"Found on the test iPad, 2026-10-28 (second round)", below). The rest of this paragraph as written on
 2026-10-27, before the round: nothing on the iPad yet.
 Gmail's answer times for the dates FETCH and the SEARCHes at his sizes.
 A search's hits are in the order they were (by UID, folder by folder):
@@ -39376,3 +39478,79 @@ skipped, none failing; the release build for the iPad: "Build complete".
 *Layout.* None changed: a row's date is in its place, in the same words
 for a date; only which date. The foot's words and the sheet are as they
 were.
+
+**Found on the test iPad, 2026-10-28 (second round)**, in round
+r6-k-fix, on a build of the `fix-j1` branch at ff47eb6, int21's tip
+then. The host put the three letters in the test account's "Notes" as
+the TODO's step 0 has them: "lastyear", 14 June 2025 both; "came old",
+arrived on 8 October at noon, its Date that morning at 9 am; "dated
+old", arrived that morning at 10.23, its Date 1 March 2024. Mail
+16.5.1's rows and Blackmail's after a relaunch were the same, order and
+dates: "dated old" first, "10:23 AM", "came old" second, "10/8/26",
+"lastyear" "6/14/25" under 7/17/25; the dates FETCH in the log as the
+step has it, Go to Date by arrival, the undone row where it stood and
+the kept rows after a relaunch all as the check expects. One failure,
+the TODO's step 2: Mail's reading pane header showed when each letter
+arrived, "10:23 AM" on "dated old" and "10/8/26" on "came old";
+Blackmail's showed their Dates, "March 1, 2024 at 12:00 PM" and "Today
+at 9:00 AM". The step was written to find out which (Not seen, above).
+
+The cause: the header was drawn from the letter's `date`, its Date
+header (`MessageHeaderView.configure`), by design until then (*Changed*
+1, above: "The reading pane's header, the conversation's stack in the
+pane, ... keep the Date, as nothing seen says Mail's differ"), and the
+letter as the server reads it does not say when it arrived; its row
+does (`MessageSummary.arrived`).
+
+*Changed.* Which date Mail's header shows is copied; Blackmail's words
+for it and their place under the subject are its own and are kept
+(`MailFormat.detailTimestamp`, D-008, the comparison plan's part 3, the
+header's date kept as layout, D-025): "Today at 10:23 AM" where Mail
+writes "10:23 AM", and "October 8, 2026 at 12:00 PM" where Mail writes
+"10/8/26". The header shows `Message.headerDate`, when the letter
+arrived, or its Date where that is not known, as for a letter kept on
+the iPad with no arrival. A `Message` carries the arrival its row gives
+it (`arrived`): the header drawn from the row at the tap
+(`Message.heading(for:)`) has it from the row, and the letter once it
+has come is given its row's (`arriving(as:)`, the row being the same
+letter's), in the single letter's pane and for the letter of a
+conversation he opens, so the date does not change as the letter lands.
+Each letter's line in the conversation's stack, in its short form as
+before (`MailFormat.listTimestamp`), shows its row's `listDate`, his
+letters from Sent Mail among them (`ConversationDocument.entry`).
+A reply's "On ... wrote:", Forward's header and Print keep the Date:
+they are made from the letter as read, never given the arrival, and
+nothing seen says Mail's differ (Not seen, below).
+
+*Not seen.* Which date Mail prints for such a letter, and which its
+reply's "On ... wrote:" line gives: neither was looked at. In TODO,
+B-178's step 3 now compares both, Mail's beside Blackmail's, in the
+print preview only and with the reply's composer closed with Cancel.
+
+*Reverses.* *Changed* 1's "The reading pane's header, the
+conversation's stack in the pane, ... keep the Date", and the same in
+`MessageSummary.listDate`'s comment; `RowDateTests`' "the Date kept for
+the pane".
+
+*Tests.* `HeaderDateTests`, four, new, over the scripted server with the
+round's two letters: the header drawn from the row and the header of the
+letter come both show when it arrived, in other words than its Date's,
+while the letter keeps its Date, which a reply's "On ... wrote:" and
+Print write; another letter's row, or none, gives nothing; a kept letter
+with no arrival shows its Date; a conversation's lines in the stack by
+when each letter arrived, a letter of his from Sent Mail too; and the
+wiring: the header draws `headerDate`, and each of the five places
+that give the header a letter gives it one with its row's arrival.
+Changed with it: `ArrivalOrderTests` (two: the stack's lines by arrival,
+the order still not by Date), `ConversationOrderTests`,
+`DatesRedrawnTests` and `PrintWiringTests` (the header's one writer
+`headerDate`, Print's `m.date` as before), `RowDateTests`' words. Undone
+by hand, the uses only (the header drawing `date`, the row's arrival not
+given at the tap or as the letter comes, the stack's lines by Date): 22
+failures in 8 tests, each an assertion's, the kept letter with no
+arrival passing as it should; put back, passing. The full suite,
+serially: 3,152 tests, 6 skipped, none failing. The release build for
+the iPad: "Build complete".
+
+*Layout.* None changed: the header's date is in its place, on its one
+line, in the same words for a date; only which date.
