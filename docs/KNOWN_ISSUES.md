@@ -38814,8 +38814,8 @@ days before was the second, reading "10/8/26". So the list goes by
 INTERNALDATE, when Gmail took the letter, which Gmail keeps through a
 move (B-084), by UID within a second, the higher first, and every row
 shows that date (`MessageSummary.listDate`). Until then the rows showed
-the Date header, which is the same in both only for a letter whose two
-dates are the same day (C-02d had none other). The comparison of
+the Date header, which is the same in both only where the two dates read
+the same on the row (C-02d had none other). The comparison of
 2026-10-27 had left it open: its letter had the same INTERNALDATE and
 Date (14 Jun 2025 14:00); Mail on the Mac offers both, "Date Received"
 and "Date Sent", the iPad's neither; Apple's community threads read for
@@ -38959,9 +38959,9 @@ the iPad links.
 
 **Not seen.** Which date Mail's reading pane header shows for a letter
 whose two dates differ: the round of 2026-10-28 looked at Mail's rows
-alone (the device check's step 1 now opens the two letters in Mail and
-in Blackmail). The rest of this paragraph as written on 2026-10-27,
-before the round: nothing on the iPad yet.
+alone (the device check's steps 1 and 2 now open the two letters in
+Mail and in Blackmail). The rest of this paragraph as written on
+2026-10-27, before the round: nothing on the iPad yet.
 Gmail's answer times for the dates FETCH and the SEARCHes at his sizes.
 A search's hits are in the order they were (by UID, folder by folder):
 the plan's G1 is the list's order, and a search's is left for the
@@ -39068,11 +39068,14 @@ it, so the suite passed what the iPad failed.
    drawn at launch and with no connection (kept with `arrived` since
    B-084). A row kept by an older build with no arrival keeps its Date
    until the folder is next listed. The words for the date
-   (`MailFormat.listTimestamp`) and their place are unchanged. A search's
-   hits are merged by the same date (`SearchMerge.isOrderedBefore`), and so
-   are the kept hits a search finds with no connection (B-160), so the
-   dates down a list of hits go in step with what the rows show. The
-   new-mail banners went by arrival already (Integration, above). The
+   (`MailFormat.listTimestamp`) and their place are unchanged. Where a
+   search merges its hits by date it goes by the same date: the Trash's
+   and Spam's hits among the searched folder's with All Mailboxes
+   (`SearchMerge.isOrderedBefore`), and the kept hits a search finds with
+   no connection (B-160). The hits within the searched folder keep the
+   SEARCH's UID order, as before ("Not seen"), so in a label such as Notes
+   their dates can still go out of step down the list. The new-mail
+   banners went by arrival already (Integration, above). The
    reading pane's header, the conversation's stack in the pane, a reply's
    "On ... wrote:", Print and Forward keep the Date, as nothing seen says
    Mail's differ.
@@ -39092,7 +39095,16 @@ it, so the suite passed what the iPad failed.
    each no later than the row above, to the first of them, which matters
    where a span's lowest UID arrived after others it found, as in a
    label; and as before up from one before his day or more than a week
-   ahead. The date landed on (`landedOn`), the row the list opens on
+   ahead. Where every row of the window below the letter found arrived on
+   or after his midnight, the first of them can be further down than the
+   window goes (39 rows below it at a page of fifty): the window is then
+   cut from its lowest row instead, the order widened below that as a
+   page below widens it, and so on, in the jump's hold
+   (`PageWindow.anchor(below:in:limit:arrival:dayStart:notAfter:)`), as
+   far as twenty windows, some 780 rows; past that it lands on the lowest
+   row reached, and "Showing" names a later day than the first letter to
+   arrive. Nothing more is asked where the window holds the first to
+   arrive. The date landed on (`landedOn`), the row the list opens on
    (`ListOpening.dayRow`) and so the foot's "Showing" day go by arrival,
    the day the row shows. "No mail on or after" now says that nothing
    arrived on or after the day, but for a letter that says it arrived
@@ -39100,46 +39112,58 @@ it, so the suite passed what the iPad failed.
 3. *The scripted server* answers SENTSINCE, SENTBEFORE and SENTON by when
    the letter arrived, as Gmail does.
 
-*On the wire.* A jump asks as many SEARCHes as before, each one bound
-shorter; the day's FETCH of its letters' dates is unchanged.
+*On the wire.* A jump asks as many SEARCHes as before, each with
+`SINCE` and `BEFORE` alone, where it had the Date's `SENTSINCE` and
+`SENTBEFORE` and the arrival's bounds of a week either side as well; the
+day's FETCH of its letters' dates is unchanged.
 
 *Reverses.* B-058's `SENTSINCE` and its week-back bound, "SENTSINCE, not
-SINCE" (`IMAPDate`); B-115's "the lowest UID of those dated within his
-day"; this entry's "the rows still show the Date header";
-`GoToDateBoundTests`' letter delayed or from a fast clock found by its
-Date (now on the day each arrived, and the letter dated 2037 that arrived
-in 2014 on that day of 2014); `DateJumpTests`' "West of Greenwich a
-landing never moves down".
+SINCE" (`IMAPDate`), and INVESTIGATIONS' "SENTSINCE, not SINCE — they are
+different dates", which now says so under its heading; B-115's "the
+lowest UID of those dated within his day"; this entry's "the rows still
+show the Date header"; `GoToDateBoundTests`' letter delayed or from a
+fast clock found by its Date (now on the day each arrived, and the
+letter dated 2037 that arrived in 2014 on that day of 2014);
+`DateJumpTests`' "West of Greenwich a landing never moves down".
 
 *Tests.* `RowDateTests`, six, new: the round's two letters' rows and
 VoiceOver by arrival, the Date kept for the pane, the dates down the list
 in step; a conversation's row by its newest letter's arrival; a kept row
 with no arrival by its Date; the kept page at the next launch; a
-search's hits, merged and kept, by arrival; the cell's one writer.
+search's hits, where merged and kept, by arrival; the cell's one writer.
 `ListInDateOrderTests`' letter whose two dates differ shows its arrival.
-`GoToDateByArrivalTests`, four, new, over the scripted server in a
+`GoToDateByArrivalTests`, six, new, five over the scripted server in a
 label's order, New York, the iPad's clock the round's: today lands on
 "dated old" at the top and the list opens on its row, "Showing" the 28th;
 the 8th on "came old", "Showing" the 8th, and 1 March 2024 not on "dated
 old"; a day with no mail on the first to arrive after it, not on the
 span's lowest UID, and the pages above and below in order, every letter
-once; the day's SEARCH by `SINCE` and `BEFORE`. `IMAPDateTests` written
-for the new keys, with `testEveryJumpSearchIsByArrival`; `DateJumpTests`'
-landing; `GoToDateBoundTests`' `testEachLetterIsFoundOnTheDayItArrived`
-and its wire; `GoToDateOrderTests`, `GoToDateRowTests`,
-`LandedLetterTests`, `DatesRedrawnTests` and `DatesTheIPadsWayTests` for
-the new names. Undone by hand, the row (the cell, the conversation's
-row, VoiceOver and the merge on the Date): 13 failures in 6 tests, each
-an assertion's, the kept row with no arrival passing as it should; the
-jump (the keys by the Date with the week-back bound, the day's letters by
-their Date, no walk down, the landing and the row by the Date): 137
-failures in 20 tests, each an assertion's, today's jump "No mail on or
-after October 28" as on the iPad; the row opened on by its Date alone: 1
-failure. Put back, passing. The date-order paging after a jump
-(`ListInDateOrderTests`, the int21 changes of 3da61b3 among them) and the
-copy kept on the iPad and its search with no connection (B-160:
+once; the same with a window of three rows, its one row below the
+span's lowest UID "labelled late" of the 9th, where the landing had
+stopped, cut lower to "came old", and the pages either side in order;
+the day's SEARCH by `SINCE` and `BEFORE`; and the window cut lower from
+its lowest row only where it and the letter found arrived on or after
+the day and no later than a week ahead, never with no row below.
+`IMAPDateTests` written for the new keys, with
+`testEveryJumpSearchIsByArrival`; `DateJumpTests`' landing;
+`GoToDateBoundTests`' `testEachLetterIsFoundOnTheDayItArrived` and its
+wire; `GoToDateOrderTests`, `GoToDateRowTests`, `LandedLetterTests`,
+`DatesRedrawnTests` and `DatesTheIPadsWayTests` for the new names.
+Undone by hand, the row (the cell, the conversation's row, VoiceOver and
+the merge on the Date): 13 failures in 6 tests, each an assertion's, the
+kept row with no arrival passing as it should; the jump (the keys by the
+Date with the week-back bound, the day's letters by their Date, no walk
+down, the landing and the row by the Date): 137 failures in 20 tests,
+each an assertion's, today's jump "No mail on or after October 28" as on
+the iPad; the row opened on by its Date alone: 1 failure. Put back, passing. The window cut lower, undone (no move
+down): the window of three rows lands on "labelled late", "Showing" the
+9th, 4 failures, each an assertion's; its guards undone (any lowest row
+taken): 21 failures in five of the six, each an assertion's, the wire's
+passing. Put back, passing. The date-order paging after a jump
+(`ListInDateOrderTests`, the int21 changes of 3da61b3 among them) and
+the copy kept on the iPad and its search with no connection (B-160:
 `KeptPagesTests`, `KeptCopyTests`, `OfflineSearchTests`) pass unchanged.
-The full suite: 3,142 tests, 6 skipped, none failing; the release build
+The full suite: 3,144 tests, 6 skipped, none failing; the release build
 for the iPad: "Build complete".
 
 *Layout.* None changed: a row's date is in its place, in the same words

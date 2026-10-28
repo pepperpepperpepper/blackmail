@@ -9832,10 +9832,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       old" among the rows of twenty days ago, its row's date that day's
       (10/8/26 then), not today's 9 am; "lastyear" 6/14/25 under 7/17/25;
       the dates going down the list all the way. Then each of the two
-      opened in Blackmail: its header's date written down beside Mail's
-      from step 1. Blackmail's header shows the Date; if Mail's showed the
-      arrival, that is written down under B-178 "Not seen" as a
-      difference for the owner, not a failure of this step. The log: one
+      opened in Blackmail, nothing tapped in it: the date its reading
+      pane's header shows written down beside Mail's from step 1, with a
+      screenshot of the header. Blackmail's header shows the Date: as
+      Mail's, this passes; if Mail's showed the arrival, the step FAILs, a
+      difference from Mail to fix, both screenshots cited, in the round's
+      results, not in KNOWN_ISSUES. The log: one
       `UID FETCH … (UID INTERNALDATE)` after the
       `UID SEARCH ALL`, read as `* FETCH {N dates}`, N the letters in Notes,
       then the page's FETCH. Screenshot of each place.
@@ -9854,11 +9856,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       from 14 June 2025: the dates in order. Go to Date's day and scope put
       back as found at the end (Notes, the Inbox at its top after).
       5. *Undo:* "came old" dragged left full: it goes. A shake, Undo
-      Trash: it is back where it stood. Refresh: still there, not at the
-      top. Over IMAP its new UID is above every other in Notes.
+      Trash: it is back where it stood, its row's date the day it arrived
+      (10/8/26 then), not today's 9 am. Refresh: still there, not at the
+      top, the same date. Over IMAP its new UID is above every other in
+      Notes.
       6. *Relaunch:* the app quit and opened again, Notes tapped at once:
       the kept rows in the order of step 2 before the listing lands, and
-      the same after.
+      the same after, each row's date as in step 2 both times: "dated old"
+      today's time, not 3/1/24; "came old" the day it arrived, not today's
+      9 am.
       7. *Refresh:* the Inbox at its top, Refresh twice: the second's log is
       NOOP, `UID SEARCH ALL` and one FETCH, with no dates FETCH.
       8. *Put back:* "Notes" left, the Inbox at its top. The host moves the

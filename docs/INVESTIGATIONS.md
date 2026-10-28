@@ -1510,6 +1510,17 @@ a frame late.
 
 ### SENTSINCE, not SINCE — they are different dates
 
+*Reversed on 2026-10-28 (KNOWN_ISSUES B-178, "Found on the test iPad,
+2026-10-28").* Both of the next paragraph's premises fell on the test
+iPad. Mail's rows show when the letter arrived, and Blackmail's do now
+(`MessageSummary.listDate`). Gmail answers `SENTSINCE`, `SENTBEFORE` and
+`SENTON` by INTERNALDATE, as it answers `SINCE`, so a jump by the Date
+found the day's letters by their arrival, threw away those dated another
+day and said "No mail on or after". A jump now asks `SINCE` and `BEFORE`
+and goes by arrival from end to end (`IMAPDate.jump`). The paragraph is
+kept as it was written; the one after it, on `en_US_POSIX` and the local
+calendar, holds as `IMAPDate.criteriaValue` has it.
+
 `SINCE` tests INTERNALDATE, when the server took delivery. The list rows show
 the envelope `Date`, what the sender's own clock said. For mail delayed
 overnight those differ, and jumping on the wrong one lands him on a row whose
