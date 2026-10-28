@@ -9529,8 +9529,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       trashed, moved or marked: no Trash, Move or Mark is tapped in Edit
       mode. The host makes three letters from made-up senders, each with a
       new Message-ID of its own and naming none on the account, and
-      APPENDs them, read (`\Seen`), to the label "Notes", noting each UID
-      from its APPENDUID; it stops if one has none. Three panes.
+      APPENDs them to the label "Notes", the first APPENDed unread (no
+      `\Seen`, the third row once listed) and the other two read
+      (`\Seen`), noting each UID from its APPENDUID; it stops if one has
+      none. Three panes; the connection log read after step 2.
       1. *Nothing ticked:* "Notes" opened, the first letter tapped, then
          Edit: Mark, Move and Trash grey, Select All and Cancel blue, the
          title "Notes"; the letter and its header grey, the buttons above
@@ -9540,7 +9542,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          rows grey, not white. Screenshot.
       2. *One ticked:* the third row ticked: the title "1 Selected", the
          row blue with a white tick and white names, its letter in the pane
-         in full colour, Mark, Move and Trash blue. Screenshot. The second
+         in full colour, Mark, Move and Trash blue. Screenshot. Not marked
+         read (plan C4): its row's unread dot still there, white while it is
+         ticked; the host's FLAGS for it without `\Seen`; and the
+         connection log, read after the step, with no `UID STORE`. The second
          ticked too: "2 Selected", the pane as it was. The third unticked:
          "1 Selected", the second's letter in the pane.
       3. *Unticked, then Cancel:* the second unticked: Mark, Move and Trash
@@ -9556,7 +9561,8 @@ checks below is left as not needed, not open, and none is worth a round.*
          Edit mode still on. Cancel: "Edit", grey. The search cancelled:
          the rows back, "Edit" blue.
       7. *Put back:* "Notes" left, the Inbox at its top. The host checks
-         the three letters' flags unchanged, then moves the UIDs it noted,
+         the three letters' flags unchanged, the one APPENDed unread
+         still without `\Seen`, then moves the UIDs it noted,
          and only them, from "Notes" to the Trash, and deletes in the Trash
          only the UIDs that move answered (`COPYUID`). Nothing was sent,
          and nothing else was written to the account.
@@ -9741,7 +9747,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       date Mail's row shows for "came old" (today's 9 am, or twenty days
       ago) and for "dated old" (3/1/24, or today's time), so a row of
       Blackmail's showing the other date is caught in this round.
-      2. *Blackmail:* Notes opened: the three where Mail had them, by
+      2. *Blackmail:* the app quit and opened again, then Notes opened, so
+      that this launch lists Notes afresh (one that has listed it already,
+      in an earlier check of the round, carries its dates, and the three
+      come with the page's FETCH, with no dates FETCH:
+      `ArrivalOrder.foldedPage`): the three where Mail had them, by
       arrival: "dated old" first, its row's date 3/1/24; "came old" among
       the rows of twenty days ago, its time today's; "lastyear" under
       7/17/25. The log: one `UID FETCH … (UID INTERNALDATE)` after the

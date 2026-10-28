@@ -37567,6 +37567,25 @@ ios165`) links.
   a US region; the host's Foundation is what the tests read, and they
   pin the form by the formatter's styles and the seconds, not its words.
 
+**Integration (int21, with B-172).** Wired: the printed header, a
+`<table>` of `<td>`s since this entry, is in the same document as the
+sender's markup, and a `<style>` in a letter's body still applies on
+paper (`DocumentWrapper.stripped` takes off only the `<head>`). The
+header's rules set the cells' padding, font, colour and alignment, and
+not their borders, width, background or display, so a letter whose
+style boxed every `td` or stretched every `table` to 100% printed From,
+Subject, Date and To in boxes, label and value pulled apart, and one
+setting `td` as a block with `!important` put each label above its
+value; the divs before it took none of that. Now each of those is the
+header's own, `!important`, on its table, its rows and its cells
+(`PrintPage`): border none, no background, width auto, the table's,
+row's and cell's own display, and the table's collapse, spacing and
+margin; with no such style each is what it was, and nothing on paper
+moves. On screen nothing changed. `PrintPageTests`, one new,
+`testTheHeaderKeepsItsLinesUnderTheSendersTableStyles`, an HTML letter
+with such a style, the header's rules read; without the change, 8
+failures, each an assertion's; passing with it. Not seen on paper.
+
 ## B-173 — FIXED 2026-10-27, not yet seen on the iPad. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 
 The comparison with Mail of 2026-10-27 (round r6-i-compare, Mail 16.5.1
@@ -37935,6 +37954,32 @@ taking is; B-158's next letter opens nothing in Edit mode, so no "Undo
 Read" step is made there (B-175); B-157's put-back rows come back where
 they stood (`ListLetters.restore`), which is their place in B-178's date
 order. Not seen on the iPad.
+
+**Integration (int21, with B-174), continued.** Three more. The
+letter before, the one the pane had opened, is not put back either where
+its conversation's row is left on the list with another letter, the one
+it opened gone: it was looked for only in the row found, where it no
+longer is, and the row came back without it; now in the row it had too
+(`EditPane.end`).
+`testALetterBeforeALostAnswersLookFoundGoneIsNotPutBack` has the case;
+without the change, 1 failure, an assertion's. The dimmed letter's files
+and pictures, tapped or held, open nothing while the pane is dimmed, as
+its buttons are not tapped (`openAttachment`, `holdPicture`,
+`holdFile`), B-171's and B-176's Markup and Reply among them: a PDF's
+tile held, Markup and Reply picked, drawn and Done, opened a Reply
+composer for the dimmed letter while the pane's Reply was grey. Nothing
+was sent; nothing in how the pane looks changed, only what can be
+tapped. Whether Mail's dimmed pane takes such a touch was not seen (its
+pane was compared by eye, C-03); a link in it opens as before.
+`EditModeLikeMailTests`, one new,
+`testTheDimmedLettersFilesAndPicturesAreNotToBeTapped`, the pane read;
+without the change, 3 failures, each an assertion's; the pane's source
+read by `PaneNavigationTests`, `FileListedOnceTests` and
+`PictureHoldTests` quotes the guards. The device check (TODO) puts the
+third row's letter in unread and reads the connection log after a tick:
+its unread dot still there, no `\Seen`, no `UID STORE`, as plan C4 has
+an unread ticked letter not marked read; the check APPENDed all three
+read before, so a tick that marked a letter read would have passed it.
 
 ## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
@@ -38547,6 +38592,22 @@ he has written to, B-155's book filled from his Sent Mail, and B-162's
 Contacts, with B-017's matches within last; the fill counts as written
 to, so it never fills the part of the book kept for the seen.
 
+**Integration (int21, with B-177), continued.** Two more, neither
+a change of layout, only of who is offered. B-123's rule now holds for
+the seen too: a name with "via" as a word, a letter sent on someone's
+behalf, is never matched (`RecipientBook.onBehalf`, made internal for
+it), since the book keeps the last name seen at a group's or a service's
+address: "'Margaret Ellis' via Garden Club" at the group's was offered
+for "marg", and a letter meant for her would have gone to the whole
+club. And nobody is noted from Junk (`rows(from:)`, the folder
+`roleNames[.junk]` names): a spam letter's sender, a bank's or a shop's
+name, would have been kept and offered by it. Mail's Siri suggestions
+were not compared for either. `SeenSendersTests`, two new,
+`testNeverByANameSentOnSomeonesBehalf` and `testNobodyFromJunkIsNoted`;
+without the changes, 5 failures and 2, each an assertion's.
+`RepositoryTrafficTests` counts the book's writes without Spam's, which
+now notes nobody.
+
 ## B-178 — FIXED 2026-10-27, not yet seen on the iPad. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does
 
 Built in the `bm-cmp-g` worktree (branch `copy-cmp-g`), off int20 at
@@ -38745,6 +38806,32 @@ replies carry their arrival and go into a conversation by it
 day (above); the icon's number is the Inbox's count; B-172's previews
 are fetched after the rows as before, for a letter the watch's news
 places among them too (`showNews` returns it), and a kept one is made
-again when its row is next fetched. Not seen on the iPad. The full suite
-after the integration, B-172 to B-178 with E5 taken out: 3,125 tests, 6
-skipped, none failing; the release build for the iPad: "Build complete".
+again when its row is next fetched. Not seen on the iPad.
+
+**Integration (int21, with B-178), continued.** A date jump the
+list never shows, a search typed or cancelled before it landed, still
+leaves its order as the folder's snapshot, its span around the day
+jumped to, with the dates of the list from the top carried in it. Paging
+down from that list's last row, whose date lies above the span, took the
+span's rows as all below it (`reaches(below:count:)` asked only that the
+row had a date) and gave the jumped-to day's newest fifty, everything
+between silently missing; up from a row below a span, the same. Now a
+row is taken as placed only when it arrived within the span, and the
+page asks `reach` for it first in every case, which re-anchors the span
+on the row's own day when it is outside it, and widens from there. And
+the watch takes a letter that the snapshot's listing holds for news when
+the snapshot dated it after every row the list holds: one that came
+between the list's listing and the jump's, which it had taken for one
+put in out of turn. `ListInDateOrderTests`, two new,
+`testAPageBelowTheTopAfterAJumpNotShownGoesOnFromTheTop` (a folder of
+2,500, above `wholeFolderAtMost`) and
+`testALetterThatCameBeforeAJumpNotShownIsNews`; without the changes, 3
+failures, each an assertion's. The device check's step 2 (TODO) has the
+app quit and opened again first: a launch that has listed Notes in an
+earlier check carries its dates, and the three new letters' come with
+the page's FETCH (`foldedPage`), with no dates FETCH for the step to
+find.
+
+The full suite after the integration, B-172 to B-178 with E5 taken out
+and the changes after it: 3,131 tests, 6 skipped, none failing; the
+release build for the iPad: "Build complete".
