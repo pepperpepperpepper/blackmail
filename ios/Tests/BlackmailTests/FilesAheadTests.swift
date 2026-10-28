@@ -313,6 +313,42 @@ final class FilesAheadTests: XCTestCase {
         XCTAssertTrue(document.contains("if case let .letter(m, _) = content { letter = m.id }"))
     }
 
+    /// A tile tapped while it says "Downloading", before its letter's page
+    /// has finished, and then another letter opened (the check's step 6,
+    /// found on the test iPad, 2026-10-28): the large letter's PDF was
+    /// FETCHed 1.1 s after the other letter was shown, as the photo on the
+    /// wire ended. That FETCH was the tap's, asked for at the tap, before
+    /// the pane moved on, and waiting its turn on the one connection
+    /// behind the page's photo: `fileData` asks the repository at once for
+    /// a file to come and not yet asked for, nothing awaited before it but
+    /// a fetch ahead already running, and a tap's download is never called
+    /// off (B-122), only the fetches ahead are; it ends, and is let go,
+    /// nothing shown, written or said. What 60d5671 stopped, a fetch begun
+    /// after a wait once the pane has moved on, is not this. Read from the
+    /// pane's source.
+    func testATapsFetchAskedBeforeThePaneMovedOnEnds() throws {
+        let pane = try source("UI/MessageDetailViewController.swift")
+        let start = try XCTUnwrap(pane.range(of: "private func fileData("))
+        let asked = try XCTUnwrap(pane.range(of: "let data = try await repository.fetchAttachmentData(",
+                                             range: start.upperBound..<pane.endIndex))
+        let before = String(pane[start.upperBound..<asked.lowerBound])
+        XCTAssertEqual(before.components(separatedBy: "await").count - 1, 1, before)
+        XCTAssertTrue(before.contains("if taking == .wait { await aheadFetches[key]?.value "
+                                      + "guard loads.stillShows(shown) else { throw CancellationError() }"), before)
+        XCTAssertFalse(before.contains("Task.yield"))
+
+        // The tap's task is the pane's to forget, not to call off: nothing
+        // keeps it, and the pane given something else cancels only the
+        // fetches ahead.
+        XCTAssertTrue(pane.contains("filesOpening += 1 Task { @MainActor in"))
+        XCTAssertFalse(pane.contains("= Task { @MainActor in var handedOver"))
+        XCTAssertEqual(pane.components(separatedBy: ".cancel()").count - 1, 2, "the fetches ahead alone")
+        XCTAssertTrue(pane.contains("private func letAheadGo() { for fetch in aheadFetches.values { fetch.cancel() } "
+                                    + "aheadFetches = [:] aheadLast?.cancel()"))
+        XCTAssertTrue(pane.contains("let data = try await fileData(attachment, of: m, shown: shown) "
+                                    + "guard loads.stillShows(shown) else { return }"))
+    }
+
     /// The page's document finished: a letter's own page names its letter,
     /// for its files; a stack's names none.
     func testALettersPageFinishedNamesItsLetter() {
