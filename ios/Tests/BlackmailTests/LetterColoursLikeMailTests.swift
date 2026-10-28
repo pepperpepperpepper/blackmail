@@ -4,7 +4,19 @@ import XCTest
 /// A letter's colours in the dark pane as the comparison with Mail on the
 /// test iPad saw them (B-173), with nothing on the pane moved: a light
 /// letter's white a sheet in its column, with the pane's black round it.
+/// His signature's grey sheet is `SignatureLikeMailTests`'.
 final class LetterColoursLikeMailTests: XCTestCase {
+
+    /// What the pane's invert, `invert(1) hue-rotate(180deg)`, makes of
+    /// the colour `rgb`, by CSS's definitions of the two, in sRGB, each
+    /// channel kept between 0 and 1, rounded to a byte.
+    static func inverted(_ rgb: (Int, Int, Int)) -> [Int] {
+        let turn: [[Double]] = [[-0.574, 1.430, 0.144], [0.426, 0.430, 0.144], [0.426, 1.430, -0.856]]
+        let x = [rgb.0, rgb.1, rgb.2].map { 1 - Double($0) / 255 }
+        return turn.map { row in
+            Int((min(1, max(0, zip(row, x).map(*).reduce(0, +))) * 255).rounded())
+        }
+    }
 
     private let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
 

@@ -209,8 +209,8 @@ final class ConversationDocumentTests: XCTestCase {
     /// page has them (`PanePageTests`), each under `.bm-html`, a letter's
     /// HTML, in Mail's light colours; and under `.bm-text`, a plain
     /// letter's, in its dark ones (B-147); never the stack's own lines.
-    /// After the rule for the HTML's pictures: no signature's rules
-    /// between them since B-146.
+    /// After the rule for the HTML's pictures and the signature's grey
+    /// sheet (B-146, B-173).
     func testTheStackHasMailsBarsBesideAnHTMLLettersQuotes() throws {
         let quote = ":is(blockquote[type=cite i], blockquote[class~=gmail_quote])"
         func rule(_ selector: String, _ colour: String) -> String {
@@ -230,7 +230,9 @@ final class ConversationDocumentTests: XCTestCase {
         XCTAssertTrue(sheet.contains("""
                      filter: \(SignatureSheet.invert); }
           /* A signature's white sheet is inverted with the rest of its
-             letter, as Mail draws it: no rule of its own (B-146). */
+             letter (B-146), grey under the invert so it is Mail's grey
+             sheet, its logo showing on it (SignatureSheet, B-173). */
+          \(SignatureSheet.css(in: ".bm-html"))
           /* Mail's bars beside quoted text (B-101): a letter's HTML in its
              light colours, which the invert turns; a plain letter's quotes,
              Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
@@ -247,14 +249,18 @@ final class ConversationDocumentTests: XCTestCase {
         XCTAssertFalse(sheet.contains("#bm"), "the letter's own page's scope")
     }
 
-    /// No rule for a signature's white sheet (B-146): the sheet is
-    /// inverted with the rest of its letter, as Mail draws it. Until then
-    /// the stack inverted it back, white with black words, since its first
-    /// version (B-130 gave a letter on its own the same rules).
-    func testTheStackHasNoRuleForASignaturesSheet() throws {
+    /// One rule for a signature's white sheet, its colour (B-173): the
+    /// sheet is inverted with the rest of its letter (B-146), and is grey
+    /// under the invert, so it is Mail's grey sheet. Until B-146 the stack
+    /// inverted it back, white with black words, since its first version
+    /// (B-130 gave a letter on its own the same rules); no filter for it.
+    func testTheStackHasOneRuleForASignaturesSheetItsColour() throws {
         let html = document([entry("1/1")])
         let sheet = try XCTUnwrap(html.components(separatedBy: "</style>").first)
-        XCTAssertFalse(sheet.contains("bm-signature"), sheet)
+        XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 2, sheet)
+        XCTAssertEqual(SignatureSheet.css(in: ".bm-html"), ".bm-html .bm-signature, .bm-html .bm-signature table "
+                       + "{ background-color: rgb(204, 204, 204) !important; }")
+        XCTAssertTrue(sheet.contains("\n  " + SignatureSheet.css(in: ".bm-html") + "\n"), sheet)
         XCTAssertFalse(sheet.contains("filter: none"), sheet)
     }
 

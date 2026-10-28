@@ -1,17 +1,17 @@
 import Foundation
 
-/// The pane's invert, and what is left of a signature's white sheet in the
-/// reading pane, which is dark (D-010).
+/// The pane's invert, and a signature's white sheet in the reading pane,
+/// which is dark (D-010): Mail's grey sheet under his signature (B-173).
 ///
 /// Every HTML letter this app sends with a signature carries it in
 /// `AppleMailHTML.signatureOpen`, a `<div class="bm-signature">` declaring
 /// a white sheet with black words, his signature naming no colours of its
 /// own. The pane draws a letter's HTML on white and then inverts it with its
-/// hue turned back, so that sheet is black and its words white, like the
-/// rest of the letter, and the logo, dark ink on transparency, is drawn as
-/// it is, dark on the black.
+/// hue turned back, so from B-146 until B-173 that sheet was black and its
+/// words white, like the rest of the letter, and the logo, dark ink on
+/// transparency, drawn as it is, dark on the black, hard to see.
 ///
-/// That is as Mail draws it (B-146). Mail draws no sheet. Its style sheet,
+/// That was B-146's reading of Mail, which drew no sheet. Its style sheet,
 /// read in MessageUI and MobileMailUI (`-apple-color-filter:
 /// apple-invert-lightness()` on `:root.apple-mail-implicit-dark-support`),
 /// turns the lightness of every colour in a letter that declares no colour
@@ -29,10 +29,23 @@ import Foundation
 /// Since B-169 the pane inverts only the letters Mail turns to the dark,
 /// those that declare no colour scheme and have no picture from the web
 /// and no background picture (`LetterScheme`). His letters are such
-/// letters, so his signature is as above. A letter of his with a picture
+/// letters, so his signature is as below. A letter of his with a picture
 /// from the web in it, one he forwards or quotes, is drawn light, on its
 /// own white, as Mail draws it, and the sheet in it as written, white with
 /// black words, as on paper.
+///
+/// Mail was seen at last on the test iPad (iPadOS 16.5.1, 2026-10-27), and
+/// it keeps the sheet (B-173): his signature in Dark Mode is on a grey
+/// sheet, rgb(51, 51, 51), as wide as the letter's column, on Mail's dark
+/// card, its words light, its links blue, and the black logo shows on the
+/// grey. So the sheet, and the tables in it this app gives the same white
+/// (`AppleMailHTML.signatureTableStyle`), have a grey under the invert,
+/// `underInvert`, which the invert turns to Mail's: on a letter the pane
+/// inverts, alone and in a conversation's stack (`css(in:)`). The logo,
+/// a picture, is inverted back as every picture is, so it is drawn as it
+/// is, dark on the grey. A letter drawn light or in its own colours has
+/// its sheet as written, and the printed page has no rule for it.
+/// Nothing moves: a colour under what was there.
 enum SignatureSheet {
 
     /// The pane's invert: the one string both pages invert a letter's HTML
@@ -40,4 +53,18 @@ enum SignatureSheet {
     /// so the two can never differ. Only a letter Mail would turn to the
     /// dark (`LetterScheme.inverted`, B-169).
     static let invert = "invert(1) hue-rotate(180deg)"
+
+    /// The class of his signature's sheet (`AppleMailHTML.signatureOpen`).
+    static let className = "bm-signature"
+
+    /// The sheet's colour under the invert: the invert turns a grey of 204
+    /// to Mail's rgb(51, 51, 51), and hue-rotate leaves a grey alone.
+    static let underInvert = "rgb(204, 204, 204)"
+
+    /// The rule for the sheet in a letter the pane inverts inside `scope`,
+    /// the page's `#bm` or the stack's `.bm-html`: the sheet and its tables
+    /// grey under the invert, over the white written on them (B-173).
+    static func css(in scope: String) -> String {
+        "\(scope) .\(className), \(scope) .\(className) table { background-color: \(underInvert) !important; }"
+    }
 }

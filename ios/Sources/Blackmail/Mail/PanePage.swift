@@ -175,8 +175,10 @@ enum PanePage {
         // photograph while the text around it goes light-on-dark.
         //
         // The invert is the stack's, the one string (`SignatureSheet.invert`).
-        // A signature's white sheet is inverted with the rest, as Mail
-        // draws it (B-146): its rules, which inverted it back, are gone.
+        // A signature's white sheet is inverted with the rest (B-146), and
+        // is grey under the invert, so it is Mail's grey sheet, rgb(51, 51,
+        // 51), its logo showing on it (`SignatureSheet.css`, B-173): only on
+        // a page with the sheet in it, so every other page is as it was.
         // After the invert, Mail's bars beside quoted text (`QuoteBars`,
         // B-101), in its light colours, which the invert turns. A plain
         // letter's quotes are Mail's blockquotes too (`PlainQuotes`,
@@ -203,6 +205,7 @@ enum PanePage {
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: \(SignatureSheet.invert); }
               """ + "\n" + QuoteBars.css(in: "#bm")
+                + (content.contains(SignatureSheet.className) ? "\n" + SignatureSheet.css(in: "#bm") : "")
         case .light?:
             smartInvert = "#bm { background: #fff; background-clip: content-box; color-scheme: light only; }\n"
                 + QuoteBars.css(in: "#bm")
