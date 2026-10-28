@@ -8878,8 +8878,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       opened untouched and closed with Cancel, which asks nothing for an
       untouched letter (B-069), every sheet closed with Cancel or Done,
       and every action sheet and menu with a tap beside it, nothing chosen
-      but Share on (a)'s file's held sheet in step 1, its Share sheet
-      closed with a tap beside it, nothing chosen in it.
+      but Share on (a)'s file's held sheet, in step 1 and again in steps 2
+      and 3, its Share sheet closed with a tap beside it, nothing chosen in
+      it.
       The iPad's own settings are changed and put back. The host APPENDs, read
       (`\Seen`), to the label "Notes", never the Inbox, five letters, each
       from another address with a new Message-ID of its own and naming
