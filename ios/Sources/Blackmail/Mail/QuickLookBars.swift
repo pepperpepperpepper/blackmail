@@ -13,9 +13,12 @@ import Foundation
 /// setting reaches it.
 ///
 /// So from iOS 18 the pane sets that flag before it presents Quick Look,
-/// only where Quick Look has both the method and the flag, and Quick Look
-/// opens with its bars as on 16 and 17; a tap still hides and shows them.
-/// On 16 and 17 nothing is set.
+/// only where Quick Look has both the method and the flag, the flag a
+/// BOOL that key-value coding may reach, and Quick Look opens with its
+/// bars as on 16 and 17; a tap still hides and shows them. Where any of
+/// that is not so, as after a change in a later QuickLook, nothing is set
+/// and the bars come with a tap, rather than a wrong write stopping every
+/// Quick Look. On 16 and 17 nothing is set.
 ///
 /// Out of `MessageDetailViewController`, which is UIKit and does not build
 /// on the host, for the reason `PaneCover` is.
@@ -25,4 +28,6 @@ enum QuickLookBars {
     static let decider = "_setDefaultFullscreenStateIfNeeded"
     /// Its flag that it has run, reached by key-value coding.
     static let flag = "_didSetDefaultFullscreenState"
+    /// The flag's type as the runtime writes it: a BOOL on arm64.
+    static let flagType = "B"
 }

@@ -16,6 +16,7 @@ final class QuickLookBarsTests: XCTestCase {
     func testTheNames() {
         XCTAssertEqual(QuickLookBars.decider, "_setDefaultFullscreenStateIfNeeded")
         XCTAssertEqual(QuickLookBars.flag, "_didSetDefaultFullscreenState")
+        XCTAssertEqual(QuickLookBars.flagType, "B", "a BOOL, as the runtime encodes it on arm64")
     }
 
     /// The flag set once, behind the check of 18 and both guards, after
@@ -26,7 +27,9 @@ final class QuickLookBarsTests: XCTestCase {
         let gate = "if ProcessInfo.processInfo.isOperatingSystemAtLeast( "
             + "OperatingSystemVersion(majorVersion: 18, minorVersion: 0, patchVersion: 0)), "
             + "preview.responds(to: NSSelectorFromString(QuickLookBars.decider)), "
-            + "class_getInstanceVariable(QLPreviewController.self, QuickLookBars.flag) != nil { "
+            + "QLPreviewController.accessInstanceVariablesDirectly, "
+            + "let flag = class_getInstanceVariable(QLPreviewController.self, QuickLookBars.flag), "
+            + "ivar_getTypeEncoding(flag).map({ String(cString: $0) }) == QuickLookBars.flagType { "
             + "preview.setValue(true, forKey: QuickLookBars.flag) }"
         XCTAssertTrue(pane.contains("let preview = QLPreviewController() preview.dataSource = self "
                                     + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
@@ -43,7 +46,8 @@ final class QuickLookBarsTests: XCTestCase {
         XCTAssertEqual(count("QLPreviewController()", in: pane), 1, "one place every Quick Look is made")
         XCTAssertEqual(count("modalPresentationStyle = .fullScreen", in: pane), 1)
         XCTAssertEqual(count("forKey: QuickLookBars.flag", in: pane), 1)
-        XCTAssertEqual(count("QuickLookBars.", in: pane), 3, "the guards' two names and the flag set")
+        XCTAssertEqual(count("QuickLookBars.", in: pane), 4, "the guards' three names and the flag set")
+        XCTAssertEqual(count("preview.setValue(", in: pane), 1, "the flag the one value set on Quick Look")
         XCTAssertEqual(count("isOperatingSystemAtLeast", in: pane), 1)
         for name in [QuickLookBars.decider, QuickLookBars.flag] {
             XCTAssertFalse(pane.contains(name), "named in `QuickLookBars` alone: \(name)")
