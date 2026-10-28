@@ -2,8 +2,8 @@ import XCTest
 @testable import Blackmail
 
 /// A printed letter's page (`PrintPage`, B-110): light, black on white, its
-/// header as the reading pane's header draws it with the date written out
-/// in full, then its body as the pane shows it, cut to a limit.
+/// header as Mail prints it, labelled lines with the date in Mail's form
+/// (B-172), then its body as the pane shows it, cut to a limit.
 ///
 /// The pane's own page is dark, plain text white on black and HTML under an
 /// invert, which prints as it is drawn, white on black, since a build
@@ -19,6 +19,15 @@ final class PrintPageTests: XCTestCase {
     private let utc = TimeZone(identifier: "UTC")!
     /// A size in words that says which number it was given.
     private let size: (Int64) -> String = { "\($0) bytes" }
+    /// The date of `letter`, 2026-09-21 14:13:20 UTC, as Mail prints it.
+    private var printed: String {
+        MailFormat.printedTimestamp(Date(timeIntervalSince1970: 1_790_000_000), locale: posix, timeZone: utc)
+    }
+    /// `letter`'s header in words.
+    private var headInWords: String {
+        "From: Sam Example sam@example.com\nSubject: The garden\nDate: \(printed)\n"
+            + "To: Jane Example jane@example.com, sam@example.com"
+    }
 
     private func page(_ m: Message) -> String {
         PrintPage.letter(m, style: style, size: size, locale: posix, timeZone: utc)
@@ -91,17 +100,18 @@ final class PrintPageTests: XCTestCase {
         }
     }
 
-    /// The pane's sizes: the sender's, the lines', the subject's, and the
-    /// body's at its line height.
+    /// The pane's sizes: the header's lines at the pane's lines' size,
+    /// Mail's lines all one size since B-172, and the body's at its line
+    /// height; the sender's and the subject's sizes not used on paper.
     func testThePageIsInThePanesSizes() throws {
         let big = PrintPage.Style(senderPointSize: 21, metaPointSize: 19, subjectPointSize: 22,
                                   bodyPointSize: 23, lineHeight: 1.5)
         let sheet = try self.sheet(PrintPage.letter(letter(), style: big, size: size))
-        for rule in ["font: 600 21px -apple-system, sans-serif;", "font: 19px -apple-system, sans-serif;",
-                     "font: bold 22px -apple-system, sans-serif;", "font: 23px -apple-system, sans-serif;",
+        for rule in ["font: 19px -apple-system, sans-serif;", "font: 23px -apple-system, sans-serif;",
                      "line-height: 1.5;"] {
             XCTAssertTrue(sheet.contains(rule), rule)
         }
+        for unused in ["21px", "22px"] { XCTAssertFalse(sheet.contains(unused), unused) }
         XCTAssertTrue(sheet.contains("#bm-head { break-inside: avoid;"), "the header is never split")
         XCTAssertTrue(sheet.contains("border-top: 0.5px solid #c8c8c8;"), "the rule, light")
         XCTAssertTrue(sheet.contains("color: #8e8e8e;"), "the lines, grey")
@@ -149,60 +159,75 @@ final class PrintPageTests: XCTestCase {
 
     // MARK: - The header
 
-    /// The pane's lines in the pane's order: the sender, To, Cc, a rule,
-    /// the subject, the date, a rule. Names, as the pane writes them. No
-    /// file, as the pane's header has none (B-170): each is in the body. A
-    /// line each for the letter in words, a file's size or its name alone,
-    /// and none for a picture the body shows.
-    func testTheHeaderIsThePanesInItsOrder() throws {
+    /// Mail's lines in Mail's order (B-172): From, Subject, Date, To, and
+    /// Cc after To; each label grey, set to the right, in a cell of its
+    /// own; each name black with its address grey after it, a person with
+    /// no name the address alone; one rule under them. No file, as the
+    /// pane's header has none (B-170): each is in the body. A line each for
+    /// the letter in words, a file's size or its name alone, and none for a
+    /// picture the body shows.
+    func testTheHeaderIsMailsLabelledLines() throws {
         let m = letter(cc: ["\"Carlo Rossi\" <carlo@example.com>"], attachments: files)
-        let date = "September 21, 2026 at 2:13\u{202F}PM"
+        func row(_ label: String, _ value: String) -> String {
+            "<tr><td class=\"bm-label\">\(label)</td><td class=\"bm-value\">\(value)</td></tr>"
+        }
+        func person(_ name: String, _ address: String) -> String {
+            "<span class=\"bm-name\">\(name)</span> <span class=\"bm-address\">\(address)</span>"
+        }
         XCTAssertEqual(try head(page(m)),
-                       "<div class=\"bm-sender\">Sam Example</div>"
-                       + "<div class=\"bm-meta\">To: Jane Example, sam@example.com</div>"
-                       + "<div class=\"bm-meta\">Cc: Carlo Rossi</div>"
-                       + "<div class=\"bm-rule\"></div>"
-                       + "<div class=\"bm-subject\">The garden</div>"
-                       + "<div class=\"bm-meta\">\(date)</div>"
-                       + "<div class=\"bm-rule\"></div>")
+                       "<table>"
+                       + row("From:", person("Sam Example", "sam@example.com"))
+                       + row("Subject:", "The garden")
+                       + row("Date:", printed)
+                       + row("To:", person("Jane Example", "jane@example.com") + ", "
+                             + "<span class=\"bm-name\">sam@example.com</span>")
+                       + row("Cc:", person("Carlo Rossi", "carlo@example.com"))
+                       + "</table><div class=\"bm-rule\"></div>")
         XCTAssertEqual(PrintPage.head(m, size: size, locale: posix, timeZone: utc),
-                       .init(sender: "Sam Example", to: "To: Jane Example, sam@example.com",
-                             cc: "Cc: Carlo Rossi", subject: "The garden", date: date,
+                       .init(from: .init(name: "Sam Example", address: "sam@example.com"),
+                             subject: "The garden", date: printed,
+                             to: [.init(name: "Jane Example", address: "jane@example.com"),
+                                  .init(name: "sam@example.com", address: nil)],
+                             cc: [.init(name: "Carlo Rossi", address: "carlo@example.com")],
                              files: ["plan.pdf (2048 bytes)", "notes.txt", "scan.pdf (10 bytes)"]))
+        let sheet = try self.sheet(page(m))
+        for rule in [".bm-label { color: #8e8e8e; text-align: right;", ".bm-value { color: #000; text-align: left;",
+                     ".bm-address { color: #8e8e8e; }"] {
+            XCTAssertTrue(sheet.contains(rule), rule)
+        }
     }
 
-    /// "To: me" with no To, no Cc line with no Cc, and "(no subject)".
+    /// No To line with nobody in To, where the paper said "To: me"; no Cc
+    /// line with no Cc; "(no subject)", as the pane says; one rule.
     func testTheHeaderSaysWhatThePaneSaysOfNothing() throws {
         let head = try self.head(page(letter(to: [], subject: "")))
-        XCTAssertTrue(head.contains("<div class=\"bm-meta\">To: me</div><div class=\"bm-rule\"></div>"), head)
+        XCTAssertFalse(head.contains("To:"), head)
         XCTAssertFalse(head.contains("Cc:"), head)
-        XCTAssertTrue(head.contains("<div class=\"bm-subject\">(no subject)</div>"), head)
-        XCTAssertEqual(head.components(separatedBy: "<div class=\"bm-rule\"></div>").count - 1, 2)
+        XCTAssertTrue(head.contains("<td class=\"bm-value\">(no subject)</td>"), head)
+        XCTAssertEqual(head.components(separatedBy: "<div class=\"bm-rule\"></div>").count - 1, 1)
     }
 
-    /// The date written out in full, for a letter of today, one of
-    /// yesterday and one of last year alike, never "Today" or
-    /// "Yesterday": the paper is read on another day. On screen the pane's
-    /// words are as they were, and the same as these for a letter older
-    /// than yesterday.
-    func testTheDateIsWrittenOutInFull() throws {
+    /// The date in Mail's form, the medium date and the medium time with
+    /// its seconds, for a letter of today, one of yesterday and one of last
+    /// year alike, never "Today" or "Yesterday": the paper is read on
+    /// another day. On screen the pane's words are as they were.
+    func testTheDateIsMailsPrintedForm() throws {
         let now = Date()
         let day: TimeInterval = 86_400
         for date in [now.addingTimeInterval(-60), now.addingTimeInterval(-day),
                      now.addingTimeInterval(-3 * day), now.addingTimeInterval(-400 * day)] {
-            let full = MailFormat.fullTimestamp(date, locale: posix, timeZone: utc)
+            let form = MailFormat.printedTimestamp(date, locale: posix, timeZone: utc)
             XCTAssertEqual(PrintPage.head(letter(date: date), size: size, locale: posix, timeZone: utc).date,
-                           full)
-            XCTAssertTrue(try head(page(letter(date: date))).contains(">\(full)<"))
-            XCTAssertFalse(full.contains("Today") || full.contains("Yesterday"), full)
+                           form)
+            XCTAssertTrue(try head(page(letter(date: date))).contains(">\(form)<"))
+            XCTAssertFalse(form.contains("Today") || form.contains("Yesterday"), form)
             XCTAssertTrue(PrintPage.words(letter(date: date), size: size, locale: posix, timeZone: utc)
-                            .contains("\n\(full)\n"))
+                            .contains("\nDate: \(form)\n"))
         }
-        XCTAssertEqual(MailFormat.fullTimestamp(Date(timeIntervalSince1970: 1_790_000_000),
-                                                locale: posix, timeZone: utc),
-                       "September 21, 2026 at 2:13\u{202F}PM")
+        XCTAssertTrue(printed.hasPrefix("Sep 21, 2026"), printed)
+        XCTAssertTrue(printed.contains("2:13:20"), printed)
         // On screen, as it was: today's and yesterday's relative, and the
-        // rest the same words as on paper.
+        // rest the pane's long form.
         let at = Date(timeIntervalSince1970: 1_790_000_000)
         func onScreen(_ date: Date) -> String {
             MailFormat.detailTimestamp(date, now: at, locale: posix, timeZone: utc)
@@ -213,6 +238,8 @@ final class PrintPageTests: XCTestCase {
             let date = at.addingTimeInterval(-back * day)
             XCTAssertEqual(onScreen(date), MailFormat.fullTimestamp(date, locale: posix, timeZone: utc))
         }
+        XCTAssertEqual(MailFormat.fullTimestamp(at, locale: posix, timeZone: utc),
+                       "September 21, 2026 at 2:13\u{202F}PM")
     }
 
     /// Every value of the header escaped, as text: a sender with an
@@ -227,15 +254,14 @@ final class PrintPageTests: XCTestCase {
                                                 mimeType: "application/pdf", size: 5)])
         let page = self.page(m)
         let head = try self.head(page)
-        XCTAssertTrue(head.contains("<div class=\"bm-sender\">Smith &amp; Sons</div>"), head)
+        XCTAssertTrue(head.contains("<span class=\"bm-name\">Smith &amp; Sons</span>"), head)
         XCTAssertTrue(head.contains(">&lt;script&gt;alert(1)&lt;/script&gt; &amp; more<"), head)
         XCTAssertFalse(head.contains(".pdf"), head)
         XCTAssertTrue(try body(page).contains(">a &amp; b &lt;c&gt;.pdf</span>"), page)
         XCTAssertFalse(page.contains("<script"), page)
-        let divs = head.components(separatedBy: "<div").count - 1
-        let classes = head.components(separatedBy: "<div class=\"bm-").count - 1
-        XCTAssertEqual(divs, classes)
-        XCTAssertEqual(head.components(separatedBy: "=").count - 1, divs, "no attribute but the class")
+        let classes = head.components(separatedBy: " class=\"bm-").count - 1
+        XCTAssertEqual(classes, 4 + 2 + 2 + 4 + 1, "From's four, Subject's two, Date's two, To's four, the rule")
+        XCTAssertEqual(head.components(separatedBy: "=").count - 1, classes, "no attribute but the class")
     }
 
     // MARK: - The body
@@ -430,8 +456,7 @@ final class PrintPageTests: XCTestCase {
     /// has no text, is its header alone; and a letter shown in part with
     /// words is the line over them, as before.
     func testALetterShownOnlyInPartWithNothingInItIsNeverSaidInWordsToHaveNoText() {
-        let head = "Sam Example\nTo: Jane Example, sam@example.com\nThe garden\n"
-            + "September 21, 2026 at 2:13\u{202F}PM"
+        let head = headInWords
         func words(_ m: Message) -> String {
             PrintPage.words(m, size: size, locale: posix, timeZone: utc)
         }
@@ -498,18 +523,17 @@ final class PrintPageTests: XCTestCase {
 
     // MARK: - In words
 
-    /// The words: the header's lines with the date in full, a blank line,
-    /// the text, its leading blank lines gone, and the files after it, as
-    /// the page draws them after the words (B-170).
+    /// The words: the header's lines as Mail prints them (B-172), a blank
+    /// line, the text, its leading blank lines gone, and the files after
+    /// it, as the page draws them after the words (B-170).
     func testTheWordsAreTheHeaderAndTheText() {
         let m = letter(cc: ["Carlo <carlo@example.com>"], text: "\n\nHello.\nSam", attachments: files)
         XCTAssertEqual(PrintPage.words(m, size: size, locale: posix, timeZone: utc),
-                       "Sam Example\nTo: Jane Example, sam@example.com\nCc: Carlo\nThe garden\n"
-                       + "September 21, 2026 at 2:13\u{202F}PM\n\nHello.\nSam\n\n"
+                       headInWords + "\nCc: Carlo carlo@example.com\n\nHello.\nSam\n\n"
                        + "plan.pdf (2048 bytes)\nnotes.txt\nscan.pdf (10 bytes)")
         let none = letter(to: [], subject: "", text: nil)
         XCTAssertEqual(PrintPage.words(none, size: size, locale: posix, timeZone: utc),
-                       "Sam Example\nTo: me\n(no subject)\nSeptember 21, 2026 at 2:13\u{202F}PM\n\n"
+                       "From: Sam Example sam@example.com\nSubject: (no subject)\nDate: \(printed)\n\n"
                        + MailText.emptyBodyNotice)
     }
 
@@ -549,8 +573,7 @@ final class PrintPageTests: XCTestCase {
     /// before a long comment, the line over them. A letter whose own plain
     /// words are printed, whole, has no line.
     func testAnHTMLLetterCutHereSaysSoInWordsAsOnItsPage() throws {
-        let head = "Sam Example\nTo: Jane Example, sam@example.com\nThe garden\n"
-            + "September 21, 2026 at 2:13\u{202F}PM"
+        let head = headInWords
         func words(_ m: Message) -> String {
             PrintPage.words(m, size: size, locale: posix, timeZone: utc)
         }

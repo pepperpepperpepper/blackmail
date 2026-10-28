@@ -1,9 +1,9 @@
 import Foundation
 
 /// A letter made into the page that is printed (B-110): light, black on
-/// white, its header as the reading pane's header draws it, then its body as
-/// the pane shows it, in the sender's own colours, with its pictures and
-/// its files (B-170).
+/// white, its header as Mail prints it (B-172), then its body as the pane
+/// shows it, in the sender's own colours, with its pictures and its files
+/// (B-170).
 ///
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
@@ -30,7 +30,10 @@ import Foundation
 enum PrintPage {
 
     /// The sizes of the pane's header and body, read from `Theme` on the
-    /// main thread and handed in, so this file stays free of UIKit.
+    /// main thread and handed in, so this file stays free of UIKit. Since
+    /// the paper's header is Mail's (B-172), its lines are all at
+    /// `metaPointSize`, the pane's header lines' size; the sender's and the
+    /// subject's sizes are handed in as before and not used on paper.
     struct Style: Sendable {
         let senderPointSize: Int
         let metaPointSize: Int
@@ -51,21 +54,71 @@ enum PrintPage {
     static let paperHeight: Double = 792
     static let margin: Double = 36
 
-    /// The header's lines, in the pane's order and words
-    /// (`MessageHeaderView.configure`): the sender's name, "To: …" or "To:
-    /// me", "Cc: …" only when there is one, the subject or "(no subject)",
-    /// and the date; and a line per file of the letter, which the page
-    /// draws in its body, as the pane does, and not in the header, and the
-    /// letter in words lists after its text (B-170). The date is written
-    /// out in full (`MailFormat.fullTimestamp`), never "Today" or
-    /// "Yesterday": the paper is read on another day.
+    /// The header's lines, as Mail prints them (B-172): "From:",
+    /// "Subject:", "Date:" and "To:", in that order, each label grey and
+    /// set to the right, then the name in black and the address after it
+    /// in grey; and a line per file of the letter, which the page draws in
+    /// its body, as the pane does, and not in the header, and the letter
+    /// in words lists after its text (B-170).
+    ///
+    /// Seen on the test iPad, Mail 16.5.1, 2026-10-27 (round r6-i-compare,
+    /// C-17b), in the print's preview of a plain letter: "From: Sam Plain
+    /// sam.b147@example.net", "Subject: R6 B-147 plain rm", "Date: Oct 27,
+    /// 2026 at 1:25:45 PM", "To: Carlo" and his address, then a rule.
+    /// Until B-172 the paper had the reading pane's header
+    /// (`MessageHeaderView.configure`): the sender's name in blue, "To:"
+    /// and names alone, a rule, the subject in bold, the date in the
+    /// pane's long form, a rule.
+    ///
+    /// Not seen, and made as the seen lines are: "Cc:", after "To:", only
+    /// for a letter with one, as Mail's header names it; several people on
+    /// a line, each a name and its address, a comma between; a person with
+    /// no name, the address alone in black; a letter with nobody in To, no
+    /// "To:" line, where the paper had "To: me". "(no subject)" for a
+    /// letter with none, as the pane says. The date is Mail's
+    /// (`MailFormat.printedTimestamp`), never "Today" or "Yesterday": the
+    /// paper is read on another day.
     struct Head: Equatable {
-        let sender: String
-        let to: String
-        let cc: String?
+        /// One person of a line: the name, and the address after it, nil
+        /// when the entry is an address alone.
+        struct Person: Equatable {
+            let name: String
+            let address: String?
+        }
+
+        /// A line of the header: its label, and the people or the words
+        /// after it.
+        struct Line: Equatable {
+            let label: String
+            let people: [Person]
+            let text: String?
+        }
+
+        let from: Person
         let subject: String
         let date: String
+        let to: [Person]
+        let cc: [Person]
         let files: [String]
+
+        /// The lines in Mail's order, a person's line only with someone in
+        /// it.
+        var lines: [Line] {
+            [Line(label: "From:", people: [from], text: nil),
+             Line(label: "Subject:", people: [], text: subject),
+             Line(label: "Date:", people: [], text: date)]
+                + [("To:", to), ("Cc:", cc)].filter { !$0.1.isEmpty }
+                    .map { Line(label: $0.0, people: $0.1, text: nil) }
+        }
+    }
+
+    /// The person an entry of a header names (`MailFormat.recipientName`),
+    /// with its address when it has a name of its own.
+    static func person(_ entry: String) -> Head.Person {
+        let entry = entry.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = MailFormat.recipientName(entry)
+        let address = entry.contains("<") ? MailFormat.bareAddress(entry) : ""
+        return Head.Person(name: name, address: address.isEmpty || address == name ? nil : address)
     }
 
     /// `size` gives a file's size in words, as a file's tile writes it; a
@@ -73,14 +126,23 @@ enum PrintPage {
     /// the body shows has no line, as it is no file in the pane.
     static func head(_ m: Message, size: (Int64) -> String,
                      locale: Locale = .current, timeZone: TimeZone = .current) -> Head {
-        Head(sender: MailFormat.displayName(m.sender),
-             to: MailFormat.recipientsLine("To", m.to) ?? "To: me",
-             cc: MailFormat.recipientsLine("Cc", m.cc),
+        Head(from: person(m.sender),
              subject: jobName(m),
-             date: MailFormat.fullTimestamp(m.date, locale: locale, timeZone: timeZone),
+             date: MailFormat.printedTimestamp(m.date, locale: locale, timeZone: timeZone),
+             to: m.to.map(person),
+             cc: m.cc.map(person),
              files: m.listedAttachments.map { file in
                  file.size.map { file.filename + " (" + size($0) + ")" } ?? file.filename
              })
+    }
+
+    /// A line of the header in words: its label, then each person's name
+    /// and address, a space between, a comma between people.
+    static func inWords(_ line: Head.Line) -> String {
+        let said = line.text ?? line.people
+            .map { person in [person.name, person.address].compactMap { $0 }.joined(separator: " ") }
+            .joined(separator: ", ")
+        return line.label + " " + said
     }
 
     /// The page. Never nil: a letter the pane says has no text
@@ -133,13 +195,19 @@ enum PrintPage {
                                locale: Locale, timeZone: TimeZone, heldBack: Bool) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
         let (body, isHTML) = Self.body(m, isEmpty: isEmpty, heldBack: heldBack)
-        func line(_ kind: String, _ text: String) -> String {
-            "<div class=\"\(kind)\">\(ConversationDocument.escape(text))</div>"
+        func span(_ kind: String, _ text: String) -> String {
+            "<span class=\"\(kind)\">\(ConversationDocument.escape(text))</span>"
+        }
+        // Mail's lines (B-172): a row each, the label in a cell of its own
+        // set to the right, the name black, its address grey after it.
+        let lines = head.lines.map { line -> String in
+            let said = line.text.map(ConversationDocument.escape) ?? line.people.map { person in
+                [span("bm-name", person.name)] + [person.address].compactMap { $0 }.map { span("bm-address", $0) }
+            }.map { $0.joined(separator: " ") }.joined(separator: ", ")
+            return "<tr><td class=\"bm-label\">\(ConversationDocument.escape(line.label))</td>"
+                + "<td class=\"bm-value\">\(said)</td></tr>"
         }
         let rule = "<div class=\"bm-rule\"></div>"
-        let lines = [line("bm-sender", head.sender), line("bm-meta", head.to)]
-            + [head.cc].compactMap { $0 }.map { line("bm-meta", $0) }
-            + [rule, line("bm-subject", head.subject), line("bm-meta", head.date), rule]
         // Mail's bars beside quoted text (B-101), the pane's own string:
         // Mail's light colours, which on white are as Mail draws them. A
         // plain letter's too, its quotes Mail's blockquotes as in the pane
@@ -167,20 +235,19 @@ enum PrintPage {
           html, body { margin: 0; padding: 0; background: #fff; color: #000; }
           #bm-head { break-inside: avoid; page-break-inside: avoid; margin: 0 0 17px 0;
                      font-family: -apple-system, sans-serif; -webkit-print-color-adjust: exact; }
-          #bm-head div { margin: 0; padding: 0; text-align: left; }
-          #bm-head .bm-sender { font: 600 \(style.senderPointSize)px -apple-system, sans-serif;
-                                color: #007AFF; }
-          #bm-head .bm-meta { font: \(style.metaPointSize)px -apple-system, sans-serif;
-                              color: #8e8e8e; margin-top: 2px; }
-          #bm-head .bm-subject { font: bold \(style.subjectPointSize)px -apple-system, sans-serif;
-                                 color: #000; }
-          #bm-head .bm-rule { height: 0; border-top: 0.5px solid #c8c8c8; margin: 14px 0 6px 0; }
+          #bm-head table { border-collapse: collapse; border-spacing: 0; margin: 0; }
+          #bm-head td { padding: 1px 0; vertical-align: top;
+                        font: \(style.metaPointSize)px -apple-system, sans-serif; }
+          #bm-head .bm-label { color: #8e8e8e; text-align: right; white-space: nowrap; padding-right: 6px; }
+          #bm-head .bm-value { color: #000; text-align: left; word-wrap: break-word; }
+          #bm-head .bm-address { color: #8e8e8e; }
+          #bm-head .bm-rule { height: 0; border-top: 0.5px solid #c8c8c8; margin: 8px 0 6px 0; }
           #bm { font: \(style.bodyPointSize)px -apple-system, sans-serif;
                 line-height: \(style.lineHeight);
                 color: #000; word-wrap: break-word;\(isHTML ? "" : " white-space: pre-wrap;") }
           img, table { max-width: 100% !important; height: auto; }
           a { color: #007AFF; }\(bars)\(tiles)
-        </style></head><body><div id="bm-head">\(lines.joined())</div><div id="bm">\(body)</div></body></html>
+        </style></head><body><div id="bm-head"><table>\(lines.joined())</table>\(rule)</div><div id="bm">\(body)</div></body></html>
         """
     }
 
@@ -333,7 +400,7 @@ enum PrintPage {
     private static func words(_ m: Message, isEmpty: Bool, size: (Int64) -> String,
                               locale: Locale, timeZone: TimeZone) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
-        let lines = [head.sender, head.to] + [head.cc].compactMap { $0 } + [head.subject, head.date]
+        let lines = head.lines.map(inWords)
         // `quotableText`, but with an HTML letter's markup cut to the
         // page's limit before it is made words, as the page cuts it: a cut
         // there is a cut, said by the line, as on the page, even when what

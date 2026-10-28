@@ -1061,9 +1061,9 @@ enum MailFormat {
     }
 
     /// "October 22, 2026 at 9:14 AM", whatever day it is: the date the
-    /// reading pane gives a letter older than yesterday, written out for
-    /// every letter on paper (B-110), which is read on another day than it
-    /// was printed, when "Today" would be wrong. The locale's long date and
+    /// reading pane gives a letter older than yesterday. It was written out
+    /// for every letter on paper too (B-110), until the paper took Mail's
+    /// own form (`printedTimestamp`, B-172). The locale's long date and
     /// short time, joined as the iPad's formatter joins them (B-119): with
     /// his US region month first, as Mail's header; with a British one "22
     /// October 2026 at 09:14". It was "22 October 2026 at 9:14 AM" for every
@@ -1071,6 +1071,20 @@ enum MailFormat {
     static func fullTimestamp(_ date: Date, locale: Locale = .current,
                               timeZone: TimeZone = .current) -> String {
         DisplayDates.shared.string(from: date, .longDateAndTime, locale: locale, timeZone: timeZone)
+    }
+
+    /// "Oct 27, 2026 at 1:25:45 PM", whatever day it is: the date on a
+    /// printed letter, as Mail prints it (B-172), its "Date:" line. Seen on
+    /// the test iPad, Mail 16.5.1, 2026-10-27 (round r6-i-compare, C-17b):
+    /// "Date: Oct 27, 2026 at 1:25:45 PM" in the print's preview, where
+    /// Blackmail printed the pane's "October 27, 2026 at 1:25 PM"
+    /// (`fullTimestamp`, B-110). The locale's medium date and medium time,
+    /// joined as the iPad's formatter joins them, as every date here is
+    /// (B-119). The pane's dates are not changed. `locale` and `timeZone`
+    /// as for `listTimestamp`.
+    static func printedTimestamp(_ date: Date, locale: Locale = .current,
+                                 timeZone: TimeZone = .current) -> String {
+        DisplayDates.shared.string(from: date, .mediumDateAndMediumTime, locale: locale, timeZone: timeZone)
     }
 
     /// "Jane Smith <jane@example.com>" -> "Jane Smith". Falls back to the whole
@@ -1263,6 +1277,11 @@ final class DisplayDates: @unchecked Sendable {
         /// The long date and the long time, with its zone: "October 3, 2026
         /// at 9:14:03 AM EDT"; "3 October 2026 at 09:14:03 BST".
         case longDateAndLongTime
+        /// The medium date and the medium time, with its seconds, joined as
+        /// the locale joins them: "Oct 3, 2026 at 9:14:03 AM"; "3 Oct 2026
+        /// at 09:14:03". The date Mail prints (`MailFormat.printedTimestamp`,
+        /// B-172).
+        case mediumDateAndMediumTime
     }
 
     /// A formatter for `form` in `locale` and `timeZone`, built afresh: from
@@ -1292,6 +1311,9 @@ final class DisplayDates: @unchecked Sendable {
         case .longDateAndLongTime:
             formatter.dateStyle = .long
             formatter.timeStyle = .long
+        case .mediumDateAndMediumTime:
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .medium
         }
         return formatter
     }

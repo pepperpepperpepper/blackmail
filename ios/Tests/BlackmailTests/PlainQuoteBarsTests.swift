@@ -7,8 +7,10 @@ import XCTest
 /// (`QuoteBars`), on a letter's own page, in a conversation's stack and on
 /// paper. Until B-147 they were drawn as typed, marks and all, with no bar
 /// (B-101). How deep a quote is goes by whether the letter is flowed text
-/// (`Message.textIsFlowed`), read from its parts. A line begun `>From `,
-/// the letter's links and its escaping are as they were.
+/// (`Message.textIsFlowed`), read from its parts. The letter's links and
+/// its escaping are as they were. Since B-172 a line begun `>From ` is a
+/// quote, and a line ending "wrote:" directly above a quote is inside it,
+/// as Mail draws them (`RowQuotesPaperLikeMailTests`).
 final class PlainQuoteBarsTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -28,10 +30,11 @@ final class PlainQuoteBarsTests: XCTestCase {
     /// its first line and ends after the break of its last, so the page,
     /// which keeps the lines, draws them where they were. A quoted line
     /// with nothing after its mark is a blank line in the quote; the
-    /// spaces after the first are the words'.
+    /// spaces after the first are the words'. The "wrote:" line above it
+    /// is its first line since B-172.
     func testAQuoteIsMailsBlockquoteItsMarksTakenOut() {
         XCTAssertEqual(html("Hi Sam,\n\nOn Monday, Carlo wrote:\n> Lunch on Sunday?\n> At one.\n\nYes."),
-                       "Hi Sam,\n\nOn Monday, Carlo wrote:\n\(open)Lunch on Sunday?\nAt one.\n\(close)\nYes.")
+                       "Hi Sam,\n\n\(open)On Monday, Carlo wrote:\nLunch on Sunday?\nAt one.\n\(close)\nYes.")
         XCTAssertEqual(html("> One.\n>\n>Two.\n>   Three."),
                        "\(open)One.\n\nTwo.\n  Three.\(close)")
         XCTAssertEqual(html(">"), "\(open)\(close)")
@@ -61,19 +64,20 @@ final class PlainQuoteBarsTests: XCTestCase {
                        "\(open)&gt; Still one.\(close)")
     }
 
-    /// Not a quote, and drawn as it came: a line begun ">From ", as a mail
-    /// store keeps a line its sender began "From "; a line with a space
-    /// before its mark; a mark in the middle of a line. A letter with no
+    /// Not a quote, and drawn as it came: a line with a space before its
+    /// mark; a mark in the middle of a line. A line begun ">From ", as a
+    /// mail store keeps a line its sender began "From ", is a quote since
+    /// B-172, as Mail draws it, as ">Fromage" always was. A letter with no
     /// quote in it comes out byte for byte as `TextLinks.plain` writes it,
     /// in both escapings, flowed or not.
-    func testFromLinesAndEverythingElseAreAsBefore() {
+    func testLinesThatAreNoQuoteAreAsBefore() {
         let text = ">From here to there.\n > Not a quote.\nTwo > one.\n>Fromage is a quote."
-        XCTAssertEqual(html(text), ">From here to there.\n > Not a quote.\nTwo > one.\n"
+        XCTAssertEqual(html(text), "\(open)From here to there.\n\(close) > Not a quote.\nTwo > one.\n"
                        + "\(open)Fromage is a quote.\(close)")
-        XCTAssertEqual(html(">From here, flowed.", flowed: true), ">From here, flowed.")
-        for plain in PaneLetters.all.compactMap(\.textBody) + ["", "\n", "x", ">From x\n>From y",
+        XCTAssertEqual(html(">From here, flowed.", flowed: true), "\(open)From here, flowed.\(close)")
+        for plain in PaneLetters.all.compactMap(\.textBody) + ["", "\n", "x", "From x\nFrom y",
                                                                "https://example.com/a?b=1&c=2 <b>"] {
-            guard !plain.split(separator: "\n").contains(where: { $0.hasPrefix(">") && !$0.hasPrefix(">From ") })
+            guard !plain.split(separator: "\n").contains(where: { $0.hasPrefix(">") })
             else { continue }
             for escaping in [TextLinks.Escaping.ampersandAndLessThan, .ampersandAndBrackets] {
                 for flowed in [false, true] {

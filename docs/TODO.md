@@ -9377,6 +9377,85 @@ checks below is left as not needed, not open, and none is worth a round.*
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
 
+- [ ] **B-172, what a row says, plain quotes and paper, as Mail.** On the
+      test iPad, the test account only, from a build of the `bm-cmp-a`
+      worktree (branch `copy-cmp-a`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app, and
+      nothing is printed: the print's panel is looked at and cancelled.
+      The host makes the letters, each from another made-up name and
+      address at example.net, To a made-up name with the account's address
+      in angle brackets, with a new Message-ID of its own and naming none
+      on the account, and APPENDs them, read (`\Seen`), to the label
+      "Notes", never the Inbox, one of them with more flags (below); it
+      notes each UID from its APPENDUID, and stops if one has none. Three
+      panes; the app's connection log read after each step; a screenshot
+      of each step, and one of "Notes" from an int20 build first, to set
+      beside it.
+      0. *The letters:* "B-172 related", an HTML letter with a JPEG shown
+      by `cid:`, sent inline with a filename, in multipart/related, as
+      the round's "R6 B-169 plain html"; "B-172 web", the same with a
+      picture from the web too; "B-172 sig", an HTML letter with the
+      account's signature logo by `cid:`; "B-172 iphone", plain words
+      beside an HTML part and its photo by `cid:`, as an iPhone sends
+      them (the round's "R6 B-150 photo"); "B-172 noname", as related
+      but its picture with no filename and no name; "B-172 nofile", plain
+      words alone; "B-172 plain", the round's "R6 B-147 plain" words, "On
+      Monday, Carlo wrote:" over seven quoted lines, the last `>From the
+      store's line.`; "B-172 flowed", the round's flowed letter, sent
+      `format=flowed`; "B-172 colon", "See below:" over one quoted line
+      and "Above it." under it; "B-172 gap", in Gmail's shape, "Sounds
+      good!", a blank line, "On Mon, Oct 27, 2026 at 1:25 PM" and its
+      sender's name and address in angle brackets, then "wrote:", a blank
+      line, and "> Lunch on Sunday?"; "B-172 answered", the same letter as
+      related, APPENDed with `\Seen \Answered \Flagged`, so a row has the
+      paperclip beside the reply arrow and the flag. "Notes" opened in the
+      app.
+      1. *The paperclip:* on the rows of related, web, sig and iphone, in
+      the place the paperclip has on a read row with a PDF and no arrow
+      (left of the name); none on noname or nofile. Beside the int20
+      screenshot nothing else on those rows has moved: the name, the time,
+      the subject and the two grey lines where they were. On answered, as
+      on a row with a PDF answered and flagged (D-020, not changed): the
+      reply arrow left of the name, the paperclip at the end of the
+      subject's line, the flag left of the paperclip and the subject cut
+      sooner, where the int20 screenshot has no paperclip, the flag at the
+      right edge and the subject longer. Written down: the subject's last
+      word on both, and how far the flag moved.
+      2. *The previews:* plain reads "Yes, Sunday. Sam"; flowed "Yes.";
+      colon "See below: Above it."; gap "Sounds good! On Mon, Oct 27,
+      2026 at 1:25 PM" and the rest of its "wrote:" line, as far as the
+      two lines go, with no "Lunch on Sunday?" (the "wrote:" line kept,
+      UNSURE in the plan); no ">" in the first two. Each row's two grey
+      lines where they were.
+      3. *The quotes:* plain opened: "On Monday, Carlo wrote:" beside the
+      violet bar, in its colour, above "Lunch on Sunday?"; "From the
+      store's line." beside the bar, in its colour, with no ">"; "Yes,
+      Sunday." and "Sam" white, outside. The letter's lines where they
+      were beside the int20 screenshot. colon opened: "See below:" white,
+      outside the quote, as before. The conversation's stack, if plain is
+      in one: the same.
+      4. *Paper:* plain, the Reply button, Print: in the preview, before
+      the body, "From:", "Subject:", "Date:", "To:", in that order, the
+      labels grey and set to the right, "Sam Plain" black with the
+      sender's address grey after it, the To's name black and the
+      account's address grey after it, the date in the form "Oct 27, 2026
+      at 1:25:45 PM" with its seconds, then a rule; in the body the two
+      lines of 3 inside the lavender quote. Written down: what the
+      preview shows that the comparison's Mail preview (round
+      r6-i-compare, step 17) does not. Cancel: nothing printed, and the
+      log has no print job sent.
+      5. *Mail, gap's row:* if Mail on the test iPad has the test account,
+      as in round r6-i-compare, "Notes" opened there, nothing on a row
+      tapped, and a screenshot: gap's and colon's previews written down as
+      Mail shows them. If Mail leaves out gap's "wrote:" line too, that is
+      a B-number of its own: `PlainQuotes.isAttribution`'s "directly
+      above" to cross one blank line (the plan's A3 note). Mail left on
+      its mailbox list.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash, and deletes
+      in the Trash only the UIDs that move answered (`COPYUID`). Nothing
+      was sent, and nothing else was written to the account.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
