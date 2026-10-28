@@ -13,7 +13,10 @@
 import UIKit
 import Blackmail
 
-UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil,
+// The principal class is the app's own, which answers Large for the text
+// size whatever the iPad's (`BlackmailApplication`, B-166).
+UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv,
+                  NSStringFromClass(BlackmailApplication.self),
                   NSStringFromClass(AppDelegate.self))
 
 #endif

@@ -178,7 +178,9 @@ final class TextSizeWiringTests: XCTestCase {
                 XCTAssertFalse(code.contains("UINavigationController(rootViewController:"), file)
                 XCTAssertFalse(code.contains("modalPresentationStyle = .formSheet"), file)
             }
-            if !["Theme/TextSizeReading.swift", "Share/ShareViewController.swift"].contains(file) {
+            // The app's own answer, Large (`testTheAppsOwnSizeIsLargeAtItsRoot`).
+            if !["Theme/TextSizeReading.swift", "Share/ShareViewController.swift",
+                 "App/BlackmailApplication.swift"].contains(file) {
                 XCTAssertFalse(code.contains("preferredContentSizeCategory"), file)
             }
         }
@@ -295,6 +297,85 @@ final class TextSizeWiringTests: XCTestCase {
             }
         }
         XCTAssertEqual(sites.count, 17, "fifteen questions and action sheets, and two Share sheets: \(sites.sorted())")
+        // Their words, which on 16.5.1 followed the app's own size under
+        // the trait and the limits (round r6-k-fix, 2026-10-28): the app
+        // is its own principal class, which answers Large for that size
+        // (`testTheAppsOwnSizeIsLargeAtItsRoot`).
+        XCTAssertNotNil(place(of: Self.principalClassWired, in: try entryPoint("BlackmailApp")))
+    }
+
+    /// The app's executable, `main.swift` of `target`, as `source` reads a
+    /// file of the library.
+    private func entryPoint(_ target: String) throws -> String {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/\(target)/main.swift")
+        return try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: " ")
+            .split(whereSeparator: { $0 == " " || $0 == "\t" })
+            .joined(separator: " ")
+    }
+
+    private static let principalClassWired = "UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, "
+        + "NSStringFromClass(BlackmailApplication.self), NSStringFromClass(AppDelegate.self))"
+
+    /// The app's own text size is Large at its root (B-166, found on the
+    /// test iPad 2026-10-28, the second round): on 16.5.1 a question's,
+    /// an action sheet's and the bubble menu's frames kept Large under
+    /// `heldAtLarge` and their words grew, an alert's labels following
+    /// the app's `preferredContentSizeCategory`. The app is launched as
+    /// its own subclass of `UIApplication`, named in `main.swift`, whose
+    /// one override answers Large, the step the app is drawn at whatever
+    /// the iPad's (`TextSize.drawn`). The share extension has no
+    /// application of its own and names none. Nothing else subclasses
+    /// `UIApplication`; the app's size is read in one place,
+    /// `TextSizes.app`, which hears iOS's word of a change; and the one
+    /// other reader of a change of size, by its traits, is the share
+    /// sheet's, which the extension keeps.
+    func testTheAppsOwnSizeIsLargeAtItsRoot() throws {
+        let application = try source("App/BlackmailApplication.swift")
+        XCTAssertNotNil(place(of: "public final class BlackmailApplication: UIApplication { "
+                                  + "public override var preferredContentSizeCategory: "
+                                  + "UIContentSizeCategory { .large } }", in: application))
+        let main = try entryPoint("BlackmailApp")
+        XCTAssertNotNil(place(of: Self.principalClassWired, in: main))
+        XCTAssertEqual(count("UIApplicationMain(", in: main), 1)
+        let share = try entryPoint("BlackmailShare")
+        XCTAssertFalse(share.contains("BlackmailApplication"))
+        XCTAssertFalse(share.contains("UIApplicationMain"))
+        // Large is the step the app is drawn at, at every size iOS has.
+        for step in TextSize.Step.allCases {
+            XCTAssertEqual(TextSize.drawn(at: step, bold: false).step, .large, "\(step)")
+            XCTAssertEqual(TextSize.drawn(at: step, bold: true), TextSize(step: .large, bold: true), "\(step)")
+        }
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail")
+        let files = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
+            .compactMap { $0 as? String }.filter { $0.hasSuffix(".swift") }
+        XCTAssertGreaterThan(files.count, 50)
+        let subclass = try NSRegularExpression(pattern: #"class\s+[A-Za-z_][A-Za-z0-9_]*\s*:\s*UIApplication\s*[,{]"#)
+        for file in files {
+            let code = try source(file)
+            let whole = NSRange(code.startIndex..., in: code)
+            XCTAssertEqual(subclass.numberOfMatches(in: code, range: whole),
+                           file == "App/BlackmailApplication.swift" ? 1 : 0, file)
+            XCTAssertEqual(count("preferredContentSizeCategory", in: code), [
+                "App/BlackmailApplication.swift": 1,
+                "Theme/TextSizeReading.swift": 2,
+                "Share/ShareViewController.swift": 3,
+            ][file] ?? 0, file)
+            XCTAssertEqual(count("UIApplication.shared.preferredContentSizeCategory", in: code),
+                           file == "Theme/TextSizeReading.swift" ? 1 : 0, file)
+            XCTAssertEqual(count("UIContentSizeCategory.didChangeNotification", in: code),
+                           ["Theme/TextSizeReading.swift", "Share/ShareViewController.swift"].contains(file) ? 1 : 0,
+                           file)
+            XCTAssertEqual(count("traitCollectionDidChange", in: code),
+                           file == "Share/ShareViewController.swift" ? 2 : 0, file)
+        }
     }
 
     // MARK: - The type, and what keeps its size
