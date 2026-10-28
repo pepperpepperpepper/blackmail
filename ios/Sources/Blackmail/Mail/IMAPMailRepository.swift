@@ -1568,28 +1568,30 @@ actor IMAPMailRepository: MailRepository {
     /// the clip on an HTML letter with a photo by `cid:`, on one with a
     /// photo and a picture from the web, on one with the signature's logo,
     /// and on an iPhone's letter with its photo among the words, each an
-    /// `image/*` part inside multipart/related, sent inline, named. Only
-    /// that is counted (`isNamedPicture`): every picture seen had a name,
-    /// and whether Mail clips one with none was not seen, so it has none,
-    /// as before. What the pane draws is not changed: such a picture is
-    /// still no file there (`isListedFile`, B-170).
+    /// `image/*` part inside multipart/related, sent inline, named. And
+    /// with no name: on the test iPad, 2026-10-28 (round r6-j-look), Mail
+    /// clipped two letters whose one picture, by `cid:` inside
+    /// multipart/related, had no filename and no name, where Blackmail,
+    /// counting a named one alone, drew none; neither drew one on a letter
+    /// with no picture. So every picture there counts, named or not
+    /// (`isRelatedPicture`). What the pane draws is not changed: such a
+    /// picture is still no file there (`isListedFile`, B-170).
     static func hasAttachment(_ structure: MIMEPart) -> Bool {
         let words = MIMEDecoder.bodyPlan(of: structure).sections
         func walk(_ part: MIMEPart, inRelated: Bool) -> Bool {
             if part.isListedFile, !words.contains(part.section) { return true }
-            if inRelated, isNamedPicture(part) { return true }
+            if inRelated, isRelatedPicture(part) { return true }
             let related = part.isMultipart && part.subtype == "related"
             return part.children.contains { walk($0, inRelated: related) }
         }
         return walk(structure, inRelated: false)
     }
 
-    /// A part of a multipart/related that is a picture with a name: an
-    /// `image/*` leaf whose `Content-Disposition` or `Content-Type` names
-    /// it (`MIMEDecoder.decodedFilename`), as every picture Mail was seen
-    /// to clip a letter for was (`hasAttachment`, B-172).
-    static func isNamedPicture(_ part: MIMEPart) -> Bool {
-        !part.isMultipart && part.type == "image" && MIMEDecoder.decodedFilename(part) != nil
+    /// A part of a multipart/related that is a picture: an `image/*` leaf,
+    /// with a name or none, as every picture Mail was seen to clip a letter
+    /// for was (`hasAttachment`, B-172).
+    static func isRelatedPicture(_ part: MIMEPart) -> Bool {
+        !part.isMultipart && part.type == "image"
     }
 
     // MARK: - Which folders a message is counted in

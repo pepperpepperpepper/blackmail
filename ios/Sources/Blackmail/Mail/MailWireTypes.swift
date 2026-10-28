@@ -374,8 +374,8 @@ struct MIMEPart {
     /// on every letter the signature's images ship with, which Mail does
     /// not do either. It does put its paperclip on such a letter's row,
     /// which this comment said it did not until B-172: seen on the test
-    /// iPad, Mail 16.5.1, 2026-10-27; the row's paperclip counts a named
-    /// picture of multipart/related for it
+    /// iPad, Mail 16.5.1, 2026-10-27; the row's paperclip counts a
+    /// picture of multipart/related for it, named or not (2026-10-28)
     /// (`IMAPMailRepository.hasAttachment`), and this is unchanged. (An
     /// earlier comment here said inline images count "because the spec
     /// wants them listed"; that was written
@@ -396,8 +396,8 @@ struct MIMEPart {
     /// Whether this part is a file of the letter's, one the reading pane
     /// draws in the body as a file (B-170), for the paperclip on the list's
     /// row (`IMAPMailRepository.hasAttachment`), from the BODYSTRUCTURE
-    /// alone (B-101); the paperclip counts a named picture the body shows
-    /// by `cid:` as well, which this leaves out (B-172).
+    /// alone (B-101); the paperclip counts a picture the body shows by
+    /// `cid:` as well, named or not, which this leaves out (B-172).
     ///
     /// `isAttachment` with one change: a part sent inline is a file too,
     /// unless it is a picture the body shows by `cid:`, or the words of a

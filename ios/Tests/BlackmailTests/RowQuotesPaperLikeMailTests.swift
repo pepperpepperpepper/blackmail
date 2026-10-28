@@ -62,9 +62,10 @@ final class RowQuotesPaperLikeMailTests: XCTestCase {
             // Named in its Content-Type alone, as some senders name one.
             ("related, a photo named by its type", Self.header
                 + Self.multipart("related", "R", [Self.html, Self.picture(Self.typeNamed)]), true),
-            // Not seen: a picture with no name, as before.
+            // "R6 B-172 noname" and its control, seen 2026-10-28: a photo
+            // by cid with no filename and no name, clipped by Mail too.
             ("related, a photo with no name", Self.header
-                + Self.multipart("related", "R", [Self.html, Self.picture(Self.unnamed)]), false),
+                + Self.multipart("related", "R", [Self.html, Self.picture(Self.unnamed)]), true),
             // Not seen: a named picture by cid outside multipart/related, as before.
             ("mixed, a named photo by cid", Self.header
                 + Self.multipart("mixed", "M", [Self.html, Self.picture(Self.named)]), false),
@@ -72,12 +73,14 @@ final class RowQuotesPaperLikeMailTests: XCTestCase {
         ]
     }
 
-    /// Mail's paperclip on a letter whose only file is a named picture it
-    /// shows by `cid:` inside multipart/related, as on the four rows of the
-    /// round; none for one with no name or outside multipart/related, which
-    /// were not seen, nor for a letter with no file. The tiles are not
-    /// changed: such a picture is no file the pane draws or lists.
-    func testANamedPictureTheLetterShowsGivesItsRowThePaperclip() throws {
+    /// Mail's paperclip on a letter whose only file is a picture it shows
+    /// by `cid:` inside multipart/related, named, as on the four rows of
+    /// the round, or with no name, as on "R6 B-172 noname" and its control
+    /// in Mail on 2026-10-28; none for one outside multipart/related, which
+    /// was not seen, nor for a letter with no file, "R6 B-172 nofile". The
+    /// tiles are not changed: such a picture is no file the pane draws or
+    /// lists.
+    func testAPictureTheLetterShowsGivesItsRowThePaperclip() throws {
         for shape in shapes {
             let raw = Data(shape.raw.utf8)
             let structure = MIMEDecoder.parseStructure(raw)
@@ -94,13 +97,19 @@ final class RowQuotesPaperLikeMailTests: XCTestCase {
         let related = MIMEDecoder.parseStructure(Data(shapes[0].raw.utf8))
         let photo = try XCTUnwrap(MIMEDecoder.part(at: "2", in: related))
         XCTAssertFalse(photo.isListedFile, "still no file in the pane")
-        XCTAssertTrue(IMAPMailRepository.isNamedPicture(photo))
-        XCTAssertFalse(IMAPMailRepository.isNamedPicture(try XCTUnwrap(MIMEDecoder.part(at: "1", in: related))))
+        XCTAssertTrue(IMAPMailRepository.isRelatedPicture(photo))
+        XCTAssertFalse(IMAPMailRepository.isRelatedPicture(try XCTUnwrap(MIMEDecoder.part(at: "1", in: related))))
+        let unnamed = MIMEDecoder.parseStructure(Data(shapes[3].raw.utf8))
+        let bare = try XCTUnwrap(MIMEDecoder.part(at: "2", in: unnamed))
+        XCTAssertNil(MIMEDecoder.decodedFilename(bare), "no name")
+        XCTAssertFalse(bare.isListedFile, "no file in the pane either")
+        XCTAssertTrue(IMAPMailRepository.isRelatedPicture(bare))
     }
 
     /// Through the shipping repository and the scripted server, as Gmail
     /// describes a letter: the list's row of an HTML letter with its photo
-    /// by `cid:` has the paperclip, and a plain letter's has none.
+    /// by `cid:` has the paperclip, named or not, and a plain letter's has
+    /// none.
     func testTheListsRowHasThePaperclip() async throws {
         let server = ScriptedIMAPServer(inboxCount: 1)
         let suite = "RowQuotesPaperLikeMailTests"
@@ -111,17 +120,18 @@ final class RowQuotesPaperLikeMailTests: XCTestCase {
             account: server.account, password: server.password, transport: server.transportFactory,
             recipients: RecipientBook(defaults: defaults), signatureImages: { [] },
             shelf: keptShelf(for: server.account))
-        var uids: [Bool: UInt32] = [:]
-        for (i, shape) in [shapes[0], shapes[5]].enumerated() {
+        var uids: [(uid: UInt32, clip: Bool)] = []
+        let listed = [shapes[0], shapes[3], shapes[5]]
+        XCTAssertEqual(listed.map(\.clip), [true, true, false])
+        for (i, shape) in listed.enumerated() {
             let letter = Server.Letter(from: Server.carlo, to: [Server.owner], subject: shape.name,
                                        date: Server.newestDate.addingTimeInterval(Double(i + 1) * 60),
                                        text: "", messageID: "<shape\(i)@example.net>")
-            uids[shape.clip] = try XCTUnwrap(server.deliver(described: Data(shape.raw.utf8), as: letter,
-                                                            to: [Server.inbox])[Server.inbox])
+            uids.append((try XCTUnwrap(server.deliver(described: Data(shape.raw.utf8), as: letter,
+                                                      to: [Server.inbox])[Server.inbox]), shape.clip))
         }
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
-        for clip in [true, false] {
-            let uid = try XCTUnwrap(uids[clip])
+        for (uid, clip) in uids {
             let row = try XCTUnwrap(rows.first { $0.id.hasSuffix("/\(uid)") })
             XCTAssertEqual(row.hasAttachment, clip, row.subject)
         }
