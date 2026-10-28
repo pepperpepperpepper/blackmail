@@ -159,13 +159,17 @@ final class GoToDateBoundTests: XCTestCase {
         XCTAssertEqual(fast, "Clock fast")
     }
 
-    /// The letters dated wrong are still in the Inbox, at the foot of the
-    /// list where they arrived; the bound hides them from jumps, nothing
+    /// The letters dated wrong are still in the Inbox, where the list's
+    /// order puts them, by when each arrived as Mail's list goes (B-178):
+    /// the one that arrived in 2014 at the foot, and the one copied in with
+    /// its arrival set to 2037 at the top. By UID, the order they were put
+    /// in, both were at the foot. The bound hides them from jumps, nothing
     /// more.
     func testTheLettersDatedWrongAreStillListed() async throws {
         let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
-        XCTAssertEqual(rows.suffix(2).map(\.subject), ["Dated wrong", "Copied in wrong"])
+        XCTAssertEqual(rows.first?.subject, "Copied in wrong")
+        XCTAssertEqual(rows.last?.subject, "Dated wrong")
         XCTAssertEqual(rows.count, 21)
     }
 

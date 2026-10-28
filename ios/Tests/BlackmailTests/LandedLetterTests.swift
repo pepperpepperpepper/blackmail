@@ -431,9 +431,12 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertEqual(window.messages.map(\.id), (21...120).reversed().map(id))
         XCTAssertFalse(window.reachedNewest)
 
+        // His day's letters' dates, the folder's letters' arrivals for the
+        // list's order (B-178), and the window.
         let fetches = server.log.filter { $0.verb == "UID FETCH" }.map(\.command)
-        XCTAssertEqual(fetches.count, 2, "\(fetches)")
+        XCTAssertEqual(fetches.count, 3, "\(fetches)")
         XCTAssertEqual(fetches.first, "UID FETCH \(uids[60]):\(uids[61]) (UID INTERNALDATE ENVELOPE)")
+        XCTAssertEqual(fetches[1].hasSuffix(" (UID INTERNALDATE)"), true, fetches[1])
         XCTAssertTrue(fetches.last?.hasPrefix("UID FETCH \(uids[21]):\(uids[120]) (") == true,
                       "\(fetches)")
         XCTAssertEqual(server.log.last?.verb, "UID FETCH", "nothing after the window's")
@@ -456,14 +459,16 @@ final class LandedLetterTests: XCTestCase {
         let repository = try source("Mail/IMAPMailRepository.swift")
         XCTAssertEqual(lines(of: repository, containing: "PageWindow.jumpWindow(").count, 2)
         XCTAssertFalse(repository.contains("PageWindow.window(around:"))
+        // Cut from the list's order, by when the letters arrived (B-178).
         XCTAssertTrue(flat(repository).contains(
-            "let window = PageWindow.jumpWindow(around: anchor, in: listing.uids, limit: limit)"))
+            "var window = PageWindow.jumpWindow(around: anchor, in: order.ascending, limit: limit)"))
         XCTAssertTrue(flat(repository).contains(
-            "return PageWindow.jumpWindow(around: anchor, in: found[1], limit: limit).uids"))
+            "let window = PageWindow.jumpWindow(around: anchor, in: order.ascending, limit: limit) "
+                + "return (Jumped(order: order, anchor: anchor), window.uids)"))
         // An anchor left out of the FETCH: beside it, not the first row.
         XCTAssertTrue(flat(repository).contains(
-            "let anchorRow = min(PageWindow.anchorRow(anchor, fetched: "
-                + "opened.summaries.compactMap(\\.uid)) ?? 0, rows.count - 1)"))
+            "let anchorRow = min(PageWindow.anchorRow(fetched: opened.summaries.compactMap(\\.uid), "
+                + "in: window) ?? 0, rows.count - 1)"))
         XCTAssertTrue(flat(repository).contains(
             "let landedIndex = PageWindow.landing( dates: rows.map(\\.date), anchor: anchorRow,"))
     }

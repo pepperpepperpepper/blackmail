@@ -274,9 +274,17 @@ final class MailShelf: @unchecked Sendable {
     /// shows the kept rows to be this mailbox's; on a server that names no
     /// letters, the UIDVALIDITY alone. A letter gone from the folder since
     /// is not among those UIDs, and its row goes.
+    ///
+    /// The listing's order reaches only as far as its dates have been
+    /// asked for (`ArrivalOrder`, B-178), often a page or two in a large
+    /// folder. Past the end of `continuing`, with every UID of it kept, the
+    /// kept rows after the last of them go on as long as `thenKept` takes
+    /// each, by its UID and when it arrived: still in the folder, and older
+    /// than every letter the listing placed.
     @discardableResult
     func took(page rows: [MessageSummary], of folder: String, validity: UInt32,
-              sizes: [String: Int] = [:], continuing: [UInt32] = []) -> Discard? {
+              sizes: [String: Int] = [:], continuing: [UInt32] = [],
+              thenKept: ((UInt32, Date?) -> Bool)? = nil) -> Discard? {
         guard isAlive else { return nil }
         let kept = record(of: folder)
         var discard: Discard?
@@ -300,7 +308,8 @@ final class MailShelf: @unchecked Sendable {
                     if !was.preview.isEmpty { previews[row.id] = was.preview }
                 }
                 if matched || !kept.rows.contains(where: { $0.message != nil }) {
-                    below = Self.following(continuing, in: kept.rows, besides: Set(rows.map(\.id)))
+                    below = Self.following(continuing, in: kept.rows, besides: Set(rows.map(\.id)),
+                                           thenKept: thenKept)
                 }
             }
         }
@@ -338,21 +347,30 @@ final class MailShelf: @unchecked Sendable {
     /// below the cursor, when the kept rows reach down to it, so they stay
     /// the folder's from the top, contiguous. The kept rows below the page
     /// stay as far as they go on from it in the folder's order now
-    /// (`continuing`, as in `took(page:of:validity:)`), and previews kept
-    /// for the page's letters go across. Nothing, when the kept rows end
-    /// above the cursor, a gap the page would leave, when the folder has
-    /// not been listed from the top in this launch, or under another
-    /// UIDVALIDITY. A row of the page kept under its UID with another Gmail
-    /// id keeps nothing below the page.
+    /// (`continuing` and `thenKept`, as in `took(page:of:validity:)`), and
+    /// previews kept for the page's letters go across. Nothing, when the
+    /// kept rows end above the cursor, a gap the page would leave, when the
+    /// folder has not been listed from the top in this launch, or under
+    /// another UIDVALIDITY. A row of the page kept under its UID with
+    /// another Gmail id keeps nothing below the page.
+    ///
+    /// Above and below the cursor go by the list's order, when each letter
+    /// arrived, the UID breaking a tie (`ArrivalOrder`, B-178), `arrived`
+    /// the cursor's: they went by UID while the list did, and still do for
+    /// a kept row that does not say when it arrived, kept by a build before
+    /// rows carried it, or with the cursor's arrival not known.
     func took(more rows: [MessageSummary], of folder: String, validity: UInt32, below cursor: UInt32,
-              sizes: [String: Int] = [:], continuing: [UInt32] = []) {
+              arrived: Date? = nil, sizes: [String: Int] = [:], continuing: [UInt32] = [],
+              thenKept: ((UInt32, Date?) -> Bool)? = nil) {
         guard isAlive, !rows.isEmpty, let kept = record(of: folder), kept.validity == validity,
               locked({ listed.contains(folder) }),
-              let last = kept.rows.last.flatMap({ Self.parse($0.id) }), last.uid <= cursor
+              let last = kept.rows.last, Self.isAtOrBelow(last, cursor, arrived)
         else { return }
         var letters: [String: RowRecord] = [:]
         for row in kept.rows { letters[row.id] = row }
-        let above = kept.rows.prefix { (Self.parse($0.id)?.uid ?? 0) >= cursor }
+        let above = kept.rows.prefix { row in
+            Self.parse(row.id)?.uid == cursor || !Self.isAtOrBelow(row, cursor, arrived)
+        }
         var another = false
         let fresh = rows.map { row -> RowRecord in
             let was = letters[row.id]
@@ -361,7 +379,8 @@ final class MailShelf: @unchecked Sendable {
             return RowRecord(row, preview: row.preview.isEmpty ? carried : row.preview, size: sizes[row.id])
         }
         let besides = Set(above.map(\.id)).union(rows.map(\.id))
-        let below = another ? [] : Self.following(continuing, in: kept.rows, besides: besides)
+        let below = another ? [] : Self.following(continuing, in: kept.rows, besides: besides,
+                                                  thenKept: thenKept)
         let joined = bounded(Array(above) + fresh + below, of: folder)
         locked {
             guard var page = pages[folder], page.validity == validity else { return }
@@ -373,19 +392,39 @@ final class MailShelf: @unchecked Sendable {
     }
 
     /// The kept rows under `uids`, in their order, up to the first UID with
-    /// no row kept, none of them `besides` (B-160).
+    /// no row kept, none of them `besides` (B-160); with every one kept,
+    /// the kept rows after the last of them as long as `thenKept` takes
+    /// them (B-178).
     private static func following(_ uids: [UInt32], in rows: [RowRecord],
-                                  besides: Set<String>) -> [RowRecord] {
+                                  besides: Set<String>,
+                                  thenKept: ((UInt32, Date?) -> Bool)? = nil) -> [RowRecord] {
         var byUID: [UInt32: RowRecord] = [:]
         for row in rows where !besides.contains(row.id) {
             if let at = parse(row.id) { byUID[at.uid] = row }
         }
         var out: [RowRecord] = []
         for uid in uids {
-            guard let row = byUID[uid] else { break }
+            guard let row = byUID[uid] else { return out }
+            out.append(row)
+        }
+        guard let thenKept else { return out }
+        let taken = Set(out.map(\.id)).union(besides)
+        let after = rows.lastIndex { taken.contains($0.id) }.map { $0 + 1 } ?? 0
+        for row in rows[after...] where !taken.contains(row.id) {
+            guard let at = parse(row.id), thenKept(at.uid, row.arrived) else { break }
             out.append(row)
         }
         return out
+    }
+
+    /// Whether the kept row `row` comes at or below the letter `cursor`,
+    /// arrived `arrived`, in the list's order (B-178): arrived before it,
+    /// or in the same second with a UID no higher; with either arrival not
+    /// known, a UID no higher, as the list went before.
+    private static func isAtOrBelow(_ row: RowRecord, _ cursor: UInt32, _ arrived: Date?) -> Bool {
+        guard let at = parse(row.id) else { return false }
+        guard let arrived, let when = row.arrived, when != arrived else { return at.uid <= cursor }
+        return when < arrived
     }
 
     /// `rows`, the first of them as far as the bounds allow (B-160):

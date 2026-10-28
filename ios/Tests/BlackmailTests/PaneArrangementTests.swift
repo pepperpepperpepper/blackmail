@@ -467,8 +467,9 @@ final class PaneArrangementTests: XCTestCase {
         shell.back()
         shell.tapped(sent, showing: shown)
         try await settled()
-        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH"])
-        XCTAssertEqual(server.log.dropFirst().map(\.selected), [Server.sent, Server.sent])
+        // The folder's letters' dates for the list's order (B-178) before the page.
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
+        XCTAssertEqual(server.log.dropFirst().map(\.selected), [Server.sent, Server.sent, Server.sent])
         server.clearLog()
 
         shell.switchPanes()

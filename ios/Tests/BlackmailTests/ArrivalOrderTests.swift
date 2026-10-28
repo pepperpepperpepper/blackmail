@@ -287,7 +287,10 @@ final class ArrivalOrderTests: XCTestCase {
             XCTAssertEqual(row.subject, "Re: The roof", label)
             XCTAssertEqual(row.date, letters[2].date, label)
             XCTAssertEqual(row.participants, ["Sam Example", "jane@example.com", "Carlo"], label)
-            XCTAssertEqual(row.id, "\(server.uidValidity(of: Server.trash))/\(uids[2])",
+            // The letter listed first, which since the list went by when
+            // each letter arrived (B-178) is Sam's reply, the newest, though
+            // it has the lowest UID there; by UID it was Carlo's.
+            XCTAssertEqual(row.id, "\(server.uidValidity(of: Server.trash))/\(uids[0])",
                            "the letter listed first, \(label)")
             XCTAssertEqual(ConversationDocument.stack(of: row).map(\.date),
                            letters.map(\.date), label)

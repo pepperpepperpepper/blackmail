@@ -9,8 +9,12 @@ import Foundation
 /// walk by hand and then assert against its own copy — green tests exercising
 /// logic the product did not run. Now both call this.
 ///
-/// Everything here works on the snapshot IMAP hands back from `SEARCH ALL`:
-/// UIDs ASCENDING, with gaps where messages were expunged. The list shows
+/// Everything here works on a folder's letters the oldest first, as
+/// `ascending` names them: the list's order turned over. Since B-178 that is
+/// the order they arrived in (`ArrivalOrder.ascending`), not their UIDs, so
+/// a place is found by where a UID stands in it, not by its value; a list of
+/// UIDs ascending, as IMAP's `SEARCH ALL` gives them, is the same walk for a
+/// folder whose letters came in the order of their UIDs. The list shows
 /// them newest first, so almost every function reverses.
 enum PageWindow {
 
@@ -52,7 +56,9 @@ enum PageWindow {
             } else {
                 // The cursor message was expunged by another client. Falling
                 // back to "everything older by value" keeps the walk moving;
-                // restarting at the top would loop forever.
+                // restarting at the top would loop forever. The list's own
+                // pages go by `ArrivalOrder.older`, which places a cursor
+                // gone by when it arrived.
                 newestFirst = newestFirst.filter { $0 < cursor }
             }
         }
@@ -73,11 +79,20 @@ enum PageWindow {
     /// the day he jumped to and leave a silent hole of everything between.
     /// The page he wants is the one ADJACENT to the cursor, which in an
     /// ascending list is the LOWEST of the ones above it.
+    ///
+    /// By the cursor's place in `ascending` (B-178); a cursor not in it, by
+    /// value, as `older` falls back.
     static func newer(than cursor: UInt32, in ascending: [UInt32],
                       limit: Int) -> [UInt32] {
         guard limit > 0 else { return [] }
-        let newer = ascending.filter { $0 > cursor }
+        let newer = newerAll(than: cursor, in: ascending)
         return Array(newer.prefix(limit).reversed())
+    }
+
+    /// Every letter of `ascending` newer than `cursor`, the oldest first.
+    private static func newerAll(than cursor: UInt32, in ascending: [UInt32]) -> ArraySlice<UInt32> {
+        if let at = ascending.firstIndex(of: cursor) { return ascending[(at + 1)...] }
+        return ArraySlice(ascending.filter { $0 > cursor })
     }
 
     /// The window to show around a jump target.
@@ -152,7 +167,7 @@ enum PageWindow {
         let around = window(around: anchor, in: ascending, limit: limit)
         guard !around.reachedNewest, let newest = around.uids.first else { return around }
         let above = newer(than: newest, in: ascending, limit: limit)
-        let newerAvailable = ascending.filter { $0 > newest }.count
+        let newerAvailable = newerAll(than: newest, in: ascending).count
         return Window(uids: above + around.uids,
                       anchorIndex: around.anchorIndex + above.count,
                       reachedNewest: above.count == newerAvailable,
@@ -203,6 +218,16 @@ enum PageWindow {
     static func anchorRow(_ anchor: UInt32, fetched: [UInt32]) -> Int? {
         guard !fetched.isEmpty else { return nil }
         return fetched.firstIndex { $0 <= anchor } ?? fetched.count - 1
+    }
+
+    /// The same by place in `window`, whose letters go as the list's do,
+    /// the order they arrived in (B-178): the anchor's own row, or the
+    /// nearest row the window has below it; with none, the last.
+    static func anchorRow(fetched: [UInt32], in window: Window) -> Int? {
+        guard !fetched.isEmpty else { return nil }
+        var place: [UInt32: Int] = [:]
+        for (i, uid) in window.uids.enumerated() where place[uid] == nil { place[uid] = i }
+        return fetched.firstIndex { (place[$0] ?? -1) >= window.anchorIndex } ?? fetched.count - 1
     }
 
     /// The row a jump lands on in its window, by his calendar: `dates` the

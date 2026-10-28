@@ -391,7 +391,18 @@ final class ListLetters: PaneActionList {
             changed = true
         }
         let known = Set(watched)
-        let fresh = news.arrived.filter { !known.contains($0.id) }.map(withHisRead)
+        var fresh = news.arrived.filter { !known.contains($0.id) }.map(withHisRead)
+        // A letter that arrived before every letter the list holds goes
+        // below them in the list's order (B-178), among letters not fetched
+        // yet: the list is fetched afresh for it, which places it, rather
+        // than put it on under rows that do not reach down to it.
+        if let last = folder.last, fresh.contains(where: { last.isListed(above: $0) }) {
+            fresh = fresh.filter { !last.isListed(above: $0) }
+            if !refetchOwed {
+                refetchOwed = true
+                changed = true
+            }
+        }
         if !fresh.isEmpty {
             arriving = fresh + arriving
             changed = true
@@ -474,9 +485,12 @@ final class ListLetters: PaneActionList {
         return .shown(showNews())
     }
 
-    /// Puts what is held on the list: the new letters at the top of the
-    /// folder's, and the ones gone elsewhere off it. Returns the letters put
-    /// on, whose previews are still to be fetched.
+    /// Puts what is held on the list: the new letters where the folder's
+    /// order puts them, by when each arrived (`MessageSummary.isListed`,
+    /// B-178), at the top for a letter that has just come and among the
+    /// letters of its own time for one put in the folder out of turn, as
+    /// Mail's list has it; and the ones gone elsewhere off it. Returns the
+    /// letters put on, whose previews are still to be fetched.
     ///
     /// A letter gone is taken off as a removal the server has made, the way
     /// a Delete from the reading pane is once its MOVE has landed: hidden,
@@ -486,7 +500,10 @@ final class ListLetters: PaneActionList {
     @discardableResult
     func showNews() -> [MessageSummary] {
         let added = arriving
-        folder.insert(contentsOf: added, at: 0)
+        for letter in added.reversed() {
+            let at = folder.firstIndex { letter.isListed(above: $0) } ?? folder.count
+            folder.insert(letter, at: at)
+        }
         for id in leaving {
             removed.take(id)
             removed.land(id)
@@ -853,8 +870,9 @@ final class ListLetters: PaneActionList {
     /// Returns false, with nothing changed, when the list no longer holds
     /// the row it was taken under: fetched afresh since, which the server
     /// has had the say on. The letter is in the folder all the same, and
-    /// shows at the next listing, at the top, as Gmail gives it the next
-    /// UID there (B-084).
+    /// shows at the next listing where it stood, by when it arrived, which
+    /// Gmail keeps through the moves (B-178); it went to the top while the
+    /// list went by UID, Gmail giving it the next one there (B-084).
     @discardableResult
     func restore(_ row: MessageSummary, as id: String) -> Bool {
         var back = row.renamed(id)

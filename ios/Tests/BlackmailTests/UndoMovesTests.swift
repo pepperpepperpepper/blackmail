@@ -444,7 +444,9 @@ final class UndoMovesTests: XCTestCase {
     /// Among a search's hits, a hit deleted and undone comes back where it
     /// stood among them. A list fetched afresh since the Delete no longer
     /// holds the row: the letter is moved back all the same, and is left to
-    /// the next listing, where it is at the top of the Inbox (B-084).
+    /// the next listing, where it stands where it stood, by when it arrived
+    /// (B-178); it was at the top of the Inbox while the list went by UID
+    /// (B-084).
     @MainActor
     func testAHitComesBackAmongTheHitsAndAListFetchedAfreshWaitsForTheNext() async throws {
         let repository = makeRepository()
@@ -468,7 +470,8 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(late.unplaced, [rows[7].id])
         XCTAssertFalse(list.shown.contains { $0.gmailMessageID == rows[7].gmailMessageID })
         let next = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
-        XCTAssertEqual(next.first?.gmailMessageID, rows[7].gmailMessageID)
+        XCTAssertEqual(next[7].gmailMessageID, rows[7].gmailMessageID)
+        XCTAssertEqual(next.map(\.gmailMessageID), rows.map(\.gmailMessageID))
     }
 
     /// An Undo that fails, the connection gone at its MOVE, says so, puts

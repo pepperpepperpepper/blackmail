@@ -115,13 +115,14 @@ final class RepositoryTrafficTests: XCTestCase {
         try await finishing { await sweeps.idle() }
 
         // LOGIN, the one LIST the names and the Inbox's role share, and the
-        // Inbox's first page, with nothing counted before it.
-        XCTAssertEqual(beforeTheCounts.count, 5, "\(beforeTheCounts)")
-        XCTAssertEqual(Array(server.log.prefix(5).map(\.verb)),
-                       ["LOGIN", "LIST", "SELECT", "UID SEARCH", "UID FETCH"])
+        // Inbox's first page, its letters' dates for the list's order first
+        // (B-178), with nothing counted before it.
+        XCTAssertEqual(beforeTheCounts.count, 6, "\(beforeTheCounts)")
+        XCTAssertEqual(Array(server.log.prefix(6).map(\.verb)),
+                       ["LOGIN", "LIST", "SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
         XCTAssertEqual(server.log[2].command, "SELECT \"INBOX\"")
         // Then the sweep, whole.
-        XCTAssertEqual(Array(server.log.dropFirst(5).map(\.verb)),
+        XCTAssertEqual(Array(server.log.dropFirst(6).map(\.verb)),
                        ["LIST"] + Array(repeating: "STATUS", count: 7))
         XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
         XCTAssertEqual(server.connectionsOpened, 1)
@@ -402,9 +403,10 @@ final class RepositoryTrafficTests: XCTestCase {
         XCTAssertNil(fellBack)
         XCTAssertEqual(newestPages, 0)
         // His day's SEARCH, its letters' dates (B-115), the listing, the
+        // folder's letters' arrivals for the list's order (B-178), the
         // window.
         XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH", "UID SEARCH",
-                                                "UID FETCH"])
+                                                "UID FETCH", "UID FETCH"])
         XCTAssertEqual(server.log.first?.command, "SELECT \"[Gmail]/All Mail\"")
         let window = try XCTUnwrap(landed)
         XCTAssertGreaterThanOrEqual(window.landedOn, day)
@@ -436,7 +438,10 @@ final class RepositoryTrafficTests: XCTestCase {
 
         XCTAssertEqual(fellBack, .nothingThatRecent)
         XCTAssertEqual(newest.count, 50)
-        XCTAssertEqual(server.log.map(\.command).suffix(2).first, "UID SEARCH ALL")
+        // The listing, the letters' dates for the list's order (B-178), the
+        // page.
+        XCTAssertEqual(server.log.map(\.command).suffix(3).first, "UID SEARCH ALL")
+        XCTAssertEqual(server.log.map(\.command).suffix(2).first?.hasSuffix(" (UID INTERNALDATE)"), true)
         XCTAssertEqual(server.log.last?.verb, "UID FETCH")
     }
 

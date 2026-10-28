@@ -177,17 +177,34 @@ struct MessageSummary: Identifiable, Hashable {
     /// its sender's clock wrote (`date`).
     ///
     /// Carried so a conversation's letters go in the order they came
-    /// (`MessageThread.group`, B-084). The folder's own order, by UID, is
-    /// the order they were put in it, which is not that order for letters
-    /// moved in out of turn: a conversation deleted a letter at a time,
-    /// the newest first, as Edit mode's Delete used to, or a reply deleted
-    /// before the letter it answers.
+    /// (`MessageThread.group`, B-084). The folder's UIDs are the order they
+    /// were put in it, which is not that order for letters moved in out of
+    /// turn: a conversation deleted a letter at a time, the newest first,
+    /// as Edit mode's Delete used to, or a reply deleted before the letter
+    /// it answers. Since B-178 the list itself goes by it
+    /// (`ArrivalOrder`, `isListed(above:)`).
     ///
     /// Nil where it is not known: a row kept on the iPad by a build before
     /// rows carried it (`MailShelf`), a letter kept on the iPad, and a row
     /// the server gave no INTERNALDATE for. A conversation with such a row
     /// in it keeps the folder's order, as every conversation did.
     var arrived: Date? = nil
+
+    /// Whether this row goes above `other` in a folder's list, which runs
+    /// the newest first by when each letter arrived, its INTERNALDATE
+    /// (`arrived`), as Mail's list does (`ArrivalOrder`, B-178): arrived
+    /// later, or in the same second with the higher UID in the same folder.
+    /// A row that does not say when it arrived goes by its `date`.
+    func isListed(above other: MessageSummary) -> Bool {
+        let mine = arrived ?? date
+        let theirs = other.arrived ?? other.date
+        if mine != theirs { return mine > theirs }
+        let a = id.split(separator: "/", omittingEmptySubsequences: false)
+        let b = other.id.split(separator: "/", omittingEmptySubsequences: false)
+        guard a.count == 2, b.count == 2, a[0] == b[0], mailboxID == other.mailboxID,
+              let x = UInt32(a[1]), let y = UInt32(b[1]) else { return false }
+        return x > y
+    }
 
     /// The same letter under another id in the same folder: one its Undo
     /// has moved back, which Gmail gives a new UID (B-157). Everything else

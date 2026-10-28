@@ -122,7 +122,10 @@ final class FetchNewsTests: XCTestCase {
             case .sent:
                 let words = entry.text.split(separator: " ")
                 open = nil
-                if words.count > 2, words[1] == "UID", words[2] == "FETCH" {
+                // Not the FETCH of the letters' dates alone, which the list's
+                // order asks for (B-178): no row comes of it.
+                if words.count > 2, words[1] == "UID", words[2] == "FETCH",
+                   !entry.text.hasSuffix("(UID INTERNALDATE)") {
                     open = String(words[0])
                     out.append([])
                 }
@@ -405,7 +408,10 @@ final class FetchNewsTests: XCTestCase {
         let repository = makeRepository(shelf: shelf, largeAbove: raw.count - 1)
         server.flagNews = news
         let scripted = self.server!
-        scripted.change(after: { $0.verb == "UID SEARCH" && $0.selected == Server.inbox }) {
+        // After the listing's FETCH of its letters' dates (B-178), the last
+        // command before the page's FETCH, as the SEARCH was before it.
+        scripted.change(after: { $0.verb == "UID FETCH" && $0.command.hasSuffix("(UID INTERNALDATE)")
+                                 && $0.selected == Server.inbox }) {
             scripted.storeElsewhere(uid: newer, in: Server.inbox, adding: ["\\Seen"])
         }
         Diagnostics.clear()

@@ -193,7 +193,10 @@ final class ReadingPaneCcTests: XCTestCase {
             messageID: "<garden-cc-tap@example.com>"), to: [Server.inbox])[Server.inbox])
 
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        // Not the FETCH of the letters' dates alone, which the list's order
+        // asks for before its page (B-178).
         let fetches = server.log.filter { $0.verb == "UID FETCH" }.map(\.command)
+            .filter { !$0.hasSuffix(" (UID INTERNALDATE)") }
         XCTAssertFalse(fetches.isEmpty)
         for fetch in fetches {
             XCTAssertTrue(fetch.hasSuffix(" (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE "

@@ -282,7 +282,10 @@ final class SentRowNamesTests: XCTestCase {
         XCTAssertEqual(sentNames.first, "Jane & Sam")
         XCTAssertEqual(Array(sentNames.dropFirst()), Array(repeating: "Carlo", count: 8),
                        "the seeded letters, each to Carlo")
-        for fetch in server.log.filter({ $0.verb == "UID FETCH" }).map(\.command) {
+        // Not the FETCH of the letters' dates alone, which the list's order
+        // asks for before its page (B-178).
+        for fetch in server.log.filter({ $0.verb == "UID FETCH" }).map(\.command)
+            where !fetch.hasSuffix(" (UID INTERNALDATE)") {
             XCTAssertTrue(fetch.hasSuffix(" (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE "
                                           + "BODYSTRUCTURE X-GM-LABELS X-GM-THRID X-GM-MSGID)"),
                           fetch)
