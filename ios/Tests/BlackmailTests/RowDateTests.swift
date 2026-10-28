@@ -9,9 +9,11 @@ import XCTest
 /// "4:12 AM" on a letter dated 1 March 2024 that arrived that morning, and
 /// "10/8/26" on one dated that morning that arrived twenty days before.
 /// Blackmail had them in the same places, by arrival, but read "3/1/24"
-/// and "3:00 AM", their Dates. A reply's quote, Print and Forward keep the
-/// Date, which these tests hold too; the reading pane's header shows the
-/// arrival since the second round (`HeaderDateTests`).
+/// and "3:00 AM", their Dates. The letter keeps its own Date (`date`),
+/// which these tests hold too; the reading pane's header shows the arrival
+/// since the second round (`HeaderDateTests`), and Print, a reply's quote
+/// and Forward go by it since the third (`Message.headerDate`,
+/// `PaperDateTests`), the Date only where no arrival is known.
 final class RowDateTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -83,7 +85,9 @@ final class RowDateTests: XCTestCase {
 
     /// The round's two letters: each row shows when its letter arrived,
     /// the date the list put it by, and VoiceOver reads the same; the
-    /// letter keeps its Date for the quote, Print and Forward.
+    /// letter keeps its own Date, which Print, the quote and Forward use
+    /// only where no arrival is known (`Message.headerDate`, B-178, the
+    /// third round).
     func testEachRowShowsWhenItsLetterArrived() async throws {
         let old = datedOld
         let came = cameOld
@@ -106,7 +110,8 @@ final class RowDateTests: XCTestCase {
                           MailFormat.listTimestamp(came.date, now: now))
         // The dates down the list go in step with it.
         XCTAssertEqual(shown.map(\.listDate), shown.map(\.listDate).sorted(by: >))
-        // The letter's own Date is kept, for the quote, Print and Forward.
+        // The letter's own Date is kept; Print, the quote and Forward go
+        // by the arrival (`headerDate`), the Date only where none is known.
         let letterOld = try XCTUnwrap(rows.first { uid($0.id) == putOld })
         XCTAssertEqual(letterOld.date, old.date)
         XCTAssertEqual(threads[atOld].date, old.date)

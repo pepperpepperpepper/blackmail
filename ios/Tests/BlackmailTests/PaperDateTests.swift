@@ -106,6 +106,45 @@ final class PaperDateTests: XCTestCase {
                        MailFormat.printedTimestamp(march, locale: us, timeZone: york))
     }
 
+    /// His own letter from Sent Mail in a conversation's stack (B-104),
+    /// fetched as the server reads it, with no arrival, is kept with its
+    /// row's, which a Markup and Reply on a file of it goes by; a row that
+    /// does not say when it arrived leaves it its Date.
+    func testHisLetterFromSentMailIsKeptWithItsRowsArrival() throws {
+        func row(_ id: String, _ mailbox: String, gmail: UInt64, arrived: Date?) -> MessageSummary {
+            MessageSummary(id: id, mailboxID: mailbox, sender: "Jane Example <jane@example.com>",
+                           subject: "Re: R6 B-178", preview: "", date: march, isRead: true,
+                           isFlagged: false, threadID: "1700000000000000178", gmailMessageID: gmail,
+                           arrived: arrived)
+        }
+        let stack = [row("1/3", "Notes", gmail: 9_003, arrived: october8),
+                     row("1/5", "Notes", gmail: 9_005, arrived: came)]
+        for arrival in [came, nil] as [Date?] {
+            var related = PaneRelated()
+            XCTAssertNil(related.show(stack, completing: 42, remembered: nil))
+            _ = related.take(RelatedLetters(folderName: "Sent Mail",
+                                            letters: [row("6/4", "[Gmail]/Sent Mail", gmail: 8_004,
+                                                          arrived: arrival)]),
+                             stack: stack)
+            let load = try XCTUnwrap(related.load(for: "r6/4"))
+            let fetched = Message(id: "6/4", mailboxID: "[Gmail]/Sent Mail",
+                                  sender: "Jane Example <jane@example.com>",
+                                  senderAddress: "jane@example.com", to: ["Dora Example <dora@example.net>"],
+                                  cc: [], subject: "Re: R6 B-178", date: march, textBody: "A few words.",
+                                  htmlBody: nil, attachments: [])
+            XCTAssertNil(fetched.arrived, "as the server reads it")
+            related.keep(fetched, for: load)
+            let kept = try XCTUnwrap(related.letter(withID: "6/4"))
+            XCTAssertEqual(kept.arrived, arrival)
+            XCTAssertEqual(kept.headerDate, arrival ?? march)
+            XCTAssertEqual(related.letter(inSection: "mr6_4")?.headerDate, arrival ?? march)
+            XCTAssertEqual(PrintPage.head(kept, size: { "\($0)" }, locale: us, timeZone: york).date,
+                           MailFormat.printedTimestamp(arrival ?? march, locale: us, timeZone: york))
+            XCTAssertTrue(Draft.replying(to: kept, all: false, mine: OwnAddresses([])).body
+                            .contains(MailFormat.quoteAttribution(arrival ?? march, sender: kept.sender)))
+        }
+    }
+
     /// The pane holds each letter with its row's arrival and hands that
     /// letter on: the single letter's (`message`, which the Reply sheet's
     /// Reply, Reply All, Forward and Print and Markup and Reply take), a

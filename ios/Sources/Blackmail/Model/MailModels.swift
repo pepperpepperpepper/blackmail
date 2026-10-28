@@ -202,8 +202,10 @@ struct MessageSummary: Identifiable, Hashable {
     /// Blackmail. A date jump goes by it too (`IMAPDate.jump`), so the row
     /// it lands on reads the day he picked. The reading pane's header and
     /// the stack's lines show it too, as Mail's header does
-    /// (`Message.headerDate`, the second round); a reply's "On ...
-    /// wrote:", Print and Forward keep the Date (`date`).
+    /// (`Message.headerDate`, the second round), and Print, a reply's "On
+    /// ... wrote:" and Forward go by it, as Mail's print and reply do
+    /// (`Message.headerDate`, the third round). The letter's own Date
+    /// (`date`) is kept, and they use it only where no arrival is known.
     var listDate: Date { arrived ?? date }
 
     /// Whether this row goes above `other` in a folder's list, which runs
@@ -349,8 +351,8 @@ extension Message {
     var headerDate: Date { arrived ?? date }
 
     /// This letter with the arrival of `row`, its row in the list, for the
-    /// header (`headerDate`): the letter as the server reads it does not
-    /// say when it arrived, and its row does. Unchanged when `row` is
+    /// header, Print, a reply and Forward (`headerDate`): the letter as the
+    /// server reads it does not say when it arrived, and its row does. Unchanged when `row` is
     /// another letter's, or nil.
     func arriving(as row: MessageSummary?) -> Message {
         guard let row, row.id == id else { return self }
