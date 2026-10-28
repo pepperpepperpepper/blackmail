@@ -342,6 +342,12 @@ enum BodyFiles {
     /// as its tile said them on the test iPad.
     static let downloading = "Downloading"
 
+    /// The last line of a tile drawn with one, its file come as its letter
+    /// opened (`Landed`, B-176): a no-break space, which says nothing and
+    /// keeps the line's height. Emptied, the line had none, and the icon,
+    /// the name and the size, centred in the box, dropped half a line.
+    static let saysNothing = "\u{00A0}"
+
     /// Mail's ring in a tile's icon's place while its file comes (B-176):
     /// in the icon's box, 37 by 48 with 8 under it, so nothing in the tile
     /// moves; a grey circle, the icon's grey, and an arc of the tile's
@@ -412,11 +418,12 @@ enum BodyFiles {
     /// A file fetched as its letter opened has come, or could not be
     /// (`FilesAhead`, B-176): `ConversationDocument.script`'s
     /// `bmFileLanded`, called with the tile's link, its icon, and the
-    /// words of its last line, none for a file in hand, as a tile of a
-    /// letter fetched whole says, and "Tap to Download" for one that could
-    /// not be fetched. The ring the tile was drawn with gives way to the
-    /// icon. A tile shown coming for a tap meanwhile (`Busy`) is left as it
-    /// is, and is put back so.
+    /// words of its last line: none for a file in hand, as a tile of a
+    /// letter fetched whole says, the line kept (`saysNothing`), so nothing
+    /// in the tile moves; and "Tap to Download" for one that could not be
+    /// fetched. The ring the tile was drawn with gives way to the icon. A
+    /// tile shown coming for a tap meanwhile (`Busy`) is left as it is, and
+    /// is put back so.
     struct Landed: Equatable {
         let link: String
         let icon: String
@@ -425,7 +432,7 @@ enum BodyFiles {
         init(_ file: Attachment, of letter: String, inHand: Bool) {
             link = BodyFiles.link(file.id, of: letter)
             icon = BodyFiles.icon(file)
-            words = inHand ? "" : BodyFiles.tapToDownload
+            words = inHand ? BodyFiles.saysNothing : BodyFiles.tapToDownload
         }
 
         /// What `callAsyncJavaScript` runs, in the app's content world.

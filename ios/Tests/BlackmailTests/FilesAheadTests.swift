@@ -89,7 +89,8 @@ final class FilesAheadTests: XCTestCase {
         let landed = BodyFiles.Landed(pdf, of: m.id, inHand: true)
         XCTAssertEqual(landed.link, BodyFiles.link("4", of: "7/3"))
         XCTAssertEqual(landed.icon, BodyFiles.icon(pdf))
-        XCTAssertEqual(landed.words, "")
+        XCTAssertEqual(landed.words, "\u{00A0}", "says nothing, its line kept")
+        XCTAssertEqual(BodyFiles.saysNothing.unicodeScalars.map(\.value), [0xA0], "a no-break space, never collapsed")
         XCTAssertEqual(BodyFiles.Landed(pdf, of: m.id, inHand: false).words, "Tap to Download")
         XCTAssertEqual(BodyFiles.Landed.script, "bmFileLanded(link, icon, words)")
     }
@@ -129,6 +130,15 @@ final class FilesAheadTests: XCTestCase {
 
         XCTAssertEqual(ahead.taking(c), .fetch(lands: false), "not planned")
         XCTAssertEqual(ahead.states[c], nil)
+
+        // Tapped before its letter's page finished loading: the tap's, and
+        // not fetched again when the page has finished.
+        let d = FilesAhead.Key(letter: "7/3", part: "7")
+        XCTAssertEqual(ahead.taking(d, planned: true), .fetch(lands: true), "planned, not yet asked for")
+        XCTAssertEqual(ahead.drawn(d), .nothing, "the page finished: coming, the tap's")
+        XCTAssertFalse(ahead.turn(d))
+        XCTAssertTrue(ahead.landed(d, at: nil))
+        XCTAssertEqual(ahead.drawn(d), .show(inHand: false))
         XCTAssertFalse(ahead.landed(c, at: url))
         ahead.failed(c)
         XCTAssertEqual(ahead.states[c], nil)
@@ -146,8 +156,9 @@ final class FilesAheadTests: XCTestCase {
     /// The script, run in node on the model of the page: the tile drawn
     /// coming keeps its ring and "Downloading" until the pane says the file
     /// has come, and then has its icon and says nothing, as a tile of a
-    /// letter fetched whole; or, not fetched, its icon and "Tap to
-    /// Download". A tap on it while it comes leaves it so, and as the tap
+    /// letter fetched whole, its last line still there, a no-break space,
+    /// so the lines above it stay where they were; or, not fetched, its
+    /// icon and "Tap to Download". A tap on it while it comes leaves it so, and as the tap
     /// ends it is as the file left it. A tap on it after shows the ring
     /// and "Downloading", and then the icon again. Another letter's file
     /// changes nothing.
@@ -156,7 +167,7 @@ final class FilesAheadTests: XCTestCase {
         let page = try XCTUnwrap(PanePage.letter(m, style: style))
         let link = BodyFiles.link("4", of: m.id)
         let coming = ModelPage.Run.File(href: link, style: [:], status: "Downloading", icon: "bm-file-ring")
-        let inHand = ModelPage.Run.File(href: link, style: [:], status: "", icon: "")
+        let inHand = ModelPage.Run.File(href: link, style: [:], status: "\u{00A0}", icon: "")
         let failed = ModelPage.Run.File(href: link, style: [:], status: "Tap to Download", icon: "")
         let landed = BodyFiles.Landed(pdf, of: m.id, inHand: true)
         let notLanded = BodyFiles.Landed(pdf, of: m.id, inHand: false)
@@ -203,7 +214,11 @@ final class FilesAheadTests: XCTestCase {
     /// before, in its turn, by its section, as a tap fetches it, not once
     /// the pane shows something else; what came written to the iPad and
     /// its tile told, or, not fetched, told so; a tap's bytes through
-    /// `fileData`, which reads, waits or fetches as `FilesAhead` says; and
+    /// `fileData`, which reads, waits or fetches as `FilesAhead` says, a
+    /// file to come and not yet asked for kept as the tap's, and nothing
+    /// fetched after a wait once the pane has been given something else
+    /// (the tap let go with nothing said, as `openAttachment`'s catch
+    /// says nothing for a pane moved on); and
     /// the pane given something else, every fetch called off and what came
     /// removed. The pane's loads tell it so after calling off their own.
     func testThePaneFetchesThemAndLetsThemGo() throws {
@@ -228,10 +243,14 @@ final class FilesAheadTests: XCTestCase {
             "let url = try? AttachmentStore.write(data, named: file.filename) "
                 + "guard ahead.landed(key, at: url) else { if let url { AttachmentStore.removeStaged(url) } return } "
                 + "run(BodyFiles.Landed(file, of: m.id, inHand: url != nil))",
-            "var taking = ahead.taking(key) if taking == .wait { await aheadFetches[key]?.value "
+            "var taking = ahead.taking(key, planned: FilesAhead.fetches(file, of: m)) "
+                + "if taking == .wait { await aheadFetches[key]?.value "
+                + "guard loads.stillShows(shown) else { throw CancellationError() } "
                 + "taking = ahead.taking(key) } "
                 + "if case let .read(url) = taking, let data = try? Data(contentsOf: url) { return data }",
             "let data = try await fileData(attachment, of: m, shown: shown)",
+            "} catch { guard loads.stillShows(shown), fileTaps.opens(file) else { return } "
+                + "ErrorPresenter.show(.attachmentFailed, on: self) }",
             "for fetch in aheadFetches.values { fetch.cancel() } aheadFetches = [:] aheadLast?.cancel() "
                 + "aheadLast = nil for url in ahead.forget() { AttachmentStore.removeStaged(url) }",
             "private func run(_ landed: BodyFiles.Landed) { "

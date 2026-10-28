@@ -18,7 +18,8 @@ import Foundation
 /// time, by its section, as a tap fetches it. Its tile says "Downloading"
 /// with a ring where its icon is from the start (`BodyFiles.tile`), and
 /// once it has come its icon is back and its last line says nothing, as a
-/// letter's tile does whose files came with it (`BodyFiles.Landed`); or,
+/// letter's tile does whose files came with it, the line keeping its room
+/// so nothing in the tile moves (`BodyFiles.Landed`); or,
 /// where it could not be fetched, "Tap to Download", and a tap fetches it.
 /// What came is written to the iPad, out of memory, and a tap opens it from
 /// there at once. All of it stops, and what came is removed, when the pane
@@ -127,8 +128,12 @@ struct FilesAhead: Equatable {
 
     /// A tap on `key`: a file come is read, one on its way waited for, one
     /// whose turn has not come or that could not be fetched is fetched now
-    /// and kept as come, and any other file fetched as ever.
-    mutating func taking(_ key: Key) -> Taking {
+    /// and kept as come, and any other file fetched as ever. A file
+    /// `planned` (`fetches`) that the pane has not asked for yet, its tile
+    /// tapped before its letter's page finished loading, is fetched now
+    /// and kept as come as well, so it is not fetched a second time when
+    /// the page has finished (`drawn`).
+    mutating func taking(_ key: Key, planned: Bool = false) -> Taking {
         switch states[key] {
         case let .landed(url)?:
             return .read(url)
@@ -138,7 +143,9 @@ struct FilesAhead: Equatable {
             states[key] = .coming
             return .fetch(lands: true)
         case nil:
-            return .fetch(lands: false)
+            guard planned else { return .fetch(lands: false) }
+            states[key] = .coming
+            return .fetch(lands: true)
         }
     }
 

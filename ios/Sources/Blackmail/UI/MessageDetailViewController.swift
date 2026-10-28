@@ -262,8 +262,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.translatesAutoresizingMaskIntoConstraints = false
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
-        // A link held: WebKit's menu, with Mail's Add to Reading List
-        // (`LinkMenu`, B-176). The only thing the pane asks of it.
+        // A link held that Safari's Reading List can keep: WebKit's menu,
+        // with Mail's Add to Reading List (`LinkMenu`, B-176); anything
+        // else held, WebKit's own as it was. The only thing the pane asks
+        // of it.
         webView.uiDelegate = self
         webView.scrollView.backgroundColor = Theme.canvas
         webView.backgroundColor = Theme.canvas
@@ -494,12 +496,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The bytes of `file` of `m` for a tap (`openAttachment`): read from
     /// the iPad when it came as its letter opened, waited for while it is
     /// coming so, fetched now if its turn had not come or it could not be,
-    /// and then kept as come (B-176); any other file fetched as ever.
+    /// or if it is one to come and the page has not finished loading to
+    /// ask for it, and then kept as come (B-176); any other file fetched
+    /// as ever. Waited for, and the pane given something else meanwhile:
+    /// nothing more is fetched, for a letter he has left, on the one
+    /// connection the next letter's body is coming on; the tap is let go,
+    /// and nothing is said (`openAttachment`).
     private func fileData(_ file: Attachment, of m: Message, shown: Int) async throws -> Data {
         let key = FilesAhead.Key(letter: m.id, part: file.id)
-        var taking = ahead.taking(key)
+        var taking = ahead.taking(key, planned: FilesAhead.fetches(file, of: m))
         if taking == .wait {
             await aheadFetches[key]?.value
+            guard loads.stillShows(shown) else { throw CancellationError() }
             taking = ahead.taking(key)
         }
         if case let .read(url) = taking, let data = try? Data(contentsOf: url) { return data }
@@ -2309,21 +2317,28 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 }
 
-/// A link held in a letter (B-176): WebKit's own menu, the items it
-/// suggests and its card above them, with Mail's "Add to Reading List"
-/// put in after Open Link (`LinkMenu`), for a page Safari's Reading List
-/// can keep, as Mail's menu has it. Anything else held that WebKit gives a
-/// menu, a picture from the web say, has WebKit's items as they were. No
-/// preview of the delegate's own: WebKit's card is left to WebKit.
+/// A link held in a letter (B-176): for a page Safari's Reading List can
+/// keep (`LinkMenu.answered`), WebKit's suggested items with Mail's "Add
+/// to Reading List" put in after Open Link where they lack it
+/// (`LinkMenu.place`), as Mail's menu has it; for anything else held that
+/// WebKit gives a menu, a `mailto:` link or a picture say, nil, which
+/// WebKit takes as it takes no delegate: its menu, or DataDetectors', as
+/// it was. Not seen on the iPad: whether the card "Tap to show preview"
+/// stays above the menu answered, which has no preview of its own; by
+/// WebKit's source it most likely goes (`LinkMenu`), and then this is
+/// taken out.
 extension MessageDetailViewController: WKUIDelegate {
 
     func webView(_ webView: WKWebView, contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
                  completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) {
-        let link = elementInfo.linkURL
+        guard let link = LinkMenu.answered(elementInfo.linkURL, supports: SSReadingList.supportsURL) else {
+            completionHandler(nil)
+            return
+        }
         completionHandler(UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { suggested in
             var items = suggested
             let titles = items.map { ($0 as? UIAction)?.title ?? "" }
-            if let link, let at = LinkMenu.place(among: titles, for: link, supports: SSReadingList.supportsURL) {
+            if let at = LinkMenu.place(among: titles, for: link, supports: SSReadingList.supportsURL) {
                 items.insert(UIAction(title: LinkMenu.addToReadingList,
                                       image: UIImage(systemName: LinkMenu.symbol)) { _ in
                     // Safari's list, as Mail's item adds to it; a page it
