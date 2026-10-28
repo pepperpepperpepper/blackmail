@@ -37352,13 +37352,19 @@ another program copies in.
    in the order placed by its date, or with none by the letter with the
    next UID. `PageWindow` walks a place in the order, not a UID's value
    (`newer`, `jumpWindow`, `anchorRow(fetched:in:)`).
-3. *A Refresh asks no more than before.* The order of the folder's last
+3. *A Refresh adds no command.* The order of the folder's last
    listing in the launch is carried on (`init(validity:listing:carrying:)`):
    only letters new to the folder since need dates, and when they are no
    more than a page they are fetched with the page's own FETCH, which
    brings each row's INTERNALDATE, and placed from it
-   (`foldedPage`, `settleOwed(from:)`). A letter put in out of turn is
-   fetched and not drawn, being further down.
+   (`foldedPage`, `settleOwed(from:)`); that FETCH asks for the new
+   letters on top of the fifty. A letter put in out of turn is
+   fetched and not drawn, being further down. A letter the last listing
+   was given no date or row for (a FETCH answered in part, or Gmail's
+   "Some messages could not be FETCHed") that is still in the folder is
+   owed again with them, so the next listing lists it, as the next
+   Refresh did while the list went by UID; the span carried covers it,
+   and nothing else would ask for its date.
 4. *Go to Date* (`messages(around:)`). The window, ten rows and the page
    above the letter landed on and the rest below it (B-117), is cut from
    the order around the letter's arrival. Of his day's letters the jump
@@ -37400,26 +37406,35 @@ the top, as a list by date received has it).
 `UID FETCH … (UID INTERNALDATE)` in its hold for a folder of 2,000 letters
 or fewer; a larger folder adds about three round trips (a hundred
 letters' dates, a SEARCH, the dates of what it found). A Refresh adds
-nothing when no more than a page has come. A first date jump in a folder
+no command when no more than a page has come; its FETCH asks for the new
+letters on top of the fifty. A first date jump in a folder
 adds one FETCH (small folder) or a few round trips (large). Paging down a
 large folder adds a hold whenever a page reaches the end of the span.
 None of it was timed on Gmail; the suite's 60,000-letter folder asks the
 dates of a few hundred letters for its first page.
 
-**Tests.** `ListInDateOrderTests`, thirteen, new. The order over a folder
+**Tests.** `ListInDateOrderTests`, sixteen, new. The order over a folder
 held in memory: his Inbox's size, the first page the fifty that came
 last with a letter of seven hours ago fourth and three put in long
 before far below, a few hundred dates asked; every page to the end of a
 5,000-letter folder in date order; a small folder dated in one FETCH
 with no SEARCH; the same second and a letter gone; a Refresh asking only
 the new letters' dates, none with none; a jump's window and paging both
-ways to both ends. Over the scripted server: the round's letter put in
+ways to both ends; a listing from the top after a jump in a 6,000-letter
+folder beginning with the fifty that came last, the jump's span let go
+(`fromTheTop`); a letter the dates FETCH left out, off that listing,
+listed in its place at the next, its date asked for alone or its row
+brought by the page's FETCH (`foldedPage`), and not owed once gone. Over
+the scripted server: the round's letter put in
 last is the 22nd row, not the top; a letter whose two dates differ sits
 by its arrival and shows its Date; every page to the end, each letter
 once; Go to Date on the letter's day and on another, and the pages
 either side in order; a letter trashed and undone listed where it stood;
 a relaunch's kept page in the order, its third page asked for from the
-letter put in last; the watch's news placed by date, and a letter older
+letter put in last; a letter put in out of turn before the listing,
+below the ten rows listed, not taken for news at the next check, only
+the letter come since, and no fetch afresh (`newsOnce`); the watch's
+news placed by date, and a letter older
 than every row fetching the list afresh. Changed for the new FETCH or
 the new order: `ArrivalOrderTests` (the row's id), `ArrivingMailTests`,
 `FetchNewsTests` (its store now follows the dates FETCH, and its answers
@@ -37428,9 +37443,13 @@ leave it out), `GoToDateBoundTests`, `GoToDateOrderTests`,
 `ReadingPaneCcTests`, `ToAtTheTapTests`, `SentRowNamesTests`,
 `RepositoryTrafficTests`, `UndoMovesTests` (the letter back at its place,
 not the top). Undone together in the worktree, the order sorted by UID,
-nothing carried, the kept page by UID and news put at the top: all
-thirteen new tests failed, 30 failures, at assertions; then restored. The
-full suite: 3,059 tests, 6 skipped, none failing. The release build for
+nothing carried, the kept page by UID and news put at the top: the
+first thirteen new tests failed, 30 failures, at assertions; then
+restored. The last three, each against its own change undone, together:
+`fromTheTop` doing nothing, the left-out letters not owed again, and
+`newsOnce` taking a letter the listing held for news. Each failed its
+test (7 failures), the other thirteen passed; then restored. The full
+suite: 3,062 tests, 6 skipped, none failing. The release build for
 the iPad links.
 
 **Not seen.** Nothing on the iPad yet. Which date Mail sorts by (above).

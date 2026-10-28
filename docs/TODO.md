@@ -9395,7 +9395,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       each. Mail by date received has "dated old" at the top and "came old"
       among the letters of twenty days ago; by date sent, "came old" at the
       top and "dated old" in March 2024. Written down which, in KNOWN_ISSUES
-      under B-178: it settles which date to go by.
+      under B-178: it settles which date to go by. Written down too the
+      date Mail's row shows for "came old" (today's 9 am, or twenty days
+      ago) and for "dated old" (3/1/24, or today's time), so a row of
+      Blackmail's showing the other date is caught in this round.
       2. *Blackmail:* Notes opened: the three where Mail had them, by
       arrival: "dated old" first, its row's date 3/1/24; "came old" among
       the rows of twenty days ago, its time today's; "lastyear" under
