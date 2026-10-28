@@ -82,7 +82,7 @@ final class FilesAheadTests: XCTestCase {
         XCTAssertTrue(BodyFiles.ring.hasPrefix("<svg class=\"bm-file-ring\" " + box + ">"))
         XCTAssertTrue(BodyFiles.icon(pdf).hasPrefix("<svg " + box + ">"))
         XCTAssertTrue(BodyFiles.ring.contains("stroke=\"currentColor\""))
-        XCTAssertTrue(BodyFiles.ring.contains("repeatCount=\"indefinite\""), "turning, by no script")
+        XCTAssertTrue(BodyFiles.ring.contains("animation: bm-file-turn 1s linear infinite"), "turning, by no script")
         XCTAssertFalse(BodyFiles.ring.contains("<script"))
         XCTAssertEqual(BodyFiles.downloading, "Downloading")
 
@@ -93,6 +93,52 @@ final class FilesAheadTests: XCTestCase {
         XCTAssertEqual(BodyFiles.saysNothing.unicodeScalars.map(\.value), [0xA0], "a no-break space, never collapsed")
         XCTAssertEqual(BodyFiles.Landed(pdf, of: m.id, inHand: false).words, "Tap to Download")
         XCTAssertEqual(BodyFiles.Landed.script, "bmFileLanded(link, icon, words)")
+    }
+
+    /// The ring turns from its first frame, the one drawn with the page
+    /// as the one a tap puts in by script (found on the test iPad,
+    /// 2026-10-28): by CSS, its rule and keyframes in the drawing's own
+    /// `<style>`, which both carry, and not by SMIL, whose animations in
+    /// SVG parsed with the page WebKit starts only at the page's load
+    /// event, after the letter's pictures; on 16.5.1 the large letter's
+    /// ring stood still while its photos came. Once a second, steadily,
+    /// about the drawing's middle, which is the circle's centre, so the
+    /// grey circle turned looks as it was; the drawing's box, size and
+    /// place as before. On paper no ring.
+    func testTheRingTurnsFromItsFirstFrame() throws {
+        let ring = BodyFiles.ring
+        XCTAssertFalse(ring.contains("<animate"), "no SMIL")
+        XCTAssertFalse(ring.contains("repeatCount"))
+        XCTAssertFalse(ring.contains("<script"))
+        let box = "<svg class=\"bm-file-ring\" width=\"37\" height=\"48\" viewBox=\"0 0 37 48\""
+            + " style=\"display: block; margin: 0 auto 8px auto;\">"
+        XCTAssertTrue(ring.hasPrefix(box + "<style>@keyframes bm-file-turn { to { transform: rotate(360deg); } }"
+                                     + " svg.bm-file-ring { animation: bm-file-turn 1s linear infinite !important; }"
+                                     + "</style><circle "), ring)
+        XCTAssertEqual(BodyFiles.ringTurn, "bm-file-turn")
+        XCTAssertEqual(ring.components(separatedBy: "<style>").count - 1, 1)
+        XCTAssertEqual(ring.components(separatedBy: "animation:").count - 1, 1)
+        XCTAssertTrue(ring.contains("<circle cx=\"18.5\" cy=\"24\" r=\"14\""), "the middle of 37 by 48")
+        XCTAssertTrue(ring.hasSuffix("<path d=\"M18.5 10A14 14 0 0 1 32.5 24\" fill=\"none\" stroke=\"currentColor\""
+                                     + " stroke-width=\"2\" stroke-linecap=\"round\"></path></svg>"))
+
+        // The page as loaded, a stack's body and a tap's script all carry
+        // the same drawing, rule and all; paper none.
+        let m = letter([pdf])
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        XCTAssertEqual(page.components(separatedBy: ring).count - 1, 1)
+        XCTAssertEqual(PanePage.stackBody(m).html.components(separatedBy: ring).count - 1, 1)
+        XCTAssertEqual(BodyFiles.Busy("4", of: m.id, busy: true).arguments["ring"] as? String, ring)
+        XCTAssertFalse(BodyFiles.tile(pdf, of: m, on: .paper).contains("bm-file-turn"))
+
+        // Put in by the tap's script on the model of the page: the drawing
+        // in the icon's place is the ring.
+        let tapped = letter([pdf], left: false)
+        let drawn = try XCTUnwrap(PanePage.letter(tapped, style: style))
+        XCTAssertFalse(drawn.contains("bm-file-turn"), "a letter fetched whole: its icon")
+        let run = try model(drawn, [.busy(50, BodyFiles.Busy("4", of: tapped.id, busy: true))])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files.map(\.icon), ["bm-file-ring"])
     }
 
     // MARK: - Where each stands

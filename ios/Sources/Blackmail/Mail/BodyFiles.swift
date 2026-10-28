@@ -351,16 +351,31 @@ enum BodyFiles {
     /// Mail's ring in a tile's icon's place while its file comes (B-176):
     /// in the icon's box, 37 by 48 with 8 under it, so nothing in the tile
     /// moves; a grey circle, the icon's grey, and an arc of the tile's
-    /// blue turning on it, by the drawing's own animation, which needs no
-    /// script. Mail's ring fills as the file comes; a fetch here says
-    /// nothing of how far it has got, so the arc turns.
+    /// blue turning on it, once a second, by the drawing's own animation,
+    /// which needs no script. Mail's ring fills as the file comes; a fetch
+    /// here says nothing of how far it has got, so the arc turns.
+    ///
+    /// Turned by CSS, a rotation of the whole drawing about its middle,
+    /// the circle's centre, where the circle turned looks as it was: the
+    /// rule and its keyframes in the drawing's own `<style>`, so the ring
+    /// drawn with the page and the one a tap puts in by script
+    /// (`Busy`, `bmFileBusy`) both have them, on a letter's page or in a
+    /// stack, and turn from their first frame. Not SMIL's
+    /// `<animateTransform>`: WebKit starts the animations of SVG parsed
+    /// with the page only at its load event, which waits for the letter's
+    /// pictures, and on the test iPad a large letter's ring stood still
+    /// for as long as its photos took to come, a second and a half, while
+    /// a tap's turned (2026-10-28). On paper no ring is drawn.
     static let ring = "<svg class=\"bm-file-ring\" width=\"37\" height=\"48\" viewBox=\"0 0 37 48\""
         + " style=\"display: block; margin: 0 auto 8px auto;\">"
+        + "<style>@keyframes " + ringTurn + " { to { transform: rotate(360deg); } }"
+        + " svg.bm-file-ring { animation: " + ringTurn + " 1s linear infinite !important; }</style>"
         + "<circle cx=\"18.5\" cy=\"24\" r=\"14\" fill=\"none\" stroke=\"#c7c7cc\" stroke-width=\"2\"></circle>"
         + "<path d=\"M18.5 10A14 14 0 0 1 32.5 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\""
-        + " stroke-linecap=\"round\"><animateTransform attributeName=\"transform\" type=\"rotate\""
-        + " from=\"0 18.5 24\" to=\"360 18.5 24\" dur=\"1s\" repeatCount=\"indefinite\"></animateTransform>"
-        + "</path></svg>"
+        + " stroke-linecap=\"round\"></path></svg>"
+
+    /// The name of the ring's turn, its keyframes (`ring`).
+    static let ringTurn = "bm-file-turn"
 
     /// A file's icon on its tile, 37 by 48 with 8 under it, as Mail's
     /// sheet has it: a sheet of paper with its corner turned, and the
