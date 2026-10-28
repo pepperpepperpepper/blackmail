@@ -185,15 +185,20 @@ struct ArrivalOrder: Equatable, Sendable {
     }
 
     /// Whether `count` rows below `cursor` are placed already, or every
-    /// row below it is: nothing to ask before the page.
+    /// row below it is: nothing to ask before the page. Only for a cursor
+    /// that arrived within the span: one dated outside it, a row of the
+    /// list from the top after a date jump the list never showed has
+    /// carried its span off to the day jumped to, has every row of the
+    /// span on one side of it, and the page would be cut from the wrong
+    /// part of the folder (`reach`).
     func reaches(below cursor: UInt32, count: Int) -> Bool {
-        guard owed.isEmpty, known != nil, arrivals[cursor] != nil else { return false }
+        guard owed.isEmpty, let known, let at = arrivals[cursor], known.contains(at) else { return false }
         return completeBelow || rows(below: cursor) >= count
     }
 
     /// The same above it.
     func reaches(above cursor: UInt32, count: Int) -> Bool {
-        guard owed.isEmpty, known != nil, arrivals[cursor] != nil else { return false }
+        guard owed.isEmpty, let known, let at = arrivals[cursor], known.contains(at) else { return false }
         return completeAbove || rows(above: cursor) >= count
     }
 

@@ -723,10 +723,17 @@ actor IMAPMailRepository: MailRepository {
         // Not a letter the folder held when its list was fetched: in date
         // order (B-178) one put in out of turn before then, a UID above
         // every one the list holds, is down the list among its own time's
-        // letters, not news.
+        // letters, not news. The folder's order can be a later listing's
+        // than the list's, a date jump's the list never showed: a letter
+        // that has come since the list's own is in that listing too, dated
+        // after every row the list holds, and is news.
         let held = orders[name].flatMap { $0.order.validity == asked.validity ? $0.order : nil }
+        let newestArrival = uids.compactMap { held?.arrival(of: $0) }.max()
         let arriving = present.filter { uid in
-            (newest.map { uid > $0 } ?? true) && !(held?.listed(uid) ?? false)
+            guard newest.map({ uid > $0 }) ?? true else { return false }
+            guard let held, held.listed(uid) else { return true }
+            guard let at = held.arrival(of: uid), let newestArrival else { return false }
+            return at > newestArrival
         }
         guard arriving.count <= Self.mostNews else {
             Diagnostics.log(.note, "NEWS folder=\(name) arrived=\(arriving.count) refetch")
@@ -1270,7 +1277,7 @@ actor IMAPMailRepository: MailRepository {
                 let widened = try await client.arranging(in: name, validity: stamped.order.validity) {
                     [order = stamped.order] asking in
                     var order = order
-                    if order.arrival(of: from) == nil { _ = try await order.reach(from, asking: asking) }
+                    _ = try await order.reach(from, asking: asking)
                     try await order.reachDown(below: from, count: want, asking: asking)
                     return order
                 }
@@ -1301,7 +1308,7 @@ actor IMAPMailRepository: MailRepository {
                 let widened = try await client.arranging(in: name, validity: stamped.order.validity) {
                     [order = stamped.order] asking in
                     var order = order
-                    if order.arrival(of: from) == nil { _ = try await order.reach(from, asking: asking) }
+                    _ = try await order.reach(from, asking: asking)
                     try await order.reachUp(above: from, count: want, now: today, asking: asking)
                     return order
                 }

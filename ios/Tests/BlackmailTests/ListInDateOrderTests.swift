@@ -509,7 +509,52 @@ final class ListInDateOrderTests: XCTestCase {
         XCTAssertEqual(keptAgain.map(\.id), rows.map(\.id), "the pages below kept, in their order")
     }
 
+    /// A date jump whose window the list never shows, a search typed or
+    /// cancelled before it landed (`listGeneration`), leaves its order as
+    /// the folder's snapshot all the same, its span around the day jumped
+    /// to. The page below the list's own from the top is the next fifty by
+    /// arrival, not the jumped-to day's newest: the cursor's date lies above
+    /// the jump's span, and the span is found again from it
+    /// (`ArrivalOrder.reaches(below:count:)`, `reach`).
+    func testAPageBelowTheTopAfterAJumpNotShownGoesOnFromTheTop() async throws {
+        server = ScriptedIMAPServer(inboxCount: 2_500)
+        let repository = makeRepository()
+        let top = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let old = Server.newestDate.addingTimeInterval(-2_200 * Self.day)
+        let jumped = try await repository.messages(around: old, in: "inbox", limit: 50)
+        XCTAssertNotNil(jumped, "the jump lands, and is not shown")
+
+        let next = try await repository.listMessages(in: "inbox", beforeUID: top.last!.id, limit: 50)
+        let all = server.uids(in: Server.inbox).sorted(by: >)
+        XCTAssertEqual(top.map { uid($0.id) }, Array(all[0..<50]))
+        XCTAssertEqual(next.map { uid($0.id) }, Array(all[50..<100]), "the next fifty by arrival")
+
+        let above = try await repository.listMessages(in: "inbox", afterUID: next.first!.id, limit: 50)
+        XCTAssertEqual(above.map { uid($0.id) }, Array(all[0..<50]), "and up from it, the top page")
+    }
+
     // MARK: - The watch's news
+
+    /// A letter that came after the list was fetched from the top and
+    /// before a date jump the list never showed is news at the next check:
+    /// the jump's listing holds it, and dated it after every row the list
+    /// holds, so it is not one put in out of turn before the listing.
+    func testALetterThatCameBeforeAJumpNotShownIsNews() async throws {
+        server = ScriptedIMAPServer(inboxCount: 2_500)
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let come = Server.Letter(from: Server.sam, to: [Server.owner], subject: "Just come",
+                                 date: Server.newestDate.addingTimeInterval(1_200),
+                                 text: "Hello.\r\n", messageID: "<just@example.com>")
+        let new = try XCTUnwrap(server.arrive(come, in: [Server.inbox, Server.allMail])[Server.inbox])
+        let old = Server.newestDate.addingTimeInterval(-2_200 * Self.day)
+        let jumped = try await repository.messages(around: old, in: "inbox", limit: 50)
+        XCTAssertNotNil(jumped)
+
+        let news = try await repository.news(in: "inbox", known: rows.map(\.id), searchingAnyway: true)
+        XCTAssertEqual(news.arrived.map { uid($0.id) }, [new])
+        XCTAssertFalse(news.refetch)
+    }
 
     /// A letter put in the folder out of turn before the list was fetched,
     /// the highest UID there but arrived below the rows the list holds, is
