@@ -146,6 +146,22 @@ enum AppleMailHTML {
         return !signatureHTML.isEmpty && !layout.signature.isEmpty
     }
 
+    /// Whether `letter(for:account:)` makes markup for `draft`, without
+    /// making it: a quote kept as it was given always goes as markup, and
+    /// otherwise what `isNeeded` says. For the paperclip on a kept letter's
+    /// row (`LocalDraft.hasPaperclip`, B-172), drawn every time Drafts is,
+    /// where making the letter would carry a quote's markup, up to
+    /// `largestQuotedMarkup`, through `QuotedMarkup` for each row. The
+    /// same two tests as `letter`'s and `changedLetter`'s, in their order.
+    static func makesMarkup(for draft: Draft, account: MailAccount) -> Bool {
+        if let quote = draft.quote, quote.isIntact(in: draft.body),
+           layout(of: quote.region, signature: "").quote != nil {
+            return true
+        }
+        return isNeeded(body: draft.body, signature: account.signature,
+                        signatureHTML: account.signatureHTML, files: draft.attachments)
+    }
+
     /// The HTML part for a letter, or nil when it should go out as text.
     static func part(for draft: Draft, account: MailAccount) -> String? {
         letter(for: draft, account: account).html

@@ -1277,9 +1277,10 @@ final class DisplayDates: @unchecked Sendable {
         /// The long date and the long time, with its zone: "October 3, 2026
         /// at 9:14:03 AM EDT"; "3 October 2026 at 09:14:03 BST".
         case longDateAndLongTime
-        /// The medium date and the medium time, with its seconds: "Oct 3,
-        /// 2026 at 9:14:03 AM"; "3 Oct 2026, 09:14:03". The date Mail
-        /// prints (`MailFormat.printedTimestamp`, B-172).
+        /// The medium date and the medium time, with its seconds, joined as
+        /// the locale joins them: "Oct 3, 2026 at 9:14:03 AM"; "3 Oct 2026
+        /// at 09:14:03". The date Mail prints (`MailFormat.printedTimestamp`,
+        /// B-172).
         case mediumDateAndMediumTime
     }
 

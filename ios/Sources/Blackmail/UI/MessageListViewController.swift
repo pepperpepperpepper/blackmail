@@ -1253,7 +1253,7 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     private func listKept() {
         guard mailbox.role == .drafts else { return }
-        letters.keep(kept.draftsRows(in: mailbox.id, from: keptSender),
+        letters.keep(kept.draftsRows(in: mailbox.id, from: keptSender, signing: keptSigning),
                      replacing: kept.replacedInDrafts)
     }
 
@@ -1275,6 +1275,16 @@ final class MessageListViewController: UITableViewController {
     private var keptSender: String {
         let account = CredentialStore.loadAccount()
         return account.map { $0.displayName.isEmpty ? $0.address : $0.displayName } ?? ""
+    }
+
+    /// What the copy of a letter kept on the iPad is made with on the
+    /// server, as the repository makes it: the account as Settings saved it
+    /// and the signature's pictures. For the paperclip on its row in Drafts
+    /// (`LocalDraft.hasPaperclip`, B-172).
+    private var keptSigning: LocalDraft.Signing? {
+        CredentialStore.loadAccount().map {
+            LocalDraft.Signing(account: $0, images: SignatureImages.load())
+        }
     }
 
     /// The original of a reply or a forward was marked on the server: the
@@ -1303,7 +1313,8 @@ final class MessageListViewController: UITableViewController {
         if let landing = note.userInfo?[LocalDrafts.landingKey] as? DraftLanding {
             var copy: MessageSummary?
             if let letter = landing.letter, let id = landing.id {
-                copy = letter.row(in: mailbox.id, from: keptSender, onServerAs: id)
+                copy = letter.row(in: mailbox.id, from: keptSender, onServerAs: id,
+                                  signing: keptSigning)
             }
             letters.landed(copy, replacing: landing.replaced, atTop: reachedNewestMessage)
         }

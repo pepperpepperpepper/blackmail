@@ -128,6 +128,139 @@ final class RowQuotesPaperLikeMailTests: XCTestCase {
         XCTAssertEqual(server.violations, [])
     }
 
+    // MARK: - A1: a draft kept on the iPad
+
+    /// Whom the kept drafts are to, as the composer's field keeps them.
+    private static let to = "Carlo <carlo@example.org>"
+
+    /// The signature's logo as Settings keeps it, under the Content-ID its
+    /// markup shows it by.
+    private static let logo = SignatureImages.InlineImage(
+        contentID: "sig-logo@example.net", filename: "logo.png", mimeType: "image/png",
+        dataBase64: Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).base64EncodedString())
+
+    /// A letter kept on the iPad has in Drafts the paperclip the row of its
+    /// copy on the server will have once Drafts is fetched: under "On this
+    /// iPad only", as the copy it became until then, and reopened from that
+    /// copy, whose signature's pictures are no rows of his. The copy is the
+    /// one the shipping repository APPENDs, read as the list reads a
+    /// letter's structure. A letter with markup carries the signature's
+    /// pictures, each named in multipart/related, which Mail clips a letter
+    /// for; one with no markup, or with no picture that goes, has no
+    /// paperclip.
+    /// Before, the row counted his files alone and gained the paperclip by
+    /// itself when Drafts was next fetched.
+    func testAKeptDraftsRowHasThePaperclipItsCopyOnTheServerWillHave() async throws {
+        let server = ScriptedIMAPServer()
+        let suite = "RowQuotesPaperLikeMailTests.kept"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var signed = server.account
+        signed.signature = "Carlo"
+        signed.signatureHTML = "<div><b>Carlo</b><br><img src=\"cid:sig-logo@example.net\"></div>"
+        var plain = server.account
+        plain.signature = "Carlo"
+        let broken = SignatureImages.InlineImage(contentID: "sig-logo@example.net", filename: "logo.png",
+                                                 mimeType: "image/png", dataBase64: "!!!")
+        let untyped = SignatureImages.InlineImage(contentID: "sig-logo@example.net", filename: "logo.png",
+                                                  mimeType: "application/octet-stream",
+                                                  dataBase64: Self.logo.dataBase64)
+        let signedBody = "Yes, Sunday.\n\nCarlo"
+        let reply = "Yes, Sunday.\n\nOn Monday, Sam wrote:\n> Lunch on Sunday?"
+        let cases: [(name: String, body: String, account: MailAccount,
+                     images: [SignatureImages.InlineImage], clip: Bool)] = [
+            ("signed, with the logo", signedBody, signed, [Self.logo], true),
+            ("signed, with no pictures", signedBody, signed, [], false),
+            ("the signature taken off", "Yes, Sunday.", signed, [Self.logo], false),
+            ("a signature with no markup", signedBody, plain, [Self.logo], false),
+            ("a reply, a signature with no markup", reply, plain, [Self.logo], true),
+            ("a picture that will not decode", signedBody, signed, [broken], false),
+            // Named and inline all the same: listed as a file.
+            ("a picture kept with no picture's type", signedBody, signed, [untyped], true),
+        ]
+        for c in cases {
+            let account = c.account
+            let images = c.images
+            let repository = IMAPMailRepository(
+                account: server.account, password: server.password, transport: server.transportFactory,
+                saved: { account }, recipients: RecipientBook(defaults: defaults),
+                signatureImages: { images }, shelf: keptShelf(for: server.account))
+            let draft = Draft(to: [Self.to], subject: c.name, body: c.body)
+            let saved = try await repository.saveDraft(draft)
+            let id = try XCTUnwrap(saved)
+            let uid = try XCTUnwrap(id.split(separator: "/").last.flatMap { UInt32($0) })
+            let raw = try XCTUnwrap(server.raw(uid: uid, in: Server.drafts))
+            let onServer = IMAPMailRepository.hasAttachment(MIMEDecoder.parseStructure(raw))
+            XCTAssertEqual(onServer, c.clip, c.name)
+
+            let signing = LocalDraft.Signing(account: account, images: images)
+            func kept(_ draft: Draft) -> LocalDraft {
+                LocalDraft(key: "letter-1", draft: draft, version: "v", tried: [], unfinished: false,
+                           keptAt: Server.newestDate, account: server.account.address, gone: false)
+            }
+            XCTAssertEqual(kept(draft).row(in: Server.drafts, from: "Owner", signing: signing)
+                .hasAttachment, onServer, c.name)
+            XCTAssertEqual(kept(draft).row(in: Server.drafts, from: "Owner", onServerAs: id,
+                                           signing: signing).hasAttachment, onServer, c.name)
+            let decoded = MIMEDecoder.decodeMessage(raw)
+            let copy = Message(id: id, mailboxID: Server.drafts, sender: "Owner",
+                               senderAddress: server.account.address, to: [Self.to], cc: [],
+                               subject: c.name, date: Server.newestDate, textBody: decoded.text,
+                               htmlBody: decoded.html, attachments: decoded.attachments)
+            let reopened = Draft.reopening(copy, signatureImages: images)
+            XCTAssertEqual(reopened.attachments.count, 0, c.name)
+            XCTAssertEqual(kept(reopened).row(in: Server.drafts, from: "Owner", signing: signing)
+                .hasAttachment, onServer, c.name)
+        }
+        XCTAssertEqual(server.violations, [])
+    }
+
+    /// Whether a letter goes with markup, asked without making it, is what
+    /// making it says: plain words, a signature with markup or without, a
+    /// reply's and a forward's quote in the words, a quote kept as given or
+    /// changed, and one of his photos among his words.
+    func testMakesMarkupIsWhatTheLetterMakes() {
+        var signed = ScriptedIMAPServer().account
+        signed.signature = "Carlo"
+        signed.signatureHTML = "<div><b>Carlo</b></div>"
+        var plain = signed
+        plain.signatureHTML = ""
+        let region = "On Monday, Sam wrote:\n> Lunch on Sunday?"
+        func draft(_ body: String, quote: Bool = false, photo: Bool = false) -> Draft {
+            var draft = Draft(to: [Self.to], subject: "Lunch", body: body)
+            if quote {
+                draft.quote = QuotedOriginal(kind: .reply, region: region, html: "<p>Lunch on Sunday?</p>",
+                                             pictures: [])
+            }
+            if photo {
+                draft.attachments = [DraftAttachment(source: .localFile(URL(fileURLWithPath: "/staged/1/IMG_1.jpg")),
+                                                     filename: "IMG_1.jpg", mimeType: "image/jpeg", size: 10)]
+            }
+            return draft
+        }
+        let drafts = [
+            draft("Yes, Sunday."),
+            draft("Yes, Sunday.\n\nCarlo"),
+            draft("Yes, Sunday.\n\n" + region),
+            draft("Yes, Sunday.\n\n" + region, quote: true),
+            draft("Yes, Sunday.\n\nOn Monday, Sam wrote:\n> Lunch, changed.", quote: true),
+            draft("Yes, Sunday.\n\nBegin forwarded message:\n\nFrom: Sam\nLunch on Sunday?"),
+            draft("Yes, Sunday.", photo: true),
+        ]
+        var made: [Bool] = []
+        for account in [signed, plain] {
+            for (n, draft) in drafts.enumerated() {
+                let markup = AppleMailHTML.letter(for: draft, account: account).html != nil
+                XCTAssertEqual(AppleMailHTML.makesMarkup(for: draft, account: account), markup,
+                               "\(account.signatureHTML.isEmpty ? "plain" : "signed") \(n)")
+                made.append(markup)
+            }
+        }
+        XCTAssertEqual(made, [false, true, true, true, true, true, true,
+                              false, false, true, true, true, true, true])
+    }
+
     // MARK: - A2: the preview
 
     /// Mail's previews of the round's two quoted letters: "Yes, Sunday.

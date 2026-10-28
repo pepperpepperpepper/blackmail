@@ -146,21 +146,60 @@ extension LocalDraft {
     /// `notice` is why it has not gone to the server, when it is something
     /// he can do something about, under the mark: a file it carries from a
     /// letter that cannot be found (`LocalDrafts.whyNotSent`), or a letter
-    /// the pass no longer takes (`notSavedByItself`).
+    /// the pass no longer takes (`notSavedByItself`). `signing` is what its
+    /// copy on the server will be made with, for its paperclip
+    /// (`hasPaperclip`).
     func row(in mailboxID: String, from sender: String,
-             notice: String? = nil) -> MessageSummary {
+             notice: String? = nil, signing: Signing? = nil) -> MessageSummary {
         let text = PreviewText.fromPlainText(draft.body)
         let lines = [Self.mark, notice, text.isEmpty ? nil : text]
         return row(Self.rowPrefix + key, in: mailboxID, from: sender,
-                   preview: lines.compactMap { $0 }.joined(separator: "\n"))
+                   preview: lines.compactMap { $0 }.joined(separator: "\n"),
+                   signing: signing)
     }
 
     /// The row of the copy it became on the server, `id`, drawn from the
     /// letter as it went until Drafts is next fetched: in place of its row
     /// here, without fetching the folder again for it. A thread of its own
-    /// until then, as Gmail's is not known.
-    func row(in mailboxID: String, from sender: String, onServerAs id: String) -> MessageSummary {
-        row(id, in: mailboxID, from: sender, preview: PreviewText.fromPlainText(draft.body))
+    /// until then, as Gmail's is not known. Its paperclip as that copy's
+    /// row will have it once fetched (`hasPaperclip`).
+    func row(in mailboxID: String, from sender: String, onServerAs id: String,
+             signing: Signing? = nil) -> MessageSummary {
+        row(id, in: mailboxID, from: sender, preview: PreviewText.fromPlainText(draft.body),
+            signing: signing)
+    }
+
+    /// What the copy of a letter kept here is made with on the server,
+    /// besides the letter: the account, whose signature's markup decides
+    /// with the letter whether it goes with markup, and the signature's
+    /// pictures, which go with every letter that does
+    /// (`IMAPMailRepository.append`). The account as Settings saved it,
+    /// which is what the repository makes each letter with (`sender`).
+    struct Signing {
+        var account: MailAccount
+        var images: [SignatureImages.InlineImage]
+    }
+
+    /// Whether its row in Drafts has the paperclip: whether the row of its
+    /// copy on the server will (`IMAPMailRepository.hasAttachment`, B-172),
+    /// so the row has it from the first and keeps it while it stands in for
+    /// that copy and once Drafts is fetched again. A file of his or a photo
+    /// among his words, as before: each goes with the copy, as a file or as
+    /// a named picture in multipart/related. With neither, a letter that
+    /// goes with markup (`AppleMailHTML.makesMarkup`) when the signature has
+    /// pictures: they go with it, each a named picture in multipart/related
+    /// (`RFC5322Builder`), and its row on the server has the paperclip, as
+    /// Mail's had on a letter with a signature's logo. Before B-172 neither
+    /// row had one; counting his files alone, the row gained it by itself
+    /// when Drafts was next fetched. Only pictures that go are counted: one
+    /// whose bytes will not decode is dropped (`SignatureImages.parts`). One
+    /// kept with a type that is no picture's goes all the same, named and
+    /// inline, which the reading side lists as a file, so it is counted too.
+    /// Nil `signing`: his files alone.
+    func hasPaperclip(signing: Signing?) -> Bool {
+        if !draft.attachments.isEmpty { return true }
+        guard let signing, !SignatureImages.parts(of: signing.images).isEmpty else { return false }
+        return AppleMailHTML.makesMarkup(for: draft, account: signing.account)
     }
 
     /// Whom the letter is to, as he left the fields, rides on the row, so
@@ -168,7 +207,7 @@ extension LocalDraft {
     /// (`RowNames`, B-060), and "No Recipients" when he has addressed it to
     /// nobody yet. The sender is still his, for whatever goes by it.
     private func row(_ id: String, in mailboxID: String, from sender: String,
-                     preview: String) -> MessageSummary {
+                     preview: String, signing: Signing?) -> MessageSummary {
         MessageSummary(id: id,
                        mailboxID: mailboxID,
                        sender: sender,
@@ -177,7 +216,7 @@ extension LocalDraft {
                        date: keptAt,
                        isRead: true,
                        isFlagged: false,
-                       hasAttachment: !draft.attachments.isEmpty,
+                       hasAttachment: hasPaperclip(signing: signing),
                        threadID: id,
                        to: draft.to,
                        cc: draft.cc,
@@ -1472,14 +1511,20 @@ final class LocalDrafts {
     /// nobody was sending. The composer's Send keeps the letter as a new
     /// version first, which no pass has refused, so it stands as it stood
     /// only when that keep could not be written.
-    func draftsRows(in mailboxID: String, from sender: String) -> [MessageSummary] {
+    ///
+    /// Each with its paperclip as its copy on the server will have it, from
+    /// `signing` (`LocalDraft.hasPaperclip`, B-172).
+    func draftsRows(in mailboxID: String, from sender: String,
+                    signing: LocalDraft.Signing? = nil) -> [MessageSummary] {
         waiting.map {
             if isHeld($0) {
-                return $0.row(in: mailboxID, from: sender, notice: LocalDraft.notSavedByItself)
+                return $0.row(in: mailboxID, from: sender, notice: LocalDraft.notSavedByItself,
+                              signing: signing)
             }
             let missing = whyNotSent($0.key) == .attachmentsMissing
             return $0.row(in: mailboxID, from: sender,
-                          notice: missing ? MailError.attachmentsMissing.errorDescription : nil)
+                          notice: missing ? MailError.attachmentsMissing.errorDescription : nil,
+                          signing: signing)
         }
     }
 
