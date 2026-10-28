@@ -1073,11 +1073,10 @@ actor IMAPClient {
     /// its Date, `date`, the Date it was sent or, with none, when it
     /// arrived, as a row has them (`IMAPMailRepository`'s `rows`,
     /// `MessageSummary.listDate`): `UID FETCH … (UID INTERNALDATE
-    /// ENVELOPE)`, chunked as a
-    /// page's FETCH is. A letter the server leaves out is left out, and so
-    /// is one it gives with no ENVELOPE, which is never made a row
-    /// (`ordered`), or with neither date; nil if it gave none of them and
-    /// refused a chunk. The caller holds the gate.
+    /// ENVELOPE)`, chunked as a page's FETCH is. A letter the server leaves
+    /// out is left out, and so is one it gives with no ENVELOPE, which is
+    /// never made a row (`ordered`), or with neither date; nil if it gave
+    /// none of them and refused a chunk. The caller holds the gate.
     private func performDateFetch(_ uids: [UInt32])
         async throws -> [(uid: UInt32, date: Date, arrived: Date?)]? {
         let asked = Set(uids)

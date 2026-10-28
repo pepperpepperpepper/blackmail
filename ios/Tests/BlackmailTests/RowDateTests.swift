@@ -155,9 +155,11 @@ final class RowDateTests: XCTestCase {
         XCTAssertTrue(drawn(kept).contains { $0.listDate == came.arrival })
     }
 
-    /// A search's hits, from the server or from what is kept with no
-    /// connection, go newest first by the date their rows show: when each
-    /// arrived.
+    /// Where a search's hits are merged, the Trash's and Spam's among the
+    /// searched folder's with All Mailboxes, and the kept hits a search
+    /// finds with no connection, they go newest first by the date their
+    /// rows show: when each arrived. The searched folder's own hits keep
+    /// the SEARCH's UID order, which this does not test.
     func testSearchHitsGoByTheDateTheirRowsShow() {
         func row(_ id: String, dated: TimeInterval, arrived: TimeInterval?) -> MessageSummary {
             MessageSummary(id: id, mailboxID: "inbox", sender: "Sam", subject: "Tickets",

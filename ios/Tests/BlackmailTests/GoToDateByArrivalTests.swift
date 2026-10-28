@@ -15,12 +15,11 @@ import XCTest
 ///
 /// The folder here is a label's: its UIDs go by when each letter was put
 /// in it, not by when it arrived. Thirty-four letters of its own of 2025
-/// and 2026,
-/// then "Early UID", which arrived on 10 October, "came old", dated the
-/// 28th at 3 am, which arrived on the 8th, "labelled late", which arrived
-/// on the 9th, and "dated old", dated 1 March 2024, which arrived on the
-/// 28th at 4.12 am. The iPad is in New York, its clock 9.30 am on 28
-/// October 2026.
+/// and 2026, then "Early UID", which arrived on 10 October, "came old",
+/// dated the 28th at 3 am, which arrived on the 8th, "labelled late",
+/// which arrived on the 9th, and "dated old", dated 1 March 2024, which
+/// arrived on the 28th at 4.12 am. The iPad is in New York, its clock
+/// 9.30 am on 28 October 2026.
 final class GoToDateByArrivalTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer

@@ -1454,8 +1454,9 @@ actor IMAPMailRepository: MailRepository {
         // list goes and its rows show (B-178): the lowest UID of all on or
         // after the day was the first letter of it only while the folder's
         // UIDs followed its arrivals, and the lowest of Gmail's day,
-        // counted from midnight UTC, can be his evening before. Of the spans only the lowest UID matched is ever
-        // used (`PageWindow.anchor`), so only that is asked for, where the
+        // counted from midnight UTC, can be his evening before. Of the
+        // spans only the lowest UID matched is ever used
+        // (`PageWindow.anchor`), so only that is asked for, where the
         // server can say it alone (`IMAPClient.PageSearch.lowestDated`).
         // The whole listing is still asked for: it is what the pages walk.
         //
@@ -3977,12 +3978,13 @@ actor IMAPMailRepository: MailRepository {
     /// decided, not a page at a time as they are shown. Which binned hits a
     /// page shows depends on their dates, and a date comes only with the
     /// summary: INTERNALDATE, which is the merge key as the date the rows
-    /// show (B-178), falling back to ENVELOPE's. Fetching dates first and summaries later would mean a
-    /// second source for that key that has to agree with the first to the
-    /// second, or the merge reorders or repeats hits across a page boundary,
-    /// plus a SELECT of Trash or Spam and back in the middle of paging All
-    /// Mail. For the handful of binned hits a term finds in a personal
-    /// account that is more round trips, not fewer.
+    /// show (B-178), falling back to ENVELOPE's. Fetching dates first and
+    /// summaries later would mean a second source for that key that has to
+    /// agree with the first to the second, or the merge reorders or repeats
+    /// hits across a page boundary, plus a SELECT of Trash or Spam and back
+    /// in the middle of paging All Mail. For the handful of binned hits a
+    /// term finds in a personal account that is more round trips, not
+    /// fewer.
     ///
     /// A Trash that will not open is swallowed on purpose: it must not cost
     /// him the All Mail results as well. Losing the binned half of a search

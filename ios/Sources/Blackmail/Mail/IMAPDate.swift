@@ -158,9 +158,11 @@ enum IMAPDate {
     /// evening before and most of his next day as well; in Tokyo the day
     /// before and the day, which hold most of his day before and his next
     /// morning; in London in winter the day alone. A jump asks it only for
-    /// a day that ends more than a week before `now` does
-    /// (`jump(from:now:timeZone:)`), so it needs no bound against a letter
-    /// that says it arrived in the future (`arrivedOnOrAfter`).
+    /// a day no more than six days after `now`'s, today among them
+    /// (`reach > 1` in `jump(from:now:timeZone:)`), so its `BEFORE` names
+    /// a day no later than the one `notAhead(of:calendar:)` names, and it
+    /// needs no bound of its own against a letter that says it arrived in
+    /// the future (`arrivedOnOrAfter`).
     static func arrivedOnHisDay(_ date: Date, timeZone: TimeZone = .current) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
