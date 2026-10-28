@@ -110,9 +110,15 @@ enum ContactsAccess: Equatable {
 /// 1. the ones he has written to, first, as the book ranks them;
 /// 2. then his Contacts, in the order Contacts lists them, each address of
 ///    a card in the card's order;
-/// 3. then the ones the book has only seen go past, as the book ranks them;
+/// 3. then the ones the book has only seen go past, the people whose
+///    letters he has received, as the book ranks them: found by the start
+///    of a word of their name alone, never by their address (B-177), as
+///    Mail's "SIRI FOUND IN APPS" offers "Zqxa Rmfix" for "zqx" and
+///    nothing for "zqxa.b" of zqxa.b162@example.net; one with no name, or
+///    an address for a name, is not offered;
 /// 4. and last, the book's own matches within an address or a name
-///    (`RecipientBook.match`, B-017), which Mail does not make.
+///    (`RecipientBook.match`, B-017), which Mail does not make, of the
+///    people he has written to only.
 ///
 /// One row an address, named as Contacts names it when a card has it.
 /// Nothing for nothing typed: the composers never ask with it (B-073).
@@ -146,7 +152,11 @@ enum AddressSuggestions {
         for key in Set(known.keys).union(cards.keys) {
             let entry = known[key]
             let card = cards[key]
-            let bookTier = entry.flatMap { RecipientBook.match($0, q) }
+            // Only seen: by the start of a word of its name, and never
+            // within (B-177).
+            let bookTier = entry.flatMap {
+                $0.uses > 0 ? RecipientBook.match($0, q) : (startsItsName($0, typed) ? 0 : nil)
+            }
             let cardTier = card.flatMap { tier(of: $0.card, address: key, typed: typed, q) }
             let row: Row
             if let start = [bookTier.flatMap { $0 <= 2 ? $0 : nil }, cardTier].compactMap({ $0 }).min() {
@@ -202,6 +212,17 @@ enum AddressSuggestions {
         }
         if address.hasPrefix(q) { return 1 }
         return nil
+    }
+
+    /// Whether `typed`, folded, starts a word of the name the book has for
+    /// an address only seen (B-177): "zqx" and "rmf" of "Zqxa Rmfix", and
+    /// "zqxa r" too, as his Contacts' names are matched (`tier`). Not a
+    /// name that is an address, as some letters name their sender, which
+    /// would find it by its address after all.
+    private static func startsItsName(_ entry: KnownRecipient, _ typed: String) -> Bool {
+        guard !typed.isEmpty, let name = entry.name.map(RecipientBook.folded),
+              !name.isEmpty, !name.contains("@") else { return false }
+        return RecipientBook.startsAWord(name, typed)
     }
 
     /// The row as the list shows it: the name his Contacts card gives the
