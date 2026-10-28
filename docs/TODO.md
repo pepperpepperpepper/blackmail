@@ -10820,13 +10820,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28 (second
       round)"); it did not run 4, 5's jump to 14 June 2025 or 8, which
       passed on int21, and 3 and 9 are new since; the third, r6-l-fix on
-      260aea0, passed 1, 2, 9 and 10 and FAILed 3, Blackmail's print and
+      260aea0, passed 0, 1, 2, 9 and 10 and FAILed 3, Blackmail's print and
       reply by the Date where Mail's give the arrival, which the
       `fix-j1` branch's tip changes (KNOWN_ISSUES B-178, "Found on the
       test iPad, 2026-10-28 (third round)"). Nothing is sent and
       nothing is saved to Drafts: no Send or New Message is tapped, and
-      Reply only in step 3, its composer closed with Cancel untouched;
-      Print only to its preview, nothing printed. The host makes the letters, each from a made-up
+      Reply and Forward only in step 3, each composer closed with Cancel
+      untouched; Print only to its preview, nothing printed. The host
+      makes the letters, each from a made-up
       address, with a new Message-ID of its own and naming none on the
       account, and APPENDs them, read (`\Seen`), to the label "Notes",
       never the Inbox, with the APPEND's own date as its INTERNALDATE,
@@ -10894,8 +10895,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       the print and "On Oct 8, 2026, at 12:00 PM, …" in the reply,
       never today's 9:00 AM. The Date shown, or a day or time other
       than Mail's: the step FAILs, both screenshots cited, in the
-      round's results. After it, Drafts as before the step, over IMAP,
-      and Mail's Outbox empty.
+      round's results. Then Forward, on "dated old" alone (Not seen in
+      KNOWN_ISSUES B-178, third round): in Mail from the same menu as
+      Print, the "Date:" under "Begin forwarded message:" written down
+      with a screenshot, nothing typed and nobody added, then Cancel,
+      and should Mail ask, Delete Draft, never Save Draft; in Blackmail
+      Forward from the pane's Reply sheet, the same line, then Cancel,
+      which asks nothing for an untouched letter. Blackmail's gives the
+      arrival, in its own long form (`MailFormat.forwardedDate`,
+      "October 28, 2026 at 2:15:14 PM EDT" then), never March 1, 2024.
+      The day and time are compared with Mail's, not the words: another
+      day or time than Mail's, or Mail's giving the Date, and the step
+      FAILs, a difference from Mail to fix, both screenshots cited.
+      After it, Drafts as before the step, over IMAP, and Mail's Outbox
+      empty.
       4. *To the end:* scrolled to the foot of Notes: every row once, the
       dates going down all the way, Notes' oldest last, nothing drawn
       twice, no row missing against the count over IMAP.

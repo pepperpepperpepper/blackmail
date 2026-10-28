@@ -40143,8 +40143,9 @@ that afternoon at 2.15, its Date 1 March 2024 at noon; "came old"
 arrived on 8 October at noon, its Date that morning at 9 am; and step
 9's conversation, two letters. Mail 16.5.1 and Blackmail, after a
 relaunch, had the same rows, order and dates: "dated old" "2:15 PM",
-the conversation "Yesterday", "came old" "10/8/26", "lastyear"
-"6/14/25" under 7/17/25; the log's dates FETCH `* FETCH {35 dates}`, 35
+the conversation "Yesterday", "came old" "10/8/26"; Blackmail's
+"lastyear" "6/14/25" under 7/17/25, as Notes' INTERNALDATEs have it,
+Mail's not looked for; the log's dates FETCH `* FETCH {35 dates}`, 35
 the letters in Notes. Blackmail's headers showed the arrival in its
 own words, as Mail's do: "Today at 2:15 PM" and "October 8, 2026 at
 12:00 PM", in every frame from 0.14 s after the tap, as the letter
@@ -40195,10 +40196,12 @@ Reply All and Forward from More (`answer`, B-156). The list has no
 Print of its own.
 
 *Not seen.* Which date Mail's Forward writes under "Begin forwarded
-message:": no round has tapped Forward in Mail, and no step of the
-check does. A Markup and Reply, a row's More Reply and a reply to a
-conversation's letter on the iPad: pinned on the host alone. A letter
-of his from Sent Mail in a stack: not looked at, as before.
+message:": no round has tapped Forward in Mail. In TODO, B-178's step 3
+now does, on "dated old", Mail's beside Blackmail's, each composer
+closed with Cancel, nothing typed. A Markup and Reply, a row's More
+Reply and a reply to a conversation's letter on the iPad: pinned on the
+host alone. A letter of his from Sent Mail in a stack: not looked at, as
+before.
 
 *Reverses.* The second round's "A reply's "On ... wrote:", Forward's
 header and Print keep the Date", the first round's *Changed* 1, "a
@@ -40207,28 +40210,36 @@ date"'s "a reply's "On ... wrote:", Print and Forward keep the Date
 header"; the same in `Message.arrived`'s and `headerDate`'s comments;
 `HeaderDateTests`' letter "which a reply's "On ... wrote:" and Print
 write" by its Date, `PrintWiringTests`' "on paper its Date" and
-`DatesTheIPadsWayTests`' callers by `m.date`; TODO B-178's step 3,
-which expected the Date.
+`DatesTheIPadsWayTests`' callers by `m.date`; the comments of
+`MessageSummary.listDate`, `RowDateTests` and `ListInDateOrderTests`,
+which had a reply's "On ... wrote:", Print and Forward keep the Date
+(the letter's own `date` is still kept, and used only where no arrival
+is known); TODO B-178's step 3, which expected the Date.
 
-*Tests.* `PaperDateTests`, four, new: the print's "Date:" for the
-round's two letters in his region, "Oct 28, 2026 at 2:15:14 PM" and
-"Oct 8, 2026 at 12:00:00 PM", never their Dates; Reply's and Reply
-All's line and Forward's "Date:" by the arrival, never the Date; a
-letter with no arrival keeping its Date on all three, and another
-letter's row giving it none; and the wiring: the pane's letter given
-its row's arrival as it lands, a conversation's letters as they come,
-his from Sent Mail as kept, a row's own Reply, and the paper and the
-drafts reading `headerDate`, never `m.date`. Changed with it:
+*Tests.* `PaperDateTests`, five, new: the print's "Date:" for the
+round's two letters in his region, "Oct 28, 2026 at 2:15:14 PM" and "Oct
+8, 2026 at 12:00:00 PM", never their Dates; Reply's and Reply All's line
+and Forward's "Date:" by the arrival, never the Date; a letter with no
+arrival keeping its Date on all three, and another letter's row giving
+it none; his letter from Sent Mail in a stack, fetched with no arrival,
+kept by `PaneRelated` with its row's, the paper and the reply by it, and
+with its Date where the row has none; and the wiring: the pane's letter
+given its row's arrival as it lands, a conversation's letters as they
+come, his from Sent Mail as kept, a row's own Reply, and the paper and
+the drafts reading `headerDate`, never `m.date`. Changed with it:
 `HeaderDateTests` (over the scripted server, the round's two letters'
 reply and print now by arrival), `PrintWiringTests`,
-`DatesTheIPadsWayTests`. Undone in the worktree, every use (the
-paper, the reply and Forward on `m.date`, the pane's letter, the
-conversation's, his and the row's without the arrival): 45 failures
-in 7 tests, each an assertion's, the letter with no arrival passing
-as it should; the row's Reply and his letters alone: 2 failures, each
-an assertion's. Put back, passing. The full suite: 3,156 tests, 6
-skipped, none failing. The release build for the iPad: "Build
-complete".
+`DatesTheIPadsWayTests`. Undone in the worktree, every use (the paper,
+the reply and Forward on `m.date`, the pane's letter, the
+conversation's, his and the row's without the arrival): 45 failures in 7
+tests, each an assertion's, the letter with no arrival passing as it
+should; the row's Reply and his letters alone: 2 failures, each an
+assertion's. Put back, passing. Added after: `PaneRelated.keep` keeping
+his letter as fetched, 6 failures in 2 tests; its `Load` without the
+row's arrival, 5, in the new test alone, the wiring's passing; each an
+assertion's, the row with no arrival passing; put back, passing. The
+full suite: 3,157 tests, 6 skipped, none failing. The release build for
+the iPad: "Build complete".
 
 *Layout.* None changed: the paper's header, the composer and the
 forward are as they were, the date in its place in the same words for
