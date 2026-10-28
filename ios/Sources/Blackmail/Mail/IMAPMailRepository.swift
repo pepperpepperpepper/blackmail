@@ -3974,8 +3974,8 @@ actor IMAPMailRepository: MailRepository {
     /// The summaries of the binned hits are fetched whole here, as B-011
     /// decided, not a page at a time as they are shown. Which binned hits a
     /// page shows depends on their dates, and a date comes only with the
-    /// summary: ENVELOPE's, which is the merge key, falling back to
-    /// INTERNALDATE. Fetching dates first and summaries later would mean a
+    /// summary: INTERNALDATE, which is the merge key as the date the rows
+    /// show (B-178), falling back to ENVELOPE's. Fetching dates first and summaries later would mean a
     /// second source for that key that has to agree with the first to the
     /// second, or the merge reorders or repeats hits across a page boundary,
     /// plus a SELECT of Trash or Spam and back in the middle of paging All

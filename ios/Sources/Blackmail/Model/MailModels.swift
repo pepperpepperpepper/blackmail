@@ -190,14 +190,29 @@ struct MessageSummary: Identifiable, Hashable {
     /// in it keeps the folder's order, as every conversation did.
     var arrived: Date? = nil
 
+    /// The date the row shows and the list goes by: when the letter
+    /// arrived (`arrived`), or, where that is not known, its Date (`date`),
+    /// as a row kept by a build before rows carried it has.
+    ///
+    /// Mail's row shows the date received, the one its list is in order
+    /// of. Seen on the test iPad, Mail 16.5.1, 2026-10-28 (B-178): a letter
+    /// dated 1 March 2024 that arrived that morning read "4:12 AM" in Mail
+    /// and "3/1/24" in Blackmail, and one dated that morning that arrived
+    /// twenty days before read "10/8/26" in Mail and "3:00 AM" in
+    /// Blackmail. A date jump goes by it too (`IMAPDate.jump`), so the row
+    /// it lands on reads the day he picked. The reading pane's header, a
+    /// reply's "On ... wrote:", Print and Forward keep the Date (`date`).
+    var listDate: Date { arrived ?? date }
+
     /// Whether this row goes above `other` in a folder's list, which runs
     /// the newest first by when each letter arrived, its INTERNALDATE
     /// (`arrived`), as Mail's list does (`ArrivalOrder`, B-178): arrived
     /// later, or in the same second with the higher UID in the same folder.
-    /// A row that does not say when it arrived goes by its `date`.
+    /// A row that does not say when it arrived goes by its `date`
+    /// (`listDate`).
     func isListed(above other: MessageSummary) -> Bool {
-        let mine = arrived ?? date
-        let theirs = other.arrived ?? other.date
+        let mine = listDate
+        let theirs = other.listDate
         if mine != theirs { return mine > theirs }
         let a = id.split(separator: "/", omittingEmptySubsequences: false)
         let b = other.id.split(separator: "/", omittingEmptySubsequences: false)

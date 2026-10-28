@@ -399,8 +399,9 @@ final class ListInDateOrderTests: XCTestCase {
 
     /// A letter whose two dates differ: arrived among the letters of its
     /// own time, but its Date saying today. It sits where it arrived, as
-    /// Mail's list goes by when a letter arrived, and its row shows the
-    /// Date it was written with, as before.
+    /// Mail's list goes by when a letter arrived, and its row shows when it
+    /// arrived, as Mail's does (seen 2026-10-28); the letter keeps its Date
+    /// for the reading pane.
     func testALetterWhoseTwoDatesDifferSitsWhereItArrived() async throws {
         let arrived = Server.newestDate.addingTimeInterval(-(10.4 * Self.day))
         let letter = lastYear("Dated today, came ten days ago", arrived: arrived,
@@ -411,6 +412,9 @@ final class ListInDateOrderTests: XCTestCase {
         XCTAssertEqual(at, 11)
         XCTAssertEqual(rows[at].date, letter.date)
         XCTAssertEqual(rows[at].arrived, arrived)
+        let drawn = MessageThread.rows(for: rows, grouped: true).map { $0.displayRow() }
+        let row = try XCTUnwrap(drawn.first { uid($0.id) == put })
+        XCTAssertEqual(row.listDate, arrived)
     }
 
     /// Scrolled to the end a page of seven at a time, every letter once,

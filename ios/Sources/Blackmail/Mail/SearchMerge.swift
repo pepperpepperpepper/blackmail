@@ -29,7 +29,10 @@ enum SearchMerge {
     }
 
     /// Orders two results the way the list does: newest first, ties broken
-    /// by id.
+    /// by id. Newest by when each arrived, the date its row shows, or by
+    /// its Date where that is not known (`MessageSummary.listDate`, B-178),
+    /// so the merge goes by the date the rows show. The kept rows a search
+    /// finds with no connection go in this order too (`KeptSearch`, B-160).
     ///
     /// The tie-break is not cosmetic. Two messages sharing a timestamp to
     /// the second is ordinary — a mailing list, or anything sent by a
@@ -37,7 +40,7 @@ enum SearchMerge {
     /// which across a page boundary means one of them can be emitted twice
     /// or skipped.
     static func isOrderedBefore(_ a: MessageSummary, _ b: MessageSummary) -> Bool {
-        if a.date != b.date { return a.date > b.date }
+        if a.listDate != b.listDate { return a.listDate > b.listDate }
         return a.id < b.id
     }
 

@@ -161,7 +161,10 @@ final class MessageCell: UITableViewCell {
         // a name that is itself an address lost the real one after it
         // (`RowNames.fullName`, B-075).
         senderLabel.text = m.sender
-        date = m.date
+        // When the letter arrived, the date the list is in order of, as
+        // Mail's row shows it; its Date where that is not known
+        // (`MessageSummary.listDate`, B-178).
+        date = m.listDate
         drawDate()
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
 

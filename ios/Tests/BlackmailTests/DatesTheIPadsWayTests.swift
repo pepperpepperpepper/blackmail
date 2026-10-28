@@ -279,7 +279,7 @@ final class DatesTheIPadsWayTests: XCTestCase {
             ("Blackmail/Mail/ConversationDocument.swift", "MailFormat.listTimestamp(e.date)"),
             ("Blackmail/Mail/ConversationDocument.swift",
              "MailFormat.listTimestamp(e.date, now: now, locale: locale, timeZone: timeZone)"),
-            ("Blackmail/Mail/MessageThread.swift", "MailFormat.listTimestamp(date, now: now)"),
+            ("Blackmail/Mail/MessageThread.swift", "MailFormat.listTimestamp(listDate, now: now)"),
             ("Blackmail/UI/MessageHeaderView.swift", "MailFormat.detailTimestamp(date)"),
             ("Blackmail/Mail/PrintPage.swift",
              "MailFormat.printedTimestamp(m.date, locale: locale, timeZone: timeZone)"),

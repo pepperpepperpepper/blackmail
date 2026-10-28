@@ -477,9 +477,9 @@ final class DatesRedrawnTests: XCTestCase {
         XCTAssertEqual(count("configure(with", in: redraw), 1)
 
         // The row's date has one writer, from the row's own date, as the
-        // row is drawn and again.
+        // row is drawn and again: when its letter arrived (B-178).
         let cell = try source("UI/MessageCell.swift")
-        XCTAssertTrue(cell.contains("senderLabel.text = m.sender date = m.date drawDate() "))
+        XCTAssertTrue(cell.contains("senderLabel.text = m.sender date = m.listDate drawDate() "))
         XCTAssertTrue(cell.contains("func drawDate() { guard let date else { return } "
                                     + "timestampLabel.text = MailFormat.listTimestamp(date) setNeedsLayout() }"))
         XCTAssertEqual(count("timestampLabel.text =", in: cell), 1)

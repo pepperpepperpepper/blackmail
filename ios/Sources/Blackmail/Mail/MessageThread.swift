@@ -61,6 +61,10 @@ struct MessageThread {
     /// and the latest wording is the one he was last reading.
     var subject: String { newest.subject }
     var date: Date { newest.date }
+    /// The date the row shows, its newest letter's: when that letter
+    /// arrived, the order the list goes in, as Mail's row shows it, or its
+    /// Date where that is not known (`MessageSummary.listDate`, B-178).
+    var listDate: Date { newest.listDate }
     var preview: String { newest.preview }
 
     /// Who is in the conversation, newest speaker first, each named once.
@@ -148,7 +152,7 @@ struct MessageThread {
             nameLine(namingRecipients: namesRecipients(in: list), mine: mine),
             count > 1 ? "\(count) messages" : nil,
             subject,
-            MailFormat.listTimestamp(date, now: now),
+            MailFormat.listTimestamp(listDate, now: now),
         ].compactMap { $0 }.joined(separator: ", ")
     }
 
@@ -191,7 +195,11 @@ struct MessageThread {
             isForwarded: newest.isForwarded,
             hasAttachment: hasAttachment,
             threadID: newest.threadID,
-            countedFolderIDs: newest.countedFolderIDs)
+            countedFolderIDs: newest.countedFolderIDs,
+            // When the newest letter arrived, so the row shows the date
+            // the list is in order of, as Mail's does (`listDate`, B-178);
+            // `date` stays its Date.
+            arrived: newest.arrived)
     }
 
     // MARK: - Grouping
