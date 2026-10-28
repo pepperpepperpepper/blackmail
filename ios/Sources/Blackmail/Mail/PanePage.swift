@@ -177,8 +177,9 @@ enum PanePage {
         // The invert is the stack's, the one string (`SignatureSheet.invert`).
         // A signature's white sheet is inverted with the rest (B-146), and
         // is grey under the invert, so it is Mail's grey sheet, rgb(51, 51,
-        // 51), its logo showing on it (`SignatureSheet.css`, B-173): only on
-        // a page with the sheet in it, so every other page is as it was.
+        // 51), its logo showing on it and its white borders lost in it
+        // (`SignatureSheet.css`, B-173): only on a page with the sheet in
+        // it, so every other page is as it was.
         // After the invert, Mail's bars beside quoted text (`QuoteBars`,
         // B-101), in its light colours, which the invert turns. A plain
         // letter's quotes are Mail's blockquotes too (`PlainQuotes`,

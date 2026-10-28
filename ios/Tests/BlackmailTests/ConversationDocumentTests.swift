@@ -231,7 +231,8 @@ final class ConversationDocumentTests: XCTestCase {
                      filter: \(SignatureSheet.invert); }
           /* A signature's white sheet is inverted with the rest of its
              letter (B-146), grey under the invert so it is Mail's grey
-             sheet, its logo showing on it (SignatureSheet, B-173). */
+             sheet, its logo showing on it, its white borders lost in it
+             (SignatureSheet, B-173). */
           \(SignatureSheet.css(in: ".bm-html"))
           /* Mail's bars beside quoted text (B-101): a letter's HTML in its
              light colours, which the invert turns; a plain letter's quotes,
@@ -251,15 +252,21 @@ final class ConversationDocumentTests: XCTestCase {
 
     /// One rule for a signature's white sheet, its colour (B-173): the
     /// sheet is inverted with the rest of its letter (B-146), and is grey
-    /// under the invert, so it is Mail's grey sheet. Until B-146 the stack
+    /// under the invert where it declares its white, its white borders
+    /// too, so it is Mail's grey sheet. Until B-146 the stack
     /// inverted it back, white with black words, since its first version
     /// (B-130 gave a letter on its own the same rules); no filter for it.
     func testTheStackHasOneRuleForASignaturesSheetItsColour() throws {
         let html = document([entry("1/1")])
         let sheet = try XCTUnwrap(html.components(separatedBy: "</style>").first)
-        XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 2, sheet)
-        XCTAssertEqual(SignatureSheet.css(in: ".bm-html"), ".bm-html .bm-signature, .bm-html .bm-signature table "
-                       + "{ background-color: rgb(204, 204, 204) !important; }")
+        XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 4, sheet)
+        XCTAssertEqual(SignatureSheet.css(in: ".bm-html"),
+                       ".bm-html .bm-signature[style*=\"background-color: #ffffff\"], "
+                       + ".bm-html .bm-signature[style*=\"background-color: rgb(255, 255, 255)\"], "
+                       + ".bm-html .bm-signature table[style^=\"color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); \"] "
+                       + "{ background-color: rgb(204, 204, 204) !important; } "
+                       + ".bm-html .bm-signature [style*=\"solid rgb(255, 255, 255)\"] "
+                       + "{ border-color: rgb(204, 204, 204) !important; }")
         XCTAssertTrue(sheet.contains("\n  " + SignatureSheet.css(in: ".bm-html") + "\n"), sheet)
         XCTAssertFalse(sheet.contains("filter: none"), sheet)
     }

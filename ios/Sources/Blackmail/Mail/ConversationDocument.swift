@@ -349,7 +349,8 @@ enum ConversationDocument {
                      filter: \(SignatureSheet.invert); }
           /* A signature's white sheet is inverted with the rest of its
              letter (B-146), grey under the invert so it is Mail's grey
-             sheet, its logo showing on it (SignatureSheet, B-173). */
+             sheet, its logo showing on it, its white borders lost in it
+             (SignatureSheet, B-173). */
           \(SignatureSheet.css(in: ".bm-html"))
           /* Mail's bars beside quoted text (B-101): a letter's HTML in its
              light colours, which the invert turns; a plain letter's quotes,

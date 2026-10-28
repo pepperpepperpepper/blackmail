@@ -46,6 +46,23 @@ import Foundation
 /// is, dark on the grey. A letter drawn light or in its own colours has
 /// its sheet as written, and the printed page has no rule for it.
 /// Nothing moves: a colour under what was there.
+///
+/// His signature's cells have borders, declared white too
+/// (`border: 0.99609pt solid rgb(255, 255, 255)`), which Mail turns to
+/// the same grey as the sheet: its shots show one plain grey sheet, no
+/// lines in it. The invert alone would make them black lines on the
+/// grey, a grid Mail does not draw (until B-173 black on black, and
+/// before B-146 white on white: never seen). So a border declared white
+/// in the sheet has the same grey under the invert (`borderWhite`): its
+/// colour only, its width as it was.
+///
+/// Each rule is keyed on the white it stands for, as Mail turns only a
+/// colour that is declared: the sheet where it declares its white
+/// (`sheetWhites`, as this app writes it, or as WebKit writes a white
+/// over again), a table whose style begins with the white this app gives
+/// it, a border written white. A sheet that has lost its style has no
+/// grey, as Mail draws none; a table in it with no white of this app's
+/// keeps its own colours, inverted with the rest.
 enum SignatureSheet {
 
     /// The pane's invert: the one string both pages invert a letter's HTML
@@ -61,10 +78,26 @@ enum SignatureSheet {
     /// to Mail's rgb(51, 51, 51), and hue-rotate leaves a grey alone.
     static let underInvert = "rgb(204, 204, 204)"
 
+    /// The white the sheet declares: as this app writes it
+    /// (`AppleMailHTML.signatureOpen`), and as WebKit writes a white when
+    /// it writes a style over again, as it writes his tables' and cells'.
+    static let sheetWhites = ["background-color: #ffffff", "background-color: rgb(255, 255, 255)"]
+
+    /// A border declared white, as his signature's cells write theirs:
+    /// `border: 0.99609pt solid rgb(255, 255, 255)`.
+    static let borderWhite = "solid rgb(255, 255, 255)"
+
     /// The rule for the sheet in a letter the pane inverts inside `scope`,
-    /// the page's `#bm` or the stack's `.bm-html`: the sheet and its tables
-    /// grey under the invert, over the white written on them (B-173).
+    /// the page's `#bm` or the stack's `.bm-html`: the sheet, where it
+    /// declares its white, and its tables, where they begin with the white
+    /// this app gives them (`AppleMailHTML.signatureTableStyle`), grey
+    /// under the invert, over the white written on them; and the borders
+    /// written white in it the same grey, so they are lost in the sheet as
+    /// Mail's are (B-173).
     static func css(in scope: String) -> String {
-        "\(scope) .\(className), \(scope) .\(className) table { background-color: \(underInvert) !important; }"
+        sheetWhites.map { "\(scope) .\(className)[style*=\"\($0)\"], " }.joined()
+            + "\(scope) .\(className) table[style^=\"\(AppleMailHTML.signatureTableStyle)\"] "
+            + "{ background-color: \(underInvert) !important; } "
+            + "\(scope) .\(className) [style*=\"\(borderWhite)\"] { border-color: \(underInvert) !important; }"
     }
 }

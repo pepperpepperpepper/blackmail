@@ -7,7 +7,9 @@ import XCTest
 /// and leaves its pictures as drawn; and the sheet and its tables have a
 /// grey under the invert, rgb(204, 204, 204), which the invert turns to
 /// the grey Mail was seen to draw under it in Dark Mode on the test iPad,
-/// rgb(51, 51, 51), so the black logo shows on it. On a letter's own page
+/// rgb(51, 51, 51), so the black logo shows on it, and his cells' white
+/// borders the same grey, so no lines show in it, as none do in Mail's.
+/// Each where the white is declared. On a letter's own page
 /// with the sheet in it, and in a conversation's stack, under the HTML the
 /// stack inverts. From B-146 until B-173 the sheet was black, the logo
 /// hard to see; until B-146 both pages inverted it back, white with black
@@ -51,7 +53,8 @@ final class SignatureLikeMailTests: XCTestCase {
     }
 
     /// A letter on its own: the rule for the sheet after Mail's bars, the
-    /// sheet and its tables grey under the invert, its only change. The
+    /// sheet and its tables grey under the invert where they declare their
+    /// white, and the borders written white the same grey, its only change. The
     /// style's only filters are the invert, on the letter and on its
     /// pictures, which leaves the logo as drawn; none cancels it for the
     /// sheet. The markup as it came, the sheet's own white and black in
@@ -59,8 +62,13 @@ final class SignatureLikeMailTests: XCTestCase {
     func testALetterAloneHasMailsGreySheet() throws {
         let page = try XCTUnwrap(PanePage.letter(signed, style: style))
         let sheet = try rules(of: page)
-        XCTAssertEqual(SignatureSheet.css(in: "#bm"), "#bm .bm-signature, #bm .bm-signature table "
-                       + "{ background-color: rgb(204, 204, 204) !important; }")
+        XCTAssertEqual(SignatureSheet.css(in: "#bm"),
+                       "#bm .bm-signature[style*=\"background-color: #ffffff\"], "
+                       + "#bm .bm-signature[style*=\"background-color: rgb(255, 255, 255)\"], "
+                       + "#bm .bm-signature table[style^=\"color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); \"] "
+                       + "{ background-color: rgb(204, 204, 204) !important; } "
+                       + "#bm .bm-signature [style*=\"solid rgb(255, 255, 255)\"] "
+                       + "{ border-color: rgb(204, 204, 204) !important; }")
         XCTAssertEqual(filters(sheet), [SignatureSheet.invert, SignatureSheet.invert])
         XCTAssertTrue(sheet.hasSuffix("""
             #bm { filter: \(SignatureSheet.invert); background: #fff; }
@@ -70,7 +78,7 @@ final class SignatureLikeMailTests: XCTestCase {
             \(SignatureSheet.css(in: "#bm"))
 
             """), sheet)
-        XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 2)
+        XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 4)
 
         let body = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"],
                                     flowed: false)
@@ -89,7 +97,7 @@ final class SignatureLikeMailTests: XCTestCase {
         for letters in [[signed, reply], [reply], []] {
             let sheet = try rules(of: stack(letters))
             XCTAssertEqual(sheet.components(separatedBy: SignatureSheet.css(in: ".bm-html")).count - 1, 1)
-            XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 2)
+            XCTAssertEqual(sheet.components(separatedBy: "bm-signature").count - 1, 4)
             XCTAssertEqual(filters(sheet), [SignatureSheet.invert, SignatureSheet.invert])
         }
         let html = stack([signed, reply])
@@ -102,7 +110,8 @@ final class SignatureLikeMailTests: XCTestCase {
 
     /// A letter's own page has the rule only where it is inverted and the
     /// sheet is in it: his letter, a reply quoting it with the class kept,
-    /// a sheet that has lost its style. Not a letter of the pane's set with
+    /// a sheet that has lost its style, where the rule finds no white to
+    /// grey, so it has no sheet, as Mail draws none. Not a letter of the pane's set with
     /// no sheet, so its page is as it was; not his letter drawn light, by a
     /// picture from the web, whose sheet is as written on its white; not a
     /// plain letter whose words are the marker. Each HTML letter's page
@@ -134,9 +143,91 @@ final class SignatureLikeMailTests: XCTestCase {
         XCTAssertGreaterThan(drawn, 15)
         XCTAssertEqual(LetterScheme.of(html: light.htmlBody!), .light)
         XCTAssertFalse(try rules(of: stack([light])).contains("filter: none"))
-        // The markup of a sheet that has lost its style, as it came.
+        // The markup of a sheet that has lost its style, as it came: no
+        // white of its own for the rule to put the grey under.
         XCTAssertTrue(try XCTUnwrap(PanePage.letter(bare, style: style))
                         .contains("<div class=\"bm-signature\">Sam Example</div>"))
+        for white in SignatureSheet.sheetWhites + [AppleMailHTML.signatureTableStyle, SignatureSheet.borderWhite] {
+            XCTAssertFalse(try XCTUnwrap(bare.htmlBody).contains(white), white)
+        }
+    }
+
+    /// His signature as it is stored, its cells' borders declared white as
+    /// his are, `border: 0.99609pt solid rgb(255, 255, 255)`, his name and
+    /// numbers as `signatureMarkup`'s.
+    static let borderedSignature: String = {
+        let cell = "border: 0.99609pt solid rgb(255, 255, 255); vertical-align: top; padding: 5pt; overflow: hidden;"
+        return "<div dir=\"ltr\"><table style=\"font-family: UICTFontTextStyleTallBody; "
+            + "-webkit-text-size-adjust: auto;\"><tbody><tr><td rowspan=\"2\" style=\"\(cell)\">"
+            + "<span style=\"border: none; display: inline-block; overflow: hidden; width: 73px; height: 73px; "
+            + "background-color: rgba(255, 255, 255, 0);\"><img src=\"cid:sig-logo\" width=\"70\"></span></td>"
+            + "<td style=\"\(cell)\"><b>Sam Example</b><br>555-555-0142</td></tr>"
+            + "<tr><td style=\"\(cell)\"><a href=\"https://example.com\">example.com</a></td></tr>"
+            + "</tbody></table></div>"
+    }()
+
+    /// The `style` of every `<tag` in `html`, in order; "" for one with none.
+    private func styles(of tag: String, in html: String) -> [String] {
+        html.components(separatedBy: "<" + tag).dropFirst().compactMap { rest in
+            guard let next = rest.first, next == " " || next == ">" else { return nil }
+            let open = String(rest.prefix(while: { $0 != ">" }))
+            guard let start = open.range(of: "style=\"") else { return "" }
+            return String(open[start.upperBound...].prefix(while: { $0 != "\"" }))
+        }
+    }
+
+    /// His signature's white borders are the sheet's grey (B-173): Mail
+    /// turns the white his cells' borders declare to the grey it turns the
+    /// sheet's white to, and its shots show one plain grey sheet, no lines
+    /// in it. Under the pane's invert alone they were black, rgb(0, 0, 0),
+    /// on the grey: a grid Mail does not draw. In the letter as this app
+    /// sends it the rule finds each of the white it stands for, and only
+    /// those: the sheet's white, his table's, which begins with this app's
+    /// (as every table it writes there does), and each cell's border, not
+    /// the span round his photo with no border or the transparent white.
+    /// The markup as it came, the borders' widths with it.
+    func testHisSignaturesWhiteBordersAreTheSheetsGrey() throws {
+        let signature = "Sam Example\n555-555-0142"
+        let html = AppleMailHTML.document(body: "Lunch on Sunday?" + Draft.signatureBlock(signature),
+                                          signature: signature, signatureHTML: Self.borderedSignature)
+        let m = PaneLetters.letter(text: "Lunch on Sunday?\n\n--\nSam Example", html: html, pictures: ["sig-logo"])
+        XCTAssertEqual(LetterScheme.of(html: html), .inverted)
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        XCTAssertTrue(try rules(of: page).contains("\n" + SignatureSheet.css(in: "#bm") + "\n"), page)
+        XCTAssertTrue(try rules(of: stack([m])).contains(SignatureSheet.css(in: ".bm-html")))
+        XCTAssertEqual(SignatureSheet.borderWhite, "solid rgb(255, 255, 255)")
+        XCTAssertTrue(SignatureSheet.css(in: "#bm").hasSuffix(" #bm .bm-signature [style*=\"solid rgb(255, 255, 255)\"] "
+                                                              + "{ border-color: rgb(204, 204, 204) !important; }"))
+
+        let body = PanePage.content(text: nil, html: html, known: ["sig-logo"], flowed: false)
+        XCTAssertTrue(page.contains("<div id=\"bm\">" + body + "</div>"), page)
+        let sheet = try XCTUnwrap(body.components(separatedBy: "<div class=\"bm-signature\"").last)
+        XCTAssertTrue(body.contains(AppleMailHTML.signatureOpen), body)
+        XCTAssertTrue(SignatureSheet.sheetWhites.contains { AppleMailHTML.signatureOpen.contains($0) })
+        let tables = styles(of: "table", in: sheet)
+        XCTAssertEqual(tables.count, 1)
+        XCTAssertTrue(tables.allSatisfy { $0.hasPrefix(AppleMailHTML.signatureTableStyle) }, "\(tables)")
+        let cells = styles(of: "td", in: sheet)
+        XCTAssertEqual(cells.count, 3)
+        XCTAssertTrue(cells.allSatisfy { $0.hasPrefix("border: 0.99609pt " + SignatureSheet.borderWhite + ";") },
+                      "\(cells)")
+        for other in ["div", "span", "img", "b", "a"] {
+            XCTAssertFalse(styles(of: other, in: sheet).contains { $0.contains(SignatureSheet.borderWhite) }, other)
+        }
+        XCTAssertEqual(styles(of: "span", in: sheet).count, 1)
+
+        // Every table this app writes into the sheet begins with its white,
+        // the one the rule looks for, whatever the table had.
+        for table in ["<table>", "<table style=\"font-family: Georgia;\">", "<table cellpadding=\"4\" style=\"width:100%\">"] {
+            let out = AppleMailHTML.onWhitePaper(table + "<tr><td>x</td></tr></table>")
+            XCTAssertEqual(styles(of: "table", in: out).map { $0.hasPrefix(AppleMailHTML.signatureTableStyle) },
+                           [true], out)
+        }
+
+        // The white border, inverted, was black on the grey; under the rule
+        // it is the sheet's grey, rgb(51, 51, 51).
+        XCTAssertEqual(LetterColoursLikeMailTests.inverted((255, 255, 255)), [0, 0, 0])
+        XCTAssertEqual(LetterColoursLikeMailTests.inverted((204, 204, 204)), [51, 51, 51])
     }
 
     /// The grey under the invert is Mail's grey once inverted: the invert,
