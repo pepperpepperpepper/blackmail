@@ -156,7 +156,8 @@ final class KeptCopyTests: XCTestCase {
         server.clearLog()
 
         let top = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
-        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178) before the page.
+        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
         server.clearLog()
         let next = try await repository.listMessages(in: "inbox", beforeUID: top.last?.id, limit: 50)
         XCTAssertEqual(verbs, ["UID FETCH"])
@@ -214,7 +215,8 @@ final class KeptCopyTests: XCTestCase {
         server.clearLog()
 
         let inbox = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
-        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178) before the page.
+        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
         let fetch = try XCTUnwrap(server.log.last?.command)
         XCTAssertTrue(fetch.hasSuffix(" (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE "
                                       + "X-GM-LABELS X-GM-THRID X-GM-MSGID)"), fetch)
@@ -234,7 +236,8 @@ final class KeptCopyTests: XCTestCase {
 
         server.clearLog()
         let allMail = try await repository.listMessages(in: Server.allMail, beforeUID: nil, limit: 50)
-        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178) before the page.
+        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
         // The Inbox's subjects are one to a letter.
         let there = Dictionary(allMail.map { ($0.subject, $0) }, uniquingKeysWith: { first, _ in first })
         var both = 0
@@ -259,7 +262,8 @@ final class KeptCopyTests: XCTestCase {
 
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         XCTAssertEqual(rows.count, 50)
-        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178) before the page.
+        XCTAssertEqual(verbs, ["SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
         let fetch = try XCTUnwrap(server.log.last?.command)
         XCTAssertTrue(fetch.hasSuffix(" (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE)"),
                       fetch)
@@ -1550,7 +1554,8 @@ final class KeptCopyTests: XCTestCase {
         server.clearLog()
 
         let starred = try await repository.listMessages(in: Server.starred, beforeUID: nil, limit: 50)
-        XCTAssertEqual(verbs, ["LOGIN", "LIST", "SELECT", "UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178) before the page.
+        XCTAssertEqual(verbs, ["LOGIN", "LIST", "SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
         XCTAssertFalse(starred.isEmpty)
         shelf.flush()
         for (label, rows) in [("listed", starred),
@@ -1566,8 +1571,8 @@ final class KeptCopyTests: XCTestCase {
     // MARK: - Phase 1: the wire and the log
 
     /// A launch with a copy kept sends exactly what a launch without one
-    /// sends: LOGIN, the one LIST, the Inbox's SELECT, SEARCH and page, and
-    /// then the counts. Drawing the kept folders and Inbox sends nothing.
+    /// sends: LOGIN, the one LIST, the Inbox's SELECT, SEARCH, its letters'
+    /// dates (B-178) and page, and then the counts. Drawing the kept folders and Inbox sends nothing.
     func testALaunchWithACopyKeptSendsWhatALaunchWithoutOneSends() async throws {
         var launches: [[Server.LogEntry]] = []
         for keeping in [false, true] {
@@ -1598,9 +1603,11 @@ final class KeptCopyTests: XCTestCase {
             XCTAssertEqual(server.violations, [], keeping ? "with a copy" : "without one")
         }
         XCTAssertEqual(launches[1].map(\.command), launches[0].map(\.command))
-        XCTAssertEqual(Array(launches[1].prefix(5).map(\.verb)),
-                       ["LOGIN", "LIST", "SELECT", "UID SEARCH", "UID FETCH"])
-        XCTAssertEqual(launches[1].count, 5 + 1 + 7)
+        // The Inbox's letters' dates for the list's order (B-178) before
+        // the page, with a copy kept and without.
+        XCTAssertEqual(Array(launches[1].prefix(6).map(\.verb)),
+                       ["LOGIN", "LIST", "SELECT", "UID SEARCH", "UID FETCH", "UID FETCH"])
+        XCTAssertEqual(launches[1].count, 6 + 1 + 7)
     }
 
     /// Nothing kept is written to the connection log: drawing the kept

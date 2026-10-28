@@ -118,11 +118,15 @@ actor IMAPMailRepository: MailRepository {
     /// The LIST on the wire, for anyone else who wants one to share rather
     /// than send a second. See `freshListing`.
     private var listing: Task<[IMAPMailboxListing], Error>?
-    /// The ascending UID list per mailbox, and its UIDVALIDITY, as of the
-    /// last time the list was started from the top. Paging walks this rather
-    /// than re-issuing SEARCH ALL for every page. See `listMessages`, and
+    /// Each folder's UIDs as of the last time the list was started from the
+    /// top or jumped to a day, with its UIDVALIDITY and the order the list
+    /// goes in, by when each letter arrived, as far as it has been asked
+    /// for (`ArrivalOrder`, B-178). Paging walks this rather than
+    /// re-issuing SEARCH ALL for every page. See `listMessages`, and
     /// `snapshot(of:client:)` for when it is thrown away.
-    private var uidListing: [String: IMAPMailboxUIDs] = [:]
+    private var orders: [String: Stamped] = [:]
+    /// The last stamp given a folder's order (`stamp(_:of:)`).
+    private var nextStamp = 0
 
     /// Gmail's id for the letter under each UID of each folder, as the
     /// server has named it in this launch: in every row it has sent, from
@@ -716,7 +720,14 @@ actor IMAPMailRepository: MailRepository {
         let gone = uids.filter { !still.contains($0) }
             .map { Self.makeID(validity: asked.validity, uid: $0) }
         let newest = uids.max()
-        let arriving = present.filter { uid in newest.map { uid > $0 } ?? true }
+        // Not a letter the folder held when its list was fetched: in date
+        // order (B-178) one put in out of turn before then, a UID above
+        // every one the list holds, is down the list among its own time's
+        // letters, not news.
+        let held = orders[name].flatMap { $0.order.validity == asked.validity ? $0.order : nil }
+        let arriving = present.filter { uid in
+            (newest.map { uid > $0 } ?? true) && !(held?.listed(uid) ?? false)
+        }
         guard arriving.count <= Self.mostNews else {
             Diagnostics.log(.note, "NEWS folder=\(name) arrived=\(arriving.count) refetch")
             return FolderNews(gone: gone, refetch: true)
@@ -972,57 +983,70 @@ actor IMAPMailRepository: MailRepository {
         // cut from the new numbers.
         let cursor = try beforeUID.map(Self.parseID)
 
-        // SEARCH ALL returns every UID ascending. One round trip, and it is
-        // the only way to page by UID rather than by sequence number —
-        // sequence numbers shift the moment anything is delivered or expunged,
-        // which is precisely the bug that makes a list jump under a reader.
+        // SEARCH ALL returns every UID. One round trip, and with the dates
+        // the list's order asks for (`ArrivalOrder`, B-178) the only way to
+        // page by letter rather than by sequence number — sequence numbers
+        // shift the moment anything is delivered or expunged, which is
+        // precisely the bug that makes a list jump under a reader.
         //
         // Issued ONCE per listing, not once per page. `beforeUID == nil` is
         // "start again from the top" and is the only thing that re-reads it;
-        // every page after that walks the same snapshot. Without this a
-        // 20,000-message mailbox would re-download 20,000 UIDs for each
-        // fifty it displayed, which is quadratic in the length of the
-        // mailbox and paid entirely by the person scrolling.
+        // every page after that walks the same snapshot, its order widened
+        // as far as the page needs. Without this a 20,000-message mailbox
+        // would re-download 20,000 UIDs for each fifty it displayed, which
+        // is quadratic in the length of the mailbox and paid entirely by
+        // the person scrolling.
         //
         // Reusing the snapshot also keeps the list STILL. Mail arriving
         // while he is reading back through last year must not renumber what
         // is under his thumb; it appears at the next refresh, which is when
         // he asked for it.
-        let listing: IMAPMailboxUIDs
+        let order: ArrivalOrder
         let summaries: [MessageSummary]
         if let cursor {
+            let stamped: Stamped
             if let cached = await snapshot(of: name, client: client) {
-                listing = cached
+                stamped = cached
             } else {
                 // Paging without a snapshot — only reachable if it was
                 // dropped underneath us. Re-reading is correct and merely
-                // costs the round trip the snapshot exists to avoid.
-                listing = try await client.searchAll(in: name)
-                uidListing[name] = listing
+                // costs the round trip the snapshot exists to avoid; the
+                // order is found again from the cursor's own date.
+                let listing = try await client.searchAll(in: name)
+                stamped = stamp(ArrivalOrder(validity: listing.validity, listing: listing.uids),
+                                of: name)
             }
             // A cursor from another numbering than the snapshot's names some
             // other letter in it, or none, so the page is refused rather than
             // cut from it.
-            guard cursor.validity == listing.validity else { throw MailError.cannotConnect }
+            guard cursor.validity == stamped.order.validity else { throw MailError.cannotConnect }
 
-            summaries = try await page(olderThan: cursor.uid, in: listing, limit: limit,
+            let paged = try await page(olderThan: cursor.uid, in: stamped, limit: limit,
                                        mailboxID: mailboxID, name: name, client: client)
+            summaries = paged.rows
+            order = paged.order
             // On the kept page below the rows it begins with, when they reach
             // the cursor (B-160), so a folder he has scrolled is there with
             // no connection as far as he scrolled it.
             if let lowest = summaries.last.flatMap({ try? Self.parseID($0.id) }) {
-                shelf?.took(more: summaries, of: name, validity: listing.validity, below: cursor.uid,
+                shelf?.took(more: summaries, of: name, validity: order.validity, below: cursor.uid,
+                            arrived: order.arrival(of: cursor.uid),
                             sizes: largeSizes(of: summaries, in: name),
-                            continuing: PageWindow.older(than: lowest.uid, in: listing.uids,
-                                                         limit: MailShelf.mostInboxRows))
+                            continuing: order.older(than: lowest.uid, limit: MailShelf.mostInboxRows),
+                            thenKept: Self.keptMayFollow(order))
             }
         } else {
             // From the top: a folder he has just opened, or refreshed, with
-            // nothing on screen until this lands. The SEARCH and the page's
-            // FETCH go in one hold of the connection, ahead of work he did
-            // not ask for, with a NOOP before them when the folder was
-            // already open, so the SEARCH sees mail that has arrived since
-            // (B-045); see `IMAPClient.page`.
+            // nothing on screen until this lands. The SEARCH, the dates the
+            // order asks for and the page's FETCH go in one hold of the
+            // connection, ahead of work he did not ask for, with a NOOP
+            // before them when the folder was already open, so the SEARCH
+            // sees mail that has arrived since (B-045); see `IMAPClient.page`.
+            //
+            // The order carries on from the folder's last listing in this
+            // launch, the dates asked for and how far they reach, so a
+            // Refresh asks only for the dates of letters new to the folder,
+            // and none when there are none (`ArrivalOrder`, B-178).
             //
             // After the LIST, whatever the folder. The roles and the
             // attribute table say which folders a row is counted in
@@ -1035,26 +1059,45 @@ actor IMAPMailRepository: MailRepository {
             // sent once the LIST is known, a LIST on the wire is joined, and
             // at launch the Inbox's own name has asked for it already.
             _ = try await knownListing()
-            let opened = try await client.page(in: name, searching: ["ALL"]) { found in
-                PageWindow.older(than: nil, in: found[0], limit: limit)
+            let previous = orders[name]?.order
+            let opened = try await client.page(in: name, searching: ["ALL"]) { found, asking in
+                var order = ArrivalOrder(validity: found[0].validity, listing: found[0].uids,
+                                         carrying: previous)
+                order.fromTheTop()
+                if let folded = order.foldedPage(limit: limit) { return (order, folded) }
+                try await order.reachDown(below: nil, count: limit, asking: asking)
+                return (order, order.older(than: nil, limit: limit))
             }
-            listing = opened.found[0]
-            uidListing[name] = listing
-            summaries = rows(from: opened.summaries, in: mailboxID, name: name,
-                             validity: listing.validity)
+            // The new letters' dates, where they came with the page's rows
+            // (`ArrivalOrder.foldedPage`), and the page cut from the order
+            // they give: a letter put in out of turn is fetched and not
+            // drawn, being further down.
+            var made = opened.plan
+            var dates: [UInt32: Date] = [:]
+            for fetched in opened.summaries {
+                if let uid = fetched.uid, let arrived = fetched.internalDate { dates[uid] = arrived }
+            }
+            made.settleOwed(from: dates)
+            order = stamp(made, of: name).order
+            let page = order.older(than: nil, limit: limit)
+            var byUID: [UInt32: IMAPFetchResult] = [:]
+            for fetched in opened.summaries { if let uid = fetched.uid { byUID[uid] = fetched } }
+            summaries = rows(from: page.compactMap { byUID[$0] }, in: mailboxID, name: name,
+                             validity: order.validity)
             // The folder's page kept on the iPad, replaced by this one
             // (D-016), unless this listing says the kept one was not this
             // mailbox's, when the whole copy goes first. The kept rows
             // below it stay as far as they go on from it in the folder's
-            // UIDs now (B-160). Numbers and a reason only: nothing kept is
+            // order now (B-160). Numbers and a reason only: nothing kept is
             // ever written to this log.
-            let asked = PageWindow.older(than: nil, in: listing.uids, limit: limit)
+            let asked = order.older(than: nil, limit: limit)
             let below = asked.last.map {
-                PageWindow.older(than: $0, in: listing.uids, limit: MailShelf.mostInboxRows)
+                order.older(than: $0, limit: MailShelf.mostInboxRows)
             } ?? []
-            if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity,
+            if let discard = shelf?.took(page: summaries, of: name, validity: order.validity,
                                          sizes: largeSizes(of: summaries, in: name),
-                                         continuing: below) {
+                                         continuing: below,
+                                         thenKept: Self.keptMayFollow(order)) {
                 Diagnostics.log(.note, "KEPT-DISCARDED folder=\(name) "
                                 + "reason=\(discard == .renumbered ? "uidvalidity" : "msgid")")
             }
@@ -1076,12 +1119,26 @@ actor IMAPMailRepository: MailRepository {
         let newestID = summaries.first?.threadID ?? summaries.first?.id ?? "-"
         let newestLetter = summaries.first?.gmailMessageID.map(String.init) ?? "-"
         Diagnostics.log(.note, "SESSION-IDENT folder=\(name) "
-                        + "uidv=\(listing.validity) "
+                        + "uidv=\(order.validity) "
                         + "exists=\(exists) "
-                        + "uids=\(listing.uids.count) "
+                        + "uids=\(order.listing.count) "
                         + "first-row=\(newestID) "
                         + "msgid=\(newestLetter)")
         return summaries
+    }
+
+    /// Which kept rows may go on below the ones the order places, for the
+    /// kept page (`MailShelf.took`, B-160): a letter still in the folder,
+    /// arrived before every letter the order has placed. Kept in the order a
+    /// listing gave them, they are in the folder's order still, but for a
+    /// letter put in the folder since among them, which the next listing of
+    /// that page brings.
+    private static func keptMayFollow(_ order: ArrivalOrder) -> @Sendable (UInt32, Date?) -> Bool {
+        let before = order.known?.lowerBound ?? .distantPast
+        return { uid, arrived in
+            guard let arrived, arrived < before else { return false }
+            return order.listed(uid)
+        }
     }
 
     /// The sizes of the rows the repository opens without their files, for
@@ -1090,6 +1147,38 @@ actor IMAPMailRepository: MailRepository {
         rows.reduce(into: [String: Int]()) { sizes, row in
             sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
         }
+    }
+
+    /// A folder's order with the listing it was made for (`orders`): `stamp`
+    /// tells one listing from the next, so an order widened for a page is
+    /// put back only over the one it was taken from.
+    struct Stamped {
+        let stamp: Int
+        let order: ArrivalOrder
+    }
+
+    /// What a date jump's hold found: the order, and the letter it lands
+    /// on, nil when there is none.
+    struct Jumped: Sendable {
+        let order: ArrivalOrder
+        let anchor: UInt32?
+    }
+
+    /// `order`, stamped as `name`'s newest listing.
+    @discardableResult
+    private func stamp(_ order: ArrivalOrder, of name: String) -> Stamped {
+        nextStamp += 1
+        let stamped = Stamped(stamp: nextStamp, order: order)
+        orders[name] = stamped
+        return stamped
+    }
+
+    /// `order` widened, in place of the one it was taken from, unless a
+    /// listing has replaced that one meanwhile.
+    private func widened(_ order: ArrivalOrder, from taken: Stamped, of name: String) -> Stamped {
+        let stamped = Stamped(stamp: taken.stamp, order: order)
+        if orders[name]?.stamp == taken.stamp { orders[name] = stamped }
+        return stamped
     }
 
     /// The snapshot a listing of `name` is paging through, unless the
@@ -1101,13 +1190,13 @@ actor IMAPMailRepository: MailRepository {
     /// did. The client's SELECTs are where a renumbering shows (see
     /// `IMAPClient.lastReport`); this used to be done by this actor's own
     /// SELECT, which the client now sends.
-    private func snapshot(of name: String, client: IMAPClient) async -> IMAPMailboxUIDs? {
+    private func snapshot(of name: String, client: IMAPClient) async -> Stamped? {
         let now = await client.lastReport(for: name)?.uidValidity
         // Read after the await, not before: another listing may have
         // replaced the snapshot meanwhile, and that one is not stale.
-        guard let listing = uidListing[name] else { return nil }
-        if let now, now != listing.validity {
-            uidListing[name] = nil
+        guard let listing = orders[name] else { return nil }
+        if let now, now != listing.order.validity {
+            orders[name] = nil
             return nil
         }
         return listing
@@ -1133,7 +1222,7 @@ actor IMAPMailRepository: MailRepository {
         // prevent.
         guard let listing = await snapshot(of: name, client: client),
               let cursor = try? Self.parseID(afterUID),
-              cursor.validity == listing.validity else { return [] }
+              cursor.validity == listing.order.validity else { return [] }
 
         do {
             return try await page(newerThan: cursor.uid, in: listing, limit: limit,
@@ -1145,14 +1234,17 @@ actor IMAPMailRepository: MailRepository {
             // the list stops asking. Only then: anything else, a lost
             // connection above all, is thrown for the read retry to act on.
             guard let now = await client.lastReport(for: name)?.uidValidity,
-                  now != listing.validity else { throw error }
+                  now != listing.order.validity else { throw error }
             return []
         }
     }
 
-    /// The `limit` letters of the snapshot below `cursor`, or every one left
-    /// when there are fewer: a short page still means the oldest has been
-    /// reached, and nothing else does.
+    /// The `limit` letters of the snapshot below `cursor` in the list's
+    /// order, or every one left when there are fewer: a short page still
+    /// means the oldest has been reached, and nothing else does. The order
+    /// is widened first where it does not reach that far
+    /// (`ArrivalOrder.reachDown`, B-178), in a hold of its own, and not at
+    /// all where it does.
     ///
     /// Some of the snapshot's UIDs may name nothing by now. It is taken when
     /// the list starts from the top, and a letter can leave the folder after
@@ -1165,33 +1257,60 @@ actor IMAPMailRepository: MailRepository {
     /// UIDs after it, the shortfall at a time, until it is whole or the
     /// snapshot has run out, the way a search's page already does
     /// (`nextMergedPage`). The extra FETCH is paid only when a UID has gone.
-    private func page(olderThan cursor: UInt32, in listing: IMAPMailboxUIDs, limit: Int,
+    private func page(olderThan cursor: UInt32, in listing: Stamped, limit: Int,
                       mailboxID: String, name: String,
-                      client: IMAPClient) async throws -> [MessageSummary] {
+                      client: IMAPClient) async throws -> (rows: [MessageSummary], order: ArrivalOrder) {
         var page: [MessageSummary] = []
         var below = cursor
+        var stamped = listing
         while page.count < limit {
-            let uids = PageWindow.older(than: below, in: listing.uids, limit: limit - page.count)
+            let want = limit - page.count
+            let from = below
+            if !stamped.order.reaches(below: from, count: want) {
+                let widened = try await client.arranging(in: name, validity: stamped.order.validity) {
+                    [order = stamped.order] asking in
+                    var order = order
+                    if order.arrival(of: from) == nil { _ = try await order.reach(from, asking: asking) }
+                    try await order.reachDown(below: from, count: want, asking: asking)
+                    return order
+                }
+                stamped = self.widened(widened, from: stamped, of: name)
+            }
+            let uids = stamped.order.older(than: below, limit: want)
             guard let oldest = uids.last else { break }
             page += try await summaries(for: uids, in: mailboxID, name: name,
-                                        validity: listing.validity, client: client)
+                                        validity: stamped.order.validity, client: client)
             below = oldest
         }
-        return page
+        return (page, stamped.order)
     }
 
     /// The same upward, after a date jump: a short page there means the
     /// newest has been reached, and the list stops asking.
-    private func page(newerThan cursor: UInt32, in listing: IMAPMailboxUIDs, limit: Int,
+    private func page(newerThan cursor: UInt32, in listing: Stamped, limit: Int,
                       mailboxID: String, name: String,
                       client: IMAPClient) async throws -> [MessageSummary] {
         var page: [MessageSummary] = []
         var above = cursor
+        var stamped = listing
+        let today = now()
         while page.count < limit {
-            let uids = PageWindow.newer(than: above, in: listing.uids, limit: limit - page.count)
+            let want = limit - page.count
+            let from = above
+            if !stamped.order.reaches(above: from, count: want) {
+                let widened = try await client.arranging(in: name, validity: stamped.order.validity) {
+                    [order = stamped.order] asking in
+                    var order = order
+                    if order.arrival(of: from) == nil { _ = try await order.reach(from, asking: asking) }
+                    try await order.reachUp(above: from, count: want, now: today, asking: asking)
+                    return order
+                }
+                stamped = self.widened(widened, from: stamped, of: name)
+            }
+            let uids = stamped.order.newer(than: above, limit: want)
             guard let newest = uids.first else { break }
             page = try await summaries(for: uids, in: mailboxID, name: name,
-                                       validity: listing.validity, client: client) + page
+                                       validity: stamped.order.validity, client: client) + page
             above = newest
         }
         return page
@@ -1331,22 +1450,46 @@ actor IMAPMailRepository: MailRepository {
         // `PageWindow.jumpWindow`), so that a reply to the letter landed on
         // among the next fifty is in its conversation's row as the list is
         // first drawn, not joined to it, out of sight, a moment after.
+        //
+        // The window is cut from the list's order, by when the letters
+        // arrived (`ArrivalOrder`, B-178), in the same hold: the dates of the
+        // letters that came in the UTC days around the anchor's arrival,
+        // and the order widened from there until it holds the window's rows
+        // below the anchor and the rows and the page above it. Of his day's
+        // letters the first to arrive is the anchor (`performLowestDated`).
         let jump = IMAPDate.jump(from: date, now: now(), timeZone: calendar.timeZone)
+        let previous = orders[name]?.order
+        let today = now()
         let opened = try await client.page(in: name, searching: [jump.pageSearch, "ALL"]) {
-            found in
-            guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
-            return PageWindow.jumpWindow(around: anchor, in: found[1], limit: limit).uids
+            found, asking in
+            var order = ArrivalOrder(validity: found[1].validity, listing: found[1].uids,
+                                     carrying: previous)
+            guard let anchor = PageWindow.anchor(forMatches: found[0].uids, in: found[1].uids),
+                  try await order.reach(anchor, asking: asking) else {
+                return (Jumped(order: order, anchor: nil), [])
+            }
+            try await order.reachDown(below: anchor, count: limit, asking: asking)
+            try await order.reachUp(above: anchor,
+                                    count: PageWindow.newerRowsAboveAnchor + limit,
+                                    now: today, asking: asking)
+            let window = PageWindow.jumpWindow(around: anchor, in: order.ascending, limit: limit)
+            return (Jumped(order: order, anchor: anchor), window.uids)
         }
-        let listing = opened.found[1]
-        uidListing[name] = listing
-        let validity = listing.validity
+        // Kept as the folder's snapshot only once the jump lands (below):
+        // one that finds nothing that recent leaves the list on screen as
+        // it was, and its snapshot with it, which the watch goes by
+        // (`newsOnce`).
+        let order = opened.plan.order
+        let validity = order.validity
 
-        // Worked out again from the same two lists, which is cheap and
-        // cannot come out differently.
-        guard let anchor = PageWindow.anchor(forMatches: opened.found[0].uids, in: listing.uids) else {
-            return nil
-        }
-        let window = PageWindow.jumpWindow(around: anchor, in: listing.uids, limit: limit)
+        // Worked out again from the same order, which is cheap and cannot
+        // come out differently.
+        guard let anchor = opened.plan.anchor else { return nil }
+        var window = PageWindow.jumpWindow(around: anchor, in: order.ascending, limit: limit)
+        // An end of the order is an end of the folder only where every
+        // letter beyond it is known (`ArrivalOrder.reachDown`, `reachUp`).
+        window.reachedNewest = window.reachedNewest && order.completeAbove
+        window.reachedOldest = window.reachedOldest && order.completeBelow
         let rows = self.rows(from: opened.summaries, in: mailboxID, name: name, validity: validity)
 
         // The anchor can be dropped by `summaries` if the server declines to
@@ -1355,8 +1498,8 @@ actor IMAPMailRepository: MailRepository {
         // day (`PageWindow.anchorRow`). One UID a row, in the rows' order:
         // `rows(from:)` leaves out only an answer with none.
         guard !rows.isEmpty else { return nil }
-        let anchorRow = min(PageWindow.anchorRow(anchor, fetched: opened.summaries.compactMap(\.uid))
-                                ?? 0, rows.count - 1)
+        let anchorRow = min(PageWindow.anchorRow(fetched: opened.summaries.compactMap(\.uid),
+                                                 in: window) ?? 0, rows.count - 1)
         // Gmail's day runs from midnight UTC, his from his own midnight:
         // landed on the first letter of his day (`PageWindow.landing`). The
         // anchor is one of his day's letters by their dates, or one after
@@ -1386,6 +1529,7 @@ actor IMAPMailRepository: MailRepository {
         // The bounds the landing went by go with it: the list opens on the
         // oldest row dated within them at or above the letter, by its
         // newest letter's date (`ListOpening.dayRow`, B-118).
+        stamp(order, of: name)
         return MessageWindow(messages: rows,
                              anchorIndex: landedIndex,
                              reachedNewest: window.reachedNewest,
@@ -3649,7 +3793,7 @@ actor IMAPMailRepository: MailRepository {
             try await client.expunge(uid: draft.uid, in: name, validity: draft.validity)
         }
         // The snapshot still lists the UID we just removed.
-        uidListing[name] = nil
+        orders[name] = nil
         shelf?.gone(id, from: name)
     }
 

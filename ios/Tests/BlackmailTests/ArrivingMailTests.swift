@@ -315,7 +315,8 @@ final class ArrivingMailTests: XCTestCase {
 
         let next = try await searcher.listMessages(in: "inbox", beforeUID: rows[5].id, limit: 20)
         XCTAssertEqual(next.map(\.id), rows[6..<26].map(\.id))
-        XCTAssertEqual(verbs, ["UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178), a new snapshot's, before the page.
+        XCTAssertEqual(verbs, ["UID SEARCH", "UID FETCH", "UID FETCH"])
     }
 
     /// A jump to a day in the open folder is a listing too: it lands on a
@@ -340,7 +341,8 @@ final class ArrivingMailTests: XCTestCase {
         XCTAssertEqual(uid(landed.messages[landed.anchorIndex].id), arrived[Server.inbox])
         // His day's SEARCH and its letter's date (B-115), then the listing
         // and the window.
-        XCTAssertEqual(verbs, ["NOOP", "UID SEARCH", "UID FETCH", "UID SEARCH", "UID FETCH"])
+        // The folder's letters' dates for the list's order (B-178) before the window.
+        XCTAssertEqual(verbs, ["NOOP", "UID SEARCH", "UID FETCH", "UID SEARCH", "UID FETCH", "UID FETCH"])
     }
 
     // MARK: - Search

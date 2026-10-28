@@ -143,8 +143,11 @@ final class GoToDateOrderTests: XCTestCase {
     /// and the listing, then the window's FETCH if it landed: one hold,
     /// nothing between them.
     private func inOneHold(_ dated: Int, datesFetched: Bool, landed: Bool = true) -> [String] {
+        // Landed, the folder's letters' arrivals for the list's order
+        // (B-178), then the window.
         ["SELECT", "UID SEARCH"] + (datesFetched ? ["UID FETCH"] : [])
-            + Array(repeating: "UID SEARCH", count: dated) + (landed ? ["UID FETCH"] : [])
+            + Array(repeating: "UID SEARCH", count: dated)
+            + (landed ? ["UID FETCH", "UID FETCH"] : [])
     }
 
     /// A jump's commands, as `inOneHold`, on one connection.

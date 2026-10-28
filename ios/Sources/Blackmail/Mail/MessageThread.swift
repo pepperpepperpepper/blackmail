@@ -229,8 +229,11 @@ struct MessageThread {
     /// first, and by UID where two came in the same second, the higher
     /// first (B-084).
     ///
-    /// The list's order is the folder's, by UID: the order the letters were
-    /// put in it. For letters moved in, that is the order they were moved.
+    /// The list went by the folder's UIDs until B-178: the order the
+    /// letters were put in it, for letters moved in the order they were
+    /// moved. It goes by arrival now too (`ArrivalOrder`), so a
+    /// conversation's letters come to it in this order already, but for
+    /// rows kept on the iPad by a build before.
     /// Edit mode's Delete used to move a conversation the newest letter
     /// first, so in Trash the newest had the lowest UID, and the row named
     /// the oldest letter, its time, its subject and its sender first, and

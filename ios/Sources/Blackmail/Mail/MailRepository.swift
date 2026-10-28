@@ -7,7 +7,9 @@ import Foundation
 ///
 /// 1. `page: Int` is gone. Page indices shift the moment new mail arrives
 ///    mid-scroll, and the architecture doc contradicts itself four lines later
-///    by saying to "reconcile by stable IMAP UID". Paging is by UID.
+///    by saying to "reconcile by stable IMAP UID". Paging is by UID: a
+///    page is asked for from a letter's UID, and the letters go in the
+///    order Mail lists them, by when each arrived (B-178).
 /// 2. `search`, `setFlagged` and `fetchAttachmentData` are added. All three are
 ///    required v1 features in `PRODUCT_SPEC.md` and none had a method.
 /// 3. `Attachment` had no way to get its bytes, so "view/download/share" was
@@ -23,7 +25,11 @@ protocol MailRepository {
     /// while the first page of the Inbox is still on its way.
     func folders() async throws -> [Mailbox]
 
-    /// Newest first. `beforeUID` nil means "from the top".
+    /// Newest first, by when each letter arrived, its INTERNALDATE, as
+    /// Mail's list goes, and by UID within a second (`ArrivalOrder`,
+    /// B-178): the folder's UIDs alone put a letter moved back or copied in
+    /// at the top. `beforeUID` nil means "from the top"; otherwise the
+    /// letters after that one in this order.
     ///
     /// Summaries come back with `preview` EMPTY. See `previews(for:in:)`.
     func listMessages(in mailboxID: String, beforeUID: String?, limit: Int) async throws -> [MessageSummary]
@@ -45,9 +51,9 @@ protocol MailRepository {
     /// Lands on the FIRST letter sent on or after `date`, by his calendar,
     /// and returns the mail either side of it, so he can read forwards into
     /// the days after or backwards into the days before without starting
-    /// from today and scrolling. Which is first goes by the folder's own
-    /// order, the lowest UID, among that day's letters, by their dates in
-    /// his calendar, or on a day with none among the first days after it
+    /// from today and scrolling. Which is first goes by the list's order,
+    /// the first to arrive (B-178), among that day's letters, by their dates
+    /// in his calendar, or on a day with none among the first days after it
     /// that have any (B-115, `IMAPDate.jump`). So in a folder whose letters
     /// did not come in the order they were written it is still a letter of
     /// that day, or of those days, and never one of the evening before

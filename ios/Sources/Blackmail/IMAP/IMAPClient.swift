@@ -1036,16 +1036,29 @@ actor IMAPClient {
     /// it, and in a folder whose UIDs do not follow its dates either can
     /// have the lowest UID. So `day` is asked whole, a plain SEARCH, some
     /// two days' letters, and their dates are fetched in the same hold
-    /// (`performDateFetch`); the lowest UID of those dated within his day
-    /// is the answer. With none, his evening before alone or nothing,
+    /// (`performDateFetch`); the first to arrive of those dated within his
+    /// day, by INTERNALDATE and then UID as the list goes (B-178), is the
+    /// answer; it was the lowest UID while the list went by UID. With none, his evening before alone or nothing,
     /// `wider` is asked, as an empty day would be.
     private func performLowestDated(_ day: String, within dated: Range<Date>,
                                     wider: [String]) async throws -> [UInt32]? {
         guard let matched = try await performSearch(day) else { return nil }
         if !matched.isEmpty {
             guard let dates = try await performDateFetch(matched) else { return nil }
-            if let lowest = dates.filter({ dated.contains($0.date) }).map(\.uid).min() {
-                return [lowest]
+            // The first of them to arrive, as the list now goes by when
+            // each arrived (B-178): the lowest UID was the first only while
+            // the folder's UIDs followed its arrivals. With no arrival
+            // given, the lowest UID, as before.
+            let ofHisDay = dates.filter { dated.contains($0.date) }
+            if let first = ofHisDay.min(by: { a, b in
+                switch (a.arrived, b.arrived) {
+                case let (x?, y?): return ArrivalOrder.isOlder(a.uid, x, than: b.uid, y)
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return a.uid < b.uid
+                }
+            }) {
+                return [first.uid]
             }
         }
         return try await performLowestOfFirst(wider)
@@ -1058,9 +1071,10 @@ actor IMAPClient {
     /// is one it gives with no ENVELOPE, which is never made a row
     /// (`ordered`), or with neither date; nil if it gave none of them and
     /// refused a chunk. The caller holds the gate.
-    private func performDateFetch(_ uids: [UInt32]) async throws -> [(uid: UInt32, date: Date)]? {
+    private func performDateFetch(_ uids: [UInt32])
+        async throws -> [(uid: UInt32, date: Date, arrived: Date?)]? {
         let asked = Set(uids)
-        var dates: [(uid: UInt32, date: Date)] = []
+        var dates: [(uid: UInt32, date: Date, arrived: Date?)] = []
         var refused = false
         for chunk in Self.uidSetChunks(uids) {
             let result = try await performCommand("UID FETCH \(chunk) (UID INTERNALDATE ENVELOPE)")
@@ -1068,10 +1082,69 @@ actor IMAPClient {
             for fetched in IMAPParser.parseFetch(result.untagged) {
                 guard let uid = fetched.uid, asked.contains(uid), let envelope = fetched.envelope,
                       let date = envelope.date ?? fetched.internalDate else { continue }
-                dates.append((uid, date))
+                dates.append((uid, date, fetched.internalDate))
             }
         }
         return dates.isEmpty && refused ? nil : dates
+    }
+
+    /// When each of `uids` arrived, its INTERNALDATE, by UID: `UID FETCH …
+    /// (UID INTERNALDATE)`, chunked as a page's FETCH is, for the list's
+    /// order (`ArrivalOrder`, B-178). A letter the server leaves out has
+    /// gone; nil if it gave none and refused a chunk. The caller holds the
+    /// gate.
+    private func performArrivalFetch(_ uids: [UInt32]) async throws -> [UInt32: Date]? {
+        let asked = Set(uids)
+        var dates: [UInt32: Date] = [:]
+        var refused = false
+        for chunk in Self.uidSetChunks(uids) {
+            datesCounted = 0
+            defer {
+                Diagnostics.log(.received, "* FETCH {\(datesCounted ?? 0) dates}")
+                datesCounted = nil
+            }
+            let result = try await performCommand("UID FETCH \(chunk) (UID INTERNALDATE)")
+            if result.status != .ok { refused = true }
+            for fetched in IMAPParser.parseFetch(result.untagged) {
+                guard let uid = fetched.uid, asked.contains(uid),
+                      let arrived = fetched.internalDate else { continue }
+                dates[uid] = arrived
+            }
+        }
+        return dates.isEmpty && refused ? nil : dates
+    }
+
+    /// The lines of a FETCH of dates alone counted while one is answered,
+    /// and not logged one by one (`readResponse`); nil otherwise.
+    private var datesCounted: Int?
+
+    /// Whether `line` is one letter's date alone, `* 12 FETCH (UID 1234
+    /// INTERNALDATE "…")`, with no flags or anything else the server told.
+    static func isDateLine(_ line: String) -> Bool {
+        line.hasPrefix("* ") && line.contains(" FETCH (") && line.contains("INTERNALDATE")
+            && !line.contains("FLAGS") && !line.contains("ENVELOPE")
+            && !line.contains(String(IMAPResponseLine.literalMarker))
+    }
+
+    /// What `ArrivalOrder` asks the server through, in the hold the caller
+    /// has: the asking goes in it, and must not outlive it.
+    private var arrivalAsking: ArrivalOrder.Asking {
+        ArrivalOrder.Asking(
+            arrivals: { uids in try await self.performArrivalFetch(uids) },
+            matching: { criteria in try await self.performSearch(criteria) })
+    }
+
+    /// `plan` run with the order's asking in one hold of `mailbox` under
+    /// `validity`, in the background line, as a page below the top is
+    /// fetched (`fetchSummaries`): the list's order widened for the page
+    /// (`ArrivalOrder.reachDown`, `reachUp`, B-178). A renumbered mailbox
+    /// is refused, as every hold under a validity is.
+    func arranging<T: Sendable>(in mailbox: String, validity: UInt32,
+                                _ plan: @Sendable (ArrivalOrder.Asking) async throws -> T)
+        async throws -> T {
+        try await inMailbox(mailbox, validity: validity, .background) { _ in
+            try await plan(self.arrivalAsking)
+        }
     }
 
     /// One UID SEARCH, `command` whole, its 8-bit strings as literals, in
@@ -1215,6 +1288,20 @@ actor IMAPClient {
     func page(in mailbox: String, searching criteria: [PageSearch],
               picking pick: @Sendable ([[UInt32]]) -> [UInt32])
         async throws -> (found: [IMAPMailboxUIDs], summaries: [IMAPFetchResult]) {
+        let opened = try await page(in: mailbox, searching: criteria) { found, _ in
+            ((), pick(found.map(\.uids)))
+        }
+        return (opened.found, opened.summaries)
+    }
+
+    /// `page(in:searching:picking:)` with the list's order made in the same
+    /// hold (B-178): `plan` is given what the SEARCHes found and the
+    /// order's asking (`ArrivalOrder.Asking`), widens the order as the page
+    /// needs, and returns it with the UIDs to fetch.
+    func page<Plan: Sendable>(in mailbox: String, searching criteria: [PageSearch],
+                              planning plan: @Sendable ([IMAPMailboxUIDs], ArrivalOrder.Asking)
+                                  async throws -> (Plan, [UInt32]))
+        async throws -> (found: [IMAPMailboxUIDs], plan: Plan, summaries: [IMAPFetchResult]) {
         try await inMailbox(mailbox, validity: nil, .interactive, catchingUp: .asked) { state in
             // A listing from the top has searched everything the session
             // knows of the mailbox, and the list it becomes is the watch's to
@@ -1242,7 +1329,7 @@ actor IMAPClient {
                     found.append(IMAPMailboxUIDs(validity: state.uidValidity, uids: uids))
                 }
 
-                let wanted = pick(found.map(\.uids))
+                let (planned, wanted) = try await plan(found, self.arrivalAsking)
                 var fetched: [IMAPFetchResult] = []
                 var sawFailure = false
                 for chunk in Self.uidSetChunks(wanted) {
@@ -1254,7 +1341,7 @@ actor IMAPClient {
                 }
                 let ordered = Self.ordered(fetched, as: wanted)
                 if ordered.isEmpty, sawFailure { throw MailError.cannotConnect }
-                return (found, ordered)
+                return (found, planned, ordered)
             } catch {
                 if fromTheTop { self.unsearchedNews = true }
                 throw error
@@ -2494,8 +2581,15 @@ actor IMAPClient {
         }
 
         // A SEARCH's answer goes in as a count, as a literal goes in as its
-        // size (`Diagnostics.describeSearch`).
-        Diagnostics.log(.received, Diagnostics.describeSearch(text) ?? text)
+        // size (`Diagnostics.describeSearch`); so do the lines of a FETCH
+        // of the letters' dates alone, one a letter, up to 2,000 of them,
+        // which would push everything else out of the log
+        // (`performArrivalFetch`, B-178).
+        if let counted = datesCounted, Self.isDateLine(text) {
+            datesCounted = counted + 1
+        } else {
+            Diagnostics.log(.received, Diagnostics.describeSearch(text) ?? text)
+        }
         return IMAPResponseLine(text: text, literals: literals)
     }
 
