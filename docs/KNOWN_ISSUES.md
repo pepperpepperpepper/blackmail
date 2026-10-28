@@ -37104,7 +37104,7 @@ The pins of `openAttachment` in `FileListedOnceTests`,
 `MarkupReplyTests` follow. The function put back as it was, 10 failures
 in 2 tests of `FileListedOnceTests`; then restored.
 
-## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
+## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen there 2026-10-28, a marked-up HEIC's row named as Quick Look's JPEG copy is. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
 Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
 26740c2.
@@ -37427,6 +37427,34 @@ turn together with one, nor three with two, each its turn once and the
 turns given back; and the loader's pin takes the turn, the stopped
 request and the turn given back. Every request let through at once, 2
 failures in the new test; then restored.
+
+**Found on the test iPad, 2026-10-28**, in round r6-j-files, on the int21
+build (1873724), and seen again in a second run from a fresh launch on a
+new letter. Every step of the check passed but the second half of step
+8, and that was the check's mistake, not the app's. "B-171 heic" opened,
+its HEIC photo drawn among the words; held, Markup and Reply, a line
+drawn with a finger, Done: a Reply to the sender alone, "Re: B-171
+heic", one row under Subject, "m-photo.jpeg — 1.7 MB", where the check
+asked for a name ending ".jpg". `letter.json` listed `m-photo.jpeg`, `image/jpeg`, and
+the row's file, pulled to the host, was by `file` a baseline JPEG of
+2304 by 1728 with its Exif kept. Cancel, Delete Draft: nothing kept, no
+`MAIL FROM`, `RCPT TO`, `DATA` or `APPEND`.
+
+*Why.* On iPadOS 16.5.1 Quick Look hands back its marked-up copy of a
+HEIC already as a JPEG, named with ".jpeg". The app names the copy with
+the picture's name and the copy's own extension and stages a JPEG, PNG
+or GIF as it is (`MarkupReply.picture`; *Changed*, 3, above), so the row
+is "m-photo.jpeg", a JPEG; it makes "<name>.jpg" only of a copy of
+another kind, which Quick Look did not hand back. The step's aim, a
+JPEG in the Reply, going in its body as a picture, is met. The copy's
+kind had not been seen (*Not covered*); in the same round a JPEG
+photo's copy was a JPEG too, under the photo's own name ("IMG_1220.jpeg",
+1728 by 2304 of the 3024 by 4032 photo, step 3), and Quick Look closed
+at its first Done, asking nothing.
+
+*Not changed:* the app. The TODO's B-171 step 8 now asks for the
+photo's name with the extension of the copy Quick Look saves, ".jpeg" on
+16.5.1 (".jpg" only were it to hand back a HEIC), and its kind a JPEG.
 
 ## B-172 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, and a picture with no name clipped as Mail clips it the same day. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
 

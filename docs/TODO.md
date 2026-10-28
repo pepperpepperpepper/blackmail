@@ -9381,15 +9381,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       was written.
 - [ ] **B-171, Markup and Reply on a photo held.** On the test iPad, the
       test account only, from a build of the `bm-cm-markup` worktree
-      (branch `copy-markup`) or of the int it is merged into. Nothing is
-      sent and nothing is saved to Drafts: no Send is tapped in any step,
-      and each reply begun is closed with Cancel and Delete Draft, which
-      keeps nothing. The host makes the letters, each from another
-      address, with a new Message-ID of its own and naming none on the
-      account, and APPENDs them, read (`\Seen`), to the label "Notes",
-      never the Inbox, noting each UID from its APPENDUID; it stops if one
-      has none. Three panes; the connection log read after each step; the
-      app's files read over SSH as the rounds read them.
+      (branch `copy-markup`) or of the int it is merged into. The round of
+      2026-10-28 ran it on int21 (1873724): every step passed but the
+      second half of step 8, whose ".jpg" was the check's mistake, now
+      corrected (KNOWN_ISSUES B-171, "Found on the test iPad,
+      2026-10-28"); step 8 is the one left to see. Nothing is sent and
+      nothing is saved to Drafts: no Send is tapped in any step, and each
+      reply begun is closed with Cancel and Delete Draft, which keeps
+      nothing. The host makes the letters, each from another address, with
+      a new Message-ID of its own and naming none on the account, and
+      APPENDs them, read (`\Seen`), to the label "Notes", never the Inbox,
+      noting each UID from its APPENDUID; it stops if one has none. Three
+      panes; the connection log read after each step; the app's files read
+      over SSH as the rounds read them.
       0. *The letters:* "B-171 photo", an HTML letter with words, a JPEG
       photo of about 1 MB shown among them by `cid:` as an iPhone sends
       one, a picture from the web, and the account's signature logo by
@@ -9435,8 +9439,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       8. *A HEIC:* "B-171 heic" opened: its photo shows among the words,
       upright, as wide as the letter at most, on iPadOS 16 as on 17 and
       later (the round of 2026-10-27 found a broken box on 16.5.1; the
-      app makes a JPEG of it for WebKit below 17). Held, Markup and Reply, a line drawn, Done: the row's
-      name ends ".jpg", its kind a JPEG. Cancel, Delete Draft.
+      app makes a JPEG of it for WebKit below 17). Held, Markup and Reply,
+      a line drawn, Done: the row's name the photo's with the extension of
+      the copy Quick Look saves, its kind a JPEG: on 16.5.1 Quick Look
+      hands back a JPEG named ".jpeg" (the round of 2026-10-28:
+      "m-photo.jpeg", 2304 by 1728, Exif kept; KNOWN_ISSUES B-171, "Found
+      on the test iPad, 2026-10-28"), and only a copy handed back as a
+      HEIC would be made ".jpg". Over SSH, `letter.json` lists the same
+      name and `image/jpeg`. Cancel, Delete Draft.
       9. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
