@@ -1292,6 +1292,19 @@ final class RootViewController: UIViewController {
         list.lettersInPane = { [weak self] in
             self?.detail.lettersShown ?? []
         }
+        // Edit mode's pane (B-174): emptied again as it ends, where a tick
+        // had put a letter in it, and dimmed with nothing ticked, as Mail's.
+        // From the list on the screen alone: one replaced in Edit mode
+        // says nothing more to the pane.
+        let bound = list
+        list.onPaneEmptied = { [weak self, weak bound] in
+            guard let self, let bound, bound === self.list else { return }
+            self.detail.showEmpty()
+        }
+        list.onPaneDimmed = { [weak self, weak bound] dim in
+            guard let self, let bound, bound === self.list else { return }
+            self.detail.dimForEdit(dim)
+        }
         list.requestSweep = { [weak self] in
             self?.refreshMailboxes()
         }
@@ -1367,6 +1380,8 @@ final class RootViewController: UIViewController {
         bindList()
         listNav.setViewControllers([list], animated: false)
         detail.showEmpty()
+        // A list left in Edit mode leaves the pane dimmed no longer (B-174).
+        detail.dimForEdit(false)
     }
 }
 

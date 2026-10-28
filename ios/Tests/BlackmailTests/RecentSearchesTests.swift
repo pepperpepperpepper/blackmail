@@ -358,7 +358,7 @@ final class RecentSearchesTests: XCTestCase {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertNotNil(place(of: "searchBar.onSearchKey = { [weak self] text in self?.keepSearch(text) }",
                               in: list))
-        XCTAssertNotNil(place(of: "guard !inEditMode else { updateSelectAllTitle(); return } "
+        XCTAssertNotNil(place(of: "guard !inEditMode else { updateSelectAllTitle(); paneFollowsTicks(); return } "
                                   + "if letters.isSearching { keepSearch(searchShown) }", in: list))
         XCTAssertNotNil(place(of: "searchFailed = false searchShown = text let move = showingResults() "
                                   + "let unpreviewed = letters.showResults(hits)", in: list))

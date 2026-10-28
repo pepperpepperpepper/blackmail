@@ -69,6 +69,12 @@ final class MessageListViewController: UITableViewController {
     /// is highlighted again where the table has dropped the highlight with
     /// the letter still open (`highlightLetterInPane`, B-133).
     var lettersInPane: () -> [String] = { [] }
+    /// Edit mode has ended and the reading pane goes back to empty, as it
+    /// was before a tick put a letter in it (`EditPane`, B-174).
+    var onPaneEmptied: (() -> Void)?
+    /// The reading pane dimmed, or not: Edit mode with nothing ticked, as
+    /// Mail greys the letter and its buttons (`EditBar.dimsPane`, B-174).
+    var onPaneDimmed: ((Bool) -> Void)?
     /// The Inbox's pass of letters fetched ahead has ended (B-160).
     var afterFetchAhead: (() -> Void)?
     /// A letter Edit mode moved changed a count the list cannot work out
@@ -118,6 +124,9 @@ final class MessageListViewController: UITableViewController {
     /// those buttons did nothing, and the pane's row lost its highlight
     /// (B-156).
     private var inEditMode = false
+    /// The reading pane through Edit mode: a ticked row's letter in it, and
+    /// the letter before put back as Edit mode ends (`EditPane`, B-174).
+    private var editPane = EditPane()
 
     /// What the container puts in the leading slot in front of the
     /// calendar: in two panes the view button and "< Mailboxes", in three
@@ -1489,6 +1498,9 @@ final class MessageListViewController: UITableViewController {
             if parts.contains(.label) {
                 cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
             }
+            // In Edit mode a selected row is a tick, blue with a white
+            // tick, as Mail's (B-174).
+            if parts.contains(.ticks) { cell.ticks = inEditMode }
         }
     }
 
@@ -2063,6 +2075,11 @@ final class MessageListViewController: UITableViewController {
         // An empty folder must say so. A blank white rectangle is how an app
         // looks broken, and this user cannot tell the two apart.
         emptyLabel.isHidden = !rows.isEmpty
+        // Edit grey in a folder with no rows, as Mail's; and Edit mode
+        // ended, as Cancel ends it, when its last row has gone (B-174).
+        navigationItem.rightBarButtonItem?.isEnabled = EditBar.canEdit(rows: rows.count,
+                                                                       editing: inEditMode)
+        if EditBar.ends(rows: rows.count, editing: inEditMode) { editTapped() }
         if !letters.isSearching {
             emptyLabel.text = "No messages"
         } else if searchFailed {
@@ -2506,8 +2523,19 @@ final class MessageListViewController: UITableViewController {
         // His ticks are his to keep where they are (B-117).
         landed.letGo()
         let editing = !inEditMode
+        // The letter the pane shows as Edit mode begins, to put back as it
+        // ends; put back before the row is highlighted again (B-174).
+        if editing {
+            let shown = lettersInPane()
+            editPane.begin(showing: shown,
+                           thread: ListEdit.paneRow(in: threads, showing: shown).map { threads[$0] })
+        } else {
+            putPaneBack()
+        }
         inEditMode = editing
         tableView.setEditing(editing, animated: true)
+        // A ticked row blue with a white tick, as Mail's (B-174).
+        drawRowsInSight(.editMode)
         // No pull in Edit mode, where the page would drop his ticks (B-103).
         placePull()
         // Mail's word for leaving it (B-144).
@@ -2563,16 +2591,64 @@ final class MessageListViewController: UITableViewController {
             }
         }
         updateSelectAllTitle()
+        paneFollowsTicks()
         // Deselect All is the last tick taken off too.
         landFreshPage()
         showNewsIfAtTop()
     }
 
+    /// The bar, the title and the pane as the ticks are now, at every
+    /// change of them and as Edit mode begins and ends: Select All's word;
+    /// Mark, Move and the third button grey with nothing ticked; the title
+    /// "1 Selected"; the reading pane dimmed with nothing ticked, as Mail's
+    /// (`EditBar`, B-174). Out of Edit mode the selected row is the letter
+    /// in the pane, not a tick: the folder's name, and no dimming.
     private func updateSelectAllTitle() {
         guard let selectAllItem else { return }
         let all = rows.count > 0 && (tableView.indexPathsForSelectedRows?.count ?? 0) == rows.count
         selectAllItem.title = all ? "Deselect All" : "Select All"
         selectAllItem.isEnabled = rows.count > 0
+        let ticked = inEditMode ? (tableView.indexPathsForSelectedRows?.count ?? 0) : 0
+        for item in [markItem, moveItem, deleteItem] { item?.isEnabled = EditBar.acts(ticked: ticked) }
+        title = EditBar.title(ticked: ticked, folder: mailbox.displayName)
+        onPaneDimmed?(EditBar.dimsPane(editing: inEditMode, ticked: ticked))
+    }
+
+    /// The ticks have changed: with exactly one, its letter in the reading
+    /// pane, as a tap would put it there, and not marked read (`EditPane`,
+    /// B-174).
+    @MainActor
+    private func paneFollowsTicks() {
+        let ticked = (tableView.indexPathsForSelectedRows ?? []).map(\.row)
+        guard let row = editPane.ticked(ticked, in: threads, showing: lettersInPane(),
+                                        opens: mailbox.role != .drafts && !isOutbox) else { return }
+        showInPane(threads[row])
+    }
+
+    /// A conversation in the reading pane as a tap on its row puts it
+    /// there (`open`), but for the read mark and the rest of a tap: for Edit
+    /// mode's tick and for the letter put back as it ends.
+    @MainActor
+    private func showInPane(_ thread: MessageThread) {
+        if thread.count > 1 {
+            onSelectThread?(thread, CompleteThreads.thread(
+                toComplete: thread, listedIn: mailbox.role, searching: letters.isSearching,
+                switchedOn: ConversationSettings.completeThreads))
+        } else {
+            onSelectMessage?(thread.newest)
+        }
+    }
+
+    /// Edit mode is ending: the reading pane back to the letter it showed
+    /// before, if a tick put another in it and it still shows that one
+    /// (`EditPane`, B-174).
+    @MainActor
+    private func putPaneBack() {
+        switch editPane.end(in: threads, showing: lettersInPane()) {
+        case .stay: break
+        case .empty: onPaneEmptied?()
+        case .letters(let thread): showInPane(thread)
+        }
     }
 
     /// Ticking a conversation acts on ALL of it, which is what Mail does
@@ -3602,7 +3678,7 @@ final class MessageListViewController: UITableViewController {
         letGoOfVoiceOver()
         // In Edit mode a tap ticks a row rather than opening it, and the
         // Select All button has to keep up with what that leaves selected.
-        guard !inEditMode else { updateSelectAllTitle(); return }
+        guard !inEditMode else { updateSelectAllTitle(); paneFollowsTicks(); return }
         // A letter opened from the results: the search found what he was
         // after, and is kept among his recent ones (B-105).
         if letters.isSearching { keepSearch(searchShown) }
@@ -3627,6 +3703,7 @@ final class MessageListViewController: UITableViewController {
     override func tableView(_ t: UITableView, didDeselectRowAt ip: IndexPath) {
         guard inEditMode else { return }
         updateSelectAllTitle()
+        paneFollowsTicks()
         // The last tick taken off.
         landFreshPage()
         showNewsIfAtTop()

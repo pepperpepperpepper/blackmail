@@ -9376,6 +9376,37 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
+- [ ] **B-174, Edit mode as Mail's.** On the test iPad, the test account
+      only, from a build of the `bm-cmp-cd` worktree (branch
+      `copy-cmp-cd`) or of the int it is merged into. Nothing is sent,
+      trashed, moved or marked: no Trash, Move or Mark is tapped in Edit
+      mode. The host makes three letters from made-up senders, each with a
+      new Message-ID of its own and naming none on the account, and
+      APPENDs them, read (`\Seen`), to the label "Notes", noting each UID
+      from its APPENDUID; it stops if one has none. Three panes.
+      1. *Nothing ticked:* "Notes" opened, the first letter tapped, then
+         Edit: Mark, Move and Trash grey, Select All and Cancel blue, the
+         title "Notes"; the letter and its header grey, the buttons above
+         them grey and Flag, Move, Trash and Reply not answering a tap.
+         Screenshot.
+      2. *One ticked:* the third row ticked: the title "1 Selected", the
+         row blue with a white tick and white names, its letter in the pane
+         in full colour, Mark, Move and Trash blue. Screenshot. The second
+         ticked too: "2 Selected", the pane as it was. The third unticked:
+         "1 Selected", the second's letter in the pane.
+      3. *Unticked, then Cancel:* the second unticked: Mark, Move and Trash
+         grey again, the pane dimmed. Cancel: "Edit", the title "Notes", the
+         first letter back in the pane, its row highlighted, nothing dimmed.
+         Screenshot.
+      4. *Two panes:* the same with one ticked: the title cut ("1 Sel…")
+         beside Cancel, nothing moved. Back to three panes.
+      5. *Empty:* an empty folder (Junk, if empty; else any empty one)
+         opened: Edit grey, a tap on it does nothing.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host checks
+         the three letters' flags unchanged, then moves the UIDs it noted,
+         and only them, from "Notes" to the Trash, and deletes in the Trash
+         only the UIDs that move answered (`COPYUID`). Nothing was sent,
+         and nothing else was written to the account.
 
 ## Blocked on the owner
 

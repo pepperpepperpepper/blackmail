@@ -48,6 +48,30 @@ final class MessageCell: UITableViewCell {
     private var date: Date?
     /// The text size the row's type was last set for (`restyle`).
     private var styled: TextSize?
+    /// The preview's words, drawn in the grey the row's state calls for
+    /// (`drawPreview`).
+    private var previewText = ""
+    /// The selected row's ground: the grey of the letter in the pane, or
+    /// Mail's blue for a tick in Edit mode (`colour`, B-174).
+    private let selectedGround = UIView()
+
+    /// The list is in Edit mode, where a selected row is a tick, drawn as
+    /// Mail draws one (r6 comparison C-03): the row its blue,
+    /// rgb(10,132,255), the tick a white disc, the names and the subject
+    /// white as always, and the grey lines in Mail's see-through grey,
+    /// which reads (145,194,249) on the blue. It was the letter-in-the-pane
+    /// grey with a blue tick. Colours only: nothing moves (B-174).
+    var ticks = false {
+        didSet {
+            guard ticks != oldValue else { return }
+            colour()
+        }
+    }
+
+    /// Mail's grey for the second lines (`secondaryLabel` in the dark),
+    /// through which a ticked row's blue shows.
+    private static let tickedGrey = UIColor(red: 235 / 255, green: 235 / 255, blue: 245 / 255,
+                                            alpha: 0.6)
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
@@ -56,9 +80,8 @@ final class MessageCell: UITableViewCell {
         // Full-bleed selection with black text, the pre-iOS-13 treatment. The
         // modern default insets the highlight and greys the text, both of which
         // make "which message am I looking at" harder to answer at a glance.
-        let selected = UIView()
-        selected.backgroundColor = Theme.selection
-        selectedBackgroundView = selected
+        selectedGround.backgroundColor = Theme.selection
+        selectedBackgroundView = selectedGround
 
         unreadDot.backgroundColor = Theme.tintBlue
         unreadDot.layer.cornerRadius = Theme.unreadDotDiameter / 2
@@ -142,17 +165,8 @@ final class MessageCell: UITableViewCell {
         drawDate()
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
 
-        // Forced line height, so the two preview lines keep the row's own 20 pt
-        // rhythm instead of the font's natural 18, at any text size.
-        let ps = NSMutableParagraphStyle()
-        ps.minimumLineHeight = Theme.messageRowLines.pitch
-        ps.maximumLineHeight = ps.minimumLineHeight
-        ps.lineBreakMode = .byTruncatingTail
-        previewLabel.attributedText = NSAttributedString(string: m.preview, attributes: [
-            .font: Theme.fontListPreview,
-            .foregroundColor: Theme.secondaryText,
-            .paragraphStyle: ps,
-        ])
+        previewText = m.preview
+        drawPreview()
         unreadDot.isHidden = m.isRead
         // The arrow, where the row has one: never on an unread row, whose
         // dot has the gutter (`RowArrow`).
@@ -163,6 +177,54 @@ final class MessageCell: UITableViewCell {
         flagIcon.isHidden = !m.isFlagged
         conversationMark.isHidden = !marked
         setNeedsLayout()
+    }
+
+    /// The preview's two lines in the grey the row's state calls for.
+    private func drawPreview() {
+        // Forced line height, so the two preview lines keep the row's own 20 pt
+        // rhythm instead of the font's natural 18, at any text size.
+        let ps = NSMutableParagraphStyle()
+        ps.minimumLineHeight = Theme.messageRowLines.pitch
+        ps.maximumLineHeight = ps.minimumLineHeight
+        ps.lineBreakMode = .byTruncatingTail
+        previewLabel.attributedText = NSAttributedString(string: previewText, attributes: [
+            .font: Theme.fontListPreview,
+            .foregroundColor: grey,
+            .paragraphStyle: ps,
+        ])
+    }
+
+    /// Ticked: selected in Edit mode (`ticks`).
+    private var ticked: Bool { ticks && isSelected }
+
+    /// The second lines' grey: Mail's see-through one on a ticked row.
+    private var grey: UIColor { ticked ? Self.tickedGrey : Theme.secondaryText }
+
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated)
+        colour()
+    }
+
+    /// The row's colours as it is ticked or not (`ticks`, B-174): the
+    /// ground, the tick, and on a ticked row the grey lines, the paperclip
+    /// and the arrow in Mail's see-through grey, and the unread dot and the
+    /// conversation's mark white, as they would be lost blue on blue (Mail's
+    /// ticked row was seen with neither). The names, the subject and the
+    /// flag keep theirs. Out of Edit mode as it always was.
+    private func colour() {
+        selectedGround.backgroundColor = ticks ? Theme.tintBlue : Theme.selection
+        // UIKit draws the tick in the cell's tint: a white disc, its check
+        // the row's blue, as Mail's. The circle of a row not ticked is
+        // UIKit's grey whatever the tint.
+        tintColor = ticks ? .white : nil
+        let grey = self.grey
+        guard timestampLabel.textColor != grey else { return }
+        timestampLabel.textColor = grey
+        attachmentIcon.tintColor = grey
+        statusIcon.tintColor = grey
+        unreadDot.backgroundColor = ticked ? .white : Theme.tintBlue
+        conversationMark.tintColor = ticked ? .white : Theme.tintBlue
+        drawPreview()
     }
 
     /// The date at the top right written from the row's own, as the iPad

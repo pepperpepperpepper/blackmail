@@ -264,7 +264,9 @@ final class RowSwipesTests: XCTestCase {
         XCTAssertFalse(list.contains("tableView.isEditing"))
         XCTAssertFalse(list.contains("t.isEditing"))
         XCTAssertTrue(list.contains("private var inEditMode = false"))
-        XCTAssertTrue(list.contains("let editing = !inEditMode inEditMode = editing "
+        XCTAssertTrue(list.contains("let editing = !inEditMode if editing { "
+            + "let shown = lettersInPane() editPane.begin("))
+        XCTAssertTrue(list.contains("} else { putPaneBack() } inEditMode = editing "
             + "tableView.setEditing(editing, animated: true)"))
         XCTAssertEqual(list.components(separatedBy: "inEditMode = ").count - 1, 2,
                        "declared, and set by Edit and Done alone")

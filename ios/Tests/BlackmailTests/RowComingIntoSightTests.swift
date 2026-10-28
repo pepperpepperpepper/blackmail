@@ -56,14 +56,16 @@ final class RowComingIntoSightTests: XCTestCase {
     func testWhateverAPatchInSightDrawsARowComingIntoSightDrawsToo() {
         XCTAssertEqual(RowParts.comingIntoSight, .whole)
         XCTAssertEqual(RowParts.made, .whole)
-        XCTAssertEqual(RowParts.whole, [.lines, .date, .busy, .label])
-        XCTAssertEqual(RowParts.patchesInSight.count, 3)
+        XCTAssertEqual(RowParts.whole, [.lines, .date, .busy, .label, .ticks])
+        XCTAssertEqual(RowParts.patchesInSight.count, 4)
         for patch in RowParts.patchesInSight {
             XCTAssertTrue(RowParts.comingIntoSight.isSuperset(of: patch), "\(patch.rawValue)")
         }
         XCTAssertEqual(RowParts.previewsLanded, .whole)
         XCTAssertEqual(RowParts.datesChanged, [.date, .label])
         XCTAssertEqual(RowParts.draftSpinners, [.busy])
+        // Edit mode's ticks, beginning or ending (B-174).
+        XCTAssertEqual(RowParts.editMode, [.ticks])
     }
 
     // MARK: - Over a model of the table
@@ -218,7 +220,8 @@ final class RowComingIntoSightTests: XCTestCase {
             + "else if parts.contains(.date) { cell.drawDate() } "
             + "if parts.contains(.busy) { cell.isBusy = thread.messages.contains { $0.id == drafts.loading } } "
             + "if parts.contains(.label) { "
-            + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) } } } "
+            + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) } "
+            + "if parts.contains(.ticks) { cell.ticks = inEditMode } } } "
             + "private func drawRowsInSight(_ parts: RowParts) { "
             + "for ip in tableView.indexPathsForVisibleRows ?? [] { "
             + "guard let cell = tableView.cellForRow(at: ip) as? MessageCell else { continue } "
@@ -241,7 +244,7 @@ final class RowComingIntoSightTests: XCTestCase {
 
         XCTAssertEqual(count("draw(cell, at: ip, ", in: list), 3, "made, coming into sight, a patch")
         for writer in ["cell.configure(with:", "cell.drawDate()", "cell.isBusy =",
-                       "cell.accessibilityLabel ="] {
+                       "cell.accessibilityLabel =", "cell.ticks ="] {
             XCTAssertEqual(count(writer, in: list), 1, writer)
         }
         XCTAssertFalse(list.contains("writeDate("), "B-139's writer, folded into the one")
@@ -268,6 +271,8 @@ final class RowComingIntoSightTests: XCTestCase {
         XCTAssertTrue(list.contains("@objc private func datesChanged() { drawRowsInSight(.datesChanged) "
                                     + "showAge() }"))
         XCTAssertTrue(list.contains("private func showDraftSpinners() { drawRowsInSight(.draftSpinners) }"))
+        XCTAssertTrue(list.contains("tableView.setEditing(editing, animated: true) "
+                                    + "drawRowsInSight(.editMode)"))
         XCTAssertTrue(list.contains("private func apply(_ previews: [String: String], in mailboxID: String) { "
                                     + "letters.apply(previews: previews, in: mailboxID) rebuildRows() "
                                     + "drawRowsInSight(.previewsLanded) }"))

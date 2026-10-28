@@ -211,6 +211,76 @@ enum ListEdit {
     }
 }
 
+/// The reading pane through Edit mode, as Mail's (B-174): with one row
+/// ticked, its letter is in the pane, as a tap would put it there; and as
+/// Edit mode ends, the letter the pane showed before it is put back (r6
+/// comparison C-03: "one ticked: ... the ticked letter opened in the pane";
+/// "Cancel: ... pane back to the letter before").
+///
+/// Nothing is marked read: whether Mail marks an unread letter read when it
+/// shows it for a tick was not seen. With two or more ticked the pane stays
+/// as it is (Mail draws a stack of them there, which is not copied).
+///
+/// Put back at every end of Edit mode, not only Cancel: after the Edit
+/// bar's Trash, Move or Mark the pane is as it was before this, the letter
+/// shown before Edit, emptied if it went (`ListEdit.going`). Only when the
+/// pane still shows what a tick put in it: a letter the pane has gone on to
+/// since, by its own Delete, is left.
+struct EditPane {
+
+    /// What the pane showed as Edit mode began (`lettersShown`), nil out of
+    /// Edit mode; and the row's conversation, for a letter the list has
+    /// lost meanwhile.
+    private var before: [String]?
+    private var beforeThread: MessageThread?
+    /// The letter the pane opened for a tick, `lettersShown`'s first, nil
+    /// while no tick has changed the pane.
+    private var shownForTick: String?
+
+    /// Edit mode has begun, the pane showing `shown`, in the row `thread`
+    /// of the list, if it has one.
+    mutating func begin(showing shown: [String], thread: MessageThread?) {
+        self = EditPane()
+        before = shown
+        beforeThread = thread
+    }
+
+    /// The ticks have changed, `ticked` the rows ticked: the row whose
+    /// letter goes in the pane, when there is exactly one, the pane does not
+    /// already show it (`ListEdit.paneRow`), and the folder's rows open in
+    /// the pane (`opens`: not Drafts or the Outbox, where a tap opens the
+    /// composer). Nil otherwise, and the pane stays as it is.
+    mutating func ticked(_ ticked: [Int], in threads: [MessageThread], showing shown: [String],
+                         opens: Bool = true) -> Int? {
+        guard before != nil, opens, ticked.count == 1, let row = ticked.first,
+              threads.indices.contains(row),
+              ListEdit.paneRow(in: threads, showing: shown) != row else { return nil }
+        shownForTick = threads[row].newest.id
+        return row
+    }
+
+    /// What the pane goes back to as Edit mode ends.
+    enum Back {
+        /// Nothing changes: no tick put a letter in the pane, or the pane
+        /// has gone on from it.
+        case stay
+        /// Empty, as it was before Edit mode.
+        case empty
+        /// The conversation shown before, as the list has it now.
+        case letters(MessageThread)
+    }
+
+    /// Edit mode has ended, the pane showing `shown`: what it goes back
+    /// to. Out of Edit mode afterwards.
+    mutating func end(in threads: [MessageThread], showing shown: [String]) -> Back {
+        defer { self = EditPane() }
+        guard let before, let tick = shownForTick, shown.first == tick else { return .stay }
+        if before.isEmpty { return .empty }
+        if let row = ListEdit.paneRow(in: threads, showing: before) { return .letters(threads[row]) }
+        return beforeThread.map(Back.letters) ?? .stay
+    }
+}
+
 /// Letters taken off the list by a Delete or Move from the reading pane.
 ///
 /// Hidden rather than cut out of the list's arrays, because the arrays are

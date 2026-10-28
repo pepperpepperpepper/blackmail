@@ -102,4 +102,36 @@ enum EditBar {
     /// drag's (`RowSwipes.Action.archive`).
     static let trash = "Trash"
     static let delete = "Delete"
+
+    // MARK: - As the ticks go (B-174)
+
+    /// The list's title in Edit mode with `ticked` rows ticked, as Mail's
+    /// (`MESSAGES_SELECTED_FORMAT`, "%1$lu Selected", one form for every
+    /// count): "1 Selected", "3 Selected"; with none ticked, and out of
+    /// Edit mode, the folder's name, `folder`. In the title's place: in
+    /// two panes UIKit cuts it to "1 Sel…" beside Cancel, as Mail's was
+    /// seen. Counted by the rows ticked, a conversation's row once; what
+    /// Mail counts for a conversation was not seen.
+    static func title(ticked: Int, folder: String) -> String {
+        ticked > 0 ? "\(ticked) Selected" : folder
+    }
+
+    /// Whether Mark, Move and the third button can be tapped: with a row
+    /// ticked, as Mail's, which are grey with none (r6 comparison C-03,
+    /// rgb(65,65,65)) and blue from the first tick. Select All always can.
+    static func acts(ticked: Int) -> Bool { ticked > 0 }
+
+    /// Whether Edit can be tapped: not in a folder with no rows, as Mail's
+    /// Edit is grey in an empty Junk (C-03); Cancel always.
+    static func canEdit(rows: Int, editing: Bool) -> Bool { editing || rows > 0 }
+
+    /// Whether Edit mode ends by itself, as Cancel ends it: its last row
+    /// has gone from the list.
+    static func ends(rows: Int, editing: Bool) -> Bool { editing && rows == 0 }
+
+    /// Whether the reading pane is dimmed: in Edit mode with nothing ticked,
+    /// as Mail greys the letter it shows and the buttons above it (C-03).
+    /// With a row ticked its letter is in the pane, in full colour
+    /// (`EditPane`).
+    static func dimsPane(editing: Bool, ticked: Int) -> Bool { editing && ticked == 0 }
 }

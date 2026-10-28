@@ -461,7 +461,8 @@ final class DatesRedrawnTests: XCTestCase {
             + "else if parts.contains(.date) { cell.drawDate() } "), redraw)
         XCTAssertTrue(redraw.contains(
             "if parts.contains(.label) { "
-            + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) } } } "))
+            + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) } "
+            + "if parts.contains(.ticks) { cell.ticks = inEditMode } } } "))
         XCTAssertTrue(redraw.hasSuffix(
             "private func drawRowsInSight(_ parts: RowParts) { "
             + "for ip in tableView.indexPathsForVisibleRows ?? [] { "
