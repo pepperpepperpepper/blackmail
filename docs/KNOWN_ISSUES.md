@@ -39183,16 +39183,16 @@ kept row with no arrival passing as it should; the jump (the keys by the
 Date with the week-back bound, the day's letters by their Date, no walk
 down, the landing and the row by the Date): 137 failures in 20 tests,
 each an assertion's, today's jump "No mail on or after October 28" as on
-the iPad; the row opened on by its Date alone: 1 failure. Put back, passing. The window cut lower, undone (no move
-down): the window of three rows lands on "labelled late", "Showing" the
-9th, 4 failures, each an assertion's; its guards undone (any lowest row
-taken): 21 failures in five of the six, each an assertion's, the wire's
-passing. Put back, passing. The date-order paging after a jump
-(`ListInDateOrderTests`, the int21 changes of 3da61b3 among them) and
-the copy kept on the iPad and its search with no connection (B-160:
-`KeptPagesTests`, `KeptCopyTests`, `OfflineSearchTests`) pass unchanged.
-The full suite: 3,144 tests, 6 skipped, none failing; the release build
-for the iPad: "Build complete".
+the iPad; the row opened on by its Date alone: 1 failure. Put back,
+passing. The window cut lower, undone (no move down): the window of
+three rows lands on "labelled late", "Showing" the 9th, 4 failures, each
+an assertion's; its guards undone (any lowest row taken): 21 failures in
+five of the six, each an assertion's, the wire's passing. Put back,
+passing. The date-order paging after a jump (`ListInDateOrderTests`, the
+int21 changes of 3da61b3 among them) and the copy kept on the iPad and
+its search with no connection (B-160: `KeptPagesTests`, `KeptCopyTests`,
+`OfflineSearchTests`) pass unchanged. The full suite: 3,144 tests, 6
+skipped, none failing; the release build for the iPad: "Build complete".
 
 *Layout.* None changed: a row's date is in its place, in the same words
 for a date; only which date. The foot's words and the sheet are as they

@@ -9810,14 +9810,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       is merged into; the round of 2026-10-28 ran steps 0 to 8 on int21
       (1873724), and its two failures, steps 2 and 4, are what this build
       changes (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28").
-      Nothing is sent and
-      nothing is saved to Drafts: no Send, Reply or New Message is tapped.
-      The host makes the letters, each from a made-up address, with a new
-      Message-ID of its own and naming none on the account, and APPENDs
-      them, read (`\Seen`), to the label "Notes", never the Inbox, with the
-      APPEND's own date as its INTERNALDATE, noting each UID from its
-      APPENDUID; it stops if one has none. Three panes, Organize by Thread
-      on; the connection log read after each step.
+      Nothing is sent and nothing is saved to Drafts: no Send, Reply or New
+      Message is tapped. The host makes the letters, each from a made-up
+      address, with a new Message-ID of its own and naming none on the
+      account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      never the Inbox, with the APPEND's own date as its INTERNALDATE,
+      noting each UID from its APPENDUID; it stops if one has none. Three
+      panes, Organize by Thread on; the connection log read after each
+      step.
       0. *The letters:* "B-178 lastyear", INTERNALDATE and Date both 14 June
       2025 noon, as the round's; "B-178 came old", INTERNALDATE twenty days
       ago, its Date today at 9 am; "B-178 dated old", INTERNALDATE now, its
@@ -9848,9 +9848,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       Mail's, this passes; if Mail's showed the arrival, the step FAILs, a
       difference from Mail to fix, both screenshots cited, in the round's
       results, not in KNOWN_ISSUES. The log: one
-      `UID FETCH … (UID INTERNALDATE)` after the
-      `UID SEARCH ALL`, read as `* FETCH {N dates}`, N the letters in Notes,
-      then the page's FETCH. Screenshot of each place.
+      `UID FETCH … (UID INTERNALDATE)` after the `UID SEARCH ALL`, read as
+      `* FETCH {N dates}`, N the letters in Notes, then the page's FETCH.
+      Screenshot of each place.
       3. *To the end:* scrolled to the foot of Notes: every row once, the
       dates going down all the way, Notes' oldest last, nothing drawn
       twice, no row missing against the count over IMAP.

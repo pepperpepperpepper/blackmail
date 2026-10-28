@@ -1276,13 +1276,11 @@ actor IMAPClient {
     /// to match anything (`performLowestOfFirst`), and for a
     /// `PageSearch.lowestDated` the first to arrive of its day's letters
     /// that arrived within it, or the lowest of the first wider SEARCH to
-    /// match anything
-    /// (`performLowestDated`). Every list
-    /// comes out of the same SELECT, so they share its UIDVALIDITY, which is
-    /// returned with each.
-    /// The date jump finds its anchor from one list in the other, and in
-    /// two holds a reconnect could have fallen between them and put them
-    /// in different numberings.
+    /// match anything (`performLowestDated`). Every list comes out of the
+    /// same SELECT, so they share its UIDVALIDITY, which is returned with
+    /// each. The date jump finds its anchor from one list in the other,
+    /// and in two holds a reconnect could have fallen between them and put
+    /// them in different numberings.
     ///
     /// A refused SEARCH is thrown, as in `search(_:in:)`. A refused FETCH is
     /// thrown only if nothing at all came back, as in `fetchSummaries`.
@@ -1370,11 +1368,10 @@ actor IMAPClient {
         /// or more ahead its one SEARCH.
         case lowestOfFirst([String])
         /// The first to arrive of the letters the first matches that
-        /// arrived within the range, as the list goes and shows them, their
-        /// dates fetched to see; with none, as `lowestOfFirst` the rest: a
-        /// date jump's,
-        /// its day's letters, his day, and the spans after it
-        /// (`IMAPDate.Jump`, B-115).
+        /// arrived within the range, as the list goes and shows them,
+        /// their dates fetched to see; with none, as `lowestOfFirst` the
+        /// rest: a date jump's, its day's letters, his day, and the spans
+        /// after it (`IMAPDate.Jump`, B-115).
         case lowestDated(String, within: Range<Date>, wider: [String])
 
         init(stringLiteral criteria: String) { self = .every(criteria) }
