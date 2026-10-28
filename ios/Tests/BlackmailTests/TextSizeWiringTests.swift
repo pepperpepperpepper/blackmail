@@ -297,10 +297,10 @@ final class TextSizeWiringTests: XCTestCase {
             }
         }
         XCTAssertEqual(sites.count, 17, "fifteen questions and action sheets, and two Share sheets: \(sites.sorted())")
-        // Their words, which on 16.5.1 followed the app's own size under
-        // the trait and the limits (round r6-k-fix, 2026-10-28): the app
-        // is its own principal class, which answers Large for that size
-        // (`testTheAppsOwnSizeIsLargeAtItsRoot`).
+        // Their words, which on 16.5.1 grew under the trait and the limits
+        // (round r6-k-fix, 2026-10-28), believed to follow the app's own
+        // size, not shown: the app is its own principal class, which
+        // answers Large for that size (`testTheAppsOwnSizeIsLargeAtItsRoot`).
         XCTAssertNotNil(place(of: Self.principalClassWired, in: try entryPoint("BlackmailApp")))
     }
 
@@ -324,12 +324,13 @@ final class TextSizeWiringTests: XCTestCase {
     /// The app's own text size is Large at its root (B-166, found on the
     /// test iPad 2026-10-28, the second round): on 16.5.1 a question's,
     /// an action sheet's and the bubble menu's frames kept Large under
-    /// `heldAtLarge` and their words grew, an alert's labels following
-    /// the app's `preferredContentSizeCategory`. The app is launched as
+    /// `heldAtLarge` and their words grew, an alert's labels believed to
+    /// follow the app's `preferredContentSizeCategory`, not shown (the
+    /// host has no UIKit to run). The app is launched as
     /// its own subclass of `UIApplication`, named in `main.swift`, whose
     /// one override answers Large, the step the app is drawn at whatever
-    /// the iPad's (`TextSize.drawn`). The share extension has no
-    /// application of its own and names none. Nothing else subclasses
+    /// the iPad's (`TextSize.drawn`). The share extension, a process of its
+    /// own whose application UIKit makes, names none. Nothing else subclasses
     /// `UIApplication`; the app's size is read in one place,
     /// `TextSizes.app`, which hears iOS's word of a change; and the one
     /// other reader of a change of size, by its traits, is the share
