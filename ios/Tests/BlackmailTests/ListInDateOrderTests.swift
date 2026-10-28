@@ -53,8 +53,14 @@ final class ListInDateOrderTests: XCTestCase {
         private let lock = NSLock()
         private var _dated = 0
         private var _searches: [String] = []
+        /// Letters left out of the first answer that asks for their dates,
+        /// as a FETCH answered in part leaves them out, and given after.
+        private var withheld: Set<UInt32>
 
-        init(_ arrivals: [UInt32: Date]) { self.arrivals = arrivals }
+        init(_ arrivals: [UInt32: Date], withholdingOnce withheld: Set<UInt32> = []) {
+            self.arrivals = arrivals
+            self.withheld = withheld
+        }
 
         var listing: [UInt32] { arrivals.keys.sorted() }
         var dated: Int { lock.lock(); defer { lock.unlock() }; return _dated }
@@ -72,8 +78,9 @@ final class ListInDateOrderTests: XCTestCase {
                 arrivals: { [self] uids in
                     lock.lock()
                     _dated += uids.count
+                    let wanted = Set(uids).subtracting(withheld)
+                    withheld.subtract(uids)
                     lock.unlock()
-                    let wanted = Set(uids)
                     return arrivals.filter { wanted.contains($0.key) }
                 },
                 matching: { [self] criteria in
@@ -292,6 +299,64 @@ final class ListInDateOrderTests: XCTestCase {
         XCTAssertEqual(all, everything)
     }
 
+    /// A listing from the top after a date jump in a folder too large to
+    /// date whole: the jump's span, whose top is a fixed date, is let go
+    /// (`fromTheTop`), and the first page is the letters that came last,
+    /// not the jumped-to day's.
+    func testAListingFromTheTopAfterAJumpBeginsWithTheNewest() async throws {
+        let folder = folder(6_000, every: 6, outOfTurn: [Self.start.addingTimeInterval(50 * Self.day)])
+        let anchor: UInt32 = 1_000 + 2_800 * 3
+        var jumped = ArrivalOrder(validity: 1, listing: folder.listing)
+        let now = Self.start.addingTimeInterval(1_600 * Self.day)
+        let reached = try await jumped.reach(anchor, asking: folder.asking)
+        XCTAssertTrue(reached)
+        try await jumped.reachDown(below: anchor, count: 50, asking: folder.asking)
+        try await jumped.reachUp(above: anchor, count: 60, now: now, asking: folder.asking)
+        XCTAssertFalse(jumped.completeAbove, "the jump's span ends at a fixed date")
+        XCTAssertGreaterThanOrEqual(jumped.rows(below: nil), 50)
+
+        var top = ArrivalOrder(validity: 1, listing: folder.listing, carrying: jumped)
+        top.fromTheTop()
+        try await top.reachDown(below: nil, count: 50, asking: folder.asking)
+        XCTAssertEqual(top.older(than: nil, limit: 50), Array(folder.listOrder.prefix(50)))
+        XCTAssertTrue(top.completeAbove)
+    }
+
+    /// A letter the dates FETCH left out, answered in part, is off that
+    /// listing's list. The next listing that still finds it in the folder
+    /// owes its date again and lists it in its place, whether its row comes
+    /// with the page's FETCH (`foldedPage`) or its date is asked for alone;
+    /// one gone from the folder since is not owed.
+    func testALetterTheDatesLeftOutIsListedAtTheNextListing() async throws {
+        let dates = folder(300).arrivals
+        let left: UInt32 = 1_000 + 290 * 3
+        let folder = Folder(dates, withholdingOnce: [left])
+        var order = ArrivalOrder(validity: 1, listing: folder.listing)
+        try await order.reachDown(below: nil, count: 50, asking: folder.asking)
+        XCTAssertTrue(order.completeBelow && order.completeAbove)
+        XCTAssertFalse(order.older(than: nil, limit: 400).contains(left), "off this listing's list")
+        XCTAssertEqual(folder.dated, 300)
+
+        var refreshed = ArrivalOrder(validity: 1, listing: folder.listing, carrying: order)
+        refreshed.fromTheTop()
+        try await refreshed.reachDown(below: nil, count: 50, asking: folder.asking)
+        XCTAssertEqual(folder.dated, 301, "its date asked for alone")
+        XCTAssertEqual(refreshed.older(than: nil, limit: 400), folder.listOrder)
+        XCTAssertEqual(refreshed.older(than: nil, limit: 50).firstIndex(of: left), 9, "the tenth newest")
+
+        var folded = ArrivalOrder(validity: 1, listing: folder.listing, carrying: order)
+        folded.fromTheTop()
+        let fetched = try XCTUnwrap(folded.foldedPage(limit: 50))
+        XCTAssertEqual(fetched.first, left)
+        folded.settleOwed(from: [left: try XCTUnwrap(dates[left])])
+        XCTAssertEqual(folded.older(than: nil, limit: 400), folder.listOrder)
+
+        let gone = Folder(dates.filter { $0.key != left })
+        let without = ArrivalOrder(validity: 1, listing: gone.listing, carrying: order)
+        XCTAssertEqual(without.owed, [])
+        XCTAssertNil(without.foldedPage(limit: 50))
+    }
+
     // MARK: - The repository
 
     private func makeRepository(shelf: MailShelf? = nil, now: Date? = nil) -> IMAPMailRepository {
@@ -316,7 +381,7 @@ final class ListInDateOrderTests: XCTestCase {
     }
 
     /// The letter put in last sits among the letters of its own time, by
-    /// date, as in Mail, not at the top: the 21st row, under the letters of
+    /// date, as in Mail, not at the top: the 22nd row, under the letters of
     /// the twenty days after it, with the dates of the rows above it all
     /// after its own and those below before.
     func testALetterPutInLastSitsByItsDateNotAtTheTop() async throws {
@@ -445,6 +510,28 @@ final class ListInDateOrderTests: XCTestCase {
     }
 
     // MARK: - The watch's news
+
+    /// A letter put in the folder out of turn before the list was fetched,
+    /// the highest UID there but arrived below the rows the list holds, is
+    /// not news at the next check: only the letter that has come since is,
+    /// and the list is not fetched afresh (`newsOnce`). Taken for news, it
+    /// would have the list fetched afresh at every check that found a
+    /// change, the list never holding a row as old.
+    func testALetterPutInOutOfTurnBeforeTheListingIsNotNews() async throws {
+        let put = try XCTUnwrap(server.deliver(lastYear(), to: [Server.inbox, Server.allMail])[Server.inbox])
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        XCTAssertFalse(rows.contains { uid($0.id) == put }, "below the rows listed")
+        XCTAssertLessThan(rows.map { uid($0.id) }.max() ?? .max, put)
+
+        let come = Server.Letter(from: Server.sam, to: [Server.owner], subject: "Just come",
+                                 date: Server.newestDate.addingTimeInterval(1_200),
+                                 text: "Hello.\r\n", messageID: "<just@example.com>")
+        let new = try XCTUnwrap(server.arrive(come, in: [Server.inbox, Server.allMail])[Server.inbox])
+        let news = try await repository.news(in: "inbox", known: rows.map(\.id), searchingAnyway: true)
+        XCTAssertEqual(news.arrived.map { uid($0.id) }, [new])
+        XCTAssertFalse(news.refetch)
+    }
 
     private func row(_ uid: Int, arrived hours: Double) -> MessageSummary {
         let when = Server.newestDate.addingTimeInterval(hours * 3_600)

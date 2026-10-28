@@ -77,7 +77,10 @@ struct ArrivalOrder: Equatable, Sendable {
     /// with its row, by UID; kept for a letter gone from the folder too,
     /// which a page can still be asked from below.
     private(set) var arrivals: [UInt32: Date] = [:]
-    /// Letters of `listing` the server gave no date for: gone since.
+    /// Letters of `listing` the server gave no date for: gone since, or
+    /// left out of an answer it did not give whole (a chunk refused, or
+    /// Gmail's "Some messages could not be FETCHed"). Not listed in this
+    /// listing; owed again by the next that still has them.
     private(set) var missing: Set<UInt32> = []
     /// The arrivals within which every letter of the folder has its date:
     /// `distantPast` at the bottom when every older one has, `distantFuture`
@@ -101,12 +104,16 @@ struct ArrivalOrder: Equatable, Sendable {
     /// A listing of the same folder afresh, carrying on from `previous`
     /// where it is the same numbering: the dates already asked for, and
     /// the span, once the letters new to the folder since have theirs.
+    /// The letters the last one was given no date or row for and that are
+    /// still in the folder are owed again with them: the span carried
+    /// covers them, and nothing else would ask for their dates, so they
+    /// would stay off the list for the rest of the launch.
     init(validity: UInt32, listing: [UInt32], carrying previous: ArrivalOrder?) {
         self.init(validity: validity, listing: listing)
         guard let previous, previous.validity == validity else { return }
         arrivals = previous.arrivals
         let before = Set(previous.listing)
-        let again = Set(previous.unanswered)
+        let again = Set(previous.unanswered).union(previous.missing)
         owed = self.listing.filter { !before.contains($0) || again.contains($0) }
         known = previous.known
         rebuild()
@@ -195,7 +202,8 @@ struct ArrivalOrder: Equatable, Sendable {
     /// when the letters new to the folder since are few: those, and the
     /// `limit` newest the order holds, so the page's own FETCH brings the
     /// new letters' dates with their rows and nothing more is asked
-    /// (`settleOwed(from:)`). A Refresh sends what it sent before B-178.
+    /// (`settleOwed(from:)`). A Refresh sends the commands it sent before
+    /// B-178; its FETCH asks for the new letters on top of the `limit`.
     /// Nil when the order is to be widened first: nothing carried, a span
     /// that does not reach the newest letter, or many new letters.
     func foldedPage(limit: Int) -> [UInt32]? {
