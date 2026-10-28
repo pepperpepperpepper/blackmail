@@ -38667,7 +38667,9 @@ Edit mode are as any of its words, dimmed with it.
 **Found on the test iPad, 2026-10-28**, in round r6-j-files, on the
 int21 build (1873724), steps 1 to 7 of the check, step 6 recorded at 60
 frames a second; one FAIL, a PASS its audit contradicted, and the FAIL
-seen again in a second run from a fresh launch on new letters.
+seen again in a second run from a fresh launch on new letters. And the
+files of a letter's own page fetched after its pictures, which the
+round showed and Mail does not: decided for Mail's (below).
 
 *The ring stood still* (step 6, "B-176 large" opened). The log had its
 structure, its words, its two photos and then its PDF's section, with no
@@ -38703,25 +38705,73 @@ SMIL is gone. The drawing's box, size and place, its circle and its arc
 are as they were, and nothing else in the tile changed. On paper no ring
 is drawn, as before.
 
-*Not changed: the files after the pictures, on a letter's own page.* The
-PDF waited for the photos too, its FETCH after both of theirs: on a
-letter's own page the fetches ahead are asked when the page has finished
-loading (`webView(_:didFinish:)`, `fetchAhead`), which waits for its
-pictures. That is as E6's *Changed* has it, the files fetched "as such a
-letter's own page has loaded", a picture not among them because the page
-asks for it: on a letter's own page the words, then the pictures, then
-the files, one at a time on the one connection. In a stack it is not so:
-a body put into the stack has its files asked for as it goes in
-(`run(_ fill:)` calls `fetchAhead` as it hands `bmFill` to WebKit,
-before WebKit has asked the loader for the body's pictures), so the
-first file usually joins the client's line ahead of them, and a file can
-come before its pictures. B-176's heading and E6's say the files come
-"as it opens"; whether Mail asks its files before its pictures was not
-compared, but in C-13e, at +3 s, Mail had the PDF and one photo drawn
-while the other photo still came. *Left for the owner:* whether a
-letter's own page should ask for its files as it opens, before its
-pictures have come, as the stack does and as Mail seems to. The code is
-as it was.
+*Changed: a letter's own page asks for its files as its words go in,
+as a stack does* (decided 2026-10-28 by the owner's rule: copy Mail). The
+PDF waited for the photos, its FETCH after both of theirs: on a letter's
+own page the fetches ahead were asked when the page had finished loading
+(`webView(_:didFinish:)`, `fetchAhead`), and the page's load waits for
+its pictures, each answered by the loader only once its part's FETCH has
+ended (`InlineImageLoader`): the words, then the pictures, then the
+files, on the one connection. A body put into a stack has its files
+asked for as it goes in (`run(_ fill:)`), before WebKit has asked the
+loader for its pictures, and Mail, in C-13e at +3 s, had the PDF and one
+photo drawn while the other photo still came. Now a letter's own page is
+as the stack: its files are asked for as the page is given to WebKit,
+its words going in (`draw(_:page:)` calls `fetchAhead` right after
+`load`), not at its load event, which asks for no file now. Each file is
+still one FETCH of its own in the client's interactive line, the next
+asked only once the one before has ended, in turn with the pictures as
+WebKit asks for them, first come first served: the first file usually
+goes ahead of them, and a small PDF is drawn while the photos still
+come, as Mail's was. B-160's letters fetched ahead and B-151's look
+still go in between two files, never into one; the pane given anything
+else still calls the rest off (`letAheadGo`); and nothing is fetched for
+a letter the pane has left (8b7bd4f's checks, as they were). A file can
+now come before the page is ready for its tile's script, and none is
+lost. Before WebKit has committed the page, a script would run in the
+page before it and go with it, the tile saying "Downloading" for good:
+the pane holds the script until the page it gave last is committed, and
+runs it then, in the order they came (`PaneDocument.tile`, `didCommit`,
+and at the page's end should the commit not be heard); a page given
+before that takes the held ones with it, the pane telling the new page's
+tiles afresh as it gives it (`FilesAhead.drawn`). Committed, before the
+page's own script has run at its document's end, there is no
+`bmFileLanded` to call: the script keeps what it was given in
+`bmFilesWaiting` (`BodyFiles.Landed.script`), and the page's script
+tells those tiles as it ends (`ConversationDocument.script`). The tile
+is drawn as before: the ring turning from its first frame (CSS, above),
+"Downloading", then the icon and the line kept; nothing on it or on the
+page moves. A tap (`fileData`, B-122), B-170's busy until Quick Look is
+up, print and the stack are as they were. This reverses E6's "as such a
+letter's own page has loaded"; `PaneDocument.Finished.letter`, which
+named the letter for it, is gone, and `Finished.tiles` hands back the
+held ones instead.
+
+*Tests, for it.* `FilesAheadTests`, two new:
+`testALettersOwnPageAsksForItsFilesAsItsWordsGoIn`, read from the pane:
+the loader pointed at the letter's pictures, the page given, then its
+files asked, the first file's FETCH with nothing awaited before it, the
+page finished asking for none, and only the page given and a stack's
+body asking for files; and the pane's document in WebKit's order, the
+files asked before the page's load ends, once.
+`testAFileLandingBeforeThePageIsReadyIsDrawnOnceItIs`: the hold on the
+pane's document, through commits of other pages, a page given before
+the commit, the end with no commit heard, no navigation and WebKit's
+process lost; on the model of the page, a file landing before the page's
+script has run drawn once it has, come or not, in its order, another
+letter's changing nothing and a tap after as ever (`ModelPage` runs a
+step at less than 0 before the script); and the pane read: every tile's
+script through the hold, told at the commit and at the end. Widened:
+`testItsTileSaysDownloadingWithTheRing` (the script),
+`testThePaneFetchesThemAndLetsThemGo` (the draw, the hold),
+`PaneCoverTests` (the commit), `DatesRedrawnTests` (the end);
+`testALettersPageFinishedNamesItsLetter` gone with `Finished.letter`.
+Undone by hand, each an assertion's: the files asked at the page's end
+again, 5 failures in 3 tests; the hold taken out, 7 in 1; the script as
+it was, 9 in 2; the tiles not told as the page's script ends, 5 in 1;
+the commit telling nothing, 3 in 2. Put back, passing. The full suite:
+3,147 tests, 6 skipped, none failing; the release build for the iPad:
+"Build complete".
 
 *The tap and the next letter* (step 6, the PDF's tile tapped while it
 said "Downloading", then at once "B-176 pdf"). The round wrote "no FETCH
@@ -38781,7 +38831,8 @@ taken out: 1, each an assertion's. Put back, passing. The full suite:
 "Build complete".
 
 *Layout.* None changed: the ring is drawn where it was, at its size, and
-turns.
+turns; a file asked for sooner changes only when its tile's icon comes
+back.
 
 ## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 

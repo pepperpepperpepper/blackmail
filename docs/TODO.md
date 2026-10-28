@@ -9692,16 +9692,17 @@ checks below is left as not needed, not open, and none is worth a round.*
 
 - [ ] **B-176, files, pictures and links in the pane as Mail has them.** On
       the test iPad, the test account only, from a build of the `fix-j1`
-      branch at its tip (the ring turning by CSS, 2026-10-28) or of the
-      int it is merged into; the round of 2026-10-28 ran steps 1 to 7 on
-      int21 (1873724), and its failure, the ring standing still in step 6,
-      is what this build changes, and step 6's last expectation is
-      corrected (KNOWN_ISSUES B-176, "Found on the test iPad,
-      2026-10-28"). Nothing is sent: no Send is tapped in any step, and
-      every composer that opens is closed with Cancel and Delete Draft,
-      which keeps nothing. The host makes the letters, each from another
-      address, with a new Message-ID of its own and naming none on the
-      account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      branch at its tip (the ring turning by CSS, and a letter's own page
+      asking for its files as it opens, 2026-10-28) or of the int it is
+      merged into; the round of 2026-10-28 ran steps 1 to 7 on int21
+      (1873724), and its failure, the ring standing still in step 6, is what
+      this build changes, with the files no longer waiting for the pictures,
+      and step 6's expectations are corrected (KNOWN_ISSUES B-176, "Found on
+      the test iPad, 2026-10-28"). Nothing is sent: no Send is tapped in any
+      step, and every composer that opens is closed with Cancel and Delete
+      Draft, which keeps nothing. The host makes the letters, each from
+      another address, with a new Message-ID of its own and naming none on
+      the account, and APPENDs them, read (`\Seen`), to the label "Notes",
       never the Inbox, noting each UID from its APPENDUID; it stops if one
       has none. Three panes; the connection log read after each step; the
       screen recorded at 60 frames a second for 6.
@@ -9752,38 +9753,44 @@ checks below is left as not needed, not open, and none is worth a round.*
       where they were in the round of 2026-10-27, in a screenshot beside
       it.
       6. *Large (E6):* "B-176 large" tapped: the log has its
-      BODYSTRUCTURE, its words, a FETCH of each photo, then a FETCH of the
-      PDF's section with no tap; in the recording, the PDF's tile with a
-      ring where its icon is and "Downloading" under its size from the
-      first frame it is drawn, the ring turning, about once a second, in
-      the frames before the photos are laid out and push the tile down (on
-      2026-10-28 it stood still in every frame until then), then its icon
-      and nothing under its size, no "Tap to Download" in any frame,
-      nothing in the tile or around it moving: the icon, the name and the
-      size at the same height in the frame before the icon comes and the
-      frame after (the last line kept, empty). Tapped: Quick Look at once,
-      no second FETCH of it in the log; Done. "B-176 pdf" opened, then
-      "B-176 large" again, its PDF's tile tapped at once, while the photos
-      still come: one FETCH of the PDF in the log, not two; Done. "B-176
-      huge": the photo drawn, the PDF's tile "Tap to Download" with its
-      icon and no FETCH of it; tapped: the ring and "Downloading" until
-      Quick Look is up, then Done: "Tap to Download" again. "B-176 large"
-      again, and at once "B-176 pdf": the log has no FETCH of the large
-      letter's PDF after the tap on the other, or one already on the wire
-      ending; `tmp/Attachments` over SSH has no copy of "B-176 large"'s
-      PDF once "B-176 pdf" is open. "B-176 large" again, its PDF's tile
-      tapped while it says "Downloading", which is only at its early
-      place, under the words, before the photos are laid out, and at once
-      "B-176 pdf": in the log at most one FETCH of the large letter's PDF,
-      the tap's, which may go after "B-176 pdf" is shown, when the photo
-      on the wire ends (on 2026-10-28 1.1 s after: asked at the tap,
-      before the pane moved on, it ends, as a tap's download does, B-122),
-      and nothing else of the large letter after it; nothing opens over
-      "B-176 pdf", nothing is said, and `tmp/Attachments` has no copy of
-      its PDF. "B-176 ring" opened, recorded: the PDF's tile above the
+      BODYSTRUCTURE and its words, then, with no tap, a FETCH of the PDF's
+      section asked as the letter opens, as a stack's body has its files
+      asked: before the photos' FETCHes or between them, each FETCH asked
+      only once the one before has ended, never the PDF's only after both
+      photos' (on 2026-10-28 it came after both); in the recording, the
+      PDF's tile with a ring where its icon is and "Downloading" under its
+      size from the first frame it is drawn, the ring turning, about once
+      a second, from that first frame (on 2026-10-28 it stood still until
+      the photos were laid out), then its icon and nothing under its size,
+      most likely while the photos still come, as Mail drew its PDF (C-13e
+      at +3 s); no "Tap to Download" in any frame, nothing in the tile or
+      around it moving: the icon, the name and the size at the same height
+      in the frame before the icon comes and the frame after (the last
+      line kept, empty). Tapped: Quick Look at once, no second FETCH of it
+      in the log; Done. "B-176 pdf" opened, then "B-176 large" again, its
+      PDF's tile tapped at once: one FETCH of the PDF in the log for this
+      opening, not two; Done. "B-176 huge": the photo drawn, the PDF's
+      tile "Tap to Download" with its icon and no FETCH of it; tapped: the
+      ring and "Downloading" until Quick Look is up, then Done: "Tap to
+      Download" again. "B-176 large" again, and at once "B-176 pdf": the
+      log has no FETCH of the large letter's PDF after the tap on the
+      other, or one already on the wire ending; `tmp/Attachments` over
+      SSH has no copy of "B-176 large"'s PDF once "B-176 pdf" is open.
+      "B-176 large" again, its PDF's tile tapped while it says
+      "Downloading", which is now a short while, under the words, as its
+      FETCH goes first, and at once "B-176 pdf": in the log at most one
+      FETCH of the large letter's PDF, the one asked as it opened, which
+      the tap waits for, or the tap's, which may end after "B-176 pdf" is
+      shown (a FETCH on the wire ends, B-122), and nothing else of the
+      large letter after it but a photo's FETCH already on the wire
+      ending; nothing opens over "B-176 pdf", nothing is said, and
+      `tmp/Attachments` has no copy of its PDF. Missed while it says
+      "Downloading", the tap opens Quick Look at once: written down, and
+      no fault. "B-176 ring" opened, recorded: the PDF's tile above the
       photo with the ring turning, about once a second, from the first
-      frame it is drawn, while the photo comes and until the PDF has come,
-      then its icon, the name and the size where they were.
+      frame it is drawn, the PDF's FETCH before the photo's, until the PDF
+      has come, then its icon, the name and the size where they were,
+      while the photo still comes.
       7. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
