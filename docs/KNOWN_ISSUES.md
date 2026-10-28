@@ -30817,6 +30817,15 @@ apostrophe; a 30 MB file gave "Unable to Attach" and no row. What Mail
 shows on iPadOS 18 was not seen, Mail not being on the test iPad. Nothing
 was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-27** (round r6-i-compare, C-02a
+and C-03): SAME, Gmail's Sent Mail and Spam "Sent" and "Junk", and in the
+Edit bar "Mark", "Move" and "Trash" in one blue, rgb(10, 132, 255), Trash
+never red, "Delete" in the Trash, and "Cancel". DIFFERENT, Mail's "All
+Mail" inside a grey "[Gmail]" group, kept as Blackmail's layout; and its
+bar grey with nothing ticked and "1 Selected", copied by B-174. NOT
+COMPARABLE, where All Mail stands for his Google account on 18. "Unable to
+Attach" not compared, Files' picker showing the owner's iCloud Drive.
+
 ## B-145 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A link tapped in a letter asked "Open this link?" before it opened; it opens at once, in Safari or the app that claims it, as Mail opens one, and a `mailto:` still opens the composer with its address
 
 **Ruled** by the owner on 2026-10-26: "close the gaps in our decision
@@ -30923,6 +30932,13 @@ stack, opened Safari or the YouTube app at once, with no question, and
 back by "◀ Blackmail" the letter or the stack was where it was; a
 `mailto:` opened the composer with its address and subject. A link held
 gave WebKit's menu under "Tap to show preview" (above). Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-11e): a link held,
+DIFFERENT: Mail's card, "Tap to show preview", by a menu of "Open Link",
+"Add to Reading List", "Copy Link" and "Share…"; B-176 built Add to
+Reading List (E5) and took it out at int21, the menu's look being
+Blackmail's layout. A link tapped not compared: it opens Safari, which is
+the owner's.
 
 ## B-146 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. His signature was drawn on a white sheet with black words in the reading pane, alone and in a conversation; it is drawn with the rest of its letter, as Mail draws it: its words white on the black, its logo as drawn, dark on it
 
@@ -31031,6 +31047,10 @@ had no sheet: its words white on the black, rgb(0, 0, 0) under them, its
 links blue and the logo dark on it; Print's preview had the words black on
 white and the logo as on paper. Mail's own drawing was not seen. Nothing
 was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-11b): DIFFERENT: Mail
+draws his signature dark on a grey sheet, rgb(51, 51, 51), his white
+turned and not taken away, the black logo showing on it; copied by B-173.
 
 ## B-147 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A plain letter's quotes were drawn as typed, each line with its ">" and no bar; they are drawn as Mail draws them, Mail's quote bars beside them, a deeper bar for each mark more, the marks hidden, on the pane, in a conversation and on paper
 
@@ -31219,6 +31239,15 @@ words 5 pt in and in their colours, no ">" before them, ">From" as typed
 with no bar, and no blank line added; a flowed letter's "> > " line kept
 its one mark; the same in two panes, in a stack, and in Print's preview in
 the light colours. Mail's own was not seen. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-11c, C-11d, C-17c): SAME,
+the bars and the quoted words in their colours, no ">" shown, spaced marks
+counted ("> > " two levels, ">>>>" four), the first level rgb(191, 90,
+242), a flowed letter's "> Still one." at the first level with its one
+">", and on paper the bars in the light colours. DIFFERENT, the "wrote:"
+line inside the first level and a ">From" line a quote, on the pane and on
+paper; copied by B-172. NOT COMPARABLE, the deeper levels' shades, rgb(64,
+200, 224) and rgb(48, 209, 88) on 16.5.1, Blackmail's being 18.6's.
 
 ## B-148 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A PDF put among a letter's words had two rows, one there and one in the header's list of files; it has the one among the words, and the header, decided from the letter's structure at the tap, does not change height when the body comes
 
@@ -31417,6 +31446,14 @@ in the header. The letter of 8.2 MB fetched its words without the PDF,
 whose row said "Loading…" for 2.2 s, until Quick Look, with about 0.1 s of
 plain blue before it came. Offline, "This message could not be
 downloaded." and no file anywhere. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-13a, C-13b, C-13e): SAME,
+no file list in the header. A PDF among the words is drawn once, there, in
+Mail as its page at the column's width with no tile: NOT COMPARABLE for
+its look, iPadOS 18's WebKit having a newer element. DIFFERENT, a large
+letter's files fetched by Mail as it opens, a tile with a ring and
+"Downloading" while one comes, no "Tap to Download" seen; copied by B-176
+(E6).
 
 ## B-149 — FIXED 2026-10-26, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27. At a tap on another letter the letter he left stayed under the new header for a frame or two; the pane is covered in its own colour from the tap until WebKit has painted what comes in its place, and never longer than half a second
 
@@ -31787,6 +31824,15 @@ Look; a picture from the web and a photo in a link kept WebKit's menus; a
 finger on a photo still coasting stopped it with no menu. A logo drawn
 over 100 wide counts as a photo. Not possible: a pinch, and a paste into
 Notes, which is not on the test iPad. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-14a): DIFFERENT: Mail
+lifts the photo large beside a menu headed by its name, "Open in New
+Window", "Markup and Reply", "Save Image", "Save to Files", "Share",
+"Copy", "Copy Subject" and "Show Text", no "Quick Look"; Markup and Reply
+second in both since B-171; the lifted photo not built, a menu's look being
+Blackmail's layout (the plan's Q4), and Open in New Window not built (Q2).
+NOT COMPARABLE, "Quick Look", which 18.6 has, and Live Text's two, which
+his iPad's chip cannot do.
 
 ## B-151 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A Delete or Move whose MOVE Gmail carried out, its answer lost with the connection, came back on the list with "Can't connect to mail server." and stayed there until a Refresh; on the next connection the letter is looked for once by its Gmail id, and if Gmail did move it, its row goes quietly
 
@@ -32534,6 +32580,10 @@ each opening its picker as the buttons do, which stay; Send in sight with
 the menu open. Not seen: portrait, a keyboard of keys, and the paperclip
 greyed while a letter goes, which sends. Nothing was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-27**: NOT COMPARABLE: Mail's
+composer on 16.5.1 has undo, redo and paste in the shortcut bar and no
+paperclip; 18's not seen.
+
 ## B-155 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. The address book knew only the people of the rows listed and of his sends from the app, so about half the people he writes to in a month were not offered until one of their letters was listed; it is filled once per account from six months of his Sent Mail
 
 Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
@@ -32759,6 +32809,10 @@ Fill by its own prefix (above), his own address first; Sent Mail's search
 found (a) and (b). Not seen: (b) left unread, made read in these rounds; a
 letter tapped while the fill ran, over in 3 s; the SEARCH's lines, gone
 from the log first. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-16): DIFFERENT: Mail
+offered a sender only seen in a letter he received, by name, under "SIRI
+FOUND IN APPS"; copied by B-177. Its Recents not seen beyond that.
 
 ## B-156 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A row of the list had no drag at all, by the brief's rule against swipes; it has Mail's: a slow drag to the left shows More, Flag and Trash, a full drag trashes at once with no question, and a drag to the right marks it read or unread, as iPadOS 18 Mail with its factory Swipe Options
 
@@ -32993,6 +33047,16 @@ went by two MOVEs; More's sheet in Mail's order, with Move to Junk; no
 buttons in Edit mode; refused offline, the row back with the alert; in the
 Trash, Delete red and "Delete Message?". Not seen: that Delete, which
 erases. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-04, C-07a): SAME, "More",
+"Flag" and "Trash" to the left and "Unread" to the right, their colours,
+More rgb(141, 141, 141) against Blackmail's rgb(142, 142, 147), Flag
+rgb(255, 159, 10), Trash rgb(255, 69, 58), Unread rgb(10, 132, 255); a
+full drag gone at once, no question. DIFFERENT, More's words and order,
+copied by B-175; Mail's rounded tiles with gaps not copied yet, the plan's
+batch H, which a test build proves first; More's card with the letter's
+header not built, its look Blackmail's layout (Q4). Inside the Trash and a
+conversation's row not compared.
 
 ## B-157 — FIXED 2026-10-26, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27. Nothing could be undone; as in Mail, a shake of the iPad, iPadOS's three-finger undo or Command-Z offers "Undo Trash" or "Undo Move" after a Trash or a Move, from a drag, Edit mode or the reading pane, and Undo moves the letters back and their rows come back where they stood; "Undo Flag" after a Flag
 
@@ -33305,6 +33369,14 @@ between (above). A shake now and then brought nothing, once two in a row,
 and the next the alert. Not seen: three fingers, Command-Z and Mail's
 alert. Nothing was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-27** (C-06b, C-06c, C-07b): SAME,
+UIKit's alert, "Undo" and the action with "Cancel" and "Undo", "Undo
+Trash" after a full drag and "Undo Unflag"; the row back where it stood.
+DIFFERENT, Mail's read marks are steps of their own, "Undo Read" on top
+after the pane's Delete and "Undo Unread" after a Flag and a read mark,
+its Undo leaving the server unread; copied by B-175, which undoes it on
+the server too. Three fingers and Command-Z not compared.
+
 ## B-158 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 
 **What Mail does.** Since iOS 18.4 it is a setting, Settings > Apps >
@@ -33552,6 +33624,10 @@ the sheet went; in a conversation the stack opened again without the
 letter; at a search's foot the one above, then an empty pane; Edit mode
 opened nothing; a full drag on the open row opened the next. Nothing was
 sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-06a): SAME: after the
+pane's Trash Mail opens the letter below, highlighted and then read, no
+empty pane in frames 0.2 s apart.
 
 ## B-159 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. His own replies in an Inbox conversation were not there after a relaunch with no connection, and one he had read could not be opened; Mail keeps them with the conversation
 
@@ -34418,6 +34494,10 @@ switch, as new letters in the Inbox ring the owner's phone and the battery
 was under the round's 30% on a USB port that did not charge it. Nothing
 was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-27**: NOT COMPARABLE: Mail's
+notifications were answered Don't Allow as it was set up, and a banner
+needs new mail in the Inbox.
+
 ## B-162 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. To, Cc and Bcc offered only the people the app had seen in his mail; they offer his Contacts too, as Mail does, iOS's question put the first time he types in one of them
 
 **Ruled** by the owner on 2026-10-26: close the gaps by copying Apple
@@ -34649,6 +34729,11 @@ the app each time, as iOS does. Not seen: any card offered, the Contacts
 app not being on the test iPad to make one. The book, full, had put out
 the two senders only seen in Notes before they were looked for (TODO).
 Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-16): DIFFERENT: Mail
+offers an address only seen in his mail, by the start of the name, "zqx",
+not of the address, "zqxa.b", under "SIRI FOUND IN APPS"; copied by B-177.
+Its order beside Recents and Contacts not seen, its list having one row.
 
 ## B-163 — FIXED 2026-10-26, seen in part on the test iPad 2026-10-27. A share through Blackmail always began at its icon with To empty, as no letter of his was ever told to iOS; each letter that goes is told now, by the people it went to, his second address among them, so they can come up at the top of the share sheet with Blackmail's badge, and a tap on one opens Blackmail's sheet with them in To
 
@@ -35037,7 +35122,7 @@ its two lines in about 1.7 s, first and in sight, Drafts at its top, with
 no Refresh. Steps 1 to 3 and 5 had passed on 0625046 too. Nothing was
 sent.
 
-## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27 and 2026-10-28, its questions and action sheets held on their own the second day. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
+## B-166 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27/28, its questions and action sheets held on their own the second day, not yet seen there since. The app's type was fixed at the factory size and Bold Text was not read, as D-007 and B-071 held it; the list's rows, the Mailboxes, the reading pane's header and the letter, the composer and the share sheet follow the iPad's text size, or the one set for Blackmail alone in Per-App Settings, and Bold Text, while the app is open, as Apple Mail follows them; at Large, the size an iPad comes with, nothing has moved; changed 2026-10-27 by the owner's ruling, the exact layout at every text size for now: drawn at Large whatever the size, Bold Text still followed
 
 **Ruled** by the owner on 2026-10-26 (D-024): close the gaps by copying
 Apple Mail. The TODO's "Text size: fixed today; Dynamic Type and Bold
@@ -35687,7 +35772,24 @@ app that shares draws it, as Quick Look's and the print panel's are;
 the form inside it is held at Large. In TODO, B-166's step 6 compares
 the form's content, not the sheet's frame.
 
-## B-167 — FIXED 2026-10-27, not yet seen on the iPad. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
+**Seen on the test iPad, 2026-10-27 and 2026-10-28.** On int19 (bf7575a),
+round r6-i-look, the check as it stood before the ruling of 2026-10-27,
+the size followed as then built: every screen's contents larger and whole
+at the larger sizes, the bars as at Large, but for the two faults of
+"Found on the test iPad, 2026-10-27". On int21 (1873724), round r6-j-look:
+at the largest of the seven and the largest accessibility size the panes,
+the rows, the composers, Settings, Swipe Options, Go to Date and the Move
+sheet the same to the pixel as at Large, Edit mode's circles 2 and 12.5
+points lower (their centres 166.5 points at Large, then 168.5 and 179: the
+round wrote the 2 as 1); Bold Text bolder, the bars too, every row and box
+as at Large; Blackmail alone in Per-App Settings as at the system's larger
+size; and the questions and the share sheet of "Found on the test iPad,
+2026-10-28". Round r6-k-ref took on int21 the Large shots of a file's held
+sheet and the Share sheet from it, two takes of each the same to the
+pixel. The questions, action sheets and Share sheets held on their own are
+to be seen on ff47eb6. Nothing was sent.
+
+## B-167 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-27. Mail's own options, Swipe Options, Delete or Move Message Action, Move Discarded Messages Into and the rest of Settings > Apps > Mail that Blackmail follows, were values in the code that only a new build could set to his; they are a part of Blackmail's Settings, laid out as Mail's page in its order and words, each at Mail's value from the factory, and Archive Mailbox there archives from the Edit bar and the reading pane as a drag already did
 
 **Ruled** by the owner on 2026-10-26 (D-024): "close the gaps in our
 decision tree by copying Apple Mail"; Mail's factory behaviour where his
@@ -36013,7 +36115,31 @@ Deleting's already was, and the still-open list in the item on his
 iPad's own settings leaves out the text size (B-166's integration
 paragraph).
 
-## B-168 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
+**Seen on the test iPad, 2026-10-27**, on int19 (bf7575a), round
+r6-i-options, in part: Mail's part of Settings in its order and words,
+"Don’t Select a Message" with its curly apostrophe; Swipe Options' drags;
+Don’t Select a Message leaving the pane empty after a Delete, View Next
+Message opening the letter below; Archive Mailbox's archive box and the
+Edit bar's "Archive", one MOVE to All Mail each, the drag's Archive in
+purple, Drafts' bar "Trash" and the Trash's "Delete"; the search's erase
+question; Organize by Thread off and on, the list drawn again at once.
+Gmail refused one `UID MOVE` with "NO System Error", and the app's copy,
+`\Deleted` and expunge of that one UID went in its place. Not seen:
+"Moving…", the row gone before the first shot, and "Undo Move" after the
+archive, the two shakes bringing no alert. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-10): SAME, Preview "2
+Lines", Show To/Cc Labels, Swipe Options with Flag and Mark as Read, Ask
+Before Deleting, Privacy Protection's row and the four threading rows,
+their words, and the values the test iPad's Mail had; "MOVE DISCARDED
+MESSAGES INTO:" with its colon, Deleted Mailbox and Archive Mailbox, on
+16.5.1 under Accounts, the account, Account, Advanced. DIFFERENT,
+Blackmail's grey line under Complete Threads, which Mail has not, kept (the
+plan's part 3), and Mail's other rows, not built. NOT COMPARABLE, "Mail
+Accounts", 18's word where 16.5.1 says "Accounts"; the account's name for
+his Google account; and Delete or Move Message Action, which is 18.4's.
+
+## B-168 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen in part there 2026-10-27/28. Two of Mail's options under Messages were not in Blackmail: Block All Remote Content, which holds back a letter's pictures from the web until "Load All Images", and Ask Before Deleting, which asks before a Trash or an Archive; both are kept at Mail's factory value, off, which is what Blackmail did, and built for the day his are matched in Blackmail's Settings
 
 TODO items 7386 (pictures from the web in letters) and the Messages part
 of 7562 (his iPad's own settings), ruled 2026-10-26: copy Apple Mail,
@@ -36376,7 +36502,34 @@ counts as the drag's (`liftWindow`) is kept, as UIKit's timing of a full
 drag's button against its pan was not seen, and the step looks for a
 tap that would fall inside it (the review of the fix, 2026-10-27).
 
-## B-169 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
+**Seen on the test iPad, 2026-10-27 and 2026-10-28**, in part. On int19
+(bf7575a), round r6-i-options: off, the pictures from the web loaded; on,
+Mail's line, the letter's own picture drawn and those of the web held
+back, on paper too and letter by letter in a conversation; Load All Images
+drawing the letter again from its top; held back again when opened again;
+the pane's and the Edit bar's questions, a tap outside keeping the
+letters; in the Trash the erase question alone; and the full drag's sheet
+of "Found on the test iPad, 2026-10-27". On int21 (1873724), round
+r6-j-act, the drag again: both full drags went at once with no sheet, and
+so did a slow drag's Trash, More's and the pair's, as B-175 has them. The
+pictures were judged by the shots: the server's log was not read, a server
+on the iPad's network waiting on the owner's go for iOS's Local Network
+question. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-08, C-12): with Ask Before
+Deleting on, SAME for the pane's Trash, a popover from the button with one
+red "Trash Message" and no Cancel; DIFFERENT for a full drag, gone at once
+in Mail where bf7575a asked (the fault of "Found on the test iPad,
+2026-10-27", fixed there); and for a slow drag's Trash and More's, gone at
+once in Mail, copied by B-175. Block All Remote Content: Mail's band of
+two lines above the header, "Message contains unloaded images." white over
+"Load All Images" blue, no rule, its place and shape kept as Blackmail's
+layout, its colours copied by B-173; held back again when opened again,
+SAME. Ask Before Deleting off from the factory on 16.5.1, the test iPad's
+Mail having no key for it until the round set it; 18's not seen; Junk not
+compared.
+
+## B-169 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27/28. Every HTML letter was inverted in the dark pane; now a letter is drawn as Mail draws it in Dark Mode: inverted only when it declares no colour scheme and has no picture from the web and no background picture, light on its own white when it has such a picture or declares a light scheme only, and in its own colours, its style for the dark with it, when it declares the dark; each letter of a conversation on its own, the printed page as it was
 
 **Asked for** by the owner on 2026-10-27: "build the three Mail
 differences next: light colours in dark mode, …". The first of the gaps
@@ -36829,7 +36982,26 @@ taken from the attribute whatever the letter's rules, inverted letters
 too, 21 failures in 2 of the new tests; no rule drawn at all, 16 in the
 first; both put back.
 
-## B-170 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, not yet seen there since. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
+**Seen on the test iPad, 2026-10-27 and 2026-10-28.** On int19 (bf7575a),
+round r6-i-look: every letter drawn as the check says but (f), inverted,
+light and in its own colours, in three panes and two, letter by letter in
+a stack, the tap covered but for one frame at three of the four taps,
+B-149's "Not covered" case, the paper light; and (f)'s fault of "Found on
+the test iPad, 2026-10-27". On int21 (1873724), round r6-j-look: (f) with
+its pale picture tiled behind every word, its first line where (a)'s is to
+the pixel, nothing after the words; (k) inverted, the picture once after
+its words; (f) on white on paper with no picture; a light letter's white
+in its column since B-173. Mail beside them below; the other letters not
+put before Mail. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-11a): SAME, a letter with
+no picture from the web dark, its words light on Mail's card, its `cid:`
+photo as it is, and one with a picture from the web light. DIFFERENT,
+Mail's white a sheet inset in its dark card, about 37 px of dark
+margin round it, from under the header to the letter's foot; copied by
+B-173. The other letters not put before Mail.
+
+## B-170 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen in part there 2026-10-27/28. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 
 **Found** in the copy-Mail research of 2026-10-26, "New gaps found on the
 way", the second: "Mail puts every file in the letter's body, not in a
@@ -37300,7 +37472,28 @@ The pins of `openAttachment` in `FileListedOnceTests`,
 `MarkupReplyTests` follow. The function put back as it was, 10 failures
 in 2 tests of `FileListedOnceTests`; then restored.
 
-## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen there 2026-10-28, a marked-up HEIC's row named as Quick Look's JPEG copy is. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
+**Seen on the test iPad, 2026-10-27 and 2026-10-28**, in part. On int19
+(bf7575a), round r6-i-look: no file in the header, its rule at one height
+from the tap to the letter; the tile, the photo, a file among the words,
+before them, after plain words and alone; a large letter's photos fetched
+one by one as they were drawn, its PDF at the tap; the HEIC's tile; a
+conversation's photos never blank; the paper; and the dim of "Found on the
+test iPad, 2026-10-27". On int21 (1873724), round r6-j-look: the tile
+tapped, the ring and "Downloading" in every frame from 0.17 s after the
+touch until Quick Look covered it. Not possible: a held tile's drag, one
+finger and no hold-then-drag. B-176 changed what a large letter's PDF and
+a HEIC do, and has their check. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-13a to C-13e, C-14c):
+SAME, no file in the header, and a plain letter's PDF after its words. NOT
+COMPARABLE, a PDF drawn as its page at the column's width with no tile,
+which iPadOS 18's newer WebKit may draw otherwise. DIFFERENT, an attached
+HEIC drawn as a photo, copied by B-176 (E1); a large letter's files
+fetched as it opens, each tile with a ring and "Downloading", copied by
+B-176 (E6); "Markup and Reply" on a held PDF, copied by B-176 (E4), its
+preview not built (the plan's Q4) and "Open in New Window" not built (Q2).
+
+## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27/28, a marked-up HEIC's row named as Quick Look's JPEG copy is. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
 Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
 26740c2.
@@ -37652,7 +37845,26 @@ at its first Done, asking nothing.
 photo's name with the extension of the copy Quick Look saves, ".jpeg" on
 16.5.1 (".jpg" only were it to hand back a HEIC), and its kind a JPEG.
 
-## B-172 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, and a picture with no name clipped as Mail clips it the same day. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
+**Seen on the test iPad, 2026-10-27 and 2026-10-28.** On int19 (bf7575a),
+round r6-i-options: the menu, Markup and Reply's Quick Look closed with
+nothing drawn and no composer, the logo's menu and the web picture's
+WebKit's; and the faults of "Found on the test iPad, 2026-10-27"; no line
+could be drawn, Only Draw with Apple Pencil being on. On int21 (1873724),
+round r6-j-files, that setting switched off for each drawing and on again:
+a line drawn, Quick Look closed at its first Done, nothing asked, and a
+Reply to the photo's sender with one row, the JPEG copy, kept on the iPad
+as it shows and gone at Delete Draft; in a conversation the reply to the
+letter the photo is in; the HEIC drawn as a photo; the tap's Quick Look
+with its Markup button, as B-176 has it; the HEIC's row as "Found on the
+test iPad, 2026-10-28" says. Nothing was sent.
+
+**Compared with Mail on 16.5.1, 2026-10-27** (C-14a, C-14b): SAME, "Markup
+and Reply" second in the held photo's menu, and Done with nothing drawn
+opening no composer. NOT COMPARABLE, Markup opened at once with its tools
+out on 16.5.1, where the guides for 17 and 18 go through Quick Look's
+button, Blackmail's way. A drawing in Mail not compared.
+
+## B-172 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, and a picture with no name clipped as Mail clips it the same day, not yet seen there since. A row, a plain letter's quotes and the paper differed from Mail's: no paperclip on a letter whose only files are pictures it shows, a quoted letter's preview with its quotes and their "wrote:" line, the "wrote:" line outside the quote and a `>From` line no quote, and the printed header the pane's, names alone and the long date; each is as Mail has it now, and no layout changed
 
 Built in the `bm-cmp-a` worktree (branch `copy-cmp-a`), off int20 at
 b9afe64.
@@ -37992,7 +38204,18 @@ back and passing. The full suite, serially: 3,132 tests, 6 skipped, none
 failing. In TODO, B-172's step 1 has the paperclip on noname and on the
 control, and step 5 what Mail was seen to do.
 
-## B-173 — FIXED 2026-10-27, not yet seen on the iPad. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round
+r6-j-look, beside the bf7575a shots of round r6-i-compare: the paperclip
+on the five letters with named pictures, answered's at its subject's end,
+the rest of the rows unmoved, the flag 22 points further left on answered;
+the previews; the quotes; the paper, where Mail's body is indented under
+its header and Blackmail's starts at its left edge; and in Mail, gap's
+"wrote:" line kept in the preview as here, so `PlainQuotes.isAttribution`
+stays as it is, and the paperclip on noname and the control, built as
+"Found on the test iPad, 2026-10-28" says and to be seen on ff47eb6.
+Nothing was sent.
+
+## B-173 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 
 The comparison with Mail of 2026-10-27 (round r6-i-compare, Mail 16.5.1
 on the test iPad against Blackmail bf7575a, comparisons C-11a, C-11b and
@@ -38201,7 +38424,15 @@ palette, never on a light letter's white sheet; and the printed page,
 B-172's new header and date with it, has none of B-173's rules. Not seen
 on the iPad.
 
-## B-174 — FIXED 2026-10-27, not yet seen on the iPad. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round
+r6-j-look: the light letter's white in its column, black margins left,
+right and above, its words where they were; his signature on a grey of
+rgb(51, 51, 51) with no line in it, the logo dark on it, alone and in a
+conversation; Mail's line white with its button rgb(10, 131, 255), rgb(14,
+144, 248) over an inverted letter, the line, its button and its rule where
+they were. Nothing was sent.
+
+## B-174 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`), off int20 at
 b9afe64, as Batch C of the plan of 27 October (items C1 to C6), under the
@@ -38387,7 +38618,14 @@ its unread dot still there, no `\Seen`, no `UID STORE`, as plan C4 has
 an unread ticked letter not marked read; the check APPENDed all three
 read before, so a tick that marked a letter read would have passed it.
 
-## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round r6-j-act:
+the bar grey with nothing ticked, the pane and its buttons dimmed, Flag
+and Reply taking no tap; "1 Selected", the row blue with a white tick, the
+ticked unread letter in the pane and left unread, no STORE; "2 Selected";
+the letter before back at Cancel; "1 Sele…" in two panes; Edit grey in an
+empty Junk; Edit mode kept over a search with no hits. Nothing was sent.
+
+## B-175 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`) after B-174, as
 Batch D of the plan of 27 October (items D1 to D5, and its question Q1,
@@ -38546,6 +38784,14 @@ Comments still telling the old asking and read-mark rules were reworded
 (item 6). More's Archive Message stays: the plan's D2 orders it, and part
 3 of the plan counts More's words and order as copied, its look as kept.
 No layout changed.
+
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round r6-j-act:
+More's words and order; under Ask Before Deleting the slow drag's Trash,
+More's and a full drag at once, the pane's Trash asking; "Undo Unread"
+after a Flag and a full drag's read mark, and "Undo Read" on top of "Undo
+Trash" after the pane's Delete, each read mark's Undo one STORE on the
+server and Undo Trash's one MOVE back, the letter where it stood. Nothing
+was sent.
 
 ## B-176 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, its ring turning from its first frame the same day, not yet seen there since. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
 
@@ -39038,7 +39284,14 @@ taken out: 1, each an assertion's. Put back, passing. The full suite:
 turns; a file asked for sooner changes only when its tile's icon comes
 back.
 
-## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round
+r6-j-files: E1 to E4 as the check says; E5's take-out, the https link's
+menu as bf7575a's; E6 but the ring, with the fetches ahead and the tap as
+"Found on the test iPad, 2026-10-28" says. The ring by CSS and a letter's
+own page asking for its files as it is given are to be seen on ff47eb6.
+Nothing was sent.
+
+## B-177 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 
 **What Mail does.** Seen side by side on the test iPad, Mail 16.5.1, in
 the comparison round of 2026-10-27 (its C-16, the shots
@@ -39192,7 +39445,14 @@ without the changes, 5 failures and 2, each an assertion's.
 `RepositoryTrafficTests` counts the book's writes without Spam's, which
 now notes nobody.
 
-## B-178 — FIXED 2026-10-27, fixed again 2026-10-28 after the test iPad, not yet seen there since. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does, each row shows when its letter arrived, as Mail's row does, and Go to Date goes by it
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round r6-j-act:
+"zqx" and "rmf" offered Zqxa Rmfix by name, "zqxa.b" nothing, and again
+after a relaunch; a name with "via" not matched. Where such a row stands
+beside the people he wrote to and his Contacts was not seen, the list
+having that one row; and that nobody is noted from Junk was not tried, the
+host putting letters in "Notes" alone. Nothing was sent.
+
+## B-178 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-28, fixed again the same day after it, not yet seen there since. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does, each row shows when its letter arrived, as Mail's row does, and Go to Date goes by it
 
 Built in the `bm-cmp-g` worktree (branch `copy-cmp-g`), off int20 at
 b9afe64. Batch G of the comparison plan of 2026-10-27 (item G1).
@@ -39572,3 +39832,10 @@ skipped, none failing; the release build for the iPad: "Build complete".
 *Layout.* None changed: a row's date is in its place, in the same words
 for a date; only which date. The foot's words and the sheet are as they
 were.
+
+**Seen on the test iPad, 2026-10-28**, on int21 (1873724), round r6-j-act,
+in part: the order where Mail had it, every row once to the foot, one
+dates FETCH at the first listing and none at a Refresh, a row brought back
+by Undo where it stood, the kept rows in order at a relaunch, Go to Date
+to 14 June 2025; and the row's date and the jump to today of "Found on the
+test iPad, 2026-10-28", to be seen on ff47eb6. Nothing was sent.

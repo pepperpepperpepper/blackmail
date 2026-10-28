@@ -9475,6 +9475,52 @@ checks below is left as not needed, not open, and none is worth a round.*
          the Trash only the UIDs that move answered (`COPYUID`); "Notes"
          itself stays. Never anything found by subject or Message-ID.
          Nothing was sent or saved.
+      *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
+      r6-i-look, the check as it stood before the owner's ruling of that
+      day, the size followed as then built: at Large the screens taken as
+      the reference, the rows 96 points, the composer's lines 44; at the
+      largest of the seven the rows 130 points, the Mailboxes, the header,
+      the letter, its tiles (1.35 times) and the composers larger and
+      whole, the bars as at Large, an open composer drawn again at a new
+      size, the share sheet's form at the app's size; Blackmail alone at
+      that size in Per-App Settings as in 2; and two FAILs, in
+      KNOWN_ISSUES B-166, "Found on the test iPad, 2026-10-27": with Bold
+      Text the bars bolder too, the step's and the entry's mistake, 4 now;
+      and at the largest accessibility size the Mailboxes' names broken
+      inside their words and "Attach File" cut, moot under the ruling. Not
+      possible: the same screens on int18, only one build installed. Not
+      run: his own size, his iPad's settings not read; Mail and iPadOS 18,
+      Mail being round r6-i-compare's, at Large alone, and no iPadOS 18
+      device at hand. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-look: 1, 4 and 5 passed; 2, 3 and 6 FAILed (KNOWN_ISSUES B-166,
+      "Found on the test iPad, 2026-10-28"); 7 not run, as it says; 8 done
+      by a STORE of the Trash's label, no move or delete. In 1 the bf7575a
+      shots of 2026-10-27 stood in for the build before, every bar, row,
+      composer line and sheet where it was, only the content differing, the
+      subjects' ends, the days and the clock, and in Edit mode B-174's
+      dimmed pane and grey Mark, Move and Trash; the int18 shots not
+      possible, only one build installed; a row 96.5 points, a folder's
+      44.5, the composer's To line 43.5, Edit mode's circles 21.5. In 2 and
+      3 every screen the same to the pixel as at Large but iOS's home
+      indicator, Edit mode's circles 2 and 12.5 points lower, the rows'
+      words where they were; and the bubble's menu, the Reply sheet, the
+      Flag popover and "Add Another Email" larger, the question's Cancel
+      and Add still side by side. In 4 the ink 1.25 to 1.44 times, the
+      bars' too, every row and box as at Large; Bold Text off, the same to
+      the pixel. In 5 five screens the same to the pixel as at Large but
+      the home indicator, the circles 2 points lower; the rest not run,
+      seen at that size in 2. In 6 the form's type held and the sheet
+      wider, 704 points at Large and about 934 at the largest of the seven,
+      iOS's own since (6 compares the form now); Cancel asked nothing at
+      either. Round r6-k-ref, the same day and build, took the Large shots
+      1 lacked, (a)'s file's held sheet and the Share sheet from it, two
+      takes of each the same to the pixel, no row of people in it, and
+      found the bubble's menu, the Reply sheet, the Flag popover and "Add
+      Another Email" the same to the pixel as r6-j-look's five hours
+      before. Their fix, each question, action sheet and Share sheet held
+      as it is put up, is on fix-j1, in int21 at ff47eb6; its re-check
+      there is to come. Nothing was sent.*
 - [ ] **B-167, Mail's options in Settings.** On the test iPad, the test
       account only, from a build of the `bm-cm-mailsettings` worktree
       (branch `copy-mailsettings`) or of the int it is merged into.
@@ -9554,14 +9600,33 @@ checks below is left as not needed, not open, and none is worth a round.*
       Trash only the UIDs that move answered (`COPYUID`) and those it
       found there; any other UID is left, and written down. Nothing was
       sent.
+      *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
+      r6-i-options: 0 to 3 and 5 passed, and 4 but its "Moving…" and its
+      shake; 6 done by a STORE of the Trash's label, no move or delete. In
+      1 every row and line as written, nothing cut in two panes or three.
+      In 3 "Don’t Select a Message" had the curly apostrophe in a full-size
+      crop; with it, the pane's Delete left "No message selected", the
+      toolbar grey and nothing opened; Gmail answered that `UID MOVE` "NO
+      System Error", and the app's way round it, `UID COPY`, a STORE of
+      `\Deleted` and `UID EXPUNGE`, went on that one UID alone. With View
+      Next Message "B-167 three" opened after "four". In 4 the Edit bar's
+      Archive and the pane's archive box each sent one MOVE to All Mail,
+      the letter there and not in Notes; "Moving…" not caught, the row gone
+      in the first shot at 0.3 s; the search's question "Delete 2
+      Messages?", "1 of them is in the Trash and will be deleted
+      immediately. You can't undo this action.", its second hit All Mail's;
+      Cancel moved nothing. Not possible: the shake's "Undo Move", two
+      shakes from AssistiveTouch bringing no alert, a finger being unable
+      to shake the iPad. Nothing erased, nothing sent. Left: 4's "Moving…"
+      and its shake.*
 - [ ] **B-168, Mail's Block All Remote Content and Ask Before Deleting.**
       On the test iPad, the test account only, from a build of the int the
       `bm-cm-remoteask` worktree (branch `copy-remoteask`) is merged into
       with B-167's Settings rows, which set the two options; a build of
       this branch alone has no row for them, and the check waits for the
       int. Nothing is composed, sent or saved as a draft, and every Trash
-      goes onto the host's letters alone. The host makes twelve letters, each
-      from another address, with a new Message-ID of its own and naming
+      goes onto the host's letters alone. The host makes thirteen letters,
+      each from another address, with a new Message-ID of its own and naming
       none on the account, and APPENDs them read (`\Seen`) to the label
       "Notes", never the Inbox, each with its Date as its internal date;
       it notes each UID from its APPENDUID, and stops if one has none. Two
@@ -9571,8 +9636,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       a `style` `url()`: "B-168 news", which also carries a picture of its
       own by `cid:` and a link, and a conversation of two, "B-168 talk"
       (a) and (b), (b)'s References naming (a), each with its own two
-      paths, (b) with a picture of its own by `cid:` too. Then seven plain
-      letters, "B-168 bin 1" to "B-168 bin 7", and a conversation of two
+      paths, (b) with a picture of its own by `cid:` too. Then eight plain
+      letters, "B-168 bin 1" to "B-168 bin 8", and a conversation of two
       plain ones, "B-168 pair" (a) and (b). The list goes by UID, the
       last APPENDed on top. Organize by Thread on, three panes. In
       Blackmail's Settings both options written down as found, then set
@@ -9616,22 +9681,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       Trash: a sheet from it, "Trash 2 Messages"; a tap outside: the
       ticks stay. Trash again, "Trash 2 Messages": both go, Edit mode
       ends.
-      8. *A drag.* A slow drag to the left on "B-168 bin 4": More, Flag
-      and Trash. Trash tapped: the row slides back, and a sheet over
-      the row, "Trash Message"; a tap outside: nothing goes. Then a full
-      drag to the left on it, from the row's right end to near its left,
-      once in a quarter of a second and, on "B-168 bin 7", once in a
-      second and a half: each goes at once, no sheet (the round of
-      2026-10-27 had a sheet for both, and nothing went). On "B-168 bin
-      6", a slow drag that leaves the buttons open, and Trash tapped as
-      soon as the row has stopped: a sheet over the row, "Trash Message",
-      as for any tap (a Trash within a third of a second of a drag's lift
-      counts as the drag's, `DiscardQuestion.liftWindow`); a tap outside:
-      nothing goes; if it went with no sheet, written down. On "B-168
-      bin 5", a slow drag, More, "Trash Message": a sheet over the row,
-      "Trash Message"; tapped, it goes. On "B-168 pair", a slow drag,
-      Trash: "Trash Messages"; tapped, both letters go. If a full drag
-      in this step put up a sheet, written down (B-168's "Not seen").
+      8. *A drag.* On a build with B-175 none of a row's buttons asks, nor
+      More: only the pane's Trash and the Edit bar do. A slow drag to the
+      left on "B-168 bin 4": More, Flag and Trash. Trash tapped: it goes
+      at once, no sheet. A full drag to the left on "B-168 bin 8", from
+      the row's right end to near its left, in a quarter of a second, and
+      on "B-168 bin 7" in a second and a half: each goes at once, no sheet
+      (the round of 2026-10-27 had a sheet for both, and nothing went). On
+      "B-168 bin 5", a slow drag, More, "Trash": it goes at once, no
+      sheet. On "B-168 pair", a slow drag, Trash: both letters go at once,
+      no "Trash Messages". One `UID MOVE` for each letter, none other;
+      "B-168 bin 6" is left for 9. A sheet in this step, written down.
+      (Corrected 2026-10-28 after round r6-j-act: the step had B-168's
+      sheet over the row after a slow drag's Trash, More's and the pair's,
+      as int19 had them; B-175 took them out, as Mail asks for neither a
+      slow drag's Trash nor More's, and int21 asked nothing for any of
+      them. The Trash tapped as soon as a slow drag had stopped, on "bin
+      6", is left out: it was there for a tap within a third of a second
+      of the lift (`liftWindow`), which decides no question now, and went
+      at once on int21 as any tap of a row's button does; and as "bin 4"
+      now goes at its slow drag's Trash, an eighth, "bin 8", takes the
+      quarter-second full drag "bin 4" had.)
       9. *Inside Trash.* The Trash, "B-168 bin 1" there, Delete: the
       erase question as before, "Delete Message?", and no other sheet;
       Cancel. Ask Before Deleting off, then "B-168 bin 6" in "Notes",
@@ -9648,6 +9718,38 @@ checks below is left as not needed, not open, and none is worth a round.*
       drag's Trash asks and Ask Before Deleting's factory value, which
       need Mail on an iOS 18 device (B-168's "Not seen"); his own value
       is read off his iPad on the day.
+      *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
+      r6-i-options: 1 to 7 and 9 passed, by the shots and the app's log; 10
+      done by a STORE of the Trash's label, no move or delete, with no web
+      server to empty. The server's log not read: Blackmail is not on the
+      iPad's Local Network page, and a server on its network would put
+      iOS's question, the owner's go, so the pictures were public https
+      ones at the round's own paths. In 2 the picture by `<img>` from the
+      web a bordered box with WebKit's broken picture, the one by `url()`
+      blank; the line's words #8e8e93, the button #007aff, its rule #c7c7c5
+      one pixel across the letter's white, one line. In 4 the letter drawn
+      again from its top 0.05 s after the tap, its pictures by 0.43 s,
+      never blank or black, its own picture moving up and down again as
+      they came; the link opened Safari. In 6 and 7 the sheets as written,
+      the MOVEs after the second tap alone. In 8, as int19 had it, the slow
+      drag's Trash, More's and the pair's asked, a tap outside keeping "bin
+      4" and the sheet's Trash taking "bin 5" and the pair; the full drags
+      FAILed, a sheet and nothing gone (KNOWN_ISSUES B-168, "Found on the
+      test iPad, 2026-10-27"). Recorded in 4 and 8, shots after every other
+      action. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-act, 8 alone, which fix-i1 changed: the two full drags, in a
+      quarter of a second and in a second and a half, went at once with no
+      sheet in frames about 0.2 s apart, the moments between them not
+      seen; the slow drag's Trash, a Trash tapped 0.35 s after a slow drag
+      stopped, More's "Trash" and the pair's Trash each went at once with
+      no sheet, as B-175 has them (8 corrected); one `UID MOVE` for each
+      letter and none other; the buttons and the Settings part where
+      bf7575a had them. The rest not run again here, fix-i1 changing 8
+      alone; 2's line, in B-173's colours since, seen in B-173's step 5 the
+      same day (r6-j-look), and 6's question in B-175's step 2. Nothing was
+      sent. Left: the server's log of 1 to 5, with the owner's go for a
+      server on the iPad's network.*
 - [ ] **B-169, a letter drawn as Mail draws it in Dark Mode.** On the
       test iPad, the test account only, from a build of the
       `bm-cm-darkpics` worktree (branch `copy-darkpics`) or of the int it
@@ -9687,16 +9789,17 @@ checks below is left as not needed, not open, and none is worth a round.*
          color: #f2f2f7 !important; } }`.
       2. *Alone:* "Notes", then each letter. (a) and (c) as before B-169:
          black, white words, the picture of its own as drawn, the bar
-         violet; (b), (d) and (f) white from under the header across the
-         pane and as tall as the letter, black words, the pictures as they
+         violet; (b), (d) and (f) white from under the header to the
+         letter's foot, in its column inside the pane's black margins left,
+         right and above (B-173), black words, the pictures as they
          are, the bar Mail's light violet, about rgb(88, 86, 214), the link
          blue, and the pane black below the letter; (e) its cards #1c1c1e
          with words #f2f2f7, on the pane's black, its link in its own
          colour; (i) white behind its words, which are #333333, the
          pane's margin black around the white; (j) #1c1c1e behind words
          #f2f2f7, not white; (f) the pale picture tiled behind all its
-         words, from under the header to the letter's end and across the
-         pane, where (b)'s white is, between its paragraphs and beside its
+         words, from under the header to the letter's end and across its
+         column, where (b)'s white is, between its paragraphs and beside its
          quote, its words where (a)'s are, and not drawn once at its size
          after the words (the step as first written said only "white",
          and the round found the picture once after the quote); (k) as
@@ -9704,6 +9807,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          pale picture once at its size after the words, as a picture of
          the letter's its page does not show (B-170). In each, the header
          and the list black as ever. Then two panes: the same.
+         (Corrected 2026-10-28 after round r6-j-look: the step had a light
+         letter's white across the whole pane, as int19 drew it; since
+         B-173 it stops at the letter's column, as Mail's does.)
       3. *The tap:* from (a) to (b) and back, recorded at 60 frames a
          second: black under the header from the tap until the letter, as
          B-149 has it, then the white of (b); no frame of (a)'s black under
@@ -9727,6 +9833,36 @@ checks below is left as not needed, not open, and none is worth a round.*
       with iPadOS 18 and Mail is at hand: (a) to (f), (i), (j) and (k) there,
       how each is drawn and where Mail's white ends around (b) and (i),
       written down beside 2's.
+      *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
+      r6-i-look, the ten letters (a) to (j): 1 and 3 to 5 passed, and 2 but
+      (f), which FAILed (KNOWN_ISSUES B-169, "Found on the test iPad,
+      2026-10-27"); 6 done by a STORE of the Trash's label, no move or
+      delete. In 2 (a) and (c) black, the words #fefffe, the link #2ca6ff,
+      the bar #9896ff; (b) and (d) white across the pane, the words
+      #010101, the link #007aff, the bar #5856d6, the pane black under the
+      letter; (e) its cards #1c1c1e, the words #f2f2f7, its link #64d2ff;
+      (i) a white box behind #333333 words, black around it; (j) #1c1c1e
+      behind #f2f2f7; the same in two panes. In 3, at 60 frames a second,
+      no frame of one letter's body under the other's header; at three of
+      the four taps the letter left stayed one frame as the row lit, then
+      black. In 4 (g) white, (h) black, and (g) white again when opened
+      again. In 5 the paper white, (e)'s cards white with dark words;
+      nothing printed. The letters in Mail not run, Mail being round
+      r6-i-compare's (KNOWN_ISSUES B-169). Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-look, (a), (b), (f) and (k) alone, the letters fix-i1 changed
+      and two beside them: 1, 2 for them and 5 for (f) passed; 6 done by a
+      STORE of the Trash's label, no move or delete. (b)'s white in its
+      column from under the header to its foot, black margins left, right
+      and above (B-173; 2 corrected); (f)'s pale picture tiled behind every
+      word of its column from under the header to its end, its first line
+      where (a)'s is to the pixel, and none after the words; (k) as (a),
+      black, the pale picture once after its words; the same in two panes.
+      In 5 (f)'s words on white, no pale picture behind or after them. The
+      rest not run again, not changed by fix-i1. Nothing was sent. Left:
+      the letters in Mail, as the last paragraph has them: round
+      r6-i-compare put a letter of (a)'s kind and one of (b)'s before Mail
+      on 2026-10-27, none of the others.*
 
 - [ ] **B-170, every file in the letter's body.** On the test iPad, the test
       account only, from a build of the `bm-cm-inlinefiles` worktree (branch
@@ -9768,23 +9904,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       read. Settings, Display & Brightness, Text Size, at its largest, and
       back to the app: the tile and the words exactly as they were, nothing
       larger (B-166, Changed 2026-10-27);
-      the Text Size back to where it was. The tile
-      tapped (since B-176: Mail's ring and "Downloading", not dimmed, see
-      its check): it dims and its last line says "Loading…" until the PDF is in
-      Quick Look, in every frame of a recording from the tap until Quick
-      Look covers it, a file kept on the iPad too (the round of 2026-10-27
-      saw it for one frame only, then the tile as it was for 0.37 s);
-      Done: the tile as it was.
+      the Text Size back to where it was. The tile tapped: Mail's ring in
+      its icon's place and "Downloading" on its last line, not dimmed
+      (B-176), until the PDF is in Quick Look, in every frame of a
+      recording from the first that changes until Quick Look covers it, a
+      file kept on the iPad too (the round of 2026-10-27, before B-176,
+      saw its dim for one frame only, then the tile as it was for 0.37 s);
+      the time from the tap to that first frame written down. Done: the
+      tile as it was, its icon back and its last line empty. (Corrected
+      2026-10-28 after round r6-j-look: the step had the tile dimmed with
+      "Loading…", its look before B-176; int21 draws the ring and
+      "Downloading".)
       3. *Photo:* "B-170 photo": the photo under the words, as wide as the
       letter at most, and no tile for it; the PDF's tile under it. The
       photo tapped: Quick Look; Done. A finger held on the photo half a
       second: the menu Quick Look, Markup and Reply (B-171), Save Image,
       Save to Files, Share, Copy;
-      a tap outside it. A finger held on the PDF's tile: Quick Look, Save
-      to Files, Share, Copy, and the lift opens nothing; Save to Files:
-      Files' sheet, Cancel in it; Copy: nothing over the pane. Written
-      down if WebKit's own menu or a preview of the link comes first; the
-      tile held and moved: no drag of it lifts.
+      a tap outside it. A finger held on the PDF's tile: Quick Look, Markup
+      and Reply (since B-176, E4, seen so on int21 by round r6-j-files,
+      2026-10-28), Save to Files, Share, Copy, and the lift opens nothing;
+      Save to Files: Files' sheet, Cancel in it; Copy: nothing over the
+      pane. Written down if WebKit's own menu or a preview of the link
+      comes first; the tile held and moved: no drag of it lifts.
       4. *Among and before:* "B-170 among": the words before, the PDF's
       tile, the words after, "Sent from my iPad". "B-170 before": the tile
       above the words.
@@ -9817,21 +9958,51 @@ checks below is left as not needed, not open, and none is worth a round.*
       the UIDs it noted, and only them, from "Notes" to the Trash, and
       deletes in the Trash only the UIDs that move answered. Nothing else
       was written.
-- [ ] **B-171, Markup and Reply on a photo held.** On the test iPad, the
+      *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
+      r6-i-look: 1 and 3 to 10 passed but 3's drag of a held tile, not
+      possible, one finger making one stroke and no hold-then-drag (a slow
+      stroke from the tile scrolled the letter, nothing lifted); 2's tap
+      FAILed, the dim for one frame (KNOWN_ISSUES B-170, "Found on the test
+      iPad, 2026-10-27"); 11 done by a STORE of the Trash's label, no move
+      or delete. In 2 the header's lower rule at 204.6 points in every
+      frame, the tile 168 by 128 points, its border #4d4d4d, "PDF", the
+      name and "309 KB" grey, its lines readable; at the largest of the
+      seven, followed then, 1.35 times. In 3 the held tile's menu at 0.65
+      s, no preview first. In 5 the plain letter's tile in the dark
+      palette. In 6 the words, then each photo by its section, one after
+      another, and the PDF at the tap alone: "Tap to Download", "Loading…",
+      Quick Look, then "Tap to Download" again. In 8 both letters with
+      their own photo and PDF, none blank in the recording, one STORE of
+      `\Seen` for the unread one. In 9 no file line and no "Tap to
+      Download" on the paper; nothing printed. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-look, 2 alone, which fix-i1 and B-176 changed: passed (2
+      corrected). The letter drawn whole in one frame, the header's rule
+      at one height in every frame, no file in it; the tile 168 by 128
+      points, its border rgb(77, 77, 77), its last line empty. Tapped: the
+      tile as it was for 0.17 s, about ten frames, then the ring with its
+      blue arc and "Downloading" in every frame until Quick Look covered
+      it 0.59 s later, no plain or dimmed frame between; Quick Look's
+      title with the file's extension; after Done the icon back. At the
+      largest of the seven the tile the same to the pixel. The rest not
+      run again: 6 and 7 are B-176's now, as its check says. Nothing was
+      sent. Left: 3's drag of a held tile, and 10's tap in two panes on a
+      build with B-176.*
+- [x] **B-171, Markup and Reply on a photo held.** On the test iPad, the
       test account only, from a build of the `bm-cm-markup` worktree
       (branch `copy-markup`) or of the int it is merged into. The round of
       2026-10-28 ran it on int21 (1873724): every step passed but the
       second half of step 8, whose ".jpg" was the check's mistake, now
       corrected (KNOWN_ISSUES B-171, "Found on the test iPad,
-      2026-10-28"); step 8 is the one left to see. Nothing is sent and
-      nothing is saved to Drafts: no Send is tapped in any step, and each
-      reply begun is closed with Cancel and Delete Draft, which keeps
-      nothing. The host makes the letters, each from another address, with
-      a new Message-ID of its own and naming none on the account, and
-      APPENDs them, read (`\Seen`), to the label "Notes", never the Inbox,
-      noting each UID from its APPENDUID; it stops if one has none. Three
-      panes; the connection log read after each step; the app's files read
-      over SSH as the rounds read them.
+      2026-10-28"); what the round saw there is what step 8 asks now.
+      Nothing is sent and nothing is saved to Drafts: no Send is tapped in
+      any step, and each reply begun is closed with Cancel and Delete
+      Draft, which keeps nothing. The host makes the letters, each from
+      another address, with a new Message-ID of its own and naming none on
+      the account, and APPENDs them, read (`\Seen`), to the label "Notes",
+      never the Inbox, noting each UID from its APPENDUID; it stops if one
+      has none. Three panes; the connection log read after each step; the
+      app's files read over SSH as the rounds read them.
       0. *The letters:* "B-171 photo", an HTML letter with words, a JPEG
       photo of about 1 MB shown among them by `cid:` as an iPhone sends
       one, a picture from the web, and the account's signature logo by
@@ -9865,12 +10036,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       the reply closes on the letter; the log has no `MAIL FROM`, `RCPT
       TO`, `DATA` or `APPEND`; no `Local Drafts` letter for it; the copy's
       directory gone from `tmp/Attachments`.
-      6. *The others* (since B-176 a tap's Quick Look has Markup again, as
-      Mail's does; see its check): the logo held: the menu with Markup and Reply. The
+      6. *The others:* the logo held: the menu with Markup and Reply. The
       picture from the web held: WebKit's menu, as before, no Markup and
-      Reply. A tap on the photo: Quick Look with no Markup button, Share
-      and Done alone at its top (the round of 2026-10-27 found one there);
-      Done. Held, Quick Look from the menu: no Markup button either.
+      Reply. A tap on the photo: Quick Look with its Markup button between
+      Share and Done, as Mail's (B-176, E3), not tapped; Done: no
+      composer. Held, Quick Look from the menu: its Markup button too;
+      Done: no composer. (Corrected 2026-10-28 after round r6-j-files: the
+      step asked for no Markup button, fix-i1's way after the round of
+      2026-10-27 found one there; B-176 put it back, and int21 has it.)
       7. *A conversation:* "B-171 thread 2" listed, thread 1's line opened,
       its photo held, Markup and Reply, a line drawn, Done: the reply's To
       is thread 1's sender, its subject thread 1's. Cancel, Delete Draft.
@@ -9889,6 +10062,34 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
+      *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
+      r6-i-options: 0, 1, 2 and 6's logo and web picture passed; 6's tap
+      and 8's photo FAILed (KNOWN_ISSUES B-171, "Found on the test iPad,
+      2026-10-27"); 3 to 5, 7's reply and 8's row not possible: Only Draw
+      with Apple Pencil was on, a finger drew nothing, and no setting was
+      changed that day; 9 done by a STORE of the Trash's label, no move or
+      delete. In 2 Quick Look's Markup button between Share and Done, off;
+      Done with nothing drawn: no composer, one copy in `tmp/Attachments`.
+      Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-files, Only Draw with Apple Pencil switched off for each
+      drawing and on again after it: 1 to 8 passed, 6 as corrected, and 8's
+      row named as Quick Look's copy is, the step's ".jpg" the check's
+      mistake (KNOWN_ISSUES B-171, "Found on the test iPad, 2026-10-28"); 9
+      done by a STORE of the Trash's label, no move or delete. In 2 Quick
+      Look titled "IMG_1220.jpeg", its extension kept. In 3 a line drawn
+      with a finger, Quick Look closed at its first Done, nothing asked; a
+      Reply to the sender alone, the caret at its top, the keyboard up, one
+      row "IMG_1220.jpeg — 1.6 MB", a JPEG. In 4 `letter.json` listed the
+      row as it shows, its file in the letter's own directory, pulled: a
+      JPEG of 1728 by 2304 with the line on it. In 5 Save Draft and Delete
+      Draft asked; Delete Draft kept nothing, the copy's directory gone, no
+      `MAIL FROM`, `RCPT TO`, `DATA` or `APPEND`. In 6 the tap's and the
+      menu's Quick Look with the Markup button, as B-176 has them; the web
+      picture's menu WebKit's. In 7 the reply to the first letter's sender,
+      with its subject. In 8 the HEIC drawn as a photo, upright, 561 by 421
+      points, the column's width; its copy's row "m-photo.jpeg — 1.7 MB",
+      `image/jpeg`. Nothing was sent.*
 
 - [ ] **B-172, what a row says, plain quotes and paper, as Mail.** On the
       test iPad, the test account only, from a build of the `bm-cmp-a`
@@ -9984,8 +10185,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-look: 0 to 5 passed; 6 done by a STORE of the Trash's label, no
+      move or delete. No int20 build on the iPad, only one installed: the
+      bf7575a shots of round r6-i-compare stood in. In 1 the paperclip in
+      the gutter on the name's line on related, web, sig and iphone, none
+      on noname or nofile, as int21 had it; nothing else on the rows moved;
+      answered's flag 22 points left of the control's, its subject's last
+      whole word "subject" where the control's was "long". In 2 the
+      previews as written, gap's "wrote:" line kept and no "Lunch on
+      Sunday?". In 3 the "wrote:" line and "From the store's line." beside
+      the bar in its violet, every line's baseline as bf7575a's; the stack
+      not run, plain being in none. In 4 the header as written, "Oct 28,
+      2026 at 1:05:45 AM"; Mail's preview's body was indented under its
+      header, where Blackmail's starts at the header's left edge; nothing
+      printed. In 5 Mail kept gap's "wrote:" line too, so no B-number for
+      it, and clipped noname and the control, which int21 did not: fixed on
+      fix-j1 (KNOWN_ISSUES B-172, "Found on the test iPad, 2026-10-28"), in
+      int21 at ff47eb6, its re-check there to come. Nothing was sent.*
 
-- [ ] **B-173, a letter's colours as Mail's in Dark Mode.** On the test
+- [x] **B-173, a letter's colours as Mail's in Dark Mode.** On the test
       iPad, the test account only, from a build of the `bm-cmp-b`
       worktree (branch `copy-cmp-b`) or of the int it is merged into.
       Nothing is composed, sent, saved, moved or deleted in the app. The
@@ -10040,8 +10259,23 @@ checks below is left as not needed, not open, and none is worth a round.*
          deletes in the Trash only the UIDs that move answered
          (`COPYUID`). Nothing was sent, and nothing else was written to
          the account.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-look: 1 to 5 passed, beside the bf7575a shots of round
+      r6-i-compare; 6 done by a STORE of the Trash's label, no move or
+      delete. In 2 the white from under the header to the foot, black
+      margins, rgb(0, 0, 0), left, right and above, the first line's left
+      edge 1.5 points from the header's subject's. In 3 the sheet rgb(51,
+      51, 51) at four places across the column, its words white, the links
+      rgb(44, 166, 255), the logo dark on the grey, no dark line in the
+      sheet; the signature's lines where bf7575a's were. In 4 the same in
+      the conversation. In 5 the line's words white, "Load All Images"
+      rgb(10, 131, 255), the rule rgb(56, 56, 58), the white under it; over
+      the inverted letter the button rgb(14, 144, 248); the thread's line
+      the same; the line, its button and its rule where bf7575a's were;
+      Load All Images brought the picture; the option off again. Nothing
+      was sent.*
 
-- [ ] **B-174, Edit mode as Mail's.** On the test iPad, the test account
+- [x] **B-174, Edit mode as Mail's.** On the test iPad, the test account
       only, from a build of the `bm-cmp-cd` worktree (branch
       `copy-cmp-cd`) or of the int it is merged into. Nothing is sent,
       trashed, moved or marked: no Trash, Move or Mark is tapped in Edit
@@ -10070,8 +10304,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          grey again, the pane dimmed. Cancel: "Edit", the title "Notes", the
          first letter back in the pane, its row highlighted, nothing dimmed.
          Screenshot.
-      4. *Two panes:* the same with one ticked: the title cut ("1 Sel…")
-         beside Cancel, nothing moved. Back to three panes.
+      4. *Two panes:* the same with one ticked: the title cut with "…"
+         beside Cancel, nothing moved ("1 Sele…" on the 11-inch, round
+         r6-j-act, 2026-10-28, where the step had "1 Sel…", the plan's
+         word). Back to three panes.
       5. *Empty:* an empty folder (Junk, if empty; else any empty one)
          opened: Edit grey, a tap on it does nothing.
       6. *A search with no hits:* "Notes" again, Edit, a word none of the
@@ -10084,8 +10320,23 @@ checks below is left as not needed, not open, and none is worth a round.*
          and only them, from "Notes" to the Trash, and deletes in the Trash
          only the UIDs that move answered (`COPYUID`). Nothing was sent,
          and nothing else was written to the account.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-act: 1 to 6 passed, the three APPENDed read and the third made
+      unread by Blackmail's own drag to the right, its one STORE before
+      Edit; 7 done by a STORE of the Trash's label, no move or delete. In 1
+      Mark, Move and Trash rgb(50, 50, 50) on the bar's rgb(6, 6, 6)
+      (Mail's rgb(65, 65, 65) on its rgb(23, 24, 23)), the letter and its
+      header at 0.57 of their colours, the circles rgb(70, 70, 73); Flag
+      and Reply answered no tap. In 2 the ticked row rgb(10, 132, 255), its
+      tick disc and its names white, its unread dot white and still there;
+      the host's FLAGS without `\Seen` at 1, 7 and 43 s; from Edit to
+      Cancel no STORE, MOVE or APPEND in the log, only the ticked letters'
+      `BODY.PEEK[]`. In 4 "1 Sele…" (4 corrected). In 5 Junk empty, "No
+      messages", Edit grey, a tap on it nothing. In 6 "No results", Edit
+      mode on and its Cancel blue. Beside bf7575a's shots only what the
+      entry changed differed. Nothing was sent.*
 
-- [ ] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
+- [x] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
       On the test iPad, the test account only, from a build of the
       `bm-cmp-cd` worktree (branch `copy-cmp-cd`) or of the int it is
       merged into. Nothing is sent. The host makes five letters from
@@ -10096,8 +10347,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       Three panes; the connection log read after each step.
       1. *More:* a slow drag left on the first, More: Reply, Reply All,
          Forward, Trash, Flag, Mark as Unread, Move Message…, Archive
-         Message, Move to Junk, then Cancel, in that order, in the list as
-         before. Screenshot. Cancel (a tap outside): nothing written.
+         Message and Move to Junk, in that order, in the list as before,
+         and no Cancel row: on the iPad UIKit leaves an action sheet's
+         Cancel out of its popover, a tap outside being its Cancel.
+         Screenshot. A tap outside: nothing written. (Corrected 2026-10-28
+         after round r6-j-act: the step had a Cancel row last, which the
+         popover never shows.)
       2. *Ask on:* Settings > Mail, Ask Before Deleting on. A slow drag
          left on the second, Trash: it goes at once, no question; shake:
          "Undo Trash", Undo: back in "Notes". More on the third, Trash: at
@@ -10127,6 +10382,22 @@ checks below is left as not needed, not open, and none is worth a round.*
          Trash, and deletes in the Trash only the UIDs that move answered
          (`COPYUID`). Nothing was sent, and nothing else was written to the
          account.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-act, the shakes AssistiveTouch's: 1 to 5 passed, 1 with no
+      Cancel row (1 corrected); 6 done by a STORE of the Trash's label, no
+      move or delete. In 1 "Move Message…" with the one ellipsis the source
+      writes; More's popover beside a third row where bf7575a's was, a row
+      taller, and below a top row, where no shot of bf7575a's stands beside
+      it. In 2 the slow drag's Trash, More's Trash and the full drag each
+      went at once, nothing asked, "Undo Trash" bringing each back under a
+      new UID; the pane's Trash asked "Trash Message", as bf7575a's did,
+      and a tap outside kept the letter; three MOVEs to the Trash and three
+      back, none at the question. In 3 "Undo Unread", not "Undo Flag", its
+      Undo one STORE of `\Seen`, the flag kept; then "Undo Flag". In 4 the
+      next letter opened with no empty pane between, `\Seen` on the server;
+      "Undo Read", not "Undo Trash", its Undo one STORE; then "Undo Trash"
+      and "Undo Unread". A shake now and then brought nothing, and the next
+      the alert. Nothing was sent.*
 
 - [ ] **B-176, files, pictures and links in the pane as Mail has them.** On
       the test iPad, the test account only, from a build of the `fix-j1`
@@ -10235,16 +10506,45 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account. B-170's
-      steps 2, 6 and 7 and B-171's step 6 say what the pane did before
-      B-176 ("Loading…", "Tap to Download" on a large letter's PDF, a HEIC
-      tile, no Markup on a tap); where they differ, this check is the one
-      to follow.
+      steps 3, 6 and 7 say what the pane did before B-176 (no Markup and
+      Reply on a held PDF, "Tap to Download" on a large letter's PDF, a
+      HEIC tile); where they differ, this check is the one to follow.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-files, 6 recorded at 60 frames a second: 1 to 5 passed, and 6
+      but its ring, which stood still (KNOWN_ISSUES B-176, "Found on the
+      test iPad, 2026-10-28"); 7 done by a STORE of the Trash's label, no
+      move or delete. In 0 the build before B-176 was not on the iPad, only
+      one build installed: the held https link's shot of bf7575a from round
+      r6-i-compare stood in, and the `mailto:` link's menu was taken as the
+      first record, a contact card over "New Mail Message", "Send Message",
+      "FaceTime", "FaceTime Audio", "Add to Contacts" and "Copy Email", no
+      composer opened. In 2 Quick Look titled "B-176 pdf.pdf", Share,
+      Search, Markup and Done at its top; drawn on, it closed at its first
+      Done, nothing asked, and a Reply had one row, "B-176 pdf.pdf — 314
+      KB", a PDF; the HEIC tapped, "IMG_4176.HEIC" with its Markup button.
+      In 3 the popover a row taller than bf7575a's, its top a row higher.
+      In 4 the https link's card and menu as bf7575a's, every line within
+      2.5 points, no Add to Reading List. In 5 every letter where bf7575a
+      had it but the HEIC's photo in its tile's place and the empty line
+      kept where "Tap to Download" was; "huge" taken as the first record,
+      bf7575a having no such letter. In 6 "large"'s PDF fetched with no
+      tap, after its photos, its tile with the ring and "Downloading" from
+      its first frame, no "Tap to Download"; tapped once it had come, Quick
+      Look at once, no second FETCH; one FETCH of it at each opening;
+      "huge" "Tap to Download", the ring turning for 3.2 s at the tap; no
+      FETCH of the large PDF once "B-176 pdf" was taken at once; tapped
+      while it said "Downloading", then "B-176 pdf": nothing opened or
+      said, no copy kept, and one FETCH of it after, the tap's, as
+      designed. "B-176 ring" was made by the second run alone. The ring by
+      CSS and the files asked as the letter opens are on fix-j1, in int21
+      at ff47eb6; their re-check there is to come. Nothing was sent.*
 
-- [ ] **B-177, a sender only seen offered by name.** On the test iPad,
+- [x] **B-177, a sender only seen offered by name.** On the test iPad,
       the test account only, from a build of the `bm-cmp-f` worktree
       (branch `copy-cmp-f`) or of the int it is merged into. Nothing is
-      sent: no Send is tapped, and the letter begun is closed with Cancel
-      and Delete Draft, which keeps nothing. The host makes one letter
+      sent: no Send is tapped, and the letter begun is closed with Cancel,
+      which asks nothing for a letter left as it opened, or with Delete
+      Draft should it ask, which keeps nothing. The host makes one letter
       From "Zqxa Rmfix <zqxa.b162@example.net>", a made-up sender nobody
       on the account has written to, with a new Message-ID of its own and
       naming none on the account, and APPENDs it, read (`\Seen`), to the
@@ -10260,13 +10560,29 @@ checks below is left as not needed, not open, and none is worth a round.*
       Screenshot.
       3. *Kept:* Blackmail ended and opened again, New Message, "zqx":
       the row again.
-      4. *Cancel:* Cancel, Delete Draft: the composer closes; the
-      connection log has no `MAIL FROM`, `RCPT TO`, `DATA` or `APPEND`.
+      4. *Cancel:* To emptied, the letter is as it opened: Cancel, and the
+      composer closes with nothing asked (B-069); should it ask, Delete
+      Draft. The connection log has no `MAIL FROM`, `RCPT TO`, `DATA` or
+      `APPEND`, and `Local Drafts` nothing new. (Corrected 2026-10-28
+      after round r6-j-act: the step had Delete Draft asked, which a
+      composer left as it opened never asks.)
       5. *Put back:* the host moves the UID it noted, and only it, from
       "Notes" to the Trash, and deletes in the Trash only the UID that
       move answered (`COPYUID`). Nothing was sent, and nothing else was
       written to the account. The book keeps the address, as it keeps
       any sender listed.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round
+      r6-j-act: 0 to 4 passed, 4 as corrected; 5 done by a STORE of the
+      Trash's label, no move or delete. In 1 one row, "Zqxa Rmfix" with its
+      address under it, drawn as the composer's rows are, nothing else
+      offered, Blackmail's Contacts switch off: where such a row stands
+      beside others not seen, the list having one row; `SeenSendersTests`
+      has the order. In 2 also "qvx", the start of a sender seen as "Qvxa
+      Pell via Qvx Club": nothing offered (B-123). In 4 Cancel closed the
+      composer with nothing asked, To emptied; `Local Drafts` as before,
+      nothing written to the account. Not run: Cc and Bcc, the steps naming
+      To. Not possible: nobody noted from Junk, the host APPENDing to
+      "Notes" alone; a host test has it. Nothing was sent.*
 
 - [ ] **B-178, the list in date order.** On the test iPad, the test
       account only, from a build of the `fix-j1` branch at its tip (the
@@ -10346,6 +10662,31 @@ checks below is left as not needed, not open, and none is worth a round.*
       5 gave "came old" in place of its first), and deletes in the Trash
       only the UIDs that move answered (`COPYUID`). Nothing was sent, and
       nothing else was written to the account.
+      *Seen on the test iPad 2026-10-28 on int21 (1873724), round r6-j-act:
+      0, 1 and 7 passed, 3, 5 and 6 but for the rows' dates, and 2 and 4 in
+      part; 2's rows' dates and 4's jump to today FAILed (KNOWN_ISSUES
+      B-178, "Found on the test iPad, 2026-10-28"), the same dates standing
+      in 3 and 6, "dated old" 3/1/24 and "came old" 3:00 AM at the top; 5's
+      and 6's dates and 2's headers were added to the check since, 5's
+      dates and 2's headers not looked at; 8 done by a STORE of the Trash's
+      label, no move or delete. "came old" was dated 3 am, the letters made
+      before 9.30. In 1 Mail's rows by the date received, as 1 has them
+      now; neither letter opened in Mail, a part added since. In 2 the
+      order Mail's, row for row; one `UID FETCH … (UID INTERNALDATE)` after
+      the `UID SEARCH ALL`, `* FETCH {33 dates}`, then the page's. In 3 the
+      33 rows each once, by arrival, the oldest last, the dates going down
+      but for those two. In 4 14 June 2025 landed on "lastyear", "Showing
+      June 14, 2025", the dates in order both ways; the jump to "came
+      old"'s day, added since, made by the second run alone and failing as
+      today's did; the one to 1 March 2024 added since. In 5 the row back
+      where it stood after Undo and after a Refresh, under a new UID; the
+      log of the jumps and the moves pushed out of its 500 lines by the
+      Refresh, the moves shown by the server. In 6 the kept rows in 2's
+      order from 0.27 s on, none moving. In 7 the second Refresh NOOP, `UID
+      SEARCH ALL` and one FETCH. His Inbox's size not checked row by row:
+      the test account's 57,000 listed at launch and Refresh. The row's
+      date and Go to Date by arrival are on fix-j1, in int21 at ff47eb6;
+      their re-check there is to come. Nothing was sent.*
 
 ## Blocked on the owner
 
