@@ -112,19 +112,28 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertNotNil(place(of: "let pictures = PanePage.pictures(of: [letter])", in: try job))
     }
 
-    /// The printed header is the pane's: the same words from the same
-    /// letter, in `MessageHeaderView` and in `PrintPage`. Neither lists a
-    /// file: each is drawn in the body, on the pane and on paper, by
-    /// `BodyFiles` (B-170), and the letter in words lists them after its
-    /// text.
-    func testThePrintedHeaderIsThePanes() throws {
+    /// The printed header is Mail's (B-172), from the same letter as the
+    /// pane's: its names as the pane's lines name a person
+    /// (`MailFormat.recipientName`) with their addresses, and the subject
+    /// in the pane's words. Neither lists a file: each is drawn in the
+    /// body, on the pane and on paper, by `BodyFiles` (B-170), and the
+    /// letter in words lists them after its text.
+    func testThePrintedHeaderIsMailsFromTheSameLetter() throws {
         let header = try source("UI/MessageHeaderView.swift")
         let printed = try source("Mail/PrintPage.swift")
-        for words in ["MailFormat.displayName(m.sender)",
-                      "MailFormat.recipientsLine(\"To\", m.to) ?? \"To: me\"",
+        for words in ["MailFormat.recipientsLine(\"To\", m.to) ?? \"To: me\"",
                       "MailFormat.recipientsLine(\"Cc\", m.cc)",
                       "m.subject.isEmpty ? \"(no subject)\" : m.subject"] {
             XCTAssertTrue(header.contains(words), words)
+        }
+        for words in ["Head(from: person(m.sender),", "to: m.to.map(person),", "cc: m.cc.map(person),",
+                      "let name = MailFormat.recipientName(entry)",
+                      "MailFormat.bareAddress(entry)",
+                      "m.subject.isEmpty ? \"(no subject)\" : m.subject",
+                      "[Line(label: \"From:\", people: [from], text: nil),",
+                      "Line(label: \"Subject:\", people: [], text: subject),",
+                      "Line(label: \"Date:\", people: [], text: date)]",
+                      "+ [(\"To:\", to), (\"Cc:\", cc)].filter { !$0.1.isEmpty }"] {
             XCTAssertTrue(printed.contains(words), words)
         }
         for files in ["listedAttachments", "m.attachments", "UIStackView", "BodyFiles", "paperclip"] {
@@ -136,7 +145,8 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertTrue(header.contains("date = m.date"), "on screen, as it was")
         XCTAssertTrue(header.contains("MailFormat.detailTimestamp(date)"), "on screen, as it was")
         XCTAssertFalse(printed.contains("detailTimestamp"))
-        XCTAssertTrue(printed.contains("MailFormat.fullTimestamp(m.date, locale: locale, timeZone: timeZone)"))
+        XCTAssertTrue(printed.contains("MailFormat.printedTimestamp(m.date, locale: locale, timeZone: timeZone)"))
+        XCTAssertFalse(printed.contains("fullTimestamp("), "Mail's form, not the pane's")
         // The sizes as a file's tile writes them.
         XCTAssertTrue(try source("Mail/BodyFiles.swift")
                         .contains("ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)"))

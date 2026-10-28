@@ -90,9 +90,11 @@ final class DatesTheIPadsWayTests: XCTestCase {
                                     "October 3, 2026 at 9:14\(nb)AM"])
     }
 
-    /// Paper (B-110) has the date in full whatever the day, the header's
-    /// long form: today's letter too.
-    func testThePrintedDateIsTheRegionsLongDate() {
+    /// Paper (B-110) has the date in full whatever the day: today's letter
+    /// too. Since B-172 in Mail's printed form, the medium date and the
+    /// medium time with its seconds, "Oct 27, 2026 at 1:25:45 PM" as Mail
+    /// printed it on the test iPad; the region's own, as every date here.
+    func testThePrintedDateIsTheRegionsMediumDateAndTime() {
         let letter = { (region: Region) in
             Message(id: "7/3", mailboxID: "INBOX", sender: "Sam Example <sam@example.com>",
                     senderAddress: "sam@example.com", to: ["jane@example.com"], cc: [],
@@ -103,9 +105,9 @@ final class DatesTheIPadsWayTests: XCTestCase {
             PrintPage.head(letter(region), size: { "\($0)" }, locale: region.locale,
                            timeZone: region.zone).date
         }
-        XCTAssertEqual(printed(us), "October 24, 2026 at 9:14\(nb)AM")
-        XCTAssertEqual(printed(gb), "24 October 2026 at 09:14")
-        XCTAssertEqual(printed(ca), "October 24, 2026 at 9:14\(nb)AM")
+        XCTAssertEqual(printed(us), "Oct 24, 2026 at 9:14:03\(nb)AM")
+        XCTAssertEqual(printed(gb), "24 Oct 2026 at 09:14:03")
+        XCTAssertEqual(printed(ca), "Oct 24, 2026 at 9:14:03\(nb)AM")
     }
 
     // MARK: - Go to Date and the status line
@@ -280,7 +282,7 @@ final class DatesTheIPadsWayTests: XCTestCase {
             ("Blackmail/Mail/MessageThread.swift", "MailFormat.listTimestamp(date, now: now)"),
             ("Blackmail/UI/MessageHeaderView.swift", "MailFormat.detailTimestamp(date)"),
             ("Blackmail/Mail/PrintPage.swift",
-             "MailFormat.fullTimestamp(m.date, locale: locale, timeZone: timeZone)"),
+             "MailFormat.printedTimestamp(m.date, locale: locale, timeZone: timeZone)"),
             ("Blackmail/Model/MailModels.swift", "MailFormat.quoteAttribution(m.date, sender: m.sender)"),
             ("Blackmail/Model/MailModels.swift", "MailFormat.forwardedDate(m.date)"),
             ("Blackmail/MIME/ForwardedFields.swift", "MailFormat.forwardedDate(date)"),
@@ -302,8 +304,8 @@ final class DatesTheIPadsWayTests: XCTestCase {
             $0.contains("init(_ entries: [Entry], now: Date = Date(), locale: Locale = .current,")
         })
         // Nothing calls these with a locale of its own.
-        for name in ["listTimestamp(", "detailTimestamp(", "fullTimestamp(", "quoteAttribution(",
-                     "forwardedDate(", "spokenDay("] {
+        for name in ["listTimestamp(", "detailTimestamp(", "fullTimestamp(", "printedTimestamp(",
+                     "quoteAttribution(", "forwardedDate(", "spokenDay("] {
             for (path, found) in lines(holding: name, in: files) {
                 for line in found where line.contains("locale:") && !line.contains("func ") {
                     XCTAssertTrue(line.contains("locale: locale"), "\(path): \(line)")

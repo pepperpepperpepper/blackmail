@@ -218,4 +218,37 @@ final class RowQuotesPaperLikeMailTests: XCTestCase {
         let sheet = try XCTUnwrap(page.components(separatedBy: "</style>").first)
         XCTAssertTrue(sheet.contains(QuoteBars.css(in: "#bm")), sheet)
     }
+
+    // MARK: - A6, A7: the printed header and date
+
+    private let posix = Locale(identifier: "en_US_POSIX")
+    private let utc = TimeZone(identifier: "UTC")!
+
+    /// Mail's lines, in its order, with its words: From, Subject, Date,
+    /// To, each name with its address; the date the medium date and the
+    /// medium time, its seconds, never the pane's long form.
+    func testThePrintedHeaderIsMailsLabelledLines() {
+        let m = Message(id: "7/3", mailboxID: "INBOX", sender: "\"Sam Plain\" <sam.b147@example.net>",
+                        senderAddress: "sam.b147@example.net", to: ["Carlo <owner@example.com>"], cc: [],
+                        subject: "R6 B-147 plain rm", date: Date(timeIntervalSince1970: 1_793_107_545),
+                        textBody: samPlain, htmlBody: nil, attachments: [])
+        let head = PrintPage.head(m, size: { "\($0)" }, locale: posix, timeZone: utc)
+        XCTAssertEqual(head.lines.map(\.label), ["From:", "Subject:", "Date:", "To:"])
+        XCTAssertEqual(head.from, .init(name: "Sam Plain", address: "sam.b147@example.net"))
+        XCTAssertEqual(head.to, [.init(name: "Carlo", address: "owner@example.com")])
+        XCTAssertEqual(head.lines.map(PrintPage.inWords), [
+            "From: Sam Plain sam.b147@example.net", "Subject: R6 B-147 plain rm",
+            "Date: " + head.date, "To: Carlo owner@example.com",
+        ])
+        // The medium date and the medium time, as the iPad's formatter
+        // writes them: Oct 27, 2026, and 1:25:45 PM with its seconds.
+        let formatter = DisplayDates.formatter(.mediumDateAndMediumTime, locale: posix, timeZone: utc)
+        XCTAssertEqual(head.date, formatter.string(from: m.date))
+        XCTAssertEqual(formatter.dateStyle, .medium)
+        XCTAssertEqual(formatter.timeStyle, .medium)
+        XCTAssertTrue(head.date.hasPrefix("Oct 27, 2026"), head.date)
+        XCTAssertTrue(head.date.contains("1:25:45"), head.date)
+        XCTAssertNotEqual(head.date, MailFormat.fullTimestamp(m.date, locale: posix, timeZone: utc))
+        XCTAssertEqual(MailFormat.printedTimestamp(m.date, locale: posix, timeZone: utc), head.date)
+    }
 }
