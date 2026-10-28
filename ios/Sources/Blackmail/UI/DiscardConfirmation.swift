@@ -41,6 +41,7 @@ enum DiscardConfirmation {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(title: question.button, style: .destructive) { _ in go() })
         sheet.addAction(UIAlertAction(title: DiscardQuestion.cancel, style: .cancel))
+        sheet.heldAtLarge()
         return sheet
     }
 }

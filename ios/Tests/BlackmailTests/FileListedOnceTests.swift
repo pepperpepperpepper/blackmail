@@ -687,14 +687,16 @@ final class FileListedOnceTests: XCTestCase {
         for presented in [
             "present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true, "
                 + "completion: ready)",
-            "present(share, animated: true, completion: ready)",
+            "share.heldAtLarge() present(share, animated: true, completion: ready)",
             "marking = (m, attachment) } handedOver = true present(preview, animated: true, completion: ready) "
                 + "} } catch {",
         ] {
             XCTAssertTrue(open.contains("handedOver = true " + presented)
                           || open.contains(presented), presented)
         }
-        XCTAssertEqual(open.components(separatedBy: "handedOver = true present(").count - 1, 3, open)
+        XCTAssertEqual(open.components(separatedBy: "handedOver = true present(").count - 1
+                       + open.components(separatedBy: "handedOver = true share.heldAtLarge() present(").count - 1,
+                       3, open)
         XCTAssertEqual(open.components(separatedBy: "present(").count - 1, 3, open)
         XCTAssertFalse(open.contains("animated: true)"), open)
     }

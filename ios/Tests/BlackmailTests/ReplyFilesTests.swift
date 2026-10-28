@@ -569,7 +569,7 @@ final class ReplyFilesWiringTests: XCTestCase {
             "sheet.addAction(UIAlertAction(title: ReplyFiles.include, style: .default) { _ in answer(true) })",
             "sheet.addAction(UIAlertAction(title: ReplyFiles.dontInclude, style: .default) { _ in "
                 + "answer(false) }) sheet.addAction(UIAlertAction(title: \"Cancel\", style: .cancel)) "
-                + "present(sheet, animated: true)",
+                + "sheet.heldAtLarge() present(sheet, animated: true)",
             "draft = .forwarding(m, signature: signature, includingFiles: included ?? true)",
         ] {
             XCTAssertTrue(code.contains(line), line)

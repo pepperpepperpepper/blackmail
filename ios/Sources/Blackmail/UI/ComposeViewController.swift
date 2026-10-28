@@ -1352,6 +1352,7 @@ final class ComposeViewController: UIViewController,
                                         then: self.onDraftsChanged)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 

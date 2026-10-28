@@ -149,7 +149,9 @@ public final class ShareViewController: UIViewController,
     /// And at Large, as the app's window is (`AppDelegate`), so that what
     /// is put up over the form, which its held trait does not reach, keeps
     /// its layout too: Cancel's question, an error's alert, a bubble's menu
-    /// (B-166, Changed 2026-10-27).
+    /// (B-166, Changed 2026-10-27). In the app the window's limits did not
+    /// reach its questions on the test iPad: each is held on its own too
+    /// (`heldAtLarge`), Cancel's question here among them.
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         view.window?.overrideUserInterfaceStyle = .dark
@@ -950,6 +952,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             self?.sheet.cancel()
         })
         confirm.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        confirm.heldAtLarge()
         present(confirm, animated: true)
     }
 

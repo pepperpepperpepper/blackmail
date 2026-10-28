@@ -164,7 +164,7 @@ final class DiscardQuestionTests: XCTestCase {
         for line in [
             "let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)",
             "sheet.addAction(UIAlertAction(title: question.button, style: .destructive) { _ in go() }) "
-                + "sheet.addAction(UIAlertAction(title: DiscardQuestion.cancel, style: .cancel)) return sheet",
+                + "sheet.addAction(UIAlertAction(title: DiscardQuestion.cancel, style: .cancel)) sheet.heldAtLarge() return sheet",
             "sheet.popoverPresentationController?.barButtonItem = item vc.present(sheet, animated: true)",
             "sheet.popoverPresentationController?.sourceView = place.view "
                 + "sheet.popoverPresentationController?.sourceRect = place.rect vc.present(sheet, animated: true)",

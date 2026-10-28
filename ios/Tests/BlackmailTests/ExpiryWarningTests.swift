@@ -448,7 +448,7 @@ final class ExpiryWarningTests: XCTestCase {
                        + "alert.addAction(UIAlertAction(title: \"OK\", style: .default) { _ in "
                        + "dismissed() warning = nil let waiting = afterWarning "
                        + "afterWarning = [] showFirst(waiting) }) "
-                       + "afterWarning = [] warning = alert "
+                       + "afterWarning = [] warning = alert alert.heldAtLarge() "
                        + "vc.present(alert, animated: true, completion: shown) } ")
         // Every alert asked for while it is up waits for its OK, a sheet's
         // held alerts too: they all go through `showFirst`.
@@ -602,7 +602,7 @@ final class ExpiryWarningTests: XCTestCase {
                        + "case .share: let share = UIActivityViewController(activityItems: [url], "
                        + "applicationActivities: nil) share.popoverPresentationController?.sourceView = webView "
                        + "share.popoverPresentationController?.sourceRect = pictureSpot handedOver = true "
-                       + "present(share, animated: true, completion: ready) "
+                       + "share.heldAtLarge() present(share, animated: true, completion: ready) "
                        + "case .quickLook, .markupAndReply, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "

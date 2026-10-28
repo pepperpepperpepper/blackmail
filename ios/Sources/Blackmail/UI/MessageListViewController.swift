@@ -2885,6 +2885,7 @@ final class MessageListViewController: UITableViewController {
             [weak self] _ in self?.applyRead(true, to: chosen)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 
@@ -3261,6 +3262,7 @@ final class MessageListViewController: UITableViewController {
             })
         }
         sheet.addAction(UIAlertAction(title: RowMore.cancel, style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 

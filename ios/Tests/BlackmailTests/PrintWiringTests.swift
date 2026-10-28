@@ -62,7 +62,7 @@ final class PrintWiringTests: XCTestCase {
                         + "self?.printLetter(m) }",
                     "printRow.isEnabled = printing?.isPreparing != true sheet.addAction(printRow) "
                         + "sheet.addAction(UIAlertAction(title: \"Cancel\", style: .cancel)) "
-                        + "present(sheet, animated: true)"] {
+                        + "sheet.heldAtLarge() present(sheet, animated: true)"] {
             let at = try XCTUnwrap(place(of: row, in: sheet), row)
             XCTAssertGreaterThanOrEqual(at, last, row)
             last = at

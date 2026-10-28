@@ -1447,6 +1447,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     share.popoverPresentationController?.sourceView = webView
                     share.popoverPresentationController?.sourceRect = pictureSpot
                     handedOver = true
+                    share.heldAtLarge()
                     present(share, animated: true, completion: ready)
                 case .quickLook, .markupAndReply, .saveImage, .copy:
                     // A tap's Quick Look, the held menu's, or Markup and
@@ -1773,6 +1774,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             })
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 
@@ -1932,6 +1934,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             sheet.addAction(action)
         }
         sheet.addAction(UIAlertAction(title: FlagMenu.cancel, style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 
@@ -2175,6 +2178,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         printRow.isEnabled = printing?.isPreparing != true
         sheet.addAction(printRow)
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 
@@ -2249,6 +2253,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             answer(false)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 

@@ -69,8 +69,11 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Everything in the window at Large, whatever the iPad's text size
         // or a Per-App size (B-166, Changed 2026-10-27), as the dark above
         // reaches the alerts: what the panes' and the sheets' traits of
-        // Large do not, the app's questions and action sheets, the bubble
-        // menu and the setup form. At Large it changes nothing.
+        // Large do not, the setup form above all, the window's first
+        // screen. The questions, the action sheets and the bubble menu were
+        // meant to be held by it too, and on the test iPad were not: each
+        // is held on its own (`heldAtLarge`, B-166, found 2026-10-28). At
+        // Large it changes nothing.
         window.minimumContentSizeCategory = .large
         window.maximumContentSizeCategory = .large
         // NOTE: the app cannot defend itself against Smart Invert. Setting

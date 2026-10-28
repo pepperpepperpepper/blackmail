@@ -236,7 +236,7 @@ final class RootViewController: UIViewController {
         // UIKit's own placing (B-071). The reading pane too, so nothing of
         // UIKit's in it moves either. The sheets these panes put up are
         // held as they are presented (`UINavigationController.formSheet`),
-        // and the questions and menus by the window's limits (`AppDelegate`).
+        // and the questions and menus each as it is put up (`heldAtLarge`).
         for nav in [mailboxNav, listNav, detailNav] {
             setOverrideTraitCollection(.heldTextSize, forChild: nav)
         }

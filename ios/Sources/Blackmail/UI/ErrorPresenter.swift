@@ -69,6 +69,7 @@ enum ErrorPresenter {
         })
         afterWarning = []
         warning = alert
+        alert.heldAtLarge()
         vc.present(alert, animated: true, completion: shown)
     }
 
@@ -111,6 +112,7 @@ enum ErrorPresenter {
                 alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in open() })
             }
             alert.addAction(UIAlertAction(title: "OK", style: .default))
+            alert.heldAtLarge()
             vc.present(alert, animated: true)
             return true
         }

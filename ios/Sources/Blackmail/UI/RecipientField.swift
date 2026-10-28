@@ -287,6 +287,7 @@ final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerD
         menuFor = index
         menuEntry = entry
         self.menu = menu
+        menu.heldAtLarge()
         owner.present(menu, animated: true)
     }
 

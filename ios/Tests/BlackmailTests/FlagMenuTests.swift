@@ -528,7 +528,8 @@ final class FlagMenuTests: XCTestCase {
             + "[weak self] _ in self?.applyRead(false, to: chosen) }) "
             + "sheet.addAction(UIAlertAction(title: \"Mark as Read\", style: .default) { "
             + "[weak self] _ in self?.applyRead(true, to: chosen) }) "
-            + "sheet.addAction(UIAlertAction(title: \"Cancel\", style: .cancel)) present(sheet, animated: true)"),
+            + "sheet.addAction(UIAlertAction(title: \"Cancel\", style: .cancel)) sheet.heldAtLarge() "
+            + "present(sheet, animated: true)"),
                       sheet)
         let apply = try section(of: list, from: "private func applyRead(", to: "@objc private func moveSelected()")
         XCTAssertTrue(apply.contains("for m in chosen where m.isRead != read {"))

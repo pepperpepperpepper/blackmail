@@ -434,6 +434,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         ask.addAction(UIAlertAction(title: "Add", style: .default) { [weak self, weak ask] _ in
             self?.addEmail(ask?.textFields?.first?.text ?? "")
         })
+        ask.heldAtLarge()
         present(ask, animated: true)
     }
 
@@ -533,6 +534,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: action, style: style) { _ in then() })
+        alert.heldAtLarge()
         present(alert, animated: true)
     }
 

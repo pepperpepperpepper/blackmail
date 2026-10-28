@@ -26,6 +26,7 @@ enum EraseConfirmation {
         alert.addAction(UIAlertAction(title: EraseQuestion.delete, style: .destructive) { _ in
             delete()
         })
+        alert.heldAtLarge()
         vc.present(alert, animated: true)
     }
 }

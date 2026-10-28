@@ -106,6 +106,7 @@ final class DiagnosticsViewController: UIViewController {
                                              applicationActivities: nil)
         // Required on iPad or presenting the sheet is a crash, not a no-op.
         sheet.popoverPresentationController?.barButtonItem = sender
+        sheet.heldAtLarge()
         present(sheet, animated: true)
     }
 

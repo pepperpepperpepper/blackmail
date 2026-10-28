@@ -93,8 +93,9 @@ final class TextSizeWiringTests: XCTestCase {
     /// among them, and on the share sheet's form. Every sheet of the app's
     /// is made by the one maker, and nothing else reads the text size.
     /// Everything put up is known, file by file: the app's sheets, by the
-    /// maker; its questions and action sheets, held by the window's limits
-    /// (`testTheWindowsAreHeldAtLarge`); and iOS's own controllers, Quick
+    /// maker; its questions and action sheets, and the Share sheet, each
+    /// held as it is put up (`testEveryQuestionAndActionSheetIsHeldAtLarge`);
+    /// and iOS's own controllers, Quick
     /// Look, the photo and document pickers, the Share sheet and the print
     /// panel. No presentation style is set anywhere but in the maker and
     /// on Quick Look, so no sheet is put up as a page sheet, or has its
@@ -189,13 +190,13 @@ final class TextSizeWiringTests: XCTestCase {
 
     /// The app's window, and the share sheet's, are limited to Large, the
     /// least and the most, so that what the traits on the panes and the
-    /// sheets do not reach keeps its layout too: the questions and action
-    /// sheets put up over them, the bubble menu, and the setup form,
-    /// which is the window's own first screen with no
-    /// parent to hold it. The app's set before its first screen is made;
-    /// the share sheet's as it appears, where its window is first there,
-    /// beside the dark style that reaches its Cancel question. Nothing else
-    /// sets a limit that could let a part of a screen grow.
+    /// sheets do not reach keeps its layout too: the setup form, which is
+    /// the window's own first screen with no parent to hold it. The app's
+    /// set before its first screen is made; the share sheet's as it
+    /// appears, where its window is first there, beside the dark style
+    /// that reaches its Cancel question. The one other limit is each
+    /// question's own (`heldAtLarge`), at Large too. Nothing else sets a
+    /// limit that could let a part of a screen grow.
     func testTheWindowsAreHeldAtLarge() throws {
         let app = try source("App/AppDelegate.swift")
         let made = try XCTUnwrap(place(of: "let window = UIWindow(frame: UIScreen.main.bounds)", in: app))
@@ -221,12 +222,68 @@ final class TextSizeWiringTests: XCTestCase {
             let code = try source(file)
             let limits = count("minimumContentSizeCategory", in: code) + count("maximumContentSizeCategory", in: code)
             switch file {
-            case "App/AppDelegate.swift", "Share/ShareViewController.swift":
+            case "App/AppDelegate.swift", "Share/ShareViewController.swift", "Theme/TextSizeReading.swift":
                 XCTAssertEqual(limits, 2, file)
             default:
                 XCTAssertEqual(limits, 0, file)
             }
         }
+    }
+
+    /// Every question, action sheet and Share sheet the app puts up is
+    /// held at Large on its own (B-166, found on the test iPad 2026-10-28):
+    /// on 16.5.1 the window's limits did not reach the bubble menu, the
+    /// Reply sheet, the Flag popover or Add Another Email, which grew at the
+    /// larger sizes. The one helper puts the trait of Large on the
+    /// presentation, keeping any trait already there, and limits the
+    /// controller's own view to Large. Every `UIAlertController` and
+    /// `UIActivityViewController` made anywhere in the sources, those there
+    /// now and any made later, is made as `let NAME = …(` and held,
+    /// `NAME.heldAtLarge()`, as the last thing before it is presented or
+    /// handed back by its maker: one made and not held fails here.
+    func testEveryQuestionAndActionSheetIsHeldAtLarge() throws {
+        let reading = try source("Theme/TextSizeReading.swift")
+        XCTAssertNotNil(place(of: "extension UIViewController { "
+                                  + "@discardableResult func heldAtLarge() -> Self { "
+                                  + "if let presentation = presentationController { "
+                                  + "presentation.overrideTraitCollection = UITraitCollection( "
+                                  + "traitsFrom: [presentation.overrideTraitCollection, .heldTextSize]"
+                                  + ".compactMap { $0 }) } "
+                                  + "view.minimumContentSizeCategory = .large "
+                                  + "view.maximumContentSizeCategory = .large "
+                                  + "return self } }", in: reading))
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail")
+        let files = try XCTUnwrap(FileManager.default.enumerator(atPath: root.path))
+            .compactMap { $0 as? String }.filter { $0.hasSuffix(".swift") }
+        XCTAssertGreaterThan(files.count, 50)
+        let made = try NSRegularExpression(pattern: #"(?<![A-Za-z0-9_])(?:UIAlertController|UIActivityViewController)\("#)
+        let named = try NSRegularExpression(
+            pattern: #"let ([A-Za-z_][A-Za-z0-9_]*) = (?:UIAlertController|UIActivityViewController)\("#)
+        var sites: [String] = []
+        for file in files {
+            let code = try source(file)
+            let whole = NSRange(code.startIndex..., in: code)
+            let lets = named.matches(in: code, range: whole)
+            XCTAssertEqual(lets.count, made.numberOfMatches(in: code, range: whole),
+                           "each made as let NAME = …(, \(file)")
+            for found in lets {
+                let name = String(code[Range(found.range(at: 1), in: code)!])
+                let rest = String(code[Range(found.range, in: code)!.upperBound...])
+                let leaves = try NSRegularExpression(
+                    pattern: "(?<![A-Za-z0-9_])(?:present\\(\(name), animated:|return \(name)(?![A-Za-z0-9_]))")
+                let gone = try XCTUnwrap(leaves.firstMatch(in: rest, range: NSRange(rest.startIndex..., in: rest)),
+                                         "\(file): \(name) is presented or handed back")
+                let before = String(rest[..<Range(gone.range, in: rest)!.lowerBound])
+                let held = try NSRegularExpression(pattern: "(?<![A-Za-z0-9_])\(name)\\.heldAtLarge\\(\\) (?:[a-z]+\\.)?$")
+                XCTAssertEqual(held.numberOfMatches(in: before, range: NSRange(before.startIndex..., in: before)), 1,
+                               "\(file): \(name) held just before it is put up or handed back")
+                sites.append(file)
+            }
+        }
+        XCTAssertEqual(sites.count, 17, "fifteen questions and action sheets, and two Share sheets: \(sites.sorted())")
     }
 
     // MARK: - The type, and what keeps its size

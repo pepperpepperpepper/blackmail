@@ -50,10 +50,12 @@ extension UITraitCollection {
     /// sheet's form, so that none of it grows or moves with the iPad's text
     /// size either, as B-071 held the folders and the list (B-166, Changed
     /// 2026-10-27). Bold Text is not held: it is a trait of its own. What
-    /// is put up over them, a question, an action sheet, a menu, and the
-    /// setup form, which has no parent to hold it, are held by the
-    /// window's limits of Large (`AppDelegate`; the share sheet's in its
-    /// `viewWillAppear`). B-071 saw one thing the trait does not hold:
+    /// is put up over them, a question, an action sheet, the bubble menu
+    /// and the Share sheet, is held by its own presentation and view
+    /// (`UIViewController.heldAtLarge`): the window's limits of Large
+    /// (`AppDelegate`; the share sheet's in its `viewWillAppear`), which
+    /// hold the setup form, the window's first screen with no parent to
+    /// hold it, did not reach them on the test iPad. B-071 saw one thing the trait does not hold:
     /// Edit mode's circles, their size held, sit lower in their rows at
     /// the larger sizes, 12.5 points at the largest.
     static let heldTextSize = UITraitCollection(preferredContentSizeCategory: .large)
@@ -71,6 +73,33 @@ extension UINavigationController {
         nav.modalPresentationStyle = .formSheet
         nav.presentationController?.overrideTraitCollection = .heldTextSize
         return nav
+    }
+}
+
+extension UIViewController {
+
+    /// A question, an action sheet or the Share sheet the app puts up,
+    /// held at Large (`UITraitCollection.heldTextSize`) as the app's sheets
+    /// are (`UINavigationController.formSheet`): through its presentation,
+    /// which on the iPad is an action sheet's popover, and its own view,
+    /// and what is in it, limited to Large, the least and the most, should
+    /// an alert's presentation not hand its trait on. The window's limits
+    /// did not reach them: on the test iPad, 16.5.1, the bubble menu, the
+    /// Reply sheet, the Flag popover and Add Another Email grew at the
+    /// larger sizes while every screen under them stayed as at Large
+    /// (B-166, found 2026-10-28). Called on every one the app makes, after
+    /// its popover's place is set and as it is presented, or as its maker
+    /// hands it back (`DiscardConfirmation`); at Large it changes nothing.
+    /// Any trait UIKit put on the presentation itself is kept, the size
+    /// alone laid over it.
+    @discardableResult func heldAtLarge() -> Self {
+        if let presentation = presentationController {
+            presentation.overrideTraitCollection = UITraitCollection(
+                traitsFrom: [presentation.overrideTraitCollection, .heldTextSize].compactMap { $0 })
+        }
+        view.minimumContentSizeCategory = .large
+        view.maximumContentSizeCategory = .large
+        return self
     }
 }
 
