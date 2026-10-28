@@ -37289,7 +37289,7 @@ turns given back; and the loader's pin takes the turn, the stopped
 request and the turn given back. Every request let through at once, 2
 failures in the new test; then restored.
 
-## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, after the people he writes to and his Contacts, and so does Blackmail now
+## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 
 **What Mail does.** Seen side by side on the test iPad, Mail 16.5.1, in
 the comparison round of 2026-10-27 (its C-16, the shots
@@ -37337,6 +37337,29 @@ third group), and within (B-017), had it stayed.
    lists noted from a list, count as written to once at least, so "own"
    still finds owner@example.com under his name (B-082) and his second
    address is found by its start before any fill has counted it.
+4. *A note of an address the book has is a lookup again* (`record`,
+   `noteOwn`). As first built, every note went over the whole book to
+   hold the parts to their bounds, and the book is full at 600 after the
+   fill and a few pages. Each page of rows notes the From, To and Cc of
+   its 50 letters, about 150 addresses, on the repository's actor and
+   under the lock a keystroke in an address field waits for. Now the
+   parts are looked at only when one can have grown: an address new to
+   the book, or one only seen now written to. And which of the book's
+   addresses are his is kept as a set (`ownInBook`), made again whenever
+   his addresses are told (`keepOwn`, `fill`) or the book is read
+   (`load`), so the pass an address new to the book still costs no
+   longer takes each of the 600 apart again (`OwnAddresses.contains`).
+   In the debug test build here, a full book of 600: 150 notes of
+   addresses it had took about 575 ms and take about 4 ms, as in the 300
+   alone; 150 new ones took about 670 ms and take about 120 ms.
+5. *His own counted once when the account lists them* (`keepOwn`). An
+   address the book had only seen before the account listed it as his is
+   counted as written to there, as a note of it would be, and the parts
+   are held to their bounds at once, his counting in the 300 from then
+   and one he has taken off as anyone else. A note of an address the book
+   has no longer does that, and a book read again before his addresses
+   are told knows none of them as his: one of his left uncounted could
+   then have gone as the oldest seen.
 
 **What it reverses.** B-155's "what was only seen goes first" and the
 one bound of 300. B-162's third group in part: an address only seen is
@@ -37373,7 +37396,26 @@ first, his own no longer counted once, every book entry matched by name
 alone and the seen placed before his Contacts: 15 failures in 7 tests of
 `SeenSendersTests`; then every entry matched by the book's own rules, by
 address and within: 7 in `testNeverByTheAddress`; then restored.
+Then three more in `SeenSendersTests`, eleven in all: a seen sender named
+"Zqxá Núñez" offered for "nun" and "NÚÑ", accents aside; an address only
+seen that the account then lists as his counted once, and in the 300 at
+once, the oldest written to going then; and 150 notes of addresses the
+book has taking under twice as long in the 600 as in the 300 alone, each
+the quickest of three runs (about 4 ms and 4 ms here). Undone by hand, a
+pass over the parts at every note: 1 failure, the last of them (21 ms in
+the 600 against 4 ms in the 300); `keepOwn` neither counting nor holding
+to the bounds, and a seen name only lowercased: 5 failures in the first
+two; then restored.
 
-**Not seen.** Nothing of this has been seen on an iPad. No layout
-changed: the list under the field has the same rows, drawn the same; only
-who can be in them changed.
+**Not seen.** Nothing of this has been seen on an iPad. Of Mail, only
+"zqx" and "zqxa.b" were typed, for a sender named in From: not a later
+word of the name ("rmf"), nor a name typed on past a space ("zqxa r"),
+nor one with an accent; not a received sender with no name, whom
+Blackmail now never offers; not someone only in the To or Cc of a
+received letter, whom the book still notes and now offers by name; nor
+where Mail puts such a row beside its Recents and his Contacts, as its
+list had one row (after both is the plan's order). The time a page's
+notes take on the iPad was not measured: the numbers above are this
+host's debug build, where Foundation's trimming is slower. No layout
+changed: the list under the field has the same rows, drawn the same;
+only who can be in them changed.

@@ -3,12 +3,13 @@ import XCTest
 
 /// The people whose letters he has only received, in the address fields'
 /// list (B-177), as Mail offers them under "SIRI FOUND IN APPS": by name,
-/// after the people he has written to and his Contacts, never by their
-/// address. Mail, given a received letter from Zqxa Rmfix at
-/// zqxa.b162@example.net, offered "Zqxa Rmfix" for "zqx" and nothing for
-/// "zqxa.b". The book keeps them apart from the 300 he has written to,
-/// with a bound of their own, so a book filled from his Sent Mail no
-/// longer pushes each of them out as it is noted.
+/// never by their address; after the people he has written to and his
+/// Contacts, the plan's order, as where Mail puts them was not seen. Mail,
+/// given a received letter from Zqxa Rmfix at zqxa.b162@example.net,
+/// offered "Zqxa Rmfix" for "zqx" and nothing for "zqxa.b". The book keeps
+/// them apart from the 300 he has written to, with a bound of their own,
+/// so a book filled from his Sent Mail no longer pushes each of them out
+/// as it is noted.
 final class SeenSendersTests: XCTestCase {
 
     private static let suite = "SeenSendersTests"
@@ -66,6 +67,14 @@ final class SeenSendersTests: XCTestCase {
         XCTAssertEqual(offered("zqxa r"), ["zqxa.b162@example.net"], "the name typed on")
     }
 
+    /// The name matched with case and accents aside, as his Contacts'
+    /// names are (`RecipientBook.folded`): "nun" finds Núñez.
+    func testASeenNameIsMatchedWithItsAccentsAside() {
+        book.note(address: "zqxn@example.net", name: "Zqxá Núñez")
+        XCTAssertEqual(offered("nun"), ["zqxn@example.net"])
+        XCTAssertEqual(offered("NÚÑ"), ["zqxn@example.net"])
+    }
+
     /// Written out and read again, it is still there.
     func testTheSeenSurviveAReopening() {
         fillToTheBrim()
@@ -108,6 +117,53 @@ final class SeenSendersTests: XCTestCase {
         XCTAssertTrue(all.contains { $0.address == "owner@example.com" })
     }
 
+    /// An address only seen that the account then lists as his counts as
+    /// written to, and in the 300, at once: the oldest he wrote to goes
+    /// then, not at the next address new to the book.
+    func testAnAddressMadeHisOwnCountsInTheThreeHundredAtOnce() {
+        fillToTheBrim()
+        book.note(address: "second@example.com")
+        XCTAssertEqual(book.snapshot().filter { $0.uses > 0 }.count, RecipientBook.capacity)
+        let both = OwnAddresses(["owner@example.com", "second@example.com"])
+        book.keepOwn(both)
+        let all = book.snapshot()
+        XCTAssertEqual(all.first { $0.address == "second@example.com" }?.uses, 1)
+        XCTAssertEqual(all.filter { $0.uses > 0 }.count, RecipientBook.capacity)
+        XCTAssertFalse(all.contains { $0.address == "p298@example.org" }, "the oldest written to")
+        XCTAssertEqual(offered("sec"), ["second@example.com"])
+    }
+
+    /// A note of an address the book has changes no part's size, and does
+    /// not go over the parts (`evictIfNeeded`): the same 150 notes of
+    /// people it has take as long in a book of 600 as in the 300 alone,
+    /// where the parts are never looked at. Each the quickest of three
+    /// runs. In the debug build here, about 4 ms each. With a pass over
+    /// the parts at every note, 4 ms in the 300 and 21 ms in the 600; and
+    /// nearly 600 ms in the 600 when that pass also took each address
+    /// apart again to ask whether it was his (`OwnAddresses.contains`).
+    func testANoteOfAnAddressTheBookHasIsALookup() {
+        fillToTheBrim()
+        func notes() -> TimeInterval {
+            (0..<3).map { _ in
+                let started = Date()
+                for n in 0..<150 {
+                    book.note(address: String(format: "p%03d@example.org", n), name: "Person \(n)")
+                }
+                return Date().timeIntervalSince(started)
+            }.min()!
+        }
+        XCTAssertEqual(book.snapshot().count, RecipientBook.capacity)
+        let alone = notes()
+        for n in 0..<RecipientBook.seenCapacity {
+            book.note(address: String(format: "s%04d@news.example.com", n), name: "Seen \(n)")
+        }
+        let full = Set(book.snapshot().map(\.address))
+        XCTAssertEqual(full.count, RecipientBook.capacity + RecipientBook.seenCapacity)
+        let beside = notes()
+        XCTAssertEqual(Set(book.snapshot().map(\.address)), full)
+        XCTAssertLessThan(beside, alone * 2, "\(alone) s in the 300, \(beside) s in the 600")
+    }
+
     // MARK: - Offered by name only
 
     /// Not by the address: "zqxa.b" offers nothing, nor "zqxa.b162",
@@ -123,8 +179,9 @@ final class SeenSendersTests: XCTestCase {
         XCTAssertEqual(offered("zqxa"), ["zqxa.b162@example.net"])
     }
 
-    /// After the people he has written to and his Contacts, as Mail's
-    /// "SIRI FOUND IN APPS" comes after its Recents.
+    /// After the people he has written to and his Contacts, the plan's
+    /// order: Mail's list had the one row, so where its "SIRI FOUND IN
+    /// APPS" comes beside its Recents was not seen.
     func testAfterThePeopleWrittenToAndHisContacts() {
         book.note(address: "zqxa.b162@example.net", name: "Zqxa Rmfix")
         book.used(address: "zqxo@example.org", name: "Zqxo Writ")

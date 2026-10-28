@@ -51,12 +51,14 @@ struct KnownRecipient: Codable, Equatable {
 ///
 /// **The people only seen are kept apart** (B-177). Mail offers someone
 /// whose letter he has only received, by name, under "SIRI FOUND IN
-/// APPS", after his Recents and his Contacts. Filled from Sent Mail, the
-/// 300 held nobody else, and an address noted from a letter went out again
-/// at once to make room. So the addresses only seen have a bound of their
-/// own (`seenCapacity`) beside the 300 of his own and the people he has
-/// written to (`evictIfNeeded`), and the address fields offer them by
-/// their name alone (`AddressSuggestions`).
+/// APPS"; where it puts them beside its Recents and his Contacts was not
+/// seen. Filled from Sent Mail, the 300 held nobody else, and an address
+/// noted from a letter went out again at once to make room. So the
+/// addresses only seen have a bound of their own (`seenCapacity`) beside
+/// the 300 of his own and the people he has written to (`evictIfNeeded`),
+/// and the address fields offer them by their name alone, after the people
+/// he has written to and his Contacts, the plan's order
+/// (`AddressSuggestions`).
 ///
 /// Stored in `UserDefaults` alongside the account for the same reason the
 /// account is: none of it is secret. It is a list of people he corresponds
@@ -95,9 +97,19 @@ final class RecipientBook {
     /// (`keepOwn`): never evicted. Under `lock` with `entries`. Empty until
     /// a repository is made, which is before anything is noted.
     private var own = OwnAddresses([])
-    /// Held for the dictionary and the flag, and for nothing else: never
-    /// across the encode or the write to the defaults. A keystroke waits at
-    /// most for one `record`, a few microseconds, and never for a flush.
+    /// The addresses in the book that are his own (`own`), so that the
+    /// eviction and a note ask a set and do not take each address apart
+    /// again (`OwnAddresses.contains`). Made again whenever `own` is told
+    /// (`keepOwn`, `fill`) or the book is read (`load`), and added to as an
+    /// address new to the book is noted; the eviction never drops one of
+    /// them. Under `lock` with `entries`.
+    private var ownInBook = Set<String>()
+    /// Held for the dictionary, the flag and the addresses of his own, and
+    /// for nothing else: never across the encode or the write to the
+    /// defaults. A keystroke waits at most for one `record`, and never for
+    /// a flush. A `record` of addresses the book has, as most of a page's
+    /// are, is a few lookups; one with an address new to a full book also
+    /// drops the oldest of its part (`evictIfNeeded`), a pass over the 600.
     /// Not an actor for the same reason: that would make `suggestions(for:)`
     /// async, and the rows would appear a run-loop turn after the letter he
     /// typed.
@@ -154,13 +166,18 @@ final class RecipientBook {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         lock.lock()
         defer { lock.unlock() }
-        var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
-                                                   lastSeen: .distantPast)
+        let known = entries[key]
+        var entry = known ?? KnownRecipient(address: key, name: nil, uses: 0,
+                                            lastSeen: .distantPast)
+        // A part can have grown only if the address is new to the book or
+        // was only seen until now (`evictIfNeeded`).
+        let grown = known == nil || entry.uses == 0
+        if known == nil, own.contains(key) { ownInBook.insert(key) }
         entry.name = trimmed.isEmpty ? nil : trimmed
         entry.uses = max(entry.uses, 1)
         entry.lastSeen = Date()
         entries[key] = entry
-        evictIfNeeded()
+        if grown { evictIfNeeded() }
         dirty = true
     }
 
@@ -170,10 +187,39 @@ final class RecipientBook {
     /// people he wrote to, the book holds few entries never chosen, and his
     /// own, noted at launch and seldom chosen, were the first a newsletter
     /// noted next would have pushed out.
+    ///
+    /// Each of his own in the book counted as written to, once at least, as
+    /// a note of it would (`record`, B-177): one the book had only seen
+    /// before the account listed it as his is never one only seen, here
+    /// nor in a book read again before his addresses are told (`load`).
+    /// And the parts held to their bounds again at once (`evictIfNeeded`):
+    /// one of his counts in the 300 from here, one he has taken off counts
+    /// as anyone else, and a note of an address the book has does not look
+    /// at them.
     func keepOwn(_ mine: OwnAddresses) {
         lock.lock()
+        defer { lock.unlock() }
         own = mine
-        lock.unlock()
+        findOwnInBook()
+        let before = entries.count
+        // Written back whole, not as `entries[key]?.uses = 1`. A change
+        // made in place inside a Dictionary compiles, with this toolchain,
+        // to a coroutine that needs `swift_coroFrameAlloc`, which the iOS
+        // 16 runtime does not have, and the device link fails.
+        for key in ownInBook {
+            guard var entry = entries[key], entry.uses == 0 else { continue }
+            entry.uses = 1
+            entries[key] = entry
+            dirty = true
+        }
+        evictIfNeeded()
+        if entries.count != before { dirty = true }
+    }
+
+    /// `ownInBook` made again from `own` and the whole book. The caller
+    /// holds `lock`.
+    private func findOwnInBook() {
+        ownInBook = Set(entries.keys.filter { own.contains($0) })
     }
 
     /// Each address filed under itself (`keys(for:)`): "jane@example.com;",
@@ -190,9 +236,18 @@ final class RecipientBook {
 
         lock.lock()
         defer { lock.unlock() }
+        // Whether a part of the book can have grown past its bound: an
+        // address new to it, or one only seen now written to. A note of an
+        // address the book has, as most of a page's are, changes no part's
+        // size and does not look at them (`evictIfNeeded`), so it costs
+        // what it did before B-177.
+        var grown = false
         for key in keys {
-            var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
-                                                       lastSeen: .distantPast)
+            let known = entries[key]
+            var entry = known ?? KnownRecipient(address: key, name: nil, uses: 0,
+                                                lastSeen: .distantPast)
+            if known == nil, own.contains(key) { ownInBook.insert(key) }
+            let wasSeen = entry.uses == 0
             // A name once learned is kept unless a better one turns up.
             // Senders routinely arrive bare in one message and named in the
             // next.
@@ -203,11 +258,12 @@ final class RecipientBook {
             // His own, as the account lists them, are never only seen
             // (B-177): his second address is found by its start, as the
             // people he writes to are.
-            if own.contains(key) { entry.uses = max(entry.uses, 1) }
+            if ownInBook.contains(key) { entry.uses = max(entry.uses, 1) }
+            if known == nil || (wasSeen && entry.uses > 0) { grown = true }
             entry.lastSeen = seen
             entries[key] = entry
         }
-        evictIfNeeded()
+        if grown { evictIfNeeded() }
         dirty = true
     }
 
@@ -276,8 +332,8 @@ final class RecipientBook {
     /// and those only seen to theirs (`seenCapacity`). Someone he has
     /// actually written to survives a thousand newsletters, and the sender
     /// of a letter he received survives the fill from his Sent Mail. Never
-    /// one of his own addresses (`own`, B-155), which count in the 300.
-    /// The caller holds `lock`.
+    /// one of his own addresses (`ownInBook`, B-155), which count in the
+    /// 300. The caller holds `lock`.
     ///
     /// Until B-177 the book had the one bound, and what was only seen went
     /// first: filled with the people he wrote to, it kept no one else.
@@ -285,17 +341,14 @@ final class RecipientBook {
         guard entries.count > min(Self.capacity, Self.seenCapacity) else { return }
         var written: [KnownRecipient] = []
         var seen: [KnownRecipient] = []
-        var mine = 0
-        for entry in entries.values {
-            if own.contains(entry.address) {
-                mine += 1
-            } else if entry.uses > 0 {
+        for entry in entries.values where !ownInBook.contains(entry.address) {
+            if entry.uses > 0 {
                 written.append(entry)
             } else {
                 seen.append(entry)
             }
         }
-        for (part, bound) in [(written, Self.capacity - mine), (seen, Self.seenCapacity)]
+        for (part, bound) in [(written, Self.capacity - ownInBook.count), (seen, Self.seenCapacity)]
         where part.count > bound {
             let oldest = part.sorted {
                 if $0.lastSeen != $1.lastSeen { return $0.lastSeen < $1.lastSeen }
@@ -547,7 +600,8 @@ final class RecipientBook {
         lock.lock()
         defer { lock.unlock() }
         own = mine
-        let room = Self.capacity - entries.keys.filter { mine.contains($0) }.count
+        findOwnInBook()
+        let room = Self.capacity - ownInBook.count
         var taken = 0
         var most = 0
         for person in people where !mine.contains(person.address) {
@@ -564,7 +618,7 @@ final class RecipientBook {
             taken += 1
         }
         if taken > 0 {
-            for var entry in entries.values where mine.contains(entry.address) {
+            for var entry in entries.values where ownInBook.contains(entry.address) {
                 entry.uses = max(entry.uses, most + 1)
                 entries[entry.address] = entry
             }
@@ -611,6 +665,7 @@ final class RecipientBook {
         lock.lock()
         defer { lock.unlock() }
         entries = Dictionary(filed.map { ($0.address, $0) }, uniquingKeysWith: { a, _ in a })
+        findOwnInBook()
         if stored.contains(where: { Self.keys(for: $0.address) != [$0.address] }) {
             dirty = true
         }
@@ -648,6 +703,7 @@ final class RecipientBook {
     func removeAll() {
         lock.lock()
         entries = [:]
+        ownInBook = []
         dirty = false
         lock.unlock()
         defaults.removeObject(forKey: Self.storageKey)
