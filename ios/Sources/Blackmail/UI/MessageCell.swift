@@ -224,9 +224,26 @@ final class MessageCell: UITableViewCell {
     /// The second lines' grey: Mail's see-through one on a ticked row.
     private var grey: UIColor { ticked ? Self.tickedGrey : Theme.secondaryText }
 
+    /// The row's own tick shows (from 17, `placeTick`) whenever UIKit's
+    /// edit control draws its ticked image: on a ticked row, and while a
+    /// finger is down on a row of Edit mode, which the control draws
+    /// ticked as the row is highlighted. Seen white on white during a held
+    /// press on the iOS 17.5 and 18.6 simulators (B-174).
+    private var showsTick: Bool { ticks && (isSelected || isHighlighted) }
+
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
         colour()
+    }
+
+    /// From 17 the row's own tick follows a press as UIKit's does
+    /// (`showsTick`). On 16 UIKit's alone, as it always was.
+    override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+        super.setHighlighted(highlighted, animated: animated)
+        if Self.drawsOwnTick {
+            tickMark.isHidden = !showsTick
+            setNeedsLayout()
+        }
     }
 
     /// The row's colours as it is ticked or not (`ticks`, B-174): the
@@ -245,7 +262,7 @@ final class MessageCell: UITableViewCell {
         // whatever the tint.
         tintColor = ticks ? .white : nil
         if Self.drawsOwnTick {
-            tickMark.isHidden = !ticked
+            tickMark.isHidden = !showsTick
             setNeedsLayout()
         }
         let grey = self.grey
@@ -408,16 +425,17 @@ final class MessageCell: UITableViewCell {
             width: textWidth, height: pitch * 2)
     }
 
-    /// The row's own tick on a ticked row, from iOS 17 (`drawsOwnTick`):
+    /// The row's own tick on a ticked row and during a press on one of
+    /// Edit mode (`showsTick`), from iOS 17 (`drawsOwnTick`):
     /// the check in the row's blue on a white disc (`tickPalette`), put
     /// inside UIKit's edit control over UIKit's own tick, at its frame and
     /// at its size at every text size, so it slides in and out with it and
     /// nothing moves. UIKit's edit control is the row's one control: the
     /// content view is none, and the row has no accessory or reorder
-    /// control. Hidden on a row not ticked, and wherever the control or
-    /// its tick is not found, which leaves UIKit's.
+    /// control. Hidden otherwise, and wherever the control or its tick is
+    /// not found, which leaves UIKit's.
     private func placeTick() {
-        guard ticked, let control = subviews.first(where: { $0 is UIControl }),
+        guard showsTick, let control = subviews.first(where: { $0 is UIControl }),
               let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark })
                 as? UIImageView
         else {

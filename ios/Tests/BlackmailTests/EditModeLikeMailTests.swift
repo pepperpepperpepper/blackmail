@@ -439,11 +439,17 @@ final class EditModeLikeMailTests: XCTestCase {
         XCTAssertTrue(layout.hasPrefix("{ super.layoutSubviews() if Self.drawsOwnTick { placeTick() } "))
         let colour = flat(body(after: "private func colour()", in: cell))
         XCTAssertTrue(colour.contains("tintColor = ticks ? .white : nil if Self.drawsOwnTick { "
-                                      + "tickMark.isHidden = !ticked setNeedsLayout() } let grey = self.grey"),
+                                      + "tickMark.isHidden = !showsTick setNeedsLayout() } let grey = self.grey"),
                       "the tint as on 16, and the tick shown or hidden before the early return")
+        XCTAssertTrue(code.contains("private var showsTick: Bool { ticks && (isSelected || isHighlighted) }"),
+                      "as UIKit's edit control draws its ticked image: selected or highlighted")
+        let press = flat(body(after: "override func setHighlighted(_ highlighted: Bool, animated: Bool)", in: cell))
+        XCTAssertEqual(press, "{ super.setHighlighted(highlighted, animated: animated) if Self.drawsOwnTick { "
+                       + "tickMark.isHidden = !showsTick setNeedsLayout() } }",
+                       "a press shows the row's tick as it shows UIKit's; on 16 super alone")
 
         let place = flat(body(after: "private func placeTick()", in: cell))
-        inOrder(["guard ticked, let control = subviews.first(where: { $0 is UIControl }),",
+        inOrder(["guard showsTick, let control = subviews.first(where: { $0 is UIControl }),",
                  "let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark }) "
                     + "as? UIImageView else { tickMark.isHidden = true return }",
                  "if tickMark.superview !== control { control.addSubview(tickMark) } "
@@ -453,18 +459,25 @@ final class EditModeLikeMailTests: XCTestCase {
                     + "withConfiguration: Self.tickPalette)",
                  "tickMark.frame = drawn.frame",
                  "tickMark.isHidden = false"], in: place)
-        for moved in ["drawn.frame =", "control.frame", "drawn.isHidden", "drawn.image ="] {
+        for moved in ["drawn.frame =", "control.frame", "drawn.isHidden", "drawn.image =",
+                      "control.isHidden", "control.alpha"] {
             XCTAssertFalse(place.contains(moved), "nothing of UIKit's is touched: \(moved)")
         }
+        XCTAssertEqual(count("drawn.", in: place), 3,
+                       "UIKit's tick only read: its symbol configuration, content mode and frame")
+        XCTAssertEqual(count("control.", in: place), 3,
+                       "UIKit's control only read and added to: subviews, addSubview, bringSubviewToFront")
 
         // Everything of the row's own tick is behind the check: the tick
-        // reached in `colour` and `placeTick` alone, `placeTick` called in
-        // `layoutSubviews` alone, each behind `drawsOwnTick`.
+        // reached in `colour`, `setHighlighted` and `placeTick` alone,
+        // `placeTick` called in `layoutSubviews` alone, each behind
+        // `drawsOwnTick`.
         XCTAssertEqual(count("placeTick()", in: code), 2, "its declaration and its one call")
-        XCTAssertEqual(count("if Self.drawsOwnTick {", in: code), 2)
-        XCTAssertEqual(count("tickMark", in: code), count("tickMark", in: place) + 2,
-                       "its declaration and colour's one use besides placeTick's")
-        XCTAssertEqual(count("drawsOwnTick", in: code), 3)
+        XCTAssertEqual(count("if Self.drawsOwnTick {", in: code), 3)
+        XCTAssertEqual(count("tickMark", in: code), count("tickMark", in: place) + 3,
+                       "its declaration and colour's and setHighlighted's one use each besides placeTick's")
+        XCTAssertEqual(count("drawsOwnTick", in: code), 4)
+        XCTAssertEqual(count("showsTick", in: code), 4, "its declaration, colour's, setHighlighted's and the guard")
     }
 
     // MARK: - Reading the source
