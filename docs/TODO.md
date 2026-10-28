@@ -9506,6 +9506,31 @@ checks below is left as not needed, not open, and none is worth a round.*
          the Trash only the UIDs that move answered (`COPYUID`); "Notes"
          itself stays. Never anything found by subject or Message-ID.
          Nothing was sent or saved.
+      9. *iPadOS 18, the simulator.* Steps 1 to 8 are 16.5.1's, the test
+         iPad's; his iPad is on 18, whose roots of the traits changed in
+         17, and nothing of B-166's second round is seen there (KI B-166,
+         "Found on the test iPad, 2026-10-28 (second round)", Not
+         covered). On the Mac's iOS 18.6 simulator, an iPad (7th
+         generation), his model, landscape, three panes, on a simulator
+         build of the `fix-j1` branch at its tip or of the int it is
+         merged into, signed in to the test account; on an iPad on 18
+         when there is one, the same, the test account only. A letter of
+         "Notes" from a made-up sender open, nothing tapped in it but the
+         two buttons below. At Large (the simulator's Settings, or
+         `xcrun simctl ui booted content_size large`): the pane's Reply
+         button, its sheet, closed with a tap beside it; the pane's Flag
+         button, its popover, the same; Settings, its "Add Another
+         Email…" question, then Cancel, nothing typed, and Settings closed
+         with Cancel, nothing saved; a full-size screenshot of each. Then
+         the largest accessibility size
+         (`accessibility-extra-extra-extra-large`), the app left open,
+         and the same three again: each the same as at Large to the
+         pixel, its frame and its words, the question's title in sight
+         and its Cancel and Add side by side. A frame or words larger than
+         at Large: which and how, written down, and B-166 opened again for
+         18, `UIWindowScene.traitOverrides` the documented root to
+         consider (KI B-166, the second round's Not covered). The size put
+         back to Large after. Nothing is sent, saved, moved or flagged.
       *Seen on the test iPad 2026-10-27 on int19 (bf7575a), round
       r6-i-look, the check as it stood before the owner's ruling of that
       day, the size followed as then built: at Large the screens taken as
@@ -9552,31 +9577,6 @@ checks below is left as not needed, not open, and none is worth a round.*
       before. Their fix, each question, action sheet and Share sheet held
       as it is put up, is on fix-j1, in int21 at ff47eb6; its re-check
       there is to come. Nothing was sent.*
-      9. *iPadOS 18, the simulator.* Steps 1 to 8 are 16.5.1's, the test
-         iPad's; his iPad is on 18, whose roots of the traits changed in
-         17, and nothing of B-166's second round is seen there (KI B-166,
-         "Found on the test iPad, 2026-10-28 (second round)", Not
-         covered). On the Mac's iOS 18.6 simulator, an iPad (7th
-         generation), his model, landscape, three panes, on a simulator
-         build of the `fix-j1` branch at its tip or of the int it is
-         merged into, signed in to the test account; on an iPad on 18
-         when there is one, the same, the test account only. A letter of
-         "Notes" from a made-up sender open, nothing tapped in it but the
-         two buttons below. At Large (the simulator's Settings, or
-         `xcrun simctl ui booted content_size large`): the pane's Reply
-         button, its sheet, closed with a tap beside it; the pane's Flag
-         button, its popover, the same; Settings, its "Add Another
-         Email…" question, then Cancel, nothing typed, and Settings closed
-         with Cancel, nothing saved; a full-size screenshot of each. Then
-         the largest accessibility size
-         (`accessibility-extra-extra-extra-large`), the app left open,
-         and the same three again: each the same as at Large to the
-         pixel, its frame and its words, the question's title in sight
-         and its Cancel and Add side by side. A frame or words larger than
-         at Large: which and how, written down, and B-166 opened again for
-         18, `UIWindowScene.traitOverrides` the documented root to
-         consider (KI B-166, the second round's Not covered). The size put
-         back to Large after. Nothing is sent, saved, moved or flagged.
 - [ ] **B-167, Mail's options in Settings.** On the test iPad, the test
       account only, from a build of the `bm-cm-mailsettings` worktree
       (branch `copy-mailsettings`) or of the int it is merged into.
