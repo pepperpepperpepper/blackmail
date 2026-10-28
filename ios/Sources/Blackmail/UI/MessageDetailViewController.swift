@@ -753,7 +753,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 switch result {
                 case .success(let (m, page)):
                     self.message = m
-                    self.header.configure(with: m)
+                    self.header.configure(with: m.arriving(as: summary))
                     self.draw(m, page: page)
                 case .failure(let error) where error is MailShelf.NotTheKeptLetter:
                     self.notTheKeptLetter(summary)
@@ -1107,7 +1107,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         message = m
         summary = threadSummaries[m.id] ?? summary
         let before = header.frame.height
-        header.configure(with: m)
+        header.configure(with: m.arriving(as: summary))
         keepPlace(headerWas: before)
     }
 

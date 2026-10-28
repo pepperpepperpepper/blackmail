@@ -145,7 +145,9 @@ final class MessageHeaderView: UIView {
         ccLabel.isHidden = cc == nil
         ccGap.constant = cc == nil ? 0 : Theme.detailToCcGap
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
-        date = m.date
+        // When it arrived, as Mail's header shows it (B-178), its Date
+        // where that is not known.
+        date = m.headerDate
         spoken = "From \(MailFormat.displayName(m.sender)), \(m.subject)"
         drawDate()
     }

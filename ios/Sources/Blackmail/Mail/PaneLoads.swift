@@ -251,11 +251,13 @@ extension Message {
     /// ones the landed letter lists. The header listed them, a row each, so
     /// that it did not grow by them when the body came (B-042), until
     /// B-170: it lists none now, and the body draws them. `subject` is the
-    /// thread's when the pane is showing a conversation.
+    /// thread's when the pane is showing a conversation. When the letter
+    /// arrived is the row's too, the date the header shows (`headerDate`,
+    /// B-178).
     static func heading(for row: MessageSummary, subject: String? = nil) -> Message {
         Message(id: row.id, mailboxID: row.mailboxID,
                 sender: row.sender, senderAddress: MailFormat.bareAddress(row.sender),
                 to: row.to ?? [], cc: row.cc, subject: subject ?? row.subject, date: row.date,
-                textBody: nil, htmlBody: nil, attachments: row.attachments)
+                textBody: nil, htmlBody: nil, attachments: row.attachments, arrived: row.arrived)
     }
 }

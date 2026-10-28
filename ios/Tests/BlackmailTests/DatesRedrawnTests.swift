@@ -531,10 +531,11 @@ final class DatesRedrawnTests: XCTestCase {
                                     + "for landed in finished.tiles { tell(landed) } }"),
                       "a stack that loaded after the change, last of the stack's; then a large letter's tiles held (B-176)")
 
-        // The header's date has one writer, from the letter's own date, as
-        // the letter is shown and again, and VoiceOver's words with it.
+        // The header's date has one writer, from when the letter arrived,
+        // its Date where that is not known (`headerDate`, B-178), as the
+        // letter is shown and again, and VoiceOver's words with it.
         let header = try source("UI/MessageHeaderView.swift")
-        XCTAssertTrue(header.contains("date = m.date spoken = \"From \\(MailFormat.displayName(m.sender)), "
+        XCTAssertTrue(header.contains("date = m.headerDate spoken = \"From \\(MailFormat.displayName(m.sender)), "
                                       + "\\(m.subject)\" drawDate() "))
         XCTAssertTrue(header.contains("func drawDate() { guard let date else { return } "
                                       + "let when = MailFormat.detailTimestamp(date) dateLabel.text = when "
