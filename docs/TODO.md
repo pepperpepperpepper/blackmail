@@ -9407,6 +9407,38 @@ checks below is left as not needed, not open, and none is worth a round.*
          and only them, from "Notes" to the Trash, and deletes in the Trash
          only the UIDs that move answered (`COPYUID`). Nothing was sent,
          and nothing else was written to the account.
+- [ ] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
+      On the test iPad, the test account only, from a build of the
+      `bm-cmp-cd` worktree (branch `copy-cmp-cd`) or of the int it is
+      merged into. Nothing is sent. The host makes five letters from
+      made-up senders, each with a new Message-ID of its own and naming
+      none on the account, and APPENDs them, read (`\Seen`), to the label
+      "Notes", noting each UID from its APPENDUID; it stops if one has
+      none. Only those five are trashed, flagged or marked, each put back.
+      Three panes; the connection log read after each step.
+      1. *More:* a slow drag left on the first, More: Reply, Reply All,
+         Forward, Trash, Flag, Mark as Unread, Move Message…, Archive
+         Message, Move to Junk, then Cancel, in that order, in the list as
+         before. Screenshot. Cancel (a tap outside): nothing written.
+      2. *Ask on:* Settings > Mail, Ask Before Deleting on. A slow drag
+         left on the second, Trash: it goes at once, no question; shake:
+         "Undo Trash", Undo: back in "Notes". More on the third, Trash: at
+         once, no question; shake, Undo. A full drag left on the fourth: at
+         once; shake, Undo (also fix-i1's 2589e63). The first opened in the
+         pane, its Trash: "Trash Message" asked; a tap outside: nothing
+         goes. The host's view after each: the letter in the Trash, then
+         back in "Notes" under a new UID, noted.
+      3. *Undo Unread:* a slow drag left on the fifth, Flag. A full drag
+         right on it: its dot comes, "Unread". Shake: "Undo Unread" (not
+         "Undo Flag"). Screenshot. Undo: the dot goes; the host's FLAGS for
+         it have `\Seen` again, and the log one `UID STORE` for it. Shake
+         again: "Undo Flag"; Undo: unflagged on the server.
+      4. *Ask off again:* Settings > Mail, Ask Before Deleting off.
+      5. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+         UIDs it noted last for the five, and only them, from "Notes" to the
+         Trash, and deletes in the Trash only the UIDs that move answered
+         (`COPYUID`). Nothing was sent, and nothing else was written to the
+         account.
 
 ## Blocked on the owner
 

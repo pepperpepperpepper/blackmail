@@ -234,23 +234,28 @@ enum RowSwipes {
 /// The sheet More opens from a drag on a row (B-156): Mail's sheet for the
 /// letter, with the actions Blackmail has. Reply, Reply All and Forward
 /// answer the conversation's newest letter, as the reading pane's Reply
-/// answers the letter it shows; Trash Message, or Archive Message where
-/// the account discards into the Archive, is the drag's own Trash, and
-/// inside Trash Delete Message, which asks first; Flag or Unflag, and Mark
-/// as Unread or Mark as Read, as the row is, and Move Message, go on every
-/// letter of the conversation, as Edit mode's do. In the order of Mail's
-/// sheet and of its Reply menu: Reply, Reply All, Forward, Trash, Flag,
-/// Mark, Move (Gadget Hacks, 2019; the popover of INVESTIGATIONS' ban 5).
-/// Under Ask Before Deleting, its Trash Message or Archive Message asks
-/// first, as the drag's button tapped does, and a full drag does not
-/// (`DiscardQuestion`, B-168).
+/// answers the letter it shows; Trash, or Archive Message where the
+/// account discards into the Archive, is the drag's own Trash, and inside
+/// Trash Delete Message, which asks first; Flag or Unflag, and Mark as
+/// Unread or Mark as Read, as the row is, and Move Message…, go on every
+/// letter of the conversation, as Edit mode's do. Under Ask Before
+/// Deleting none of them asks, as Mail's More did not (r6 comparison
+/// C-08, B-175); Delete Message inside Trash asks its erase question.
 ///
-/// After the read mark, Move to Junk, or Move to Inbox inside Junk, as the
+/// In the order and words of Mail's sheet as the side-by-side round saw
+/// it (r6 comparison C-04, Mail 16.5.1, B-175): Reply, Reply All, Forward,
+/// Trash (one of its four big buttons; "Trash Message" here before), Flag,
+/// Mark as Unread, "Move Message…" (`MOVE_MESSAGE`, with the dots), Archive
+/// Message, Move to Junk. Archive Message, B-167's Archive into All Mail,
+/// where the row can be archived (`SwipeOptions.archives`) and it is not
+/// already the fourth. Move to Junk, or Move to Inbox inside Junk, as the
 /// Flag button's sheet in the reading pane offers it (`FlagMenu.junkItem`,
 /// B-106), by the role of the row's folder and the folders LIST named;
 /// neither where no folder has the `\Junk` role. Mail's sheet has more
-/// besides: Mute, Notify Me and Print, which Blackmail does not have from
-/// the list. Its word inside Trash was not found.
+/// besides: Move to a folder it suggests, Mute, Notify Me and Block Sender,
+/// left out for now by the owner's decision of 27 October. Its word inside
+/// Trash was not found. Its card, with the letter's header and the four
+/// big buttons, is Blackmail's plain list: layout, kept.
 enum RowMore {
 
     enum Item: Equatable {
@@ -275,7 +280,7 @@ enum RowMore {
             case .reply: return "Reply"
             case .replyAll: return "Reply All"
             case .forward: return "Forward"
-            case .trashMessage: return "Trash Message"
+            case .trashMessage: return EditBar.trash
             case .archiveMessage: return "Archive Message"
             case .deleteMessage: return "Delete Message"
             case .flag: return FlagMenu.Item.flag.title
@@ -284,7 +289,7 @@ enum RowMore {
             case .markAsRead: return FlagMenu.Item.markAsRead.title
             case .moveToJunk(let folder): return FlagMenu.Item.moveToJunk(folder).title
             case .moveToInbox(let folder): return FlagMenu.Item.moveToInbox(folder).title
-            case .moveMessage: return "Move Message"
+            case .moveMessage: return "Move Message\u{2026}"
             }
         }
     }
@@ -304,12 +309,16 @@ enum RowMore {
         default: discard = .trashMessage
         }
         var items: [Item] = [.reply, .replyAll, .forward, discard, row.flagged ? .unflag : .flag,
-                             row.read ? .markAsUnread : .markAsRead]
+                             row.read ? .markAsUnread : .markAsRead, .moveMessage]
+        if discard != .archiveMessage,
+           SwipeOptions.archives(role: row.role, canArchive: row.canArchive) {
+            items.append(.archiveMessage)
+        }
         switch FlagMenu.junkItem(in: FlagMenu.Folders(role: row.role, junk: junk, inbox: inbox)) {
         case .moveToJunk(let folder): items.append(.moveToJunk(folder))
         case .moveToInbox(let folder): items.append(.moveToInbox(folder))
         default: break
         }
-        return items + [.moveMessage]
+        return items
     }
 }

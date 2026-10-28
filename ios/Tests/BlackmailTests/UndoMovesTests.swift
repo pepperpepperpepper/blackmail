@@ -566,9 +566,10 @@ final class UndoMovesTests: XCTestCase {
     // MARK: - Undo Flag
 
     /// A Flag or an Unflag is a step of its own, "Undo Flag" or "Undo
-    /// Unflag", of the letters the server took it on; a read mark, a
-    /// Delete, a letter kept on the iPad and nothing taken are not.
-    func testAFlagIsAStepOfUndoAndAReadMarkIsNot() throws {
+    /// Unflag", of the letters the server took it on; a Delete, a letter
+    /// kept on the iPad and nothing taken are not, and a read mark is a
+    /// step of another kind, "Undo Read" or "Undo Unread" (B-175).
+    func testAFlagIsAStepOfUndoAndAReadMarkAStepOfItsOwn() throws {
         let row = MessageSummary(id: "1/10", mailboxID: Server.inbox, sender: "Sam",
                                  subject: "Hello", preview: "", date: Server.newestDate,
                                  isRead: true, isFlagged: false, gmailMessageID: 7)
@@ -587,6 +588,9 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(Undoable.flag(try XCTUnwrap(flag)).actionName, "Flag")
         let trash = UndoableMove(kind: .trash, letters: [])
         XCTAssertEqual(Undoable.move(trash).actionName, "Trash")
+        XCTAssertEqual(UndoableRead.after(.read(false), took: [row])?.actionName, "Unread")
+        XCTAssertEqual(UndoableRead.after(.read(true), took: [row])?.actionName, "Read")
+        XCTAssertNil(UndoableRead.after(.flag(true), took: [row]))
     }
 
     /// A drag's Flag on two letters of a conversation, then its Undo: the
@@ -674,6 +678,66 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(undone.back, [back.id])
         XCTAssertFalse(server.flags(uid: uid(back.id), in: Server.inbox).contains("\\Flagged"))
         XCTAssertEqual(list.shownRow(of: letter)?.isFlagged, false)
+    }
+
+    /// A full drag's Unread on a read letter, then its Undo (B-175): the
+    /// letter read again on the server, not only on its row, as Mail's own
+    /// Undo left it (r6 comparison C-07b); one STORE and nothing else; the
+    /// one the Unread put on the counts taken off again, once. A failed
+    /// Undo says so, puts the dot back as it was and is a step again. A
+    /// read mark on its way: nothing sent, the step left. With the list
+    /// gone, nothing to bill, the counts are swept.
+    @MainActor
+    func testAnUndoReadMarkSetsTheMarkBackOnTheServer() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, counts) = makeList(folder: rows)
+        let letter = try XCTUnwrap(rows.first { $0.isRead })
+        let marked = await ListBatch.run(.read(false), on: [letter], role: { _ in .inbox },
+                                         list: list, repository: repository, requestSweep: {})
+        let step = try XCTUnwrap(UndoableRead.after(
+            .read(false), took: [letter].filter { marked.taken.contains($0.id) }))
+        XCTAssertEqual(step.actionName, "Unread")
+        XCTAssertEqual(Undoable.read(step).actionName, "Unread")
+        XCTAssertFalse(server.flags(uid: uid(letter.id), in: Server.inbox).contains("\\Seen"))
+        XCTAssertEqual(counts.on.count, 1)
+
+        server.hangsUpOnVerbs = ["UID STORE"]
+        let failed = await UndoMoves.run(step, repository: repository, list: list,
+                                         requestSweep: {})
+        XCTAssertEqual(failed.refusal, .cannotConnect)
+        XCTAssertEqual(failed.back, [])
+        XCTAssertEqual(failed.left?.letters.map(\.id), [letter.id])
+        XCTAssertEqual(failed.left?.read, false)
+        XCTAssertEqual(list.letter(letter.id)?.isRead, false, "put back as it was")
+
+        server.hangsUpOnVerbs = []
+        server.clearLog()
+        let undone = await UndoMoves.run(try XCTUnwrap(failed.left), repository: repository,
+                                         list: list, requestSweep: {})
+        XCTAssertNil(undone.refusal)
+        XCTAssertNil(undone.left)
+        XCTAssertEqual(undone.back, [letter.id])
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.verb).filter { $0 != "UID FETCH" },
+                       ["UID STORE"])
+        XCTAssertTrue(server.flags(uid: uid(letter.id), in: Server.inbox).contains("\\Seen"))
+        XCTAssertEqual(list.letter(letter.id)?.isRead, true)
+        XCTAssertEqual(counts.off.count, 1, "the one taken off again, once")
+
+        let row = try XCTUnwrap(list.letter(letter.id))
+        list.setRead(false, on: row)
+        server.clearLog()
+        let waiting = await UndoMoves.run(step, repository: repository, list: list,
+                                          requestSweep: {})
+        XCTAssertEqual(waiting, UndoMoves.ReadOutcome(left: step))
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).count, 0)
+        list.readRefused(row)
+
+        var swept = 0
+        let gone = await UndoMoves.run(step, repository: repository, list: nil,
+                                       requestSweep: { swept += 1 })
+        XCTAssertEqual(gone.back, [letter.id])
+        XCTAssertEqual(swept, 1, "no list to bill: the counts swept")
     }
 
     /// The reading pane's Delete and Move hear where the letter went once
@@ -766,8 +830,9 @@ final class UndoMovesTests: XCTestCase {
         ] {
             XCTAssertTrue(root.contains(line), line)
         }
-        XCTAssertEqual(count("canUndo(", in: root), 6,
-                       "the pane's Move and Flag, the list's, a step left of each, and itself")
+        XCTAssertEqual(count("canUndo(", in: root), 7,
+                       "the pane's Move and Flag, the list's, a step left of each of the three, "
+                       + "and itself")
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains(
             "let took = chosen.filter { outcome.taken.contains($0.id) } if let step = "
@@ -781,12 +846,13 @@ final class UndoMovesTests: XCTestCase {
         XCTAssertEqual(count("undos.", in: root), 3, "made, added to, and named; never written down")
 
         // A Flag or an Unflag from the pane, a drag or More is a step of
-        // its own, undone by `UndoMoves`; a read mark is not.
+        // its own, undone by `UndoMoves`; a read mark is one only from a
+        // full drag (B-175, `DragsLikeMailTests`).
         for line in [
             "if refused == nil, let step = UndoableFlag.after(action, took: [letter]) { "
                 + "self.canUndo(.flag(step), from: letters) } return refused",
             "case .move(let move): undo(move, into: letters) case .flag(let flag): undo(flag, "
-                + "into: letters)",
+                + "into: letters) case .read(let read): undo(read, into: letters)",
             "let outcome = await UndoMoves.run(step, repository: self.repository, list: letters, "
                 + "requestSweep: { [weak self] in self?.refreshMailboxes() }) if let left = "
                 + "outcome.left { self.canUndo(.flag(left), from: letters) }",
@@ -794,8 +860,9 @@ final class UndoMovesTests: XCTestCase {
             XCTAssertTrue(root.contains(line), line)
         }
         XCTAssertTrue(list.contains(
-            "if let step = UndoableFlag.after(action, took: changing.filter { "
-                + "outcome.taken.contains($0.id) }) { self.onUndoable?(.flag(step), self.letters) }"))
+            "let took = changing.filter { outcome.taken.contains($0.id) } "
+                + "if let step = UndoableFlag.after(action, took: took) { "
+                + "self.onUndoable?(.flag(step), self.letters) }"))
         XCTAssertTrue(list.contains("var onUndoable: ((Undoable, ListLetters) -> Void)?"))
     }
 }

@@ -37394,3 +37394,108 @@ stack it draws for two); whether Mail marks an unread ticked letter read
 compared on Mail's side only, Blackmail's pane being empty before Edit in
 the round; Mail on iPadOS 18 (18.4 with categories says "Select"). None of
 this on the test iPad yet: the TODO's B-174 check.
+
+## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too
+
+Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`) after B-174, as
+Batch D of the plan of 27 October (items D1 to D5), under the owner's
+rulings of 26 and 27 October: copy Mail's behaviour and words, and "I
+don't want to change the layout of blackmail". No layout changed: More's
+list keeps its look and place, and only its words and their order
+change; what is asked and what Undo names change; nothing moves, appears
+or goes on any screen but an item more in More's list where Mail has it.
+
+**What Mail does** (the side-by-side round r6-i-compare, Mail 16.5.1 on
+the test iPad, fixtures "R6 B-156 mail 1 to 6 rm" in "Notes"):
+
+- *More* (C-04, shots 04-mail-more, 04-mail-more2, 04-mail-more3): a card
+  whose four big buttons are Reply, Reply All, Forward and "Trash", then
+  Flag, Mark as Unread, "Move Message…", Move to "All Mail", "Archive
+  Message", Move to Junk, Mute, Notify Me, Block Sender. Mail's strings:
+  `MOVE_MESSAGE` = "Move Message…", `TRASH` = "Trash".
+- *Ask Before Deleting on* (C-08, shots 08-mail-abd-*): the pane's Trash
+  asks, a popover with one red "Trash Message"; "A slow drag's Trash,
+  More's Trash and a full drag do NOT ask: each trashed at once."
+- *Undo* (C-07b, shots 07-mail-flagged, 07-mail-unread,
+  07-mail-undo-which, 07-mail-undone): a Flag by a slow drag, then a read
+  mark by a full drag to the right ("Unread"): the shake's alert named the
+  last, "Undo Unread" (`OPERATION_UNREAD_DESC`; "Read" for the other).
+  Undo cleared the dot in Mail's list, but the server kept the letter
+  unread: Mail's slip, not copied.
+
+**What Blackmail did** (04-bm-more, 08-bm-abd-*, 07-bm-undo-which): More
+read Reply, Reply All, Forward, "Trash Message", Flag, Mark as Unread,
+Move to Junk, "Move Message"; under Ask Before Deleting the slow drag's
+Trash and More's "Trash Message" asked (B-168, and 09fd116's "a Trash
+tapped as soon as a slow drag's row stops still asks"); a read mark was no
+step of Undo, so the shake named the Flag before it, "Undo Flag".
+
+**Changed.**
+
+1. *D1* (`RowMore.Item.trashMessage`): its word is the Edit bar's,
+   "Trash". "Archive Message" and, inside Trash, "Delete Message" stay.
+   Ask Before Deleting's own sheet still says "Trash Message", as Mail's.
+2. *D2* (`RowMore.items`): Reply, Reply All, Forward, Trash, Flag or
+   Unflag, Mark as Unread or Mark as Read, "Move Message…", then Archive
+   Message (B-167's Archive into All Mail) where the row can be archived
+   (`SwipeOptions.archives`: an All Mail to file it in, the row not from
+   it, nor from Drafts, the Outbox or the Trash) and it is not already the
+   fourth item, then Move to Junk or Move to Inbox. Mail's Move to a
+   folder it suggests, Mute, Notify Me and Block Sender are left out by
+   the decision of 27 October (new features with lasting effects, not
+   now); More's card, with the letter's header, stays Blackmail's list
+   (the menus' looks are layout, kept).
+3. *D3, D4* (`DiscardQuestion.before`): nil from a slow drag's button,
+   More's item and a full drag, Trash or Archive, as from a full drag
+   before; the pane's Delete and the Edit bar still ask, the Edit bar's
+   not having been compared. Delete Message inside Trash still asks the
+   erase question (`EraseQuestion`), setting or none.
+4. *D5* (`UndoableRead`, new; `Undoable.read`; `UndoMoves.run` for it;
+   the list's `mark`; the container's `undo`): a read or unread mark the
+   server took from a full drag to the right (`from == .fullDrag`, the
+   drag's own pan, B-168's tell) is a step of Undo named "Read" or
+   "Unread", of the letters taken, not a letter kept on the iPad. Its Undo
+   sets the other mark back as a Flag's Undo does: the rows' dots at once,
+   a STORE a letter at a time, the first failure stopping the rest and
+   putting back what was not taken, said in the alert and a step again;
+   nothing sent while a read mark on one of its letters is on its way;
+   the counts billed once per letter (`ReadBilling`), and swept where the
+   list has gone. Unlike Mail's, it reaches the server.
+
+**What it reverses.** B-168's question from a slow drag's button and from
+More (and 09fd116's pin of the slow drag's), and B-157's "a read mark is
+no step of Undo", for the full drag's mark. Not the full drag's "never
+asks" (fix-i1, 2589e63), which stands.
+
+**Not changed, and not seen.** More's mark, the Flag button's sheet's,
+Edit mode's Mark, a slow drag's button tapped and the read mark of
+opening a letter make no step: only the full drag's was seen as one.
+Question Q1 of the plan (after a Delete in the pane, Mail's top step was
+its read mark of the next letter, "Undo Read") is not built here. The
+Edit bar's question under Ask Before Deleting was not compared and is
+kept. Mail on iPadOS 18: not seen; its sheet for a Google account may
+differ.
+
+**Tests.** `DragsLikeMailTests`, new, five: More's words and order, Archive
+Message where the row can be archived and once, only the pane and the Edit
+bar asking, a read mark a step in Mail's words and of what, and, read from
+the source, the full drag's alone made one and the container undoing it.
+`UndoMovesTests`, one new: a full drag's Unread undone on the scripted
+server, one STORE, `\Seen` back, the counts once, a failure put back and
+left as a step, a mark on its way leaving the step unsent, and the counts
+swept with the list gone. Changed, as the rules and code they read
+changed: `RowSwipesTests` (More's lists, the full drag's read mark),
+`DiscardQuestionTests` (no
+question from a row's button or More), `UndoMovesTests` (a read mark a
+step of its own, the container's `canUndo` seven times, the list's step).
+
+Each rule and wire undone by hand, six at once, one for each new test
+("Move Message" without the dots, Archive Message offered a second time
+under the Archive, a row's button and More asking again, the step always
+"Read", the full drag's flag dropped so every drag's mark was a step, and
+the Undo setting the same mark again): 13 failures in the 5 tests of
+`DragsLikeMailTests` and 6 in `UndoMovesTests`, its new test and the
+renamed one, each at an assertion; then put back.
+
+The full suite, serially: 3,064 tests, 6 of them this entry's, 6
+skipped, none failing. The release build for the iPad links.

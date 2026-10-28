@@ -484,6 +484,7 @@ final class RootViewController: UIViewController {
         switch step {
         case .move(let move): undo(move, into: letters)
         case .flag(let flag): undo(flag, into: letters)
+        case .read(let read): undo(read, into: letters)
         }
     }
 
@@ -526,6 +527,22 @@ final class RootViewController: UIViewController {
                                                   self?.refreshMailboxes()
                                               })
             if let left = outcome.left { self.canUndo(.flag(left), from: letters) }
+            if let refusal = outcome.refusal { ErrorPresenter.show(reaching: refusal, on: self) }
+        }
+    }
+
+    /// Undo of a read mark (B-175): the other mark set back on the letters
+    /// it changed, the rows' dots at once, on the server too (`UndoMoves`).
+    /// A failure is said as a read mark's is, and what was not put back is
+    /// one step of Undo again.
+    private func undo(_ step: UndoableRead, into letters: ListLetters?) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let outcome = await UndoMoves.run(step, repository: self.repository, list: letters,
+                                              requestSweep: { [weak self] in
+                                                  self?.refreshMailboxes()
+                                              })
+            if let left = outcome.left { self.canUndo(.read(left), from: letters) }
             if let refusal = outcome.refusal { ErrorPresenter.show(reaching: refusal, on: self) }
         }
     }

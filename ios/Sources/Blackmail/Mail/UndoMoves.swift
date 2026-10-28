@@ -77,8 +77,8 @@ struct UndoableMove: Equatable {
 
 /// One step of Mail's Undo for a Flag or an Unflag (B-157): Mail's
 /// "Undo Flag", which one guide of 2023 lists with its "Undo Trash" and
-/// "Undo Archive" (macReports); nothing says Mail undoes a read mark, and
-/// nothing here does. The letters whose flag the server took, from a drag,
+/// "Undo Archive" (macReports); a read mark is a step of its own
+/// (`UndoableRead`, B-175). The letters whose flag the server took, from a drag,
 /// More or the reading pane, and the flag that was set on them: Undo sets
 /// the other back, on those letters alone. Not seen: the alert's words
 /// after an Unflag.
@@ -101,17 +101,47 @@ struct UndoableFlag: Equatable {
     }
 }
 
+/// One step of Mail's Undo for a read mark (B-175): Mail's "Undo Read" or
+/// "Undo Unread" (`OPERATION_READ_DESC`, `OPERATION_UNREAD_DESC`). Seen on
+/// the test iPad (the side-by-side round r6-i-compare, comparison C-07b):
+/// a Flag, then a full drag to the right marking a letter unread, and the
+/// shake named the last, "Undo Unread". Its Undo there cleared the row's
+/// dot and left the letter unread on the server; here it is set back on
+/// the server too. The letters the server took the mark on, from the full
+/// drag to the right alone: More, the Flag button's sheet, Edit mode's
+/// Mark, a slow drag's button tapped and the read mark of opening a letter
+/// were not seen to be steps, and are none.
+struct UndoableRead: Equatable {
+    /// The mark set: true for read, false for unread.
+    let read: Bool
+    let letters: [MessageSummary]
+
+    /// "Undo Read", or "Undo Unread", in UIKit's alert.
+    var actionName: String { read ? "Read" : "Unread" }
+
+    /// The step for `action` on `letters`, those the server took it on;
+    /// nil for anything but a read mark, and when there is nothing to undo.
+    /// Not a letter kept on this iPad, which has no mark on the server.
+    static func after(_ action: PaneAction, took letters: [MessageSummary]) -> UndoableRead? {
+        guard case .read(let read) = action else { return nil }
+        let undone = letters.filter { LocalDraft.key(ofRow: $0.id) == nil }
+        return undone.isEmpty ? nil : UndoableRead(read: read, letters: undone)
+    }
+}
+
 /// A step of Mail's Undo (B-157), as the screens' undo manager holds it: a
-/// Trash or a Move, or a Flag or an Unflag.
+/// Trash or a Move, a Flag or an Unflag, or a read mark (B-175).
 enum Undoable: Equatable {
     case move(UndoableMove)
     case flag(UndoableFlag)
+    case read(UndoableRead)
 
     /// What UIKit puts after "Undo".
     var actionName: String {
         switch self {
         case .move(let step): return step.actionName
         case .flag(let step): return step.actionName
+        case .read(let step): return step.actionName
         }
     }
 }
@@ -217,6 +247,44 @@ enum UndoMoves {
         return FlagOutcome(back: outcome.taken,
                            left: outcome.refusal == nil || left.isEmpty
                                ? nil : UndoableFlag(flagged: step.flagged, letters: left),
+                           refusal: outcome.refusal)
+    }
+
+    /// What became of an Undo of a read mark (B-175).
+    struct ReadOutcome: Equatable {
+        /// The letters whose mark went back, by the id each has now.
+        var back: [String] = []
+        /// What was not put back after a failure, to undo again: one more
+        /// shake tries it. The step as it was while a read mark on one of
+        /// its letters is still on its way, with nothing sent.
+        var left: UndoableRead?
+        var refusal: MailError?
+    }
+
+    /// Puts back the read mark `step` changed, as a Flag's Undo goes: the
+    /// rows' dots at once, a STORE a letter at a time on the server, which
+    /// Mail's own Undo did not send, the first failure stopping the rest
+    /// and putting back what was not taken; the folder counts as the mark
+    /// goes, once per letter (`ReadBilling`), and swept where the list has
+    /// gone and cannot bill them. Each letter as `list` shows it now, where
+    /// it does. Not while a read mark on any of them is on its way: the
+    /// step is left, nothing sent, for the next shake.
+    static func run(_ step: UndoableRead, repository: MailRepository, list: ListLetters?,
+                    requestSweep: @MainActor () -> Void) async -> ReadOutcome {
+        let letters = step.letters.map { list?.shownRow(of: $0) ?? $0 }
+        if let list, letters.contains(where: { list.dot(on: $0)?.onItsWay == true }) {
+            return ReadOutcome(left: step)
+        }
+        // A read mark's effect does not hang on the folder's role
+        // (`PaneActions.effect`).
+        let outcome = await ListBatch.run(.read(!step.read), on: letters, role: { _ in nil },
+                                          list: list, repository: repository,
+                                          requestSweep: requestSweep)
+        if list == nil, !outcome.taken.isEmpty { requestSweep() }
+        let left = letters.filter { outcome.notTaken.contains($0.id) }
+        return ReadOutcome(back: outcome.taken,
+                           left: outcome.refusal == nil || left.isEmpty
+                               ? nil : UndoableRead(read: step.read, letters: left),
                            refusal: outcome.refusal)
     }
 }

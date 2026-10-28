@@ -55,8 +55,9 @@ final class MessageListViewController: UITableViewController {
     /// letters off the list, at the tap: the reading pane empties if it
     /// shows one of them.
     var onLettersLeaving: (([MessageSummary]) -> Void)?
-    /// A Delete or Move from Edit mode or a drag, or a Flag or Unflag from
-    /// a drag or More, that the server has taken, for Mail's Undo (B-157),
+    /// A Delete or Move from Edit mode or a drag, a Flag or Unflag from a
+    /// drag or More, or a read mark from a full drag (B-175), that the
+    /// server has taken, for Mail's Undo (B-157),
     /// with the list's letters it was taken from, which its rows go back to.
     var onUndoable: ((Undoable, ListLetters) -> Void)?
     /// More's Reply, Reply All or Forward on a row (B-156): the letter
@@ -2973,10 +2974,11 @@ final class MessageListViewController: UITableViewController {
     ///
     /// UIKit tells a button tapped and a full drag apart in no word of its
     /// own: the drag's pan, just ended as its button is done, is what
-    /// tells them apart here, for Ask Before Deleting, which a full drag
-    /// never waits for (`DiscardQuestion.fullDrag`, B-168). Its button's
-    /// width did until the test iPad showed a full drag's Trash never
-    /// stretched past 56 per cent of the row (2026-10-27).
+    /// tells them apart here (`DiscardQuestion.fullDrag`, B-168), for a
+    /// read mark, which is a step of Undo from a full drag (B-175). Its
+    /// button's width did until the test iPad showed a full drag's Trash
+    /// never stretched past 56 per cent of the row (2026-10-27). Neither
+    /// asks under Ask Before Deleting any more (B-175).
     private func swipes(at ip: IndexPath,
                         _ side: KeyPath<RowSwipes.Sides, [RowSwipes.Action]>)
         -> UISwipeActionsConfiguration {
@@ -3069,11 +3071,11 @@ final class MessageListViewController: UITableViewController {
     /// refused (`ListBatch`, `PaneActions`); not while one is on its way
     /// on any of the row's letters, as the pane waits for its own.
     ///
-    /// Under Ask Before Deleting, a Trash or an Archive tapped, a drag's
-    /// button or More's item (`from`), asks first, Mail's sheet over the
-    /// row, "Trash Message", or "Trash Messages" for a conversation of
-    /// more (`DiscardQuestion`, B-168): the row slides back while he is
-    /// asked, and goes if he taps it. A full drag does not ask.
+    /// Under Ask Before Deleting nothing is asked here either, a drag's
+    /// button tapped, More's item or a full drag (`from`), as Mail asked
+    /// for none of them on the test iPad (`DiscardQuestion`, B-175); it
+    /// asked them from B-168 until then. A read mark from a full drag is a
+    /// step of Undo (B-175).
     private func swiped(_ action: RowSwipes.Action, on key: RowKey, from: DiscardQuestion.From) -> Bool {
         guard !inEditMode, let row = lettersOfRow(key), !row.letters.isEmpty else {
             return false
@@ -3105,7 +3107,8 @@ final class MessageListViewController: UITableViewController {
         case .flag, .unflag:
             return mark(.flag(action == .flag), on: key)
         case .markRead, .markUnread:
-            return mark(.read(action == .markRead), on: key)
+            // A step of Undo from the full drag, as Mail's (B-175).
+            return mark(.read(action == .markRead), on: key, undoable: from == .fullDrag)
         case .more:
             showMore(for: key)
             return true
@@ -3113,10 +3116,10 @@ final class MessageListViewController: UITableViewController {
     }
 
     /// A Trash or an Archive of `letters`, the row `key`'s: `go` at once,
-    /// for UIKit to close the row, or, under Ask Before Deleting and not
-    /// from a full drag, Mail's sheet over the row first, and `go` only if
-    /// he taps its red button, the row sliding back meanwhile
-    /// (`DiscardQuestion`, B-168).
+    /// for UIKit to close the row, or, where `DiscardQuestion` asks from
+    /// `from`, Mail's sheet over the row first, and `go` only if he taps
+    /// its red button, the row sliding back meanwhile (B-168). From a row
+    /// it asks nothing since B-175.
     private func discard(_ verb: DiscardQuestion.Verb, _ letters: [MessageSummary], on key: RowKey,
                          from: DiscardQuestion.From, _ go: @escaping () -> Void) -> Bool {
         guard let asked = DiscardQuestion.before(verb, letters: letters.count, from: from) else {
@@ -3135,8 +3138,10 @@ final class MessageListViewController: UITableViewController {
     /// one. The row changes at the tap, the server is told a letter at a
     /// time, and a refusal puts back what it did not take and says why. A
     /// Flag or an Unflag the server took is a step of Mail's Undo (B-157);
-    /// a read mark is not.
-    private func mark(_ action: PaneAction, on key: RowKey) -> Bool {
+    /// a read mark is one where `undoable`, from the full drag to the right,
+    /// "Undo Read" or "Undo Unread" (B-175), and none from More or a button
+    /// tapped, which were not seen to be.
+    private func mark(_ action: PaneAction, on key: RowKey, undoable: Bool = false) -> Bool {
         guard let row = lettersOfRow(key) else { return false }
         let changing = row.letters.filter { letter in
             switch action {
@@ -3154,10 +3159,11 @@ final class MessageListViewController: UITableViewController {
                 action, on: changing, role: { self.role(of: $0) },
                 list: self.letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.requestSweep?() })
-            if let step = UndoableFlag.after(action, took: changing.filter {
-                outcome.taken.contains($0.id)
-            }) {
+            let took = changing.filter { outcome.taken.contains($0.id) }
+            if let step = UndoableFlag.after(action, took: took) {
                 self.onUndoable?(.flag(step), self.letters)
+            } else if undoable, let step = UndoableRead.after(action, took: took) {
+                self.onUndoable?(.read(step), self.letters)
             }
             if let refusal = outcome.refusal {
                 ErrorPresenter.show(reaching: refusal, on: self.alertHost(in: window))
@@ -3193,11 +3199,12 @@ final class MessageListViewController: UITableViewController {
 
     /// More's sheet (`RowMore`), over the row, as Mail's: Reply, Reply All
     /// and Forward of the conversation's newest letter, made by the reading
-    /// pane (`onAnswer`); Trash Message, the drag's own Trash, or inside
-    /// Trash Delete Message, which asks first; Flag or Unflag, Mark as
-    /// Unread or Mark as Read, Move to Junk (Move to Inbox inside Junk,
-    /// B-106) and Move Message, on every letter of the row. Each item acts
-    /// on the row as it is when tapped.
+    /// pane (`onAnswer`); Trash, the drag's own Trash, or inside Trash
+    /// Delete Message, which asks first; Flag or Unflag, Mark as Unread or
+    /// Mark as Read, Move Message…, Archive Message, and Move to Junk (Move
+    /// to Inbox inside Junk, B-106), on every letter of the row, in Mail's
+    /// order (`RowMore`, B-175). Each item acts on the row as it is when
+    /// tapped.
     private func showMore(for key: RowKey) {
         guard let row = lettersOfRow(key), let place = placeOfRow(key) else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
