@@ -39630,7 +39630,7 @@ beside the people he wrote to and his Contacts was not seen, the list
 having that one row; and that nobody is noted from Junk was not tried, the
 host putting letters in "Notes" alone. Nothing was sent.
 
-## B-178 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-28, fixed again the same day after it, and the reading pane's header after the second round that day, not yet seen there since. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does, each row shows when its letter arrived, as Mail's row does, and Go to Date goes by it; the reading pane's header shows it too, as Mail's header does, in Blackmail's own words, and so does each line of a conversation's stack, Mail's not yet seen
+## B-178 — FIXED 2026-10-27, seen in part on the test iPad 2026-10-28, fixed again the same day after it, the reading pane's header after the second round that day, seen there after it the same day, and Print and a reply's "On ... wrote:" after the third round that day, not yet seen there since. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does, each row shows when its letter arrived, as Mail's row does, and Go to Date goes by it; the reading pane's header shows it too, as Mail's header does, in Blackmail's own words, and so does each line of a conversation's stack, as Mail's conversation does; and a printed letter's "Date:" and a reply's "On ... wrote:" give it, as Mail's do, and Forward's header by the same rule, Mail's Forward not yet seen
 
 Built in the `bm-cmp-g` worktree (branch `copy-cmp-g`), off int20 at
 b9afe64. Batch G of the comparison plan of 2026-10-27 (item G1).
@@ -40073,7 +40073,9 @@ they are made from the letter as read, never given the arrival, and
 nothing seen says Mail's differ (Not seen, below).
 
 *Not seen.* Which date Mail prints for such a letter, and which its
-reply's "On ... wrote:" line gives: neither was looked at. In TODO,
+reply's "On ... wrote:" line gives: neither was looked at (the third
+round that day saw both: the arrival, "Found on the test iPad,
+2026-10-28 (third round)", below; its conversation too). In TODO,
 B-178's step 3 now compares both, Mail's beside Blackmail's, in the
 print preview only and with the reply's composer closed with Cancel.
 Which date Mail's conversation view gives each of its letters, and the
@@ -40112,3 +40114,102 @@ the iPad: "Build complete".
 
 *Layout.* None changed: the header's date is in its place, on its one
 line, in the same words for a date; only which date.
+
+**Found on the test iPad, 2026-10-28 (third round)**, in round
+r6-l-fix, on int21 at 260aea0, the second round's fix with it, and seen
+again by a second run from a fresh launch on letters of its own. The
+host put the three letters in "Notes" as before: "dated old" arrived
+that afternoon at 2.15, its Date 1 March 2024 at noon; "came old"
+arrived on 8 October at noon, its Date that morning at 9 am; and step
+9's conversation, two letters. Mail 16.5.1 and Blackmail, after a
+relaunch, had the same rows, order and dates: "dated old" "2:15 PM",
+the conversation "Yesterday", "came old" "10/8/26", "lastyear"
+"6/14/25" under 7/17/25; the log's dates FETCH `* FETCH {35 dates}`, 35
+the letters in Notes. Blackmail's headers showed the arrival in its
+own words, as Mail's do: "Today at 2:15 PM" and "October 8, 2026 at
+12:00 PM", in every frame from 0.14 s after the tap, as the letter
+landed and after, in the place they had. The conversation: Mail's
+letters "Sunday" and "Yesterday", by arrival, its row "Yesterday";
+Blackmail's header "Yesterday at 9:00 AM" and the stack's lines
+"Sunday" and "Yesterday", the same from 0.20 s on. One failure, the
+TODO's step 3. Mail's print preview read "Date: Oct 28, 2026 at
+2:15:14 PM" and "Date: Oct 8, 2026 at 12:00:00 PM", and its reply "On
+Oct 28, 2026, at 2:15 PM, ... wrote:" and "On Oct 8, 2026, at 12:00
+PM, ... wrote:": the arrival, to the second on the paper. Blackmail's
+read "Date: Mar 1, 2024 at 12:00:00 PM" and "Date: Oct 28, 2026 at
+9:00:00 AM", and "On Mar 1, 2024, at 12:00 PM, ..." and "On Oct 28,
+2026, at 9:00 AM, ...": the Dates, as the step then expected, saying
+that it FAILs should Mail's give the arrival. The second run gave its
+"dated old" a Date with a numeric zone, `-0500`, and saw the same in
+both apps, Mail's print to the second of the INTERNALDATE. Nothing was
+printed (`PRINT closed done=false` each time), each composer was
+cancelled and asked nothing, and Drafts and Sent Mail were as before.
+
+The cause: the paper's date was the letter's `date`
+(`PrintPage.head`, `MailFormat.printedTimestamp(m.date)`), and so was
+the reply's line (`Draft.replying`, `quoteAttribution(m.date)`), by
+design since the second round (its *Changed*: "A reply's "On ...
+wrote:", Forward's header and Print keep the Date"); and the letter
+the pane held and handed to them (`message`) was the letter as the
+server reads it, with no arrival: only the header was given its row's.
+
+*Changed.* Which date Mail's paper and reply give is copied; the words
+and their forms are kept (`printedTimestamp`, B-172;
+`quoteAttribution` and `forwardedDate`, B-119, Mail's medium and long
+forms). The printed "Date:", a reply's "On ... wrote:" (Reply and
+Reply All) and Forward's "Date:" under "Begin forwarded message:" give
+`Message.headerDate`, when the letter arrived, or its Date where that
+is not known, as for a letter kept on the iPad with no arrival, which
+keeps its Date. Forward goes by the same rule as Print and the reply:
+Mail's Forward was not looked at, and nothing in the code or seen on
+the iPad says Mail's differs. A letter forwarded to him and drawn in
+the pane (`ForwardedFields`, B-114) keeps the Date in its own header,
+which is all it has. The letter the pane holds carries its row's
+arrival wherever it is handed on: the single letter's, given it as it
+lands (`message`), which the Reply sheet's Reply, Reply All, Forward
+and Print and Markup and Reply take; each letter of a conversation as
+it comes (`loaded`), which becomes the pane's letter as he opens it
+(`focusLetter`); his own from Sent Mail in the stack, for Markup and
+Reply on a file of it (`PaneRelated.keep`); and a row's own Reply,
+Reply All and Forward from More (`answer`, B-156). The list has no
+Print of its own.
+
+*Not seen.* Which date Mail's Forward writes under "Begin forwarded
+message:": no round has tapped Forward in Mail, and no step of the
+check does. A Markup and Reply, a row's More Reply and a reply to a
+conversation's letter on the iPad: pinned on the host alone. A letter
+of his from Sent Mail in a stack: not looked at, as before.
+
+*Reverses.* The second round's "A reply's "On ... wrote:", Forward's
+header and Print keep the Date", the first round's *Changed* 1, "a
+reply's "On ... wrote:", Print and Forward keep the Date", and "Which
+date"'s "a reply's "On ... wrote:", Print and Forward keep the Date
+header"; the same in `Message.arrived`'s and `headerDate`'s comments;
+`HeaderDateTests`' letter "which a reply's "On ... wrote:" and Print
+write" by its Date, `PrintWiringTests`' "on paper its Date" and
+`DatesTheIPadsWayTests`' callers by `m.date`; TODO B-178's step 3,
+which expected the Date.
+
+*Tests.* `PaperDateTests`, four, new: the print's "Date:" for the
+round's two letters in his region, "Oct 28, 2026 at 2:15:14 PM" and
+"Oct 8, 2026 at 12:00:00 PM", never their Dates; Reply's and Reply
+All's line and Forward's "Date:" by the arrival, never the Date; a
+letter with no arrival keeping its Date on all three, and another
+letter's row giving it none; and the wiring: the pane's letter given
+its row's arrival as it lands, a conversation's letters as they come,
+his from Sent Mail as kept, a row's own Reply, and the paper and the
+drafts reading `headerDate`, never `m.date`. Changed with it:
+`HeaderDateTests` (over the scripted server, the round's two letters'
+reply and print now by arrival), `PrintWiringTests`,
+`DatesTheIPadsWayTests`. Undone in the worktree, every use (the
+paper, the reply and Forward on `m.date`, the pane's letter, the
+conversation's, his and the row's without the arrival): 45 failures
+in 7 tests, each an assertion's, the letter with no arrival passing
+as it should; the row's Reply and his letters alone: 2 failures, each
+an assertion's. Put back, passing. The full suite: 3,156 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
+
+*Layout.* None changed: the paper's header, the composer and the
+forward are as they were, the date in its place in the same words for
+a date; only which date. Nothing on screen moves.

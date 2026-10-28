@@ -10769,7 +10769,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       the arrival, and the `fix-j1` branch's tip changes that too
       (KNOWN_ISSUES B-178, "Found on the test iPad, 2026-10-28 (second
       round)"); it did not run 4, 5's jump to 14 June 2025 or 8, which
-      passed on int21, and 3 and 9 are new since. Nothing is sent and
+      passed on int21, and 3 and 9 are new since; the third, r6-l-fix on
+      260aea0, passed 1, 2, 9 and 10 and FAILed 3, Blackmail's print and
+      reply by the Date where Mail's give the arrival, which the
+      `fix-j1` branch's tip changes (KNOWN_ISSUES B-178, "Found on the
+      test iPad, 2026-10-28 (third round)"). Nothing is sent and
       nothing is saved to Drafts: no Send or New Message is tapped, and
       Reply only in step 3, its composer closed with Cancel untouched;
       Print only to its preview, nothing printed. The host makes the letters, each from a made-up
@@ -10829,15 +10833,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       old". Then the same two in Blackmail, Print from the pane's Reply
       sheet, its preview only, and Reply, then Cancel, which asks nothing
       for an untouched letter (B-069). Blackmail's print and attribution
-      give the Date's day and time, in Blackmail's words, Mail's medium
-      forms (`MailFormat.printedTimestamp`, `quoteAttribution`): for
-      "dated old", its Date at noon as the round's, "Mar 1, 2024 at
-      12:00:00 PM" on the print and "On Mar 1, 2024, at 12:00 PM, …" in
-      the reply; for "came old", today's date at "9:00:00 AM" on the
-      print and "at 9:00 AM" in the reply. As Mail's, this passes; if
-      Mail's give the arrival, the step FAILs, a difference from Mail to
-      fix, both screenshots cited, in the round's results. After it, Drafts as before the step, over IMAP, and
-      Mail's Outbox empty.
+      give the arrival's day and time, as Mail's do (seen on 2026-10-28
+      in r6-l-fix: "Date: Oct 28, 2026 at 2:15:14 PM" and "On Oct 28,
+      2026, at 2:15 PM, …" in Mail), in Mail's medium forms
+      (`MailFormat.printedTimestamp`, `quoteAttribution`): for "dated
+      old", today's date and the time it arrived, with its seconds on
+      the print ("Oct 28, 2026 at 2:15:14 PM" then) and "On Oct 28,
+      2026, at 2:15 PM, …" in the reply, never "Mar 1, 2024"; for "came
+      old", the day it arrived, "Oct 8, 2026 at 12:00:00 PM" then on
+      the print and "On Oct 8, 2026, at 12:00 PM, …" in the reply,
+      never today's 9:00 AM. The Date shown, or a day or time other
+      than Mail's: the step FAILs, both screenshots cited, in the
+      round's results. After it, Drafts as before the step, over IMAP,
+      and Mail's Outbox empty.
       4. *To the end:* scrolled to the foot of Notes: every row once, the
       dates going down all the way, Notes' oldest last, nothing drawn
       twice, no row missing against the count over IMAP.
