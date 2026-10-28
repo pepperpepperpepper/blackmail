@@ -495,8 +495,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// as ever. Waited for, and the pane given something else meanwhile:
     /// nothing more is fetched, for a letter he has left, on the one
     /// connection the next letter's body is coming on; the tap is let go,
-    /// and nothing is said (`openAttachment`).
+    /// and nothing is said (`openAttachment`). So the pane is checked with
+    /// nothing awaited between the check and a fetch here: first, so that
+    /// a tap whose task begins on a pane given something else takes and
+    /// fetches nothing; and after the wait.
     private func fileData(_ file: Attachment, of m: Message, shown: Int) async throws -> Data {
+        guard loads.stillShows(shown) else { throw CancellationError() }
         let key = FilesAhead.Key(letter: m.id, part: file.id)
         var taking = ahead.taking(key, planned: FilesAhead.fetches(file, of: m))
         if taking == .wait {
@@ -1405,6 +1409,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 self.run(BodyFiles.Busy(attachment.id, of: m.id, busy: false))
             }
             do {
+                // Nothing awaited before it since the tap: the tap's fetch
+                // is asked at once, not after a wait in which the pane can
+                // move on (B-176).
                 let data = try await fileData(attachment, of: m, shown: shown)
                 // The pane has moved on since the tap: nothing is shown.
                 guard loads.stillShows(shown) else { return }

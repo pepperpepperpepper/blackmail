@@ -324,8 +324,11 @@ final class FilesAheadTests: XCTestCase {
     /// a fetch ahead already running, and a tap's download is never called
     /// off (B-122), only the fetches ahead are; it ends, and is let go,
     /// nothing shown, written or said. What 60d5671 stopped, a fetch begun
-    /// after a wait once the pane has moved on, is not this. Read from the
-    /// pane's source.
+    /// after a wait once the pane has moved on, is not this. Nor can one
+    /// be: from the tap to `fileData` nothing is awaited, and `fileData`
+    /// checks the pane first, for a pane given something else between the
+    /// tap and its task, and after its one wait, nothing awaited between
+    /// either check and the fetch. Read from the pane's source.
     func testATapsFetchAskedBeforeThePaneMovedOnEnds() throws {
         let pane = try source("UI/MessageDetailViewController.swift")
         let start = try XCTUnwrap(pane.range(of: "private func fileData("))
@@ -336,6 +339,19 @@ final class FilesAheadTests: XCTestCase {
         XCTAssertTrue(before.contains("if taking == .wait { await aheadFetches[key]?.value "
                                       + "guard loads.stillShows(shown) else { throw CancellationError() }"), before)
         XCTAssertFalse(before.contains("Task.yield"))
+        XCTAssertTrue(before.hasPrefix("_ file: Attachment, of m: Message, shown: Int) async throws -> Data { "
+                                       + "guard loads.stillShows(shown) else { throw CancellationError() } "
+                                       + "let key = FilesAhead.Key(letter: m.id, part: file.id) "
+                                       + "var taking = ahead.taking("), before)
+
+        // From the tap to `fileData`, nothing awaited: not the files ahead
+        // (`aheadLast`), not a turn of the main actor.
+        let tapped = try XCTUnwrap(pane.range(of: "filesOpening += 1 Task { @MainActor in"))
+        let taken = try XCTUnwrap(pane.range(of: "let data = try await fileData(attachment, of: m, shown: shown)",
+                                             range: tapped.upperBound..<pane.endIndex))
+        let path = String(pane[tapped.upperBound..<taken.lowerBound])
+        XCTAssertFalse(path.contains("await"), path)
+        XCTAssertTrue(path.hasSuffix("self.run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) } do { "), path)
 
         // The tap's task is the pane's to forget, not to call off: nothing
         // keeps it, and the pane given something else cancels only the
