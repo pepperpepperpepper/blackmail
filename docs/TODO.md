@@ -10000,7 +10000,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       INTERNALDATE three days ago at noon, its Date 10 January 2025 at
       noon; then "Re: B-178 thread", naming the first's Message-ID in
       In-Reply-To and References, INTERNALDATE yesterday at 9 am, its Date
-      that morning at 7 am, before the step; it notes both UIDs. In Mail,
+      today at 7 am, before the step; it notes both UIDs. In Mail,
       Notes pulled to refresh, the conversation's row tapped once and
       nothing else: each letter's date as Mail's conversation shows it,
       and any date it gives the conversation as a whole, written down

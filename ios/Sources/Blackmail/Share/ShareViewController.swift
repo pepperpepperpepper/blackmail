@@ -33,10 +33,10 @@ public final class ShareViewController: UIViewController,
     /// The sheet's text size and Bold Text, in `Theme` before the form is
     /// made and again when either changes (B-166): the size Large whatever
     /// iOS hands the sheet (`TextSize.drawn`, Changed 2026-10-27), Bold
-    /// Text as iOS has it. The extension has no `UIApplication` of its own
-    /// to ask, as the app does (`TextSizes.app`): it reads its own traits,
-    /// again as they change (`traitCollectionDidChange`) and as the sheet
-    /// appears.
+    /// Text as iOS has it. The extension is a process of its own, whose
+    /// application UIKit makes and the app's `BlackmailApplication` never
+    /// reaches (`TextSizes.app`): it reads its own traits, again as they
+    /// change (`traitCollectionDidChange`) and as the sheet appears.
     private lazy var sizes = TextSizes(
         names: [UIContentSizeCategory.didChangeNotification,
                 UIAccessibility.boldTextStatusDidChangeNotification],
