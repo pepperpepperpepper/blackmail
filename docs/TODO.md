@@ -9376,6 +9376,51 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
       was sent, and nothing else was written to the account.
+- [ ] **B-178, the list in date order.** On the test iPad, the test
+      account only, from a build of the `bm-cmp-g` worktree (branch
+      `copy-cmp-g`) or of the int it is merged into. Nothing is sent and
+      nothing is saved to Drafts: no Send, Reply or New Message is tapped.
+      The host makes the letters, each from a made-up address, with a new
+      Message-ID of its own and naming none on the account, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, with the
+      APPEND's own date as its INTERNALDATE, noting each UID from its
+      APPENDUID; it stops if one has none. Three panes, Organize by Thread
+      on; the connection log read after each step.
+      0. *The letters:* "B-178 lastyear", INTERNALDATE and Date both 14 June
+      2025 noon, as the round's; "B-178 came old", INTERNALDATE twenty days
+      ago, its Date today at 9 am; "B-178 dated old", INTERNALDATE now, its
+      Date 1 March 2024. Over IMAP, each UID above every other in Notes.
+      1. *Mail first:* Mail on the iPad, Notes, scrolled: the row and the
+      rows above and below each of the three, written down, a screenshot of
+      each. Mail by date received has "dated old" at the top and "came old"
+      among the letters of twenty days ago; by date sent, "came old" at the
+      top and "dated old" in March 2024. Written down which, in KNOWN_ISSUES
+      under B-178: it settles which date to go by.
+      2. *Blackmail:* Notes opened: the three where Mail had them, by
+      arrival: "dated old" first, its row's date 3/1/24; "came old" among
+      the rows of twenty days ago, its time today's; "lastyear" under
+      7/17/25. The log: one `UID FETCH … (UID INTERNALDATE)` after the
+      `UID SEARCH ALL`, read as `* FETCH {N dates}`, N the letters in Notes,
+      then the page's FETCH. Screenshot of each place.
+      3. *To the end:* scrolled to the foot of Notes: every row once, the
+      dates going down all the way, Notes' oldest last, nothing drawn
+      twice, no row missing against the count over IMAP.
+      4. *Go to Date:* 14 June 2025: the list opens on "lastyear", 7/17/25
+      above it; then today: the top rows. Scrolled up and down from 14 June
+      2025: the dates in order.
+      5. *Undo:* "came old" dragged left full: it goes. A shake, Undo
+      Trash: it is back where it stood. Refresh: still there, not at the
+      top. Over IMAP its new UID is above every other in Notes.
+      6. *Relaunch:* the app quit and opened again, Notes tapped at once:
+      the kept rows in the order of step 2 before the listing lands, and
+      the same after.
+      7. *Refresh:* the Inbox at its top, Refresh twice: the second's log is
+      NOOP, `UID SEARCH ALL` and one FETCH, with no dates FETCH.
+      8. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash (the one step
+      5 gave "came old" in place of its first), and deletes in the Trash
+      only the UIDs that move answered (`COPYUID`). Nothing was sent, and
+      nothing else was written to the account.
 
 ## Blocked on the owner
 

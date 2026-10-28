@@ -146,10 +146,11 @@ final class ListInDateOrderTests: XCTestCase {
     }
 
     /// A folder of his Inbox's size, 60,000 letters, with three put in it
-    /// last though they came long before, and one a moment ago: the first
-    /// page is the fifty letters that came last, the three in their places
-    /// far below, and it asks the dates of a few hundred letters, not of
-    /// 60,000.
+    /// last though they came long before, one that came seven hours ago
+    /// put in after them, and one a moment ago: the first page is the
+    /// fifty letters that came last, the one of seven hours ago fourth, the
+    /// three in their places far below, and it asks the dates of a few
+    /// hundred letters, not of 60,000.
     func testTheFirstPageOfALargeFolderIsTheLettersThatCameLast() async throws {
         let count = 60_000
         let newest = Self.start.addingTimeInterval(Double(count - 1) * 5 * 3_600)
@@ -158,6 +159,7 @@ final class ListInDateOrderTests: XCTestCase {
             Self.start.addingTimeInterval(9_000 * Self.day),
             Self.start.addingTimeInterval(12_000 * Self.day),
             newest.addingTimeInterval(60),
+            newest.addingTimeInterval(-7 * 3_600),
         ])
         var order = ArrivalOrder(validity: 1, listing: folder.listing)
         try await order.reachDown(below: nil, count: 50, asking: folder.asking)
@@ -165,6 +167,7 @@ final class ListInDateOrderTests: XCTestCase {
 
         XCTAssertEqual(page, Array(folder.listOrder.prefix(50)))
         XCTAssertEqual(page.first, 1_000 + UInt32(count * 3) + 3, "the one that came a moment ago")
+        XCTAssertEqual(page.firstIndex(of: 1_000 + UInt32(count * 3) + 4), 3, "seven hours ago")
         for put in [UInt32(count * 3 + 1_000), UInt32(count * 3 + 1_001), UInt32(count * 3 + 1_002)] {
             XCTAssertFalse(page.contains(put), "\(put) is far below")
         }

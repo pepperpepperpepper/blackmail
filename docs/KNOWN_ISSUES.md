@@ -37288,3 +37288,156 @@ turn together with one, nor three with two, each its turn once and the
 turns given back; and the loader's pin takes the turn, the stopped
 request and the turn given back. Every request let through at once, 2
 failures in the new test; then restored.
+
+## B-178 — FIXED 2026-10-27, not yet seen on the iPad. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does
+
+Built in the `bm-cmp-g` worktree (branch `copy-cmp-g`), off int20 at
+b9afe64. Batch G of the comparison plan of 2026-10-27 (item G1).
+
+**What Mail does.** Seen in the comparison round of 2026-10-27 on the
+test iPad (C-02c, "The list's order"), Mail 16.5.1 against Blackmail
+bf7575a. The round put its letters in the label "Notes" last, the
+highest UIDs there. Mail: "By date: 'R6 B-119 date lastyear rm'
+(2025-06-14) at row 37 of Notes, among Notes' own letters (after
+7/17/25)." Its row, 6/14/25, under Notes' 7/17/25. Mail's list has no words of its own for this: its string tables
+on the iPad have no sort setting, only "Most Recent Message on Top",
+which is a conversation's order (Settings > Mail > Threading). The
+comparison found Mail on 18 sorting by date too.
+
+**Which date.** The round's letter had the same INTERNALDATE and Date
+header (14 Jun 2025 14:00), so the round does not say which of the two
+Mail goes by. Mail on the Mac offers both, "Date Received" and "Date
+Sent"; the iPad's has neither. Apple's community
+threads read for this ("MAIL not sorting by date received", "Sorting
+Mail by Date", "Mail.app uses wrong Date Received time") have Mail on
+iOS ordering by when the letter arrived and no way to change it; one
+host's support page says iOS Mail lists in the server's order, which the
+round disproves (Blackmail's server order put the letter at the top,
+Mail did not). Nothing found says the Date header. So the list goes by
+INTERNALDATE, when Gmail took the letter, which Gmail keeps through a
+move (B-084), and by UID within a second, the higher first. The rows
+still show the Date header as before (C-02d, the same in both). The
+device check below has a letter whose two dates are far apart, looked
+at in Mail and in Blackmail side by side, to settle it.
+
+**What Blackmail did.** `IMAPMailRepository` listed by UID, newest
+first: a page was the UIDs below the last row's, from the folder's
+`UID SEARCH ALL` (`PageWindow.older`). Gmail gives a letter put in a
+folder the next UID there, so the round's letters were all at the top
+of Notes: 'lastyear' right under 'older' (10/15/26) and above Notes' own
+6/11/26. The same for a letter moved back to the Inbox, a letter Undo
+brings back (B-157 recorded it as a known difference), and anything
+another program copies in.
+
+**Changed.**
+
+1. *The order* (`ArrivalOrder`, new, in Mail/ArrivalOrder.swift). A
+   folder's UIDs from the listing's `UID SEARCH ALL`, as before, put in
+   order by when each arrived, its INTERNALDATE, the UID breaking a tie.
+   Gmail has no IMAP SORT, so the dates are asked for: `UID FETCH …
+   (UID INTERNALDATE)`, a few dozen bytes a letter. A folder of 2,000
+   letters or fewer has every date asked for at once, in the hold of the
+   listing. A larger one (his Inbox is 60,000 to 150,000 letters, All Mail
+   250,000 to 400,000) is dated a span at a time: the dates of about a
+   hundred letters with the UIDs nearest the span are asked for, the
+   page's count-th newest of them bounds how far back the next rows can
+   be, and `UID SEARCH SINCE … BEFORE …` (INTERNALDATE, by day, a day more
+   either side for Gmail's days counted from midnight UTC, B-058) finds
+   every letter that arrived in between, whose dates are then asked for.
+   Only the letters inside the span are listed. A page below past it, or
+   above it after a date jump, widens it first, in a hold of its own.
+2. *The pages* (`IMAPMailRepository.listMessages`, both directions). A
+   page is asked for from the last row's UID as before, and is the rows
+   after it in this order (`ArrivalOrder.older`, `newer`), a cursor not
+   in the order placed by its date, or with none by the letter with the
+   next UID. `PageWindow` walks a place in the order, not a UID's value
+   (`newer`, `jumpWindow`, `anchorRow(fetched:in:)`).
+3. *A Refresh asks no more than before.* The order of the folder's last
+   listing in the launch is carried on (`init(validity:listing:carrying:)`):
+   only letters new to the folder since need dates, and when they are no
+   more than a page they are fetched with the page's own FETCH, which
+   brings each row's INTERNALDATE, and placed from it
+   (`foldedPage`, `settleOwed(from:)`). A letter put in out of turn is
+   fetched and not drawn, being further down.
+4. *Go to Date* (`messages(around:)`). The window, ten rows and the page
+   above the letter landed on and the rest below it (B-117), is cut from
+   the order around the letter's arrival. Of his day's letters the jump
+   lands on the first to arrive (`performLowestDated`), not the lowest
+   UID. A jump that finds nothing that recent leaves the snapshot the
+   list on screen came from, which the watch now goes by.
+5. *The watch's news* (`ListLetters.showNews`, `hold`). A letter that has
+   come goes in where its arrival puts it: at the top as before for new
+   mail, among its own time's rows for one put in out of turn; one older
+   than every row the list holds has the list fetched afresh, which
+   places it. A letter the folder already held when its list was fetched
+   is no longer taken for news because its UID is high (`newsOnce`).
+6. *Undo's put-back place.* In the same session the row comes back where
+   it stood, as B-157 had it. At the next listing it is there too, by its
+   arrival, where it went to the top before (`ListLetters.restore`'s
+   comment).
+7. *The copy kept on the iPad* (D-016, B-160, `MailShelf.took`). Its rows
+   are kept in the list's order, so a relaunch draws them in date order.
+   A page below goes on the kept page by the list's order, the cursor
+   placed by its arrival (`arrived`), by UID where a row does not say when
+   it arrived. Below a fresh first page the kept rows go on past the end
+   of the order's span (`thenKept`) while they are still in the folder and
+   arrived before the span, so a large folder keeps what he scrolled.
+8. *The log.* A FETCH of dates alone is logged as one line, `* FETCH {N
+   dates}`, not a line a letter, which at 2,000 would push everything else
+   out of the 500-line log.
+
+**Reverses.** B-084's "The list is in UID order, newest first" and its
+row id note (a conversation's row is now headed by its newest letter in
+every folder put in order, since that is the one listed first); B-157's
+known difference "A letter moved back is at the top of its folder at the
+next listing"; `MailRepository`'s "Paging is by UID" in the sense of
+order; B-160's "as far as they go on from it in the folder's UIDs";
+GoToDateBoundTests' letters dated wrong "at the foot of the list where
+they arrived" (the one copied in with its arrival set to 2037 is now at
+the top, as a list by date received has it).
+
+**On the wire.** The first listing of a folder in a launch adds one
+`UID FETCH … (UID INTERNALDATE)` in its hold for a folder of 2,000 letters
+or fewer; a larger folder adds about three round trips (a hundred
+letters' dates, a SEARCH, the dates of what it found). A Refresh adds
+nothing when no more than a page has come. A first date jump in a folder
+adds one FETCH (small folder) or a few round trips (large). Paging down a
+large folder adds a hold whenever a page reaches the end of the span.
+None of it was timed on Gmail; the suite's 60,000-letter folder asks the
+dates of a few hundred letters for its first page.
+
+**Tests.** `ListInDateOrderTests`, thirteen, new. The order over a folder
+held in memory: his Inbox's size, the first page the fifty that came
+last with a letter of seven hours ago fourth and three put in long
+before far below, a few hundred dates asked; every page to the end of a
+5,000-letter folder in date order; a small folder dated in one FETCH
+with no SEARCH; the same second and a letter gone; a Refresh asking only
+the new letters' dates, none with none; a jump's window and paging both
+ways to both ends. Over the scripted server: the round's letter put in
+last is the 22nd row, not the top; a letter whose two dates differ sits
+by its arrival and shows its Date; every page to the end, each letter
+once; Go to Date on the letter's day and on another, and the pages
+either side in order; a letter trashed and undone listed where it stood;
+a relaunch's kept page in the order, its third page asked for from the
+letter put in last; the watch's news placed by date, and a letter older
+than every row fetching the list afresh. Changed for the new FETCH or
+the new order: `ArrivalOrderTests` (the row's id), `ArrivingMailTests`,
+`FetchNewsTests` (its store now follows the dates FETCH, and its answers
+leave it out), `GoToDateBoundTests`, `GoToDateOrderTests`,
+`KeptCopyTests`, `LandedLetterTests`, `PaneArrangementTests`,
+`ReadingPaneCcTests`, `ToAtTheTapTests`, `SentRowNamesTests`,
+`RepositoryTrafficTests`, `UndoMovesTests` (the letter back at its place,
+not the top). Undone together in the worktree, the order sorted by UID,
+nothing carried, the kept page by UID and news put at the top: all
+thirteen new tests failed, 30 failures, at assertions; then restored. The
+full suite: 3,059 tests, 6 skipped, none failing. The release build for
+the iPad links.
+
+**Not seen.** Nothing on the iPad yet. Which date Mail sorts by (above).
+Gmail's answer times for the dates FETCH and the SEARCHes at his sizes.
+A search's hits are in the order they were (by UID, folder by folder):
+the plan's G1 is the list's order, and a search's is left for the
+comparison of its own.
+
+**Layout.** No layout changed: the same rows, the same parts in the same
+places; only which row comes where in the list.
