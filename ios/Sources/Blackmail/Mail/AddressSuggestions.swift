@@ -218,10 +218,14 @@ enum AddressSuggestions {
     /// an address only seen (B-177): "zqx" and "rmf" of "Zqxa Rmfix", and
     /// "zqxa r" too, as his Contacts' names are matched (`tier`). Not a
     /// name that is an address, as some letters name their sender, which
-    /// would find it by its address after all.
+    /// would find it by its address after all. Nor the name of a letter
+    /// sent on someone's behalf, "via" a word in it, B-123's rule
+    /// (`RecipientBook.onBehalf`): the book keeps the last name it saw at
+    /// a group's or a service's address, "'Margaret Ellis' via Garden
+    /// Club", and typing her name would offer the whole group.
     private static func startsItsName(_ entry: KnownRecipient, _ typed: String) -> Bool {
         guard !typed.isEmpty, let name = entry.name.map(RecipientBook.folded),
-              !name.isEmpty, !name.contains("@") else { return false }
+              !name.isEmpty, !name.contains("@"), !RecipientBook.onBehalf(name) else { return false }
         return RecipientBook.startsAWord(name, typed)
     }
 

@@ -507,7 +507,7 @@ final class RecipientBook {
     }
 
     /// Whether a folded name has "via" as a word in it, "(via" too.
-    private static func onBehalf(_ name: String) -> Bool {
+    static func onBehalf(_ name: String) -> Bool {
         name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).contains("via")
     }
 

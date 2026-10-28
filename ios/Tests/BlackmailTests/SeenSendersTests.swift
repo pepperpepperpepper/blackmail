@@ -179,6 +179,19 @@ final class SeenSendersTests: XCTestCase {
         XCTAssertEqual(offered("zqxa"), ["zqxa.b162@example.net"])
     }
 
+    /// Not by the name of a letter sent on someone's behalf, "via" a word
+    /// in it, B-123's rule for the people he has written to: the book keeps
+    /// the last name seen at a group's or a service's address, so typing
+    /// one person's name would offer the whole group. Nor by its address,
+    /// as no seen sender is.
+    func testNeverByANameSentOnSomeonesBehalf() {
+        book.note(address: "garden-club@googlegroups.com", name: "'Margaret Ellis' via Garden Club")
+        book.note(address: "invitations@linkedin.com", name: "Jane Doe via LinkedIn")
+        for typed in ["marg", "ellis", "jane", "gard", "linked", "garden-club"] {
+            XCTAssertEqual(offered(typed), [], typed)
+        }
+    }
+
     /// After the people he has written to and his Contacts, the plan's
     /// order: Mail's list had the one row, so where its "SIRI FOUND IN
     /// APPS" comes beside its Recents was not seen.
