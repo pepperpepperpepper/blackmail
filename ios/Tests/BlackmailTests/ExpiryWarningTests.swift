@@ -587,8 +587,7 @@ final class ExpiryWarningTests: XCTestCase {
         // no hop to a later turn: the count is let go in the `defer`, after
         // the preview is presented, in the same turn.
         let shown = try part(of: open, from: "let data = try await", to: "} catch {")
-        XCTAssertEqual(shown, "let data = try await repository.fetchAttachmentData( "
-                       + "attachment.id, of: m.id, mailboxID: m.mailboxID) "
+        XCTAssertEqual(shown, "let data = try await fileData(attachment, of: m, shown: shown) "
                        + "guard loads.stillShows(shown) else { return } "
                        + "guard fileTaps.opens(file) else { return } "
                        + "let use = fileTaps.item(of: file) ?? item "
@@ -604,13 +603,11 @@ final class ExpiryWarningTests: XCTestCase {
                        + "applicationActivities: nil) share.popoverPresentationController?.sourceView = webView "
                        + "share.popoverPresentationController?.sourceRect = pictureSpot handedOver = true "
                        + "present(share, animated: true, completion: ready) "
-                       + "case .markupAndReply: let preview = QLPreviewController() preview.dataSource = self "
-                       + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
-                       + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) "
-                       + "handedOver = true present(preview, animated: true, completion: ready) "
-                       + "case .quickLook, .saveImage, .copy: "
+                       + "case .quickLook, .markupAndReply, .saveImage, .copy: "
                        + "let preview = QLPreviewController() preview.dataSource = self "
                        + "preview.delegate = self preview.modalPresentationStyle = .fullScreen "
+                       + "if use == .markupAndReply || MarkupReply.marksUp(attachment) { "
+                       + "MarkupReply.letGo(markup.begin(ObjectIdentifier(preview))) marking = (m, attachment) } "
                        + "handedOver = true present(preview, animated: true, completion: ready) } ")
         XCTAssertEqual(shown.components(separatedBy: "await").count - 1, 1, shown)
         for hop in ["DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {

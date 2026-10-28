@@ -38061,3 +38061,282 @@ Comments still telling the old asking and read-mark rules were reworded
 (item 6). More's Archive Message stays: the plan's D2 orders it, and part
 3 of the plan counts More's words and order as copied, its look as kept.
 No layout changed.
+
+## B-176 — FIXED 2026-10-27, not yet seen on the iPad. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held offers Add to Reading List; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
+
+Built in the `bm-cmp-e` worktree (branch `copy-cmp-e`), off int20 at
+b9afe64. Batch E of the comparison plan of 2026-10-27
+(`mail-compare-plan-2026-10-27.md`, items E1 to E6), from the side-by-side
+round r6-i-compare: Mail 16.5.1 on the test iPad against Blackmail
+bf7575a, comparisons C-11e, C-13b, C-13d, C-13e, C-14b and C-14c, with
+Mail's own string tables (iOS 18.6). The owner's rulings: copy Mail's
+behaviour and words, and change nothing of Blackmail's layout ("I don't
+want to change the layout of blackmail. The layout is very important.",
+2026-10-27). Nothing in this entry moves, appears, stacks or disappears on
+Blackmail's screens: the six are a picture where a picture was asked for
+and Mail draws one, a title's words, a button inside iOS's own Quick Look,
+an item in each of two menus, and a tile's own icon and last line.
+
+**E1. An attached HEIC.**
+
+- *Mail* (C-13d, "R6 B-170 heic rm"): the HEIC photo drawn as a photo at
+  the column's width after the words; Mail 16.5.1 decodes HEIC, and 17 and
+  18 draw it too.
+- *Blackmail:* a tile with a "HEIC" icon, "R6 B-170 photo.heic", "2.3 MB"
+  (`BodyFiles.pictureKinds` left HEIC out: "16.5.1 cannot", which is
+  WebKit's, not Mail's).
+- *Changed:* `image/heic`, `image/heif` and their `-sequence` kinds are
+  picture kinds (`BodyFiles.pictureKinds`, from `HEICPicture.kinds`): the
+  photo is drawn by the loader at its size, as a JPEG or a PNG file is
+  (B-170), and below iPadOS 17 the loader serves the JPEG it already made
+  for a HEIC shown by `cid:` (`HEICPicture`, B-171): the picture file's map
+  names its kind as it came, a HEIC. Held: the photo's menu, Save Image and
+  all (`PanePictures.menu`). A TIFF is still a tile.
+
+**E2. Quick Look's title.**
+
+- *Mail* (C-13b): Quick Look titled "R6 B-170 pdf.pdf"; a photo's
+  "IMG_1220.jpeg" (C-14b).
+- *Blackmail:* "R6 B-170 pdf" and "IMG_1220": Quick Look handed an `NSURL`
+  titles it with the name less its extension.
+- *Changed:* the item is a `PreviewFile` (`QLPreviewItem`) with its title,
+  the file's name as written to the iPad, which is the name the letter sent
+  made safe (`AttachmentStore.title(of:)`, `safeFilename`).
+
+**E3. Markup in a tapped file's Quick Look.**
+
+- *Mail* (C-13b): a tapped PDF's Quick Look has Open in Xodo, Share,
+  Search, Markup, Done. The iPadOS 17 and 18 guides go to Markup by this
+  button ("tap the attachment, then tap [the Markup button] ... tap Done,
+  then choose to reply ..."). What Mail does at Done after drawing there
+  was not seen (UNSURE in the plan).
+- *Blackmail:* since fix-i1's 9c1160f (B-171, part (a)) a tap's Quick
+  Look had no Markup button: the pane answered `disabled` for every
+  preview but Markup and Reply's, from the belief that Mail's had none.
+- *Changed:* one Quick Look for a tap, the held menu's Quick Look and
+  Markup and Reply (`openAttachment`), the pane its delegate; for a picture
+  or a PDF (`MarkupReply.marksUp`: an `image/` kind, `application/pdf`, or
+  a PDF by its name with no kind of its own) the marking up is begun as it
+  opens, so `editingModeFor` answers `createCopy` and Quick Look shows its
+  Markup button; what he draws goes into a Reply as Markup and Reply's does
+  (B-171): Quick Look closed with a copy, the app's own Reply opens with it
+  under his words; closed with nothing drawn, nothing. Any other file, a
+  Word document say, opens with no Markup, as before. As for Markup and
+  Reply's (B-171), the warning before the app stops opening waits while
+  such a Quick Look is up (`MarkupReply.isBusy`, `isOpeningFile`), so it
+  never covers his drawing.
+- *Reverses* 9c1160f's part (a), "a tap's Quick Look has no Markup
+  button", and B-171's "Not changed. A tap on a picture: Quick Look, no
+  Markup". Its part (b), the HEIC among the words made a JPEG below 17, is
+  kept and is what E1 uses.
+
+**E4. Markup and Reply on a held PDF.**
+
+- *Mail* (C-14c): a PDF held: "R6 B-170 pdf.pdf", Open in New Window,
+  Markup and Reply, Save to Files, Share, Copy. 18.6's MobileMailUI has
+  `MARKUP_DOCUMENT` = "Markup and Reply".
+- *Blackmail:* Quick Look, Save to Files, Share, Copy.
+- *Changed:* `PanePictures.pdfMenu`: Quick Look, Markup and Reply, Save to
+  Files, Share, Copy, for a file `marksUp` takes that is no picture; Quick
+  Look stands first where Mail's Open in New Window is, which is not built
+  (a second window: layout, decided). The PDF opens in Quick Look with its
+  Markup, and the copy he draws goes into the Reply as it came, a PDF under
+  its own name and kind, a file of the letter (`MarkupReply.picture`, which
+  made a ".jpg" of any copy that was not a JPEG, PNG or GIF, now makes one
+  only of a picture). Done with nothing drawn: no composer.
+
+**E5. Add to Reading List on a held link.**
+
+- *Mail* (C-11e): the card "Tap to show preview", "example.com", the URL,
+  beside Open Link, Add to Reading List, Copy Link, Share….
+- *Blackmail:* the same card above Open Link, Copy Link, Share…: WebKit's
+  menu with no delegate to ask (B-145 kept it, taking it for Mail's).
+- *Changed:* the pane is the web view's `WKUIDelegate`, its first. For a
+  link Safari's Reading List says it can keep (`LinkMenu.answered`,
+  `SSReadingList.supportsURL`), a page on the web, it answers
+  `contextMenuConfigurationForElement` with a menu of its own: WebKit's
+  suggested items, with "Add to Reading List" put in after Open Link where
+  they lack it (`LinkMenu.place`), its symbol the glasses (`eyeglasses`),
+  adding the link there
+  (`SSReadingList.default()?.addItem(with:title:previewText:)`). For
+  anything else held, a `mailto:`, `tel:` or `javascript:` link, a picture
+  with no link, it answers nil, which WebKit takes as it takes no delegate
+  (`completionBlock(nil)` either way), so WebKit's menu, or DataDetectors'
+  with its contact card, is as it was. As first built it answered with a
+  menu of its own for every element held; narrowed 2026-10-28, below. No
+  preview provider of its own. SafariServices linked (`Package.swift`).
+- *Not seen, and most likely a change of look:* whether the card "Tap to
+  show preview" stays above a menu the pane answers with. WebKit's public
+  source (`WKContentViewInteraction.mm`, `continueContextMenuInteraction`,
+  read 2026-10-28 on its main branch, not the 16.5.1 build) uses a
+  delegate's configuration as it is given, and asks DataDetectors
+  (`contextMenuConfigurationForURL`), whose preview is the link's card,
+  only when the delegate answers nil; with no preview provider UIKit lifts
+  the link's own snapshot alone. So the card most likely goes from a held
+  page's menu, and from a held picture with such a link. The same source
+  has WebKit's suggested items for such a link
+  (`defaultActionsForLinkSheet`) hold Add to Reading List already where
+  `SSReadingList` keeps it, so the menu's items would be Mail's even with
+  `place` adding nothing; the menu seen with no delegate, without it, was
+  DataDetectors'. A menu's look is
+  layout, kept (Q4): **E5 is held out of any merge into master until
+  step 4 of the TODO's B-176 check shows the card on the test iPad.** If
+  the card is not there, E5 is taken out (the pane no delegate again,
+  `LinkMenu` and its two tests with it) and Add to Reading List recorded
+  as a difference kept for the layout.
+
+**E6. A large letter's files, as it opens.**
+
+- *Mail* (C-13e, "R6 B-170 large rm", about 7 MB): Mail fetched the files
+  by itself on opening. At +3 s and +13 s "l-photo-1.jpg" was a tile with a
+  progress ring where the icon is, "Downloading" in blue, its name and
+  "3.5 MB"; the other photo and the PDF already drawn; by +45 s the photo
+  drawn. No "Tap to Download" seen. The words are Mail's
+  (`DOWNLOADING_STATUS` = "Downloading", `DOWNLOADABLE_STATUS` = "Tap to
+  Download", Message.framework).
+- *Blackmail:* a letter over 5 MB is opened without its files (B-054); its
+  photos came as the page asked for them, and the PDF's tile said "Tap to
+  Download" until he tapped it, then "Loading…", dimmed.
+- *Changed* (`FilesAhead`, new): as such a letter's own page has loaded
+  (`PaneDocument.Finished.letter`), or its body has gone into the stack,
+  the pane fetches each of its files drawn as a tile, one at a time, by its
+  section, as a tap fetches it. A picture is not among them: the page
+  already asks for it. Its tile is drawn from the start with Mail's ring in
+  its icon's place, in the icon's own 37 by 48 box, and "Downloading" in
+  its last line, where "Tap to Download" was (`BodyFiles.tile`,
+  `BodyFiles.ring`: a grey circle with an arc of the tile's blue turning on
+  it by the drawing's own animation, no script; Mail's ring fills, and a
+  fetch here says nothing of how far it has got). Come: written to the
+  iPad, out of memory, the icon back and the last line empty, as a letter
+  fetched whole has it (`BodyFiles.Landed`, the script's `bmFileLanded`),
+  the line kept with a no-break space (`BodyFiles.saysNothing`) so that
+  nothing in the tile moves; a tap then opens it from there at once. Not
+  fetched: the icon and "Tap to Download", and a tap fetches it. A tap on
+  a file still to come takes it and fetches it at once; on one coming,
+  waits for it. Given anything else, the pane calls the rest off and
+  removes what came (`PaneLoads.superseded`). A tile tapped says
+  "Downloading" with the ring too, as Mail's does while its file comes,
+  where it said "Loading…" and was dimmed (`BodyFiles.Busy`). A file
+  larger than a letter fetched whole, 5 MB (`FilesAhead.most`), keeps "Tap
+  to Download" and waits for a tap: Mail's own limit was not found (UNSURE
+  in the plan); the 3.5 MB photo and 309 KB PDF it fetched unasked are
+  both under this one. A file of no size known waits too. On paper neither
+  line, as before.
+- *Kept for the layout:* Mail's tile coming reads the ring,
+  "Downloading", the name, the size (r6-i-compare-13-mail-large, C-13e):
+  its status above the name. Blackmail's keeps B-170's order, the ring,
+  the name, the size, and "Downloading" in the last line, where "Tap to
+  Download" is. The lines are not moved.
+- *Reverses* B-170's "Tap to Download" until a tap on a large letter's
+  tile under 5 MB, and B-148's dimmed tile with "Loading…".
+
+**Narrowed and fixed after the first build (2026-10-28).**
+
+- *E5:* the delegate answered every element held that WebKit asked it
+  about with a menu of its own and no preview, a `mailto:` link's and a
+  picture's too, where WebKit's or DataDetectors' own had been; it
+  answers nil now for all but a link the Reading List keeps (above). The
+  words that said the card stays are now said as not seen.
+- *E6, the tile:* landing, the last line was emptied, and an empty line
+  of a tile has no height: the icon, the name and the size, centred in
+  the box, dropped by about half a line, 8 points, in a tile that had
+  never left "Tap to Download" before. The line keeps its room now, a
+  no-break space, and nothing in the tile moves.
+- *E6, a tap waiting:* a tap on a file coming as its letter opened waits
+  for that fetch. With the pane given another letter meanwhile, the fetch
+  was called off and the files forgotten, and the tap went on to fetch
+  the file again, up to 5 MB on the one connection, for a letter he had
+  left, ahead of the next letter's body. Now nothing more is fetched once
+  the wait ends on a pane given something else; the tap is let go with
+  nothing said (`fileData`, `CancellationError`, which `openAttachment`'s
+  catch says nothing for).
+- *E6, a tap before the page finished:* a file's tile tapped before its
+  letter's page had finished loading (the page waits for its photos) was
+  fetched for the tap, and then once more when the page finished. Now
+  such a tap keeps the file as come (`FilesAhead.taking(_:planned:)`), and
+  the page finished fetches it no second time.
+- *E6, not changed:* the files are fetched for a letter whose body is in
+  the pane, which is a letter open: the stack fetches only the bodies of
+  the letters open (`show(thread:completing:)`, "Only the letters that are
+  open are fetched", and `loadBody`'s callers: the newest, the unread, a
+  line he opens). A letter he closes keeps its body and what was fetched
+  for it. A fetch already on the wire when he moves on ends before the
+  next letter's body, up to one file of 5 MB, as a tap's fetch always has
+  (B-122). Mail's own behaviour for a conversation's closed letters was
+  not compared.
+- *Tests:* no new test; five widened. `LinkAtOnceTests`: the pane
+  answers its own menu for an http or https page alone, nil for a
+  `mailto:`, `tel:` or `javascript:` link, no link, or a page the list
+  will not keep; the delegate read, nil answered first and once on each
+  way, and nothing of the element but its link read.
+  `FilesAheadTests`: Landed's words a no-break space, and the tile on the
+  model of the page keeping it after landing and after a tap; a tap
+  before the page finished kept as the tap's, the page finished then
+  fetching nothing; `fileData` read with the guard after its wait, and
+  `openAttachment`'s catch saying nothing for a pane moved on. Undone by
+  hand, all five at once (the answer for any link, the delegate's nil
+  answer taken out, the line emptied, the guard taken out, a planned tap
+  not kept): 15 failures in 6 tests, every one an assertion's; put back,
+  passing. The full suite, serially: 3,058 tests, 6 skipped, none
+  failing. The release build for the iPad: "Build complete".
+
+**No layout changed**, but for E5's card, not seen and held out of any
+merge until it is (above). Nothing moves, appears, stacks or disappears on
+Blackmail's screens: the HEIC is drawn where the photo of any other kind
+is; a title's words; Quick Look's own Markup button inside iOS's Quick
+Look; one item more in each of two menus; and inside a tile, the ring in
+its icon's own box and Mail's word in its last line, which keeps its room
+when the file has come, the box as it was.
+
+**Tests.** `HEICPictureTests`, one new: an attached HEIC drawn as a photo
+from the loader in an HTML and a plain letter, no tile, its map's kind a
+HEIC, the photo's menu; a TIFF still a tile; a HEIC shown by `cid:` drawn
+there once. `AttachmentStoreTests`, one new: the title, with its extension,
+of every name, and the pane's item read. `LinkAtOnceTests`, two new: the
+item's place after Open Link, none for a `mailto:`, for no link, or twice;
+and the pane's delegate read. `MarkupReplyTests`, two new: which files
+Quick Look marks up and the PDF's menu; a PDF's copy staged as it came, a
+file in the Reply, no JPEG made. `FilesAheadTests`, new, six: which files
+come; the tile with the ring and "Downloading", and "Tap to Download" over
+the limit; where each file stands, through a tap, a failure and the pane
+given something else; the script in node on the model of the page, a page
+and a stack's body, the tile as the file comes, with a tap during and
+after; the pane read; a letter's page finished naming its letter.
+Changed as the code they read changed: `FileListedOnceTests` (HEIC a
+picture kind, the PDF's menu, the tile coming, the tile in a letter opened
+without its files), `MarkupReplyTests` (the one Quick Look, Markup begun in
+it for a picture or a PDF), `ExpiryWarningTests`, `AttachmentStoreTests`,
+`TextSizeWiringTests` (one Quick Look), `SteadyChromeTests` (the menu
+item's symbol, sized by the menu as WebKit's beside it), `LargeLetterTests`
+(the tile says "Downloading"), and the model of the page (`ModelPage`: the
+ring, the landing, the tile's drawing).
+
+Each new test undone by hand, every failure an assertion's, then put back
+and passing. E1 to E5 together, 42 failures in 9 tests: HEIC left out of
+the picture kinds, 19 in `HEICPictureTests`' new test and
+`FileListedOnceTests`' picture kinds; the title nil, 6; Add to Reading
+List first and the delegate not set, 2 in each of `LinkAtOnceTests`' two;
+a PDF not marked up, 4, in `MarkupReplyTests`' new test and the PDF's menu
+in it and `FileListedOnceTests`; a JPEG made of a marked-up PDF, 10 in its
+new test. E6 together, 21 failures in 9 tests, each of `FilesAheadTests`'
+six among them: no size limit; the landing leaving the ring; a tap on a
+file still to come made to wait; `superseded` never told; the tile drawn
+coming with its icon; a letter's page finished naming no letter.
+
+The full suite, serially: 3,058 tests, 12 of them this entry's new, 6
+skipped (none of this entry's), none failing. The release build for the
+iPad: links ("Build complete").
+
+**Not seen on the iPad** (the TODO's B-176 check): every part. In
+particular: whether WebKit keeps its card "Tap to show preview" when the
+pane answers its menu with no preview provider, which by WebKit's source
+it does not (if the card goes, E5 is taken out, above); a `mailto:` link
+held, its menu and card as before B-176;
+Quick Look's Markup button on a tapped PDF and photo with `createCopy`, and
+what its Done does; the ring turning in a tile and "Downloading" giving way
+to the icon; Reading List taking the link. Not built, as decided: Open in
+New Window, the held menus' lifted previews (Q4), Mail's ring filling as
+the file comes. The marked-up PDF goes in the Reply as a file, after the
+letter's words, where Mail's composer may place it among them; not
+compared. On iPadOS 18 Mail's limit for fetching unasked may differ; not
+known.

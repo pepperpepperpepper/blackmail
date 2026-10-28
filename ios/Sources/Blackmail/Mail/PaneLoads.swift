@@ -152,13 +152,21 @@ final class PaneLoads {
 
     /// The pane has been given something else, or emptied: every fetch for
     /// what it showed is called off, and none of their answers is drawn.
+    /// Then `superseded` is told.
     func supersede() {
         generation += 1
         lastStarted = nil
         let called = running.values
         running = [:]
         for task in called { task.cancel() }
+        superseded?()
     }
+
+    /// Told each time the pane is given something else or emptied, after
+    /// every fetch for what it showed has been called off: the pane stops
+    /// the files it was fetching as a large letter opened, and removes
+    /// those that came (`FilesAhead`, B-176).
+    var superseded: (() -> Void)?
 
     /// How many fetches are still running. How a test knows the pane has
     /// stopped waiting without sleeping on it.

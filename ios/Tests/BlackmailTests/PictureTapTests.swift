@@ -480,7 +480,7 @@ final class PictureTapTests: XCTestCase {
                 + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "
                 + "Task { @MainActor in"))
         XCTAssertTrue(code.contains(
-            "let data = try await repository.fetchAttachmentData( attachment.id, of: m.id, mailboxID: m.mailboxID) "
+            "let data = try await fileData(attachment, of: m, shown: shown) "
                 + "guard loads.stillShows(shown) else { return } "
                 + "guard fileTaps.opens(file) else { return } "
                 + "let use = fileTaps.item(of: file) ?? item "

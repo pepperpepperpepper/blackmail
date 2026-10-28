@@ -399,13 +399,25 @@ final class FileListedOnceTests: XCTestCase {
             XCTAssertTrue(dark.contains(rule), rule)
         }
         XCTAssertFalse(dark.contains("-apple-system-"), dark)
-        // A letter opened without its files: "Tap to Download", but not
-        // on paper.
+        // A letter opened without its files: "Downloading" with Mail's ring
+        // for a file that comes as it opens (B-176), "Tap to Download" for
+        // one too large to, but neither on paper.
         m.filesLeftOnServer = true
-        XCTAssertTrue(BodyFiles.tile(file, of: m, on: .light).contains("color: #007AFF;\">Tap to Download</span>"))
-        XCTAssertTrue(BodyFiles.tile(file, of: m, on: .dark).contains("color: #0A84FF;\">Tap to Download</span>"))
-        let paper = BodyFiles.tile(file, of: m, on: .paper)
+        let coming = BodyFiles.tile(file, of: m, on: .light)
+        XCTAssertTrue(coming.contains("color: #007AFF;\">Downloading</span>"), coming)
+        XCTAssertTrue(coming.contains(BodyFiles.ring))
+        XCTAssertFalse(coming.contains(">PDF</text>"), "the ring in the icon's place")
+        XCTAssertTrue(coming.contains(" line-height: normal; color: #007AFF; -webkit-tap-highlight-color"),
+                      "the tile's blue, for the ring's arc")
+        let large = Attachment(id: "2", filename: file.filename, mimeType: "application/pdf",
+                               size: FilesAhead.most + 1)
+        XCTAssertTrue(BodyFiles.tile(large, of: m, on: .light).contains("color: #007AFF;\">Tap to Download</span>"))
+        XCTAssertTrue(BodyFiles.tile(large, of: m, on: .dark).contains("color: #0A84FF;\">Tap to Download</span>"))
+        XCTAssertTrue(BodyFiles.tile(large, of: m, on: .dark).contains(">PDF</text>"))
+        let paper = BodyFiles.tile(large, of: m, on: .paper)
         XCTAssertFalse(paper.contains("Tap to Download"))
+        XCTAssertFalse(BodyFiles.tile(file, of: m, on: .paper).contains("Downloading"))
+        XCTAssertFalse(BodyFiles.tile(file, of: m, on: .paper).contains("bm-file-ring"))
         XCTAssertTrue(paper.contains("-webkit-print-color-adjust: exact; break-inside: avoid;"))
         XCTAssertTrue(paper.contains("border: 1px solid rgba(0, 0, 0, 0.3) !important;"))
 
@@ -450,10 +462,11 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertTrue(page.contains("img, table { max-width: 100% !important; height: auto; }"))
         XCTAssertTrue(page.contains("#bm img,"), "the photo kept from the invert, as the letter's own")
 
-        for kind in ["image/jpeg", "IMAGE/JPEG", "image/png", "image/gif", "image/webp", "image/bmp", "image/pjpeg"] {
+        for kind in ["image/jpeg", "IMAGE/JPEG", "image/png", "image/gif", "image/webp", "image/bmp", "image/pjpeg",
+                     "image/heic", "IMAGE/HEIC", "image/heif", "image/heic-sequence", "image/heif-sequence"] {
             XCTAssertTrue(BodyFiles.isPicture(Attachment(id: "2", filename: "a", mimeType: kind, size: 1)), kind)
         }
-        for kind in ["image/heic", "image/tiff", "image/svg+xml", "application/pdf", "video/mp4"] {
+        for kind in ["image/tiff", "image/svg+xml", "image/avif", "application/pdf", "video/mp4"] {
             XCTAssertFalse(BodyFiles.isPicture(Attachment(id: "2", filename: "a", mimeType: kind, size: 1)), kind)
         }
     }
@@ -581,28 +594,32 @@ final class FileListedOnceTests: XCTestCase {
 
     // MARK: - Its tile shows it coming
 
-    /// A tile shows its file coming, as the header's row did with its
-    /// spinner: dimmed, important, and "Loading…" in its last line, once
+    /// A tile shows its file coming, as Mail's does (B-176): Mail's ring
+    /// in its icon's place and "Downloading" in its last line, once
     /// however often it is said, until the pane says it has opened or been
-    /// let go, and then as it was, "Tap to Download" again for a file left
-    /// on the server. On a letter's own page and in a body of a stack; a
-    /// file of another letter changes nothing. The script run in node on
-    /// the model of the page (`ModelPage`).
+    /// let go, and then as it was, its icon back, "Tap to Download" again
+    /// for a file left on the server. Not dimmed, as it was with
+    /// "Loading…" (B-148). On a letter's own page and in a body of a
+    /// stack; a file of another letter changes nothing. The script run in
+    /// node on the model of the page (`ModelPage`).
     func testItsTileShowsItComing() throws {
         var letter = Self.message(BodyInOrderTests.among)
         let coming = BodyFiles.Busy("2.2", of: letter.id, busy: true)
         let done = BodyFiles.Busy("2.2", of: letter.id, busy: false)
         let link = BodyFiles.link("2.2", of: letter.id)
         XCTAssertEqual(coming.link, link)
-        XCTAssertEqual(coming.arguments["words"] as? String, "Loading…")
+        XCTAssertEqual(coming.arguments["words"] as? String, "Downloading")
+        XCTAssertEqual(coming.arguments["ring"] as? String, BodyFiles.ring)
         XCTAssertEqual(coming.arguments["busy"] as? Bool, true)
         XCTAssertEqual(done.arguments["busy"] as? Bool, false)
-        let dimmed = ModelPage.Run.File(href: link, style: ["opacity": "0.5 !important"], status: "Loading…")
+        let dimmed = ModelPage.Run.File(href: link, style: [:], status: "Downloading", icon: "bm-file-ring")
         let other = BodyFiles.Busy("2.2", of: "7/9", busy: true)
 
-        for (said, left) in [("", false), ("Tap to Download", true)] {
+        // A letter opened without its files: its tile drawn coming, as the
+        // file comes as it opens (`FilesAhead`), and so again after a tap.
+        for (said, icon, left) in [("", "", false), ("Downloading", "bm-file-ring", true)] {
             letter.filesLeftOnServer = left
-            let asItWas = ModelPage.Run.File(href: link, style: [:], status: said)
+            let asItWas = ModelPage.Run.File(href: link, style: [:], status: said, icon: icon)
             let page = try XCTUnwrap(PanePage.letter(letter, style: style))
             var run = try model(page, [.busy(100, coming), .busy(120, other), .busy(150, coming)])
             XCTAssertEqual(run.errors, [])
@@ -647,8 +664,9 @@ final class FileListedOnceTests: XCTestCase {
     }
 
     /// The tile stays dimmed, saying "Loading…", until what the file opens
-    /// in is on the screen: each of the four presentations, Quick Look
-    /// for a tap, Markup and Reply's, Save to Files' and Share's, is
+    /// in is on the screen: each of the three presentations, Quick Look
+    /// for a tap, the held menu's or Markup and Reply's, one since B-176,
+    /// Save to Files' and Share's, is
     /// handed the clearing as its completion, which UIKit runs once its
     /// transition has ended, and the `defer` that ends the download clears
     /// it only where nothing was handed over: a failure, a file let go, a
@@ -670,15 +688,14 @@ final class FileListedOnceTests: XCTestCase {
             "present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true, "
                 + "completion: ready)",
             "present(share, animated: true, completion: ready)",
-            "marking = (m, attachment) handedOver = true present(preview, animated: true, completion: ready)",
-            "preview.modalPresentationStyle = .fullScreen handedOver = true "
-                + "present(preview, animated: true, completion: ready) } } catch {",
+            "marking = (m, attachment) } handedOver = true present(preview, animated: true, completion: ready) "
+                + "} } catch {",
         ] {
             XCTAssertTrue(open.contains("handedOver = true " + presented)
                           || open.contains(presented), presented)
         }
-        XCTAssertEqual(open.components(separatedBy: "handedOver = true present(").count - 1, 4, open)
-        XCTAssertEqual(open.components(separatedBy: "present(").count - 1, 4, open)
+        XCTAssertEqual(open.components(separatedBy: "handedOver = true present(").count - 1, 3, open)
+        XCTAssertEqual(open.components(separatedBy: "present(").count - 1, 3, open)
         XCTAssertFalse(open.contains("animated: true)"), open)
     }
 
@@ -721,10 +738,10 @@ final class FileListedOnceTests: XCTestCase {
         func menu(_ kind: String) -> [PanePictures.Item] {
             PanePictures.menu(for: Attachment(id: "2", filename: "a", mimeType: kind, size: 1))
         }
-        XCTAssertEqual(menu("application/pdf"), PanePictures.fileMenu)
+        XCTAssertEqual(menu("application/pdf"), PanePictures.pdfMenu, "Markup and Reply second (B-176)")
         XCTAssertEqual(menu("text/calendar"), PanePictures.fileMenu)
-        XCTAssertEqual(menu("image/heic"), PanePictures.menu, "a picture drawn as a tile: Save Image too")
-        XCTAssertEqual(menu("IMAGE/TIFF"), PanePictures.menu)
+        XCTAssertEqual(menu("IMAGE/TIFF"), PanePictures.menu, "a picture drawn as a tile: Save Image too")
+        XCTAssertEqual(menu("image/heic"), PanePictures.menu)
     }
 
     /// A tap on a picture file opens it whatever its size, as a tile does:

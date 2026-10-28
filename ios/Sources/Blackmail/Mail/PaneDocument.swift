@@ -263,7 +263,9 @@ struct PaneDocument {
         if waitingDates, case .conversation(let entries) = content {
             dates = ConversationDocument.Dates(entries)
         }
-        return Finished(inserts: waitingInserts, fills: waiting, dates: dates)
+        var letter: String?
+        if case let .letter(m, _) = content { letter = m.id }
+        return Finished(inserts: waitingInserts, fills: waiting, dates: dates, letter: letter)
     }
 
     /// What `didFinish` hands back.
@@ -272,6 +274,10 @@ struct PaneDocument {
         var fills: [ConversationDocument.Fill] = []
         /// The stack's dates, written again (B-139); nil for none.
         var dates: ConversationDocument.Dates? = nil
+        /// The id of the letter whose own page it is, for its files
+        /// fetched as it opens (`FilesAhead`, B-176); nil for any other
+        /// document.
+        var letter: String? = nil
     }
 
     /// WebKit's content process has ended and taken the document with it.

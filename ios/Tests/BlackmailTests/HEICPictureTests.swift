@@ -114,6 +114,47 @@ final class HEICPictureTests: XCTestCase {
         XCTAssertFalse(imageIO.contains("#available"))
     }
 
+    /// An attached HEIC, an iPhone's photo the letter does not show by
+    /// `cid:`, is drawn in the body as a photo, as Mail draws it on
+    /// iPadOS 16.5.1 (B-176), where it was a tile marked "HEIC": an `<img>`
+    /// from the loader by its picture's address, in an HTML letter and a
+    /// plain one, its map naming its kind as it came, a HEIC, which the
+    /// loader serves as the JPEG made of it below 17; held, the photo's
+    /// menu. A TIFF is still a tile; a HEIC the letter shows by `cid:` is
+    /// drawn there, once.
+    func testAnAttachedHEICIsDrawnAsAPhoto() throws {
+        let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
+        let photo = Attachment(id: "2", filename: "IMG_1220.HEIC", mimeType: "image/heic", size: 2_300_000)
+        let tiff = Attachment(id: "3", filename: "scan.tiff", mimeType: "image/tiff", size: 900_000)
+        for (html, text) in [("<p>Our garden.</p>", nil), (nil, "Our garden.")] as [(String?, String?)] {
+            let m = Message(id: "7/3", mailboxID: "INBOX", sender: "Jane <jane@example.com>",
+                            senderAddress: "jane@example.com", to: [], cc: [], subject: "Garden",
+                            date: Date(timeIntervalSince1970: 1_792_679_717), textBody: text,
+                            htmlBody: html, attachments: [photo, tiff])
+            let page = try XCTUnwrap(PanePage.letter(m, style: style))
+            XCTAssertTrue(page.contains("<img src=\"bmcid://bmfile-m7_3-2\" alt=\"IMG_1220.HEIC\">"), page)
+            XCTAssertFalse(page.contains("bmfile:2?letter=7/3"), "no tile for the photo")
+            XCTAssertTrue(page.contains("bmfile:3?letter=7/3"), "the TIFF a tile")
+            XCTAssertFalse(page.contains(">HEIC</text>"), "no tile's icon marked HEIC")
+            let map = PanePage.pictures(of: [m])
+            XCTAssertEqual(map["bmfile-m7_3-2"],
+                           PanePage.Picture(messageID: "7/3", mailboxID: "INBOX", section: "2", mimeType: "image/heic"))
+            XCTAssertNil(map["bmfile-m7_3-3"])
+            XCTAssertTrue(HEICPicture.isHEIC(try XCTUnwrap(map["bmfile-m7_3-2"]).mimeType), "a JPEG below 17")
+            XCTAssertEqual(PanePictures.file("bmfile-m7_3-2", of: m), photo)
+            XCTAssertEqual(PanePictures.menu(for: photo), PanePictures.menu)
+        }
+        let shown = Attachment(id: "2", filename: "IMG_1220.HEIC", mimeType: "image/heic", size: 2_300_000,
+                               contentID: "photo1", isInline: true)
+        let m = Message(id: "7/3", mailboxID: "INBOX", sender: "Jane <jane@example.com>",
+                        senderAddress: "jane@example.com", to: [], cc: [], subject: "Garden",
+                        date: Date(timeIntervalSince1970: 1_792_679_717), textBody: nil,
+                        htmlBody: "<p>Our garden.</p><img src=\"cid:photo1\">", attachments: [shown])
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        XCTAssertEqual(page.components(separatedBy: "<img ").count - 1, 1, page)
+        XCTAssertFalse(page.contains("bmfile-m7_3-2"), "drawn by the letter, not again")
+    }
+
     /// Who had a turn, and the most at theirs at once.
     private actor TurnLog {
         private(set) var had: [Int] = []

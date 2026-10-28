@@ -1114,7 +1114,8 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertTrue(letter.isShortened)
         XCTAssertEqual(letter.listedAttachments.map(\.filename), ["x.pdf", "Programme.pdf"])
         // Its files drawn above the words cut short, under the pane's line,
-        // each saying "Tap to Download" (B-170).
+        // each saying "Downloading", as it comes as the letter opens, or,
+        // too large to, "Tap to Download" (B-170, B-176).
         let page = try XCTUnwrap(PanePage.letter(letter, style: .init(inset: 26, bodyPointSize: 17,
                                                                       lineHeight: 1.41)))
         let tiles = letter.listedAttachments.map { BodyFiles.tile($0, of: letter, on: .light) }
@@ -1123,14 +1124,24 @@ final class LargeLetterTests: XCTestCase {
             let found = try XCTUnwrap(page.range(of: needle, range: from..<page.endIndex), needle)
             from = found.upperBound
         }
-        XCTAssertEqual(page.components(separatedBy: BodyFiles.tapToDownload).count - 1, 2)
+        let said = letter.listedAttachments.map {
+            FilesAhead.fetches($0, of: letter) ? BodyFiles.downloading : BodyFiles.tapToDownload
+        }
+        for words in Set(said) {
+            XCTAssertEqual(page.components(separatedBy: ">" + words + "</span>").count - 1,
+                           said.filter { $0 == words }.count, words)
+        }
+        XCTAssertEqual(said.count, 2)
     }
 
     /// A letter opened without its files says so of each: its tile says
-    /// "Tap to Download", as Mail's says of a file it has not downloaded,
-    /// and a tap fetches it alone (B-054). The same letter fetched whole
-    /// has its files in hand, and its tile says nothing of it (B-170).
-    func testALetterOpenedWithoutItsFilesHasTilesThatSayTapToDownload() async throws {
+    /// "Downloading" with Mail's ring, as Mail's says while it fetches a
+    /// large letter's files as it opens (B-176), and the file comes by its
+    /// section alone (B-054), as a tap fetches it; one too large to come
+    /// unasked says "Tap to Download", as Mail's says of a file it has not
+    /// downloaded. The same letter fetched whole has its files in hand,
+    /// and its tile says nothing of it (B-170).
+    func testALetterOpenedWithoutItsFilesHasTilesThatSayDownloading() async throws {
         let row = try await listed(photographs(), by: makeRepository())
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
 
@@ -1138,9 +1149,19 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertTrue(large.filesLeftOnServer)
         let page = try XCTUnwrap(PanePage.letter(large, style: style))
         XCTAssertEqual(large.listedAttachments.map(\.filename), ["Programme.pdf"])
+        XCTAssertEqual(FilesAhead.planned(large), large.listedAttachments)
         XCTAssertTrue(page.contains(BodyFiles.tile(large.listedAttachments[0], of: large, on: .light)))
-        XCTAssertEqual(page.components(separatedBy: ">Tap to Download</span>").count - 1, 1)
-        XCTAssertTrue(PanePage.stackBody(large).html.contains(">Tap to Download</span>"))
+        XCTAssertEqual(page.components(separatedBy: ">Downloading</span>").count - 1, 1)
+        XCTAssertEqual(page.components(separatedBy: BodyFiles.ring).count - 1, 1)
+        XCTAssertFalse(page.contains("Tap to Download"))
+        XCTAssertTrue(PanePage.stackBody(large).html.contains(">Downloading</span>"))
+        let file = large.listedAttachments[0]
+        let big = Attachment(id: file.id, filename: file.filename, mimeType: file.mimeType,
+                             size: FilesAhead.most + 1)
+        XCTAssertFalse(FilesAhead.fetches(big, of: large), "too large to come unasked")
+        let waits = BodyFiles.tile(big, of: large, on: .light)
+        XCTAssertTrue(waits.contains(">Tap to Download</span>"))
+        XCTAssertFalse(waits.contains("bm-file-ring"))
 
         let whole = try await makeRepository(appLimits: true).open(row)
         XCTAssertFalse(whole.filesLeftOnServer)

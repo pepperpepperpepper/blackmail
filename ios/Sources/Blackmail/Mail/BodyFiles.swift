@@ -189,11 +189,14 @@ enum BodyFiles {
     }
 
     /// The kinds of picture drawn at their size: those WebKit draws on
-    /// iPadOS 16 and 18 alike. HEIC is drawn only from iPadOS 17, and is a
-    /// tile here, as is any other picture.
-    static let pictureKinds: Set<String> = [
+    /// iPadOS 16 and 18 alike, and HEIC, an iPhone's photo, as Mail draws
+    /// it on 16.5.1 as on 17 and 18 (B-176). WebKit draws HEIC only from
+    /// iPadOS 17; below it the loader serves a JPEG made of it
+    /// (`HEICPicture`, B-171), as for one the letter shows by `cid:`. Any
+    /// other picture, a TIFF say, is a tile.
+    static let pictureKinds = Set([
         "image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif", "image/webp", "image/bmp",
-    ]
+    ]).union(HEICPicture.kinds)
 
     /// Whether `file` is drawn as a picture.
     static func isPicture(_ file: Attachment) -> Bool {
@@ -224,7 +227,9 @@ enum BodyFiles {
     /// A file as Mail's tile: a box of 160 by 120 inside a hairline border
     /// rounded at 15, 5 apart, with its icon, 37 by 48, its name, its size,
     /// and "Tap to Download" for a file of a letter opened without them
-    /// (`Message.filesLeftOnServer`), each on a line of its own, centred,
+    /// (`Message.filesLeftOnServer`) too large to come unasked, or
+    /// "Downloading" with a ring in its icon's place for one fetched as the
+    /// letter opens (`FilesAhead`, B-176), each on a line of its own, centred,
     /// and cut short with an ellipsis where it is too long. The values of
     /// a style sheet left in MobileMailUI (iOS 18.6, `attachments.css`),
     /// which nothing in it names any more: Mail's tile is WebKit's own
@@ -245,7 +250,10 @@ enum BodyFiles {
     ///
     /// A link of the pane's own (`link`): a tap opens the file in Quick
     /// Look (`PaneNavigation`'s `openFile`), and its last line says
-    /// "Loading…" while the file comes (`Busy`). No callout and no
+    /// "Downloading" with a ring in its icon's place while the file comes
+    /// (`Busy`), Mail's words and Mail's ring (B-176), where it said
+    /// "Loading…" in a tile dimmed. The tile's colour Mail's blue, which
+    /// no line of it takes, for the ring's arc (`ring`). No callout and no
     /// selection, as Mail's sheet has, and no drag, so a finger held on it
     /// gives the pane's menu for the file (`ConversationDocument.script`'s
     /// hold) and not WebKit's for a link.
@@ -261,7 +269,8 @@ enum BodyFiles {
         let blue = light ? "#007AFF" : "#0A84FF"
         let paper = page == .paper ? " -webkit-print-color-adjust: exact; break-inside: avoid;" : ""
         let size = file.size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? ""
-        let status = page != .paper && m.filesLeftOnServer ? tapToDownload : ""
+        let coming = page != .paper && FilesAhead.fetches(file, of: m)
+        let status = page == .paper || !m.filesLeftOnServer ? "" : coming ? downloading : tapToDownload
         let label = "display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
         return "<a class=\"" + tileClass + "\" href=\"" + QuotedMarkup.attributeEscaped(link(file.id, of: m.id))
             + "\" style=\""
@@ -270,12 +279,13 @@ enum BodyFiles {
             + " padding: 3px !important; border: 1px solid " + border + " !important;"
             + " border-radius: 15px !important; overflow: hidden !important; vertical-align: top;"
             + " text-align: center; text-decoration: none; white-space: nowrap; line-height: normal;"
+            + " color: " + blue + ";"
             + " -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"
             + " -webkit-touch-callout: none !important; -webkit-user-select: none !important;"
             + " -webkit-user-drag: none !important;" + paper
             + "\"><span style=\"display: block; position: relative; top: 50%;"
             + " transform: translateY(-50%);\">"
-            + icon(file)
+            + (coming ? ring : icon(file))
             + "<span style=\"" + label + " " + caption + " color: " + grey + ";\">"
             + QuotedMarkup.escaped(file.filename) + "</span>"
             + "<span style=\"" + label + " " + caption + " color: " + grey + ";\">"
@@ -328,6 +338,30 @@ enum BodyFiles {
     /// Mail's words under a file not yet downloaded.
     static let tapToDownload = "Tap to Download"
 
+    /// Mail's words under a file on its way (`DOWNLOADING_STATUS`, B-176),
+    /// as its tile said them on the test iPad.
+    static let downloading = "Downloading"
+
+    /// The last line of a tile drawn with one, its file come as its letter
+    /// opened (`Landed`, B-176): a no-break space, which says nothing and
+    /// keeps the line's height. Emptied, the line had none, and the icon,
+    /// the name and the size, centred in the box, dropped half a line.
+    static let saysNothing = "\u{00A0}"
+
+    /// Mail's ring in a tile's icon's place while its file comes (B-176):
+    /// in the icon's box, 37 by 48 with 8 under it, so nothing in the tile
+    /// moves; a grey circle, the icon's grey, and an arc of the tile's
+    /// blue turning on it, by the drawing's own animation, which needs no
+    /// script. Mail's ring fills as the file comes; a fetch here says
+    /// nothing of how far it has got, so the arc turns.
+    static let ring = "<svg class=\"bm-file-ring\" width=\"37\" height=\"48\" viewBox=\"0 0 37 48\""
+        + " style=\"display: block; margin: 0 auto 8px auto;\">"
+        + "<circle cx=\"18.5\" cy=\"24\" r=\"14\" fill=\"none\" stroke=\"#c7c7cc\" stroke-width=\"2\"></circle>"
+        + "<path d=\"M18.5 10A14 14 0 0 1 32.5 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\""
+        + " stroke-linecap=\"round\"><animateTransform attributeName=\"transform\" type=\"rotate\""
+        + " from=\"0 18.5 24\" to=\"360 18.5 24\" dur=\"1s\" repeatCount=\"indefinite\"></animateTransform>"
+        + "</path></svg>"
+
     /// A file's icon on its tile, 37 by 48 with 8 under it, as Mail's
     /// sheet has it: a sheet of paper with its corner turned, and the
     /// file's kind on it, from the end of its name, as iOS's own icons
@@ -335,7 +369,7 @@ enum BodyFiles {
     /// page, which the page cannot ask iOS for. White in both colourings,
     /// as iOS's sheets are: the page's invert turns it back, as it turns
     /// the letter's own drawings (`SignatureSheet.invert`).
-    private static func icon(_ file: Attachment) -> String {
+    static func icon(_ file: Attachment) -> String {
         let name = file.filename
         let dot = name.lastIndex(of: ".")
         let kind = dot.map { String(name[name.index(after: $0)...]).uppercased() } ?? ""
@@ -357,11 +391,12 @@ enum BodyFiles {
     /// and the words it says so with.
     ///
     /// A PDF of 20 MB took six seconds with nothing on the screen to say
-    /// the tap had landed. Coming, the tile is dimmed, and its last line,
-    /// where Mail's says "Tap to Download", says "Loading…", the pane's
-    /// word for what is on its way; then it says what it said again. Every
-    /// tile with the link. A link the page has no tile for changes
-    /// nothing: a picture's, or a page drawn since.
+    /// the tap had landed. Coming, its icon is Mail's ring (`ring`), and
+    /// its last line, where Mail's says "Tap to Download", says
+    /// "Downloading", as Mail's tile says while its file comes (B-176);
+    /// it was dimmed and said "Loading…" until then. Then it is as it
+    /// was. Every tile with the link. A link the page has no tile for
+    /// changes nothing: a picture's, or a page drawn since.
     struct Busy: Equatable {
         let link: String
         let busy: Bool
@@ -373,9 +408,37 @@ enum BodyFiles {
 
         /// What `callAsyncJavaScript` runs, in the app's content world,
         /// where `ConversationDocument.script` defined `bmFileBusy`.
-        static let script = "bmFileBusy(link, busy, words)"
+        static let script = "bmFileBusy(link, busy, words, ring)"
 
-        var arguments: [String: Any] { ["link": link, "busy": busy, "words": PaneNotice.loading] }
+        var arguments: [String: Any] {
+            ["link": link, "busy": busy, "words": BodyFiles.downloading, "ring": BodyFiles.ring]
+        }
+    }
+
+    /// A file fetched as its letter opened has come, or could not be
+    /// (`FilesAhead`, B-176): `ConversationDocument.script`'s
+    /// `bmFileLanded`, called with the tile's link, its icon, and the
+    /// words of its last line: none for a file in hand, as a tile of a
+    /// letter fetched whole says, the line kept (`saysNothing`), so nothing
+    /// in the tile moves; and "Tap to Download" for one that could not be
+    /// fetched. The ring the tile was drawn with gives way to the icon. A
+    /// tile shown coming for a tap meanwhile (`Busy`) is left as it is, and
+    /// is put back so.
+    struct Landed: Equatable {
+        let link: String
+        let icon: String
+        let words: String
+
+        init(_ file: Attachment, of letter: String, inHand: Bool) {
+            link = BodyFiles.link(file.id, of: letter)
+            icon = BodyFiles.icon(file)
+            words = inHand ? BodyFiles.saysNothing : BodyFiles.tapToDownload
+        }
+
+        /// What `callAsyncJavaScript` runs, in the app's content world.
+        static let script = "bmFileLanded(link, icon, words)"
+
+        var arguments: [String: Any] { ["link": link, "icon": icon, "words": words] }
     }
 
     /// A finger held on a file's tile, as the script posts it to the

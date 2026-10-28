@@ -8,6 +8,7 @@ import WebKit
 import QuickLook
 import Photos
 import UniformTypeIdentifiers
+import SafariServices
 
 /// The right column. Never navigates — it only ever swaps content, so nothing
 /// in it moves between one message and the next.
@@ -127,6 +128,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`replyWithMarkup`).
     private var markup = MarkupReply()
     private var marking: (letter: Message, picture: Attachment)?
+    /// A large letter's files fetched as it opens, as Mail fetches them
+    /// (`FilesAhead`, B-176): where each stands, the fetch of each, which a
+    /// tap on it waits for, and the last, which the next waits for, so
+    /// they come one at a time.
+    private var ahead = FilesAhead()
+    private var aheadFetches: [FilesAhead.Key: Task<Void, Never>] = [:]
+    private var aheadLast: Task<Void, Never>?
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -239,6 +247,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // And how a tap on a picture of the letter's own reaches it (B-122),
         // in the same world alone, for the same reason.
         config.userContentController.add(self, contentWorld: .defaultClient, name: PanePictures.handler)
+        // The pane given something else: the files fetched ahead for what
+        // it showed stop, and those that came go (B-176).
+        loads.superseded = { [weak self] in self?.letAheadGo() }
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -251,6 +262,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.translatesAutoresizingMaskIntoConstraints = false
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
+        // A link held that Safari's Reading List can keep: WebKit's menu,
+        // with Mail's Add to Reading List (`LinkMenu`, B-176); anything
+        // else held, WebKit's own as it was. The only thing the pane asks
+        // of it.
+        webView.uiDelegate = self
         webView.scrollView.backgroundColor = Theme.canvas
         webView.backgroundColor = Theme.canvas
         webView.isOpaque = false
@@ -407,6 +423,116 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func run(_ busy: BodyFiles.Busy) {
         webView.callAsyncJavaScript(BodyFiles.Busy.script, arguments: busy.arguments,
                                     in: nil, in: .defaultClient)
+    }
+
+    /// A file fetched as its letter opened, come or not, on its tile, by
+    /// script, in the app's content world (`BodyFiles.Landed`, B-176).
+    private func run(_ landed: BodyFiles.Landed) {
+        webView.callAsyncJavaScript(BodyFiles.Landed.script, arguments: landed.arguments,
+                                    in: nil, in: .defaultClient)
+    }
+
+    // MARK: - A large letter's files, as it opens
+
+    /// A letter's page, or its body in the stack, has loaded: each of its
+    /// files fetched as it opens (`FilesAhead.planned`, B-176), as Mail
+    /// fetches a large letter's, one at a time, its tile saying
+    /// "Downloading" with a ring from the start; a file come or failed
+    /// before, its body drawn again, has its tile made so at once. Nothing
+    /// for a letter fetched whole.
+    private func fetchAhead(_ m: Message) {
+        let shown = loads.shown
+        for file in FilesAhead.planned(m) {
+            let key = FilesAhead.Key(letter: m.id, part: file.id)
+            switch ahead.drawn(key) {
+            case .fetch:
+                aheadFetches[key] = fetchAhead(file, of: m, key: key, shown: shown)
+            case .show(let inHand):
+                run(BodyFiles.Landed(file, of: m.id, inHand: inHand))
+            case .nothing:
+                break
+            }
+        }
+    }
+
+    /// The fetch of one file as its letter opened, after the one before
+    /// it: by its section, as a tap fetches it; what comes written to the
+    /// iPad and its tile told (`land`). Not if the pane has been given
+    /// something else, or a tap has taken it, by its turn.
+    private func fetchAhead(_ file: Attachment, of m: Message, key: FilesAhead.Key,
+                            shown: Int) -> Task<Void, Never> {
+        let before = aheadLast
+        let repository = self.repository
+        let fetch = Task { @MainActor [weak self] in
+            await before?.value
+            guard let self, !Task.isCancelled, self.loads.stillShows(shown), self.ahead.turn(key) else { return }
+            do {
+                let data = try await repository.fetchAttachmentData(file.id, of: m.id, mailboxID: m.mailboxID)
+                guard !Task.isCancelled, self.loads.stillShows(shown) else { return }
+                self.land(data, file, of: m, key: key)
+            } catch {
+                guard !Task.isCancelled, self.loads.stillShows(shown) else { return }
+                self.ahead.failed(key)
+                self.run(BodyFiles.Landed(file, of: m.id, inHand: false))
+            }
+        }
+        aheadLast = fetch
+        return fetch
+    }
+
+    /// A file fetched as its letter opened, or for a tap before its turn,
+    /// has come: written to the iPad, out of memory, for a tap to open at
+    /// once, and its tile told; one that cannot be written is as one that
+    /// could not be fetched.
+    private func land(_ data: Data, _ file: Attachment, of m: Message, key: FilesAhead.Key) {
+        let url = try? AttachmentStore.write(data, named: file.filename)
+        guard ahead.landed(key, at: url) else {
+            if let url { AttachmentStore.removeStaged(url) }
+            return
+        }
+        run(BodyFiles.Landed(file, of: m.id, inHand: url != nil))
+    }
+
+    /// The bytes of `file` of `m` for a tap (`openAttachment`): read from
+    /// the iPad when it came as its letter opened, waited for while it is
+    /// coming so, fetched now if its turn had not come or it could not be,
+    /// or if it is one to come and the page has not finished loading to
+    /// ask for it, and then kept as come (B-176); any other file fetched
+    /// as ever. Waited for, and the pane given something else meanwhile:
+    /// nothing more is fetched, for a letter he has left, on the one
+    /// connection the next letter's body is coming on; the tap is let go,
+    /// and nothing is said (`openAttachment`).
+    private func fileData(_ file: Attachment, of m: Message, shown: Int) async throws -> Data {
+        let key = FilesAhead.Key(letter: m.id, part: file.id)
+        var taking = ahead.taking(key, planned: FilesAhead.fetches(file, of: m))
+        if taking == .wait {
+            await aheadFetches[key]?.value
+            guard loads.stillShows(shown) else { throw CancellationError() }
+            taking = ahead.taking(key)
+        }
+        if case let .read(url) = taking, let data = try? Data(contentsOf: url) { return data }
+        do {
+            let data = try await repository.fetchAttachmentData(file.id, of: m.id, mailboxID: m.mailboxID)
+            if taking == .fetch(lands: true), loads.stillShows(shown) { land(data, file, of: m, key: key) }
+            return data
+        } catch {
+            if taking == .fetch(lands: true), loads.stillShows(shown) {
+                ahead.failed(key)
+                run(BodyFiles.Landed(file, of: m.id, inHand: false))
+            }
+            throw error
+        }
+    }
+
+    /// The pane given something else (`PaneLoads.superseded`): every file
+    /// still to come as its letter opened is called off, and those that
+    /// came are removed from the iPad (B-176).
+    private func letAheadGo() {
+        for fetch in aheadFetches.values { fetch.cancel() }
+        aheadFetches = [:]
+        aheadLast?.cancel()
+        aheadLast = nil
+        for url in ahead.forget() { AttachmentStore.removeStaged(url) }
     }
 
     // MARK: - Toolbar
@@ -1015,6 +1141,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func run(_ fill: ConversationDocument.Fill) {
         webView.callAsyncJavaScript(ConversationDocument.Fill.script, arguments: fill.arguments,
                                     in: nil, in: .defaultClient)
+        // A large letter's body in the stack: its files come now (B-176).
+        if let m = loaded.values.first(where: { ConversationDocument.sectionID(for: $0.id) == fill.sectionID })
+            ?? related.letter(inSection: fill.sectionID) {
+            fetchAhead(m)
+        }
     }
 
     /// Calls the stack's `bmInsert` with his letters' sections as arguments
@@ -1277,8 +1408,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 self.run(BodyFiles.Busy(attachment.id, of: m.id, busy: false))
             }
             do {
-                let data = try await repository.fetchAttachmentData(
-                    attachment.id, of: m.id, mailboxID: m.mailboxID)
+                let data = try await fileData(attachment, of: m, shown: shown)
                 // The pane has moved on since the tap: nothing is shown.
                 guard loads.stillShows(shown) else { return }
                 // Another file tapped since, or another letter opened by
@@ -1321,33 +1451,26 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     share.popoverPresentationController?.sourceRect = pictureSpot
                     handedOver = true
                     present(share, animated: true, completion: ready)
-                case .markupAndReply:
-                    // iOS's own Markup on it, in Quick Look, full screen as
-                    // a tap opens it, a copy made of what he draws and the
-                    // picture left as it came (B-171). The pane its
+                case .quickLook, .markupAndReply, .saveImage, .copy:
+                    // A tap's Quick Look, the held menu's, or Markup and
+                    // Reply's (B-171); Save Image and Copy present nothing
+                    // and never come here (`presents`). The pane its
                     // delegate (`QLPreviewControllerDelegate` below), which
-                    // gives Markup to this preview alone.
+                    // gives Quick Look's Markup button to a picture or a
+                    // PDF, as Mail's Quick Look has it (B-176), and what he
+                    // draws goes in a Reply, the picture or the PDF left as
+                    // it came (`MarkupReply`).
                     let preview = QLPreviewController()
                     preview.dataSource = self
-                    preview.delegate = self
-                    preview.modalPresentationStyle = .fullScreen
-                    MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
-                    marking = (m, attachment)
-                    handedOver = true
-                    present(preview, animated: true, completion: ready)
-                case .quickLook, .saveImage, .copy:
-                    // A tap's Quick Look, or the held menu's; Save Image and
-                    // Copy present nothing and never come here (`presents`).
-                    let preview = QLPreviewController()
-                    preview.dataSource = self
-                    // The pane its delegate too, which says it has no
-                    // Markup: with none, Quick Look shows its Markup button
-                    // for the file written here (B-171).
                     preview.delegate = self
                     // Full screen, not a sheet. A scanned letter or a receipt is
                     // the thing he is trying to read, and the whole point of the
                     // iPad is that it can be as large as the glass.
                     preview.modalPresentationStyle = .fullScreen
+                    if use == .markupAndReply || MarkupReply.marksUp(attachment) {
+                        MarkupReply.letGo(markup.begin(ObjectIdentifier(preview)))
+                        marking = (m, attachment)
+                    }
                     handedOver = true
                     present(preview, animated: true, completion: ready)
                 }
@@ -1416,6 +1539,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
         if let dates = finished.dates { run(dates) }
+        // A large letter's own page: its files come now (B-176).
+        if let id = finished.letter, case let .letter(m, _) = document.content, m.id == id { fetchAhead(m) }
     }
 
     /// WebKit's content process has ended, as iOS ends it for memory while
@@ -2216,6 +2341,44 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 }
 
+/// A link held in a letter (B-176): for a page Safari's Reading List can
+/// keep (`LinkMenu.answered`), WebKit's suggested items with Mail's "Add
+/// to Reading List" put in after Open Link where they lack it
+/// (`LinkMenu.place`), as Mail's menu has it; for anything else held that
+/// WebKit gives a menu, a `mailto:` link or a picture say, nil, which
+/// WebKit takes as it takes no delegate: its menu, or DataDetectors', as
+/// it was. Not seen on the iPad: whether the card "Tap to show preview"
+/// stays above the menu answered, which has no preview of its own; by
+/// WebKit's source it most likely goes (`LinkMenu`), and then this is
+/// taken out.
+extension MessageDetailViewController: WKUIDelegate {
+
+    func webView(_ webView: WKWebView, contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
+                 completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) {
+        guard let link = LinkMenu.answered(elementInfo.linkURL, supports: SSReadingList.supportsURL) else {
+            completionHandler(nil)
+            return
+        }
+        completionHandler(UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { suggested in
+            var items = suggested
+            let titles = items.map { ($0 as? UIAction)?.title ?? "" }
+            if let at = LinkMenu.place(among: titles, for: link, supports: SSReadingList.supportsURL) {
+                items.insert(UIAction(title: LinkMenu.addToReadingList,
+                                      image: UIImage(systemName: LinkMenu.symbol)) { _ in
+                    // Safari's list, as Mail's item adds to it; a page it
+                    // will not take is said in the log alone.
+                    do {
+                        try SSReadingList.default()?.addItem(with: link, title: nil, previewText: nil)
+                    } catch {
+                        Diagnostics.log(.note, "reading list: not added")
+                    }
+                }, at: at)
+            }
+            return UIMenu(title: "", children: items)
+        })
+    }
+}
+
 /// WebKit's kind of navigation, for `PaneNavigation`: the pane's and a
 /// printed letter's (`LetterPrint`).
 extension PaneNavigation.Kind {
@@ -2244,32 +2407,47 @@ extension MessageDetailViewController: QLPreviewControllerDataSource {
 
     func previewController(_ controller: QLPreviewController,
                            previewItemAt index: Int) -> QLPreviewItem {
-        // `NSURL` conforms to QLPreviewItem already. Never nil while a
-        // preview is up: it is set before one is presented and cleared only
-        // while none is. Not force-unwrapped all the same: asked with none,
-        // QuickLook is handed the empty store, where there is nothing to
-        // show, rather than the app ending.
-        (previewURL ?? AttachmentStore.root) as NSURL
+        // Never nil while a preview is up: it is set before one is
+        // presented and cleared only while none is. Not force-unwrapped all
+        // the same: asked with none, QuickLook is handed the empty store,
+        // where there is nothing to show, rather than the app ending.
+        // Titled with the file's name, extension and all, as Mail's Quick
+        // Look is (B-176): an `NSURL` alone was titled without it.
+        let url = previewURL ?? AttachmentStore.root
+        return PreviewFile(url: url, title: AttachmentStore.title(of: url))
+    }
+}
+
+/// A file Quick Look shows, with its title (`AttachmentStore.title`,
+/// B-176): the URL alone, as `NSURL` is an item, had Quick Look title it
+/// with its name less the extension.
+private final class PreviewFile: NSObject, QLPreviewItem {
+    let previewItemURL: URL?
+    let previewItemTitle: String?
+
+    init(url: URL, title: String?) {
+        previewItemURL = url
+        previewItemTitle = title
     }
 }
 
 /// The delegate of every Quick Look the pane opens (`openAttachment`, B-171):
 /// a tap's, the held menu's Quick Look and Markup and Reply's. Markup, a
 /// copy made of what he draws, only in the preview `MarkupReply.marks`
-/// names, the one opened for Markup and Reply, and none in any other; the
-/// other methods act on that preview alone. What he draws is saved as a
-/// copy, the picture itself left as it came, and the copy goes in the
-/// reply as Quick Look closes (`MarkupReply`). Nothing here touches the
-/// file Quick Look shows (`previewURL`), which goes only as the next file
-/// is written (B-063).
+/// names, the last opened for a picture or a PDF, or for Markup and Reply
+/// (B-176), and none in any other; the other methods act on that preview
+/// alone. What he draws is saved as a copy, the file itself left as it
+/// came, and the copy goes in the reply as Quick Look closes
+/// (`MarkupReply`). Nothing here touches the file Quick Look shows
+/// (`previewURL`), which goes only as the next file is written (B-063).
 extension MessageDetailViewController: QLPreviewControllerDelegate {
 
-    /// Markup on, a copy made of what he draws, in Markup and Reply's
-    /// preview alone: Quick Look's Markup button, as Mail's composer has
-    /// Quick Look's for a file. Any other preview, a tap's, has none
-    /// (`MarkupReply.marks`). With no delegate, as a tap's had none, Quick
-    /// Look on iPadOS 16.5.1 showed its Markup button for the picture
-    /// written to the iPad, editable (the test iPad, 2026-10-27).
+    /// Markup on, a copy made of what he draws, in the preview of a
+    /// picture or a PDF, tapped or held, or opened for Markup and Reply:
+    /// Quick Look's Markup button, as Mail's Quick Look of a file tapped in
+    /// a letter has it (the test iPad, 2026-10-27, round r6-i-compare,
+    /// B-176), where fix-i1 had taken it off a tap's. Any other preview,
+    /// of a file Quick Look marks nothing on, has none (`MarkupReply.marks`).
     func previewController(_ controller: QLPreviewController,
                            editingModeFor previewItem: QLPreviewItem) -> QLPreviewItemEditingMode {
         markup.marks(in: ObjectIdentifier(controller)) ? .createCopy : .disabled

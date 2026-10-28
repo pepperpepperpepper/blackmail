@@ -7217,7 +7217,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       made by the host, sent among the letter's words as Mail on an iPad
       sends one (an HTML part, the PDF, an HTML part), so its row is among
       A's words (B-113) as well as in the header, and "note.txt" of a few
-      hundred bytes, so the letter is over 5 MiB and opened in parts. On a
+      hundred bytes, so the letter is over 5 MiB and opened in parts
+      (since B-176 note.txt, under 5 MB, is fetched with no tap as A's body
+      goes in: an unasked FETCH of it in the log, and in 3 it opens from
+      the iPad with no FETCH after the tap; see B-176's check). On a
       build with B-148 the PDF has no row in the header: its one row is
       the one among A's words, which shows it coming, dimmed with
       "Loading…" after its name, where the header's row had its spinner.
@@ -7724,9 +7727,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *A conversation:* "Re: B-145 stack", (d)'s line opened if it is
       closed, its link tapped: Safari at once; back: the stack where it
       was, (d) open.
-      6. *Held:* a finger held on (a)'s first link: WebKit's menu, Open
-      Link, Copy Link and Share…, under a card with "Tap to show preview",
-      the site and the link's address, as before (decided 2026-10-01); on
+      6. *Held* (since B-176 Add to Reading List second, and whether the
+      card stays is B-176's step 4; see its check): a finger held on (a)'s
+      first link: WebKit's menu, Open Link, Copy Link and Share…, under a
+      card with "Tap to show preview", the site and the link's address, as
+      before (decided 2026-10-01); on
       iPadOS 16.5.1 no page is drawn in the card until it is tapped (seen
       2026-10-27, B-145); what Mail on 18 shows for a link held is not
       known. A tap outside: the menu goes, nothing opens.
@@ -9270,7 +9275,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       back to the app: the tile and the words exactly as they were, nothing
       larger (B-166, Changed 2026-10-27);
       the Text Size back to where it was. The tile
-      tapped: it dims and its last line says "Loading…" until the PDF is in
+      tapped (since B-176: Mail's ring and "Downloading", not dimmed, see
+      its check): it dims and its last line says "Loading…" until the PDF is in
       Quick Look, in every frame of a recording from the tap until Quick
       Look covers it, a file kept on the iPad too (the round of 2026-10-27
       saw it for one frame only, then the tile as it was for 0.37 s);
@@ -9291,13 +9297,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Plain and only:* "B-170 plain": its words light on the black,
       then the PDF's tile, light on the black too, and the photo. "B-170
       only": the PDF's tile alone, and no "This message has no text.".
-      6. *Large:* "B-170 large" tapped: the log has its BODYSTRUCTURE
+      6. *Large* (since B-176 the PDF comes with no tap, its tile saying
+      "Downloading" with a ring; see its check): "B-170 large" tapped: the log has its BODYSTRUCTURE
       first, then its words, then a FETCH of each photo by its section as
       the pane draws it, and not the PDF; the photos come in one after
       another, in the recording; the PDF's tile says "Tap to Download".
       Tapped: "Loading…", the PDF's FETCH in the log, Quick Look; Done:
       "Tap to Download" again.
-      7. *HEIC and inline:* "B-170 heic": a tile marked "HEIC", not the
+      7. *HEIC and inline* (since B-176 the HEIC is drawn as a photo; see
+      its check): "B-170 heic": a tile marked "HEIC", not the
       photo; tapped, Quick Look shows the photo; held, the menu has Save
       Image. "B-170 inline": the photo under the words, once; tapped,
       Quick Look.
@@ -9359,7 +9367,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       the reply closes on the letter; the log has no `MAIL FROM`, `RCPT
       TO`, `DATA` or `APPEND`; no `Local Drafts` letter for it; the copy's
       directory gone from `tmp/Attachments`.
-      6. *The others:* the logo held: the menu with Markup and Reply. The
+      6. *The others* (since B-176 a tap's Quick Look has Markup again, as
+      Mail's does; see its check): the logo held: the menu with Markup and Reply. The
       picture from the web held: WebKit's menu, as before, no Markup and
       Reply. A tap on the photo: Quick Look with no Markup button, Share
       and Done alone at its top (the round of 2026-10-27 found one there);
@@ -9591,6 +9600,99 @@ checks below is left as not needed, not open, and none is worth a round.*
          Trash, and deletes in the Trash only the UIDs that move answered
          (`COPYUID`). Nothing was sent, and nothing else was written to the
          account.
+
+- [ ] **B-176, files, pictures and links in the pane as Mail has them.** On
+      the test iPad, the test account only, from a build of the `bm-cmp-e`
+      worktree (branch `copy-cmp-e`) or of the int it is merged into.
+      Nothing is sent: no Send is tapped in any step, and every composer
+      that opens is closed with Cancel and Delete Draft, which keeps
+      nothing. The host makes the letters, each from another address, with
+      a new Message-ID of its own and naming none on the account, and
+      APPENDs them, read (`\Seen`), to the label "Notes", never the Inbox,
+      noting each UID from its APPENDUID; it stops if one has none. Three
+      panes; the connection log read after each step; the screen recorded
+      at 60 frames a second for 6.
+      0. *The letters:* "B-176 heic", an HTML part and an iPhone's HEIC
+      photo of about 2 MB attached with no `Content-ID`; "B-176 pdf", an
+      HTML part and a PDF of about 300 KB named "B-176 pdf.pdf"; "B-176
+      link", an HTML letter with a link to `https://example.com/b176` among
+      its words and, in a line of its own, a `mailto:` link to
+      `b176@example.com`; "B-176 large", an HTML part, two JPEGs of about
+      2 MB each and a PDF of about 300 KB, over 5 MB, so it is opened in
+      part; and
+      "B-176 huge", an HTML part, a JPEG of about 1 MB and a PDF of about
+      6 MB, over 5 MB. "Notes" opened. First, on the build on the iPad
+      before this one, without B-176 (int20 at b9afe64 or earlier): "B-176
+      link", a finger held on the `mailto:` link, a screenshot of its whole
+      menu and card; a tap outside. Then this build installed.
+      1. *HEIC (E1):* "B-176 heic": the photo under the words, upright, as
+      wide as the letter at most, no tile marked "HEIC". Held: Quick Look,
+      Markup and Reply, Save Image, Save to Files, Share, Copy; a tap
+      outside. Screenshot.
+      2. *Title and Markup on a tap (E2, E3):* "B-176 pdf", its tile tapped:
+      Quick Look titled "B-176 pdf.pdf", with the extension, and its Markup
+      button (a pen tip in a circle) between Share and Done. Written down:
+      the buttons at its top, left to right. Done: the letter, no composer.
+      Tapped again, Markup, a line drawn with a finger, Done: written down
+      what Quick Look shows at Done and how many Dones close it, any
+      question photographed with its buttons. Then a Reply over the letter,
+      the sender in To, "Re: B-176 pdf", one row under Subject, "B-176
+      pdf.pdf", a PDF; Cancel, Delete Draft. "B-176 heic"'s photo tapped:
+      Quick Look titled "IMG_….HEIC" or as its name is, with the Markup
+      button; Done with nothing drawn: no composer.
+      3. *A PDF held (E4):* "B-176 pdf", a finger held on its tile: Quick
+      Look, Markup and Reply, Save to Files, Share, Copy. Markup and Reply:
+      Quick Look with its Markup button; Done with nothing drawn: no
+      composer. Again, a line drawn, Done: a Reply with "B-176 pdf.pdf"
+      under Subject; Cancel, Delete Draft.
+      4. *A link held (E5), the gate for E5:* "B-176 link", a finger held
+      on the https link: the card "Tap to show preview", "example.com" and
+      the address, beside or above Open Link, Add to Reading List, Copy
+      Link, Share…, in that order; screenshot. Written down: whether the
+      card is there as in the round of 2026-10-27, and the symbol on the
+      new item. By WebKit's source the card most likely goes (KNOWN_ISSUES,
+      B-176, E5). **If the card is not there, or anything of the menu's
+      look differs from the round's but the one item, E5 is taken out and
+      kept out of every merge; Add to Reading List is then a difference
+      kept for the layout.** Add to Reading List: nothing over the pane.
+      In Safari, the Reading List has the link: removed there with a
+      swipe. The `mailto:` link held: no Add to Reading List, and its whole
+      menu and card as in the screenshot taken before this build, item for
+      item and in the same place; screenshot beside it. Any difference
+      there is E5's to undo as well.
+      5. *Nothing else changed:* each letter's header, words and tiles
+      where they were in the round of 2026-10-27, in a screenshot beside
+      it.
+      6. *Large (E6):* "B-176 large" tapped: the log has its BODYSTRUCTURE,
+      its words, a FETCH of each photo, then a FETCH of the PDF's section
+      with no tap; in the recording, the PDF's tile with a turning ring
+      where its icon is and "Downloading" under its size from the first
+      frame it is drawn, then its icon and nothing under its size, no
+      "Tap to Download" in any frame, nothing in the tile or around it
+      moving: the icon, the name and the size at the same height in the
+      frame before the icon comes and the frame after (the last line kept,
+      empty). Tapped: Quick Look at once, no second FETCH of it in the
+      log; Done. "B-176 pdf" opened, then "B-176 large" again, its PDF's
+      tile tapped at once, while the photos still come: one FETCH of the
+      PDF in the log, not two; Done. "B-176 huge": the photo drawn, the
+      PDF's tile "Tap to Download" with its icon and no FETCH of it;
+      tapped: the ring and "Downloading" until Quick Look is up, then Done:
+      "Tap to Download" again. "B-176 large" again, and at once "B-176
+      pdf": the log has no FETCH of the large letter's PDF after the tap on
+      the other, or one already on the wire ending; `tmp/Attachments` over
+      SSH has no copy of "B-176 large"'s PDF once "B-176 pdf" is open.
+      "B-176 large" again, its PDF's tile tapped while it says
+      "Downloading", and at once "B-176 pdf": no FETCH of the large
+      letter's PDF after "B-176 pdf"'s words in the log, nothing opens over
+      "B-176 pdf" and nothing is said.
+      7. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash, and deletes
+      in the Trash only the UIDs that move answered (`COPYUID`). Nothing
+      was sent, and nothing else was written to the account. B-170's
+      steps 2, 6 and 7 and B-171's step 6 say what the pane did before
+      B-176 ("Loading…", "Tap to Download" on a large letter's PDF, a HEIC
+      tile, no Markup on a tap); where they differ, this check is the one
+      to follow.
 
 ## Blocked on the owner
 

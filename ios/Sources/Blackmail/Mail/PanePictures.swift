@@ -216,17 +216,27 @@ enum PanePictures {
 
     /// The menu for a file held on its tile (B-170): B-150's for a file,
     /// the picture's less Save Image, which is for a picture, and less
-    /// Markup and Reply, built for a photo (B-171); Copy puts the file on
-    /// the pasteboard as the kind of file it is.
+    /// Markup and Reply, which Quick Look cannot do on it; Copy puts the
+    /// file on the pasteboard as the kind of file it is.
     static let fileMenu: [Item] = [.quickLook, .saveToFiles, .share, .copy]
+
+    /// The menu for a PDF held on its tile (B-176): Mail's for one, Markup
+    /// and Reply second, after Quick Look, which stands where Mail's Open
+    /// in New Window is (round r6-i-compare, C-14c: Open in New Window,
+    /// Markup and Reply, Save to Files, Share, Copy), and no Save Image.
+    /// The PDF opened in Quick Look with its Markup, and what he draws on
+    /// it in a Reply, as for a photo (`MarkupReply`).
+    static let pdfMenu: [Item] = [.quickLook, .markupAndReply, .saveToFiles, .share, .copy]
 
     /// The menu for `file` held on its tile: a picture's, Markup and Reply
     /// (B-171) and Save Image and all, for a picture drawn as a tile, a
-    /// HEIC from an iPhone say, and `fileMenu` for any other file. A picture
-    /// file drawn at its size in the body has the picture's too, held as
-    /// the letter's own pictures are (`opening`, `menu`; int19).
+    /// TIFF say (a HEIC was one until B-176); `pdfMenu` for a PDF; and
+    /// `fileMenu` for any other file. A picture file drawn at its size in
+    /// the body has the picture's too, held as the letter's own pictures
+    /// are (`opening`, `menu`; int19).
     static func menu(for file: Attachment) -> [Item] {
-        file.mimeType.lowercased().hasPrefix("image/") ? menu : fileMenu
+        if file.mimeType.lowercased().hasPrefix("image/") { return menu }
+        return MarkupReply.marksUp(file) ? pdfMenu : fileMenu
     }
 
     /// The part of `m` a picture's address names: the picture file the pane

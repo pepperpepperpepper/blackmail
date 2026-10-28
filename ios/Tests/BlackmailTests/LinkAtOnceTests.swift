@@ -70,6 +70,80 @@ final class LinkAtOnceTests: XCTestCase {
         }
     }
 
+    // MARK: - A link held
+
+    /// A link held has Mail's "Add to Reading List" second, after Open
+    /// Link, as Mail's menu on the test iPad had it, where WebKit's had
+    /// none (B-176): for a page Safari's list can keep, and for nothing
+    /// else, nor in a menu that has it already. The pane answers WebKit
+    /// with a menu of its own for such a page alone; for a `mailto:`,
+    /// `tel:` or `javascript:` link, or a picture with no link, nil, so
+    /// WebKit's menu, or DataDetectors', is as it was.
+    func testAHeldLinkOffersAddToReadingListSecond() throws {
+        let webKit = ["Open Link", "Copy Link", "Share…"]
+        let page = try XCTUnwrap(URL(string: "https://example.com/rm-a"))
+        let mail = try XCTUnwrap(URL(string: "mailto:sam@example.com"))
+        let phone = try XCTUnwrap(URL(string: "tel:+15555550100"))
+        let script = try XCTUnwrap(URL(string: "javascript:void(0)"))
+        let web: (URL) -> Bool = { ["http", "https"].contains($0.scheme?.lowercased() ?? "") }
+        XCTAssertEqual(LinkMenu.answered(page, supports: web), page)
+        XCTAssertEqual(LinkMenu.answered(try XCTUnwrap(URL(string: "http://example.com/rm-b")), supports: web),
+                       URL(string: "http://example.com/rm-b"))
+        for other in [mail, phone, script] {
+            XCTAssertNil(LinkMenu.answered(other, supports: web), "WebKit's own: \(other)")
+        }
+        XCTAssertNil(LinkMenu.answered(nil, supports: web), "no link, a picture: WebKit's own")
+        XCTAssertNil(LinkMenu.answered(page, supports: { _ in false }), "not kept by the list: WebKit's own")
+        XCTAssertEqual(LinkMenu.place(among: webKit, for: page, supports: web), 1)
+        var menu = webKit
+        menu.insert(LinkMenu.addToReadingList, at: 1)
+        XCTAssertEqual(menu, ["Open Link", "Add to Reading List", "Copy Link", "Share…"], "Mail's order")
+        XCTAssertNil(LinkMenu.place(among: webKit, for: mail, supports: web), "not a page")
+        XCTAssertNil(LinkMenu.place(among: webKit, for: nil, supports: web), "no link: a picture's menu")
+        XCTAssertNil(LinkMenu.place(among: menu, for: page, supports: web), "there already")
+        XCTAssertNil(LinkMenu.place(among: webKit, for: page, supports: { _ in false }))
+        XCTAssertEqual(LinkMenu.place(among: ["Copy Link", "Open Link", "Share…"], for: page, supports: web), 2)
+        XCTAssertEqual(LinkMenu.place(among: ["Copy Link", "Share…"], for: page, supports: web), 1)
+        XCTAssertEqual(LinkMenu.place(among: [], for: page, supports: web), 0)
+        XCTAssertEqual(LinkMenu.symbol, "eyeglasses")
+    }
+
+    /// The pane, read: the web view's `WKUIDelegate` is the pane, its
+    /// first. For anything held that Safari's list cannot keep
+    /// (`LinkMenu.answered`), it answers nil, first, as WebKit is answered
+    /// with no delegate. For a page the list can keep, WebKit's suggested
+    /// items with the item put in where `LinkMenu` says, adding to that
+    /// list, and no preview of its own: whether WebKit's card stays above
+    /// it was not seen on the iPad (B-176's check, step 4). Nothing else of
+    /// the web view's is handed to it.
+    func testTheHeldLinksMenuIsWebKitsWithTheItem() throws {
+        let code = flat(try source("UI/MessageDetailViewController.swift"))
+        for wiring in [
+            "webView.navigationDelegate = self webView.uiDelegate = self",
+            "extension MessageDetailViewController: WKUIDelegate {",
+            "completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) { "
+                + "guard let link = LinkMenu.answered(elementInfo.linkURL, supports: SSReadingList.supportsURL) "
+                + "else { completionHandler(nil) return } "
+                + "completionHandler(UIContextMenuConfiguration(identifier: nil, "
+                + "previewProvider: nil) { suggested in var items = suggested",
+            "if let at = LinkMenu.place(among: titles, for: link, supports: SSReadingList.supportsURL) "
+                + "{ items.insert(UIAction(title: LinkMenu.addToReadingList, image: UIImage(systemName: LinkMenu.symbol))",
+            "try SSReadingList.default()?.addItem(with: link, title: nil, previewText: nil)",
+            "}, at: at) } return UIMenu(title: \"\", children: items) })",
+        ] {
+            XCTAssertTrue(code.contains(wiring), wiring)
+        }
+        XCTAssertEqual(code.components(separatedBy: "uiDelegate").count - 1, 1)
+        XCTAssertEqual(code.components(separatedBy: "completionHandler(").count - 1, 2,
+                       "answered once on each way: nil, or the menu")
+        XCTAssertEqual(code.components(separatedBy: "elementInfo.").count - 1, 1, "its link alone")
+        XCTAssertFalse(code.contains("previewProvider: {"))
+        let package = try String(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Package.swift"), encoding: .utf8)
+        XCTAssertTrue(package.contains(".linkedFramework(\"SafariServices\", .when(platforms: [.iOS]))"))
+    }
+
     // MARK: - Reading the source
 
     /// A file under `Sources/Blackmail`, its comment lines taken out.

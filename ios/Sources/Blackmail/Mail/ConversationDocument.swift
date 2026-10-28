@@ -609,16 +609,21 @@ enum ConversationDocument {
     /// (`preventDefault`), so a hold never opens the file as well. A tap
     /// on it is the link's.
     ///
-    /// **A file's tile coming** (B-148, B-170). While the pane downloads a
-    /// file, `bmFileBusy`, called through `callAsyncJavaScript`
-    /// (`BodyFiles.Busy`), dims each tile on the page to it, important, and
-    /// writes the pane's word for something on its way in its last line,
-    /// where Mail's says "Tap to Download"; once the file has opened or been
-    /// let go, it puts back what the line said, and the tile's look. What
-    /// it changed is kept, so it puts back its own and nothing of the
-    /// letter's, and a file shown coming twice is put back once. On any
-    /// page, in a letter's own or a body `bmFill` put in; a link with no
-    /// tile on the page changes nothing, and it never throws.
+    /// **A file's tile coming** (B-148, B-170, B-176). While the pane
+    /// downloads a file for a tap, `bmFileBusy`, called through
+    /// `callAsyncJavaScript` (`BodyFiles.Busy`), puts Mail's ring in each
+    /// tile's icon's place on the page to it, and writes Mail's
+    /// "Downloading" in its last line, where Mail's says "Tap to Download";
+    /// once the file has opened or been let go, it puts back what the line
+    /// said, and the icon. What it changed is kept, so it puts back its own
+    /// and nothing of the letter's, and a file shown coming twice is put
+    /// back once. A tile drawn with the ring, for a file coming as its
+    /// letter opened (`FilesAhead`), keeps it. `bmFileLanded`
+    /// (`BodyFiles.Landed`) gives such a tile its icon and its last words
+    /// when the file has come, or could not; a tile shown coming for a tap
+    /// meanwhile is left so, and put back to them. On any page, in a
+    /// letter's own or a body `bmFill` put in; a link with no tile on the
+    /// page changes nothing, and neither ever throws.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -842,13 +847,23 @@ enum ConversationDocument {
       return true;
     }
     var bmComing = [];
-    function bmFileBusy(link, busy, words) {
+    function bmFileMade(markup) {
+      var holder = document.createElement('span');
+      holder.innerHTML = markup;
+      return holder.firstElementChild;
+    }
+    function bmFileSwap(was, made) {
+      if (!was || !made || !was.parentNode) return;
+      was.parentNode.insertBefore(made, was);
+      was.parentNode.removeChild(was);
+    }
+    function bmFileBusy(link, busy, words, ring) {
       try {
         for (var i = bmComing.length - 1; i >= 0; i--) {
           if (bmComing[i].link !== link) continue;
           var was = bmComing.splice(i, 1)[0];
           was.status.textContent = was.said;
-          was.row.style.removeProperty('opacity');
+          if (was.icon) bmFileSwap(was.ring, was.icon);
         }
         if (!busy) return;
         var links = document.querySelectorAll('a');
@@ -856,9 +871,41 @@ enum ConversationDocument {
           if (links[j].getAttribute('href') !== link) continue;
           var status = links[j].querySelector('.bm-file-status');
           if (!status) continue;
-          bmComing.push({ link: link, row: links[j], status: status, said: status.textContent });
+          var coming = { link: link, row: links[j], status: status, said: status.textContent,
+                         icon: null, ring: null };
+          var icon = links[j].querySelector('svg');
+          if (icon && !icon.classList.contains('bm-file-ring')) {
+            var made = bmFileMade(ring);
+            if (made) {
+              bmFileSwap(icon, made);
+              coming.icon = icon;
+              coming.ring = made;
+            }
+          }
+          bmComing.push(coming);
           status.textContent = words;
-          links[j].style.setProperty('opacity', '0.5', 'important');
+        }
+      } catch (e) {}
+    }
+    function bmFileLanded(link, icon, words) {
+      try {
+        var links = document.querySelectorAll('a');
+        for (var j = 0; j < links.length; j++) {
+          if (links[j].getAttribute('href') !== link) continue;
+          var status = links[j].querySelector('.bm-file-status');
+          var ring = links[j].querySelector('svg.bm-file-ring');
+          var tapped = null;
+          for (var i = 0; i < bmComing.length; i++) if (bmComing[i].row === links[j]) tapped = bmComing[i];
+          if (tapped) {
+            tapped.said = words;
+            if (!tapped.icon && ring) {
+              tapped.icon = bmFileMade(icon);
+              tapped.ring = ring;
+            }
+            continue;
+          }
+          if (status) status.textContent = words;
+          if (ring) bmFileSwap(ring, bmFileMade(icon));
         }
       } catch (e) {}
     }
