@@ -28,8 +28,10 @@ import Foundation
 ///
 /// The words are Mail's, from its strings (`REMOTE_IMAGES_BLOCKED_OTHER`,
 /// `LOAD_REMOTE_IMAGES_OTHER`, iOS 18.6). Mail's line was seen on the test
-/// iPad (iPadOS 16.5.1, 2026-10-27): white words over a blue "Load All
-/// Images" on its dark card, whatever the letter, above the header. Its
+/// iPad (iPadOS 16.5.1, 2026-10-27) over one letter, a light one: white
+/// words over a blue "Load All Images" on its dark card, above the header.
+/// It sits outside the letter, on Mail's card, so it is most likely the
+/// same whatever the letter (over a letter Mail turns dark: not seen). Its
 /// colours are Mail's (B-173); its place, under the header, and its shape,
 /// one line with a rule under it, are the pane's own, its layout.
 ///
@@ -106,11 +108,13 @@ enum RemoteContent {
 
     /// What goes under the pane's invert, `SignatureSheet.invert`, for
     /// `mail` to come out of it: black for white, white for black, and the
-    /// rule's grey for the stack's. Mail's blue cannot be had: the invert
-    /// gives no blue that full and that dark at once, and `#1597FF` is the
+    /// rule's grey for the stack's, `#c7c7c9`, which the invert and the
+    /// half turn of the hue make `#38383a` exactly (`#c7c7c5`, its plain
+    /// invert, would come out rgb(56, 56, 54)). Mail's blue cannot be had:
+    /// the invert gives no blue that full and that dark at once, and `#1597FF` is the
     /// nearest, about rgb(14, 144, 248) once inverted, as the letter's own
     /// links are a lighter blue than Mail's there.
-    static let underInvert = Colours(words: "#000", button: "#1597FF", rule: "#c7c7c5", ground: "#fff")
+    static let underInvert = Colours(words: "#000", button: "#1597FF", rule: "#c7c7c9", ground: "#fff")
 
     /// The line's class (`line`).
     static let lineClass = "bm-unloaded"

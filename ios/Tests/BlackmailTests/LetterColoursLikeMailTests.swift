@@ -91,15 +91,15 @@ final class LetterColoursLikeMailTests: XCTestCase {
     func testMailsLineIsInMailsColoursWhateverTheLetter() throws {
         XCTAssertEqual(RemoteContent.mail, .init(words: "#fff", button: "#0A84FF", rule: "#38383a", ground: "#000"))
         XCTAssertEqual(RemoteContent.underInvert,
-                       .init(words: "#000", button: "#1597FF", rule: "#c7c7c5", ground: "#fff"))
+                       .init(words: "#000", button: "#1597FF", rule: "#c7c7c9", ground: "#fff"))
         XCTAssertEqual(Self.inverted((0x00, 0x00, 0x00)), [255, 255, 255])
         XCTAssertEqual(Self.inverted((0xff, 0xff, 0xff)), [0, 0, 0])
-        XCTAssertEqual(Self.inverted((0xc7, 0xc7, 0xc5)), [56, 56, 54])
+        XCTAssertEqual(Self.inverted((0xc7, 0xc7, 0xc9)), [0x38, 0x38, 0x3a])
         XCTAssertEqual(Self.inverted((0x15, 0x97, 0xff)), [14, 144, 248])
 
         let line = RemoteContent.line(for: "7/3")
         XCTAssertEqual(line, "<div class=\"bm-unloaded\" style=\"display: flex; align-items: baseline; gap: 12px; "
-                       + "margin: 0 0 1em 0; padding: 0 0 10px 0; border-bottom: 0.5px solid #c7c7c5; "
+                       + "margin: 0 0 1em 0; padding: 0 0 10px 0; border-bottom: 0.5px solid #c7c7c9; "
                        + "background-color: #fff; white-space: normal;\">"
                        + "<span style=\"flex: 1 1 auto; color: #000;\">Message contains unloaded images.</span>"
                        + "<a href=\"bmimages:?letter=7/3\" style=\"flex: 0 0 auto; color: #1597FF; "
@@ -110,7 +110,7 @@ final class LetterColoursLikeMailTests: XCTestCase {
                        + "#bm .bm-unloaded a { color: #0A84FF !important; }")
         XCTAssertEqual(RemoteContent.colourRule(in: ".bm-html", inverted: true),
                        ".bm-html .bm-unloaded { background-color: #fff !important; "
-                       + "border-bottom-color: #c7c7c5 !important; } "
+                       + "border-bottom-color: #c7c7c9 !important; } "
                        + ".bm-html .bm-unloaded span { color: #000 !important; } "
                        + ".bm-html .bm-unloaded a { color: #1597FF !important; }")
 
