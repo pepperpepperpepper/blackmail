@@ -38498,30 +38498,31 @@ integration (int21, below).
   photos came as the page asked for them, and the PDF's tile said "Tap to
   Download" until he tapped it, then "Loading…", dimmed.
 - *Changed* (`FilesAhead`, new): as such a letter's own page has loaded
-  (`PaneDocument.Finished.letter`), or its body has gone into the stack,
-  the pane fetches each of its files drawn as a tile, one at a time, by its
-  section, as a tap fetches it. A picture is not among them: the page
-  already asks for it. Its tile is drawn from the start with Mail's ring in
-  its icon's place, in the icon's own 37 by 48 box, and "Downloading" in
-  its last line, where "Tap to Download" was (`BodyFiles.tile`,
-  `BodyFiles.ring`: a grey circle with an arc of the tile's blue turning on
-  it by the drawing's own animation, no script; Mail's ring fills, and a
-  fetch here says nothing of how far it has got). Come: written to the
-  iPad, out of memory, the icon back and the last line empty, as a letter
-  fetched whole has it (`BodyFiles.Landed`, the script's `bmFileLanded`),
-  the line kept with a no-break space (`BodyFiles.saysNothing`) so that
-  nothing in the tile moves; a tap then opens it from there at once. Not
-  fetched: the icon and "Tap to Download", and a tap fetches it. A tap on
-  a file still to come takes it and fetches it at once; on one coming,
-  waits for it. Given anything else, the pane calls the rest off and
-  removes what came (`PaneLoads.superseded`). A tile tapped says
-  "Downloading" with the ring too, as Mail's does while its file comes,
-  where it said "Loading…" and was dimmed (`BodyFiles.Busy`). A file
-  larger than a letter fetched whole, 5 MB (`FilesAhead.most`), keeps "Tap
-  to Download" and waits for a tap: Mail's own limit was not found (UNSURE
-  in the plan); the 3.5 MB photo and 309 KB PDF it fetched unasked are
-  both under this one. A file of no size known waits too. On paper neither
-  line, as before.
+  (`PaneDocument.Finished.letter`), as first built; since 2026-10-28 as it
+  is given to WebKit, its words going in, below; or as its body has gone
+  into the stack, the pane fetches each of its files drawn as a tile, one
+  at a time, by its section, as a tap fetches it. A picture is not among
+  them: the page already asks for it. Its tile is drawn from the start with
+  Mail's ring in its icon's place, in the icon's own 37 by 48 box, and
+  "Downloading" in its last line, where "Tap to Download" was
+  (`BodyFiles.tile`, `BodyFiles.ring`: a grey circle with an arc of the
+  tile's blue turning on it by the drawing's own animation, no script;
+  Mail's ring fills, and a fetch here says nothing of how far it has got).
+  Come: written to the iPad, out of memory, the icon back and the last line
+  empty, as a letter fetched whole has it (`BodyFiles.Landed`, the script's
+  `bmFileLanded`), the line kept with a no-break space
+  (`BodyFiles.saysNothing`) so that nothing in the tile moves; a tap then
+  opens it from there at once. Not fetched: the icon and "Tap to Download",
+  and a tap fetches it. A tap on a file still to come takes it and fetches
+  it at once; on one coming, waits for it. Given anything else, the pane
+  calls the rest off and removes what came (`PaneLoads.superseded`). A tile
+  tapped says "Downloading" with the ring too, as Mail's does while its
+  file comes, where it said "Loading…" and was dimmed (`BodyFiles.Busy`). A
+  file larger than a letter fetched whole, 5 MB (`FilesAhead.most`), keeps
+  "Tap to Download" and waits for a tap: Mail's own limit was not found
+  (UNSURE in the plan); the 3.5 MB photo and 309 KB PDF it fetched unasked
+  are both under this one. A file of no size known waits too. On paper
+  neither line, as before.
 - *Kept for the layout:* Mail's tile coming reads the ring,
   "Downloading", the name, the size (r6-i-compare-13-mail-large, C-13e):
   its status above the name. Blackmail's keeps B-170's order, the ring,
@@ -38748,30 +38749,33 @@ named the letter for it, is gone, and `Finished.tiles` hands back the
 held ones instead.
 
 *Tests, for it.* `FilesAheadTests`, two new:
-`testALettersOwnPageAsksForItsFilesAsItsWordsGoIn`, read from the pane:
-the loader pointed at the letter's pictures, the page given, then its
-files asked, the first file's FETCH with nothing awaited before it, the
-page finished asking for none, and only the page given and a stack's
-body asking for files; and the pane's document in WebKit's order, the
-files asked before the page's load ends, once.
+`testALettersOwnPageAsksForItsFilesAsItsWordsGoIn`, the order pinned
+from the pane's source, not by a run in WebKit's order: the loader
+pointed at the letter's pictures, the page given, then its files asked
+(`fetchAhead` right after `load` in `draw(_:page:)`), nothing awaited
+before the first file's FETCH, none asked at `didFinish`, and only the
+page given and a stack's body asking for files; and on the pane's
+document, a letter's page finished handing nothing back, and each file
+asked once, not again when drawn again.
 `testAFileLandingBeforeThePageIsReadyIsDrawnOnceItIs`: the hold on the
-pane's document, through commits of other pages, a page given before
-the commit, the end with no commit heard, no navigation and WebKit's
-process lost; on the model of the page, a file landing before the page's
-script has run drawn once it has, come or not, in its order, another
-letter's changing nothing and a tap after as ever (`ModelPage` runs a
-step at less than 0 before the script); and the pane read: every tile's
-script through the hold, told at the commit and at the end. Widened:
+pane's document, through commits of other pages, a page given before the
+commit, the end with no commit heard, no navigation and WebKit's process
+lost; on the model of the page, a file landing before the page's script
+has run drawn once it has, come or not, in its order, another letter's
+changing nothing and a tap after as ever (`ModelPage` runs a step at
+less than 0 before the script); and the pane read: every tile's script
+through the hold, told at the commit and at the end. Widened:
 `testItsTileSaysDownloadingWithTheRing` (the script),
 `testThePaneFetchesThemAndLetsThemGo` (the draw, the hold),
 `PaneCoverTests` (the commit), `DatesRedrawnTests` (the end);
 `testALettersPageFinishedNamesItsLetter` gone with `Finished.letter`.
 Undone by hand, each an assertion's: the files asked at the page's end
-again, 5 failures in 3 tests; the hold taken out, 7 in 1; the script as
-it was, 9 in 2; the tiles not told as the page's script ends, 5 in 1;
-the commit telling nothing, 3 in 2. Put back, passing. The full suite:
-3,147 tests, 6 skipped, none failing; the release build for the iPad:
-"Build complete".
+again, 5 failures in 3 tests; a file waiting its turn asked again when
+drawn again, 2 in 2; the hold taken out, 7 in 1; the script as it was, 9
+in 2; the tiles not told as the page's script ends, 5 in 1; the commit
+telling nothing, 3 in 2. Put back, passing. The full suite: 3,147 tests,
+6 skipped, none failing; the release build for the iPad: "Build
+complete".
 
 *The tap and the next letter* (step 6, the PDF's tile tapped while it
 said "Downloading", then at once "B-176 pdf"). The round wrote "no FETCH
@@ -38790,15 +38794,19 @@ to come not yet asked for (`FilesAhead.taking(_:planned:)`,
 `.fetch(lands: true)`), and `fileData` asked the repository for it at
 once, with nothing awaited before; the client put the command in its
 interactive line behind photo 2's, which the page had asked for first,
-and sent it as photo 2's ended. A tap's download is not called off when
-the pane moves on (B-122): it ends and is let go, nothing shown, written
-or said, as here. What 60d5671 stopped is a fetch begun after a wait for
-a fetch ahead once the pane has moved on; the fetches ahead are
-themselves called off (`letAheadGo`), and a command of theirs still
-waiting leaves the client's line. The check's "no FETCH of the large
-letter's PDF after 'B-176 pdf''s words" was wrong for a tap made while
-the photos came: it now allows that one FETCH, the tap's, and nothing
-else of the large letter.
+and sent it as photo 2's ended. Since a letter's own page asks for its
+files as it is given (above), a tile tapped finds its file asked
+already: waiting its turn, and fetched for the tap at once as here
+(`.fetch(lands: true)`), or coming, and waited for; a file to come not
+yet asked for is then a guard, not a path taken. A tap's download is not
+called off when the pane moves on (B-122): it ends and is let go,
+nothing shown, written or said, as here. What 60d5671 stopped is a fetch
+begun after a wait for a fetch ahead once the pane has moved on; the
+fetches ahead are themselves called off (`letAheadGo`), and a command of
+theirs still waiting leaves the client's line. The check's "no FETCH of
+the large letter's PDF after 'B-176 pdf''s words" was wrong for a tap
+made while the photos came: it now allows that one FETCH, the tap's, and
+nothing else of the large letter.
 
 *And from the tap* (the same day). The test that pinned it read only
 `fileData`, and a wait put before it in `openAttachment`'s task, for the

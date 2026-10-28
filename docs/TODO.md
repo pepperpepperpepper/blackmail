@@ -9778,19 +9778,21 @@ checks below is left as not needed, not open, and none is worth a round.*
       SSH has no copy of "B-176 large"'s PDF once "B-176 pdf" is open.
       "B-176 large" again, its PDF's tile tapped while it says
       "Downloading", which is now a short while, under the words, as its
-      FETCH goes first, and at once "B-176 pdf": in the log at most one
-      FETCH of the large letter's PDF, the one asked as it opened, which
-      the tap waits for, or the tap's, which may end after "B-176 pdf" is
-      shown (a FETCH on the wire ends, B-122), and nothing else of the
-      large letter after it but a photo's FETCH already on the wire
-      ending; nothing opens over "B-176 pdf", nothing is said, and
+      FETCH usually goes first, and at once "B-176 pdf": in the log at
+      most one FETCH of the large letter's PDF, the one asked as it
+      opened, which the tap waits for, or the tap's, which may end after
+      "B-176 pdf" is shown (a FETCH on the wire ends, B-122), and nothing
+      else of the large letter after it but a photo's FETCH already on the
+      wire ending; nothing opens over "B-176 pdf", nothing is said, and
       `tmp/Attachments` has no copy of its PDF. Missed while it says
       "Downloading", the tap opens Quick Look at once: written down, and
       no fault. "B-176 ring" opened, recorded: the PDF's tile above the
       photo with the ring turning, about once a second, from the first
-      frame it is drawn, the PDF's FETCH before the photo's, until the PDF
-      has come, then its icon, the name and the size where they were,
-      while the photo still comes.
+      frame it is drawn, until the PDF has come, then its icon, the name
+      and the size where they were; in the log, the PDF's FETCH asked as
+      the letter opens, usually before the photo's, the PDF then most
+      likely drawn while the photo still comes. The photo's FETCH first,
+      first come first served: written down, and no fault.
       7. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered (`COPYUID`). Nothing
