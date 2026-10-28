@@ -5212,8 +5212,9 @@ and "No Connection", take four lines, the label holds three
 than the Inbox going on from its own listing, 2 to 17 minutes in Notes,
 is this entry's design: only the Inbox is listed again while the app is
 open. What the line does on the 10.2-inch, his iPad's size (one line
-each at a smaller size, shorter words, or the wrap as it is), is its
-layout, and the owner's to rule on. Not changed.
+each at a smaller size, shorter words, or the wrap as it is, which
+leaves the possible cut), is its layout, and the owner's to rule on.
+Not changed.
 
 ---
 
@@ -38633,7 +38634,7 @@ conversation; Mail's line white with its button rgb(10, 131, 255), rgb(14,
 144, 248) over an inverted letter, the line, its button and its rule where
 they were. Nothing was sent.
 
-## B-174 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
+## B-174 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, from iOS 17 its tick drawn by the row 2026-10-28 behind a check of the version, seen on the 17.5 and 18.6 simulators, not yet on the test iPad. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`), off int20 at
 b9afe64, as Batch C of the plan of 27 October (items C1 to C6), under the
@@ -38839,18 +38840,42 @@ private `multiselectCheckmarkColor` turned the whole tick blue, lost on
 the row. Changed (`MessageCell.placeTick`, `drawsOwnTick`): from iOS 17
 alone, by a run-time check of the system's version, a ticked row draws
 its own tick over UIKit's, inside UIKit's edit control, at its frame and
-at its size at every text size, the check in the row's blue on a white
-disc; hidden on a row not ticked; nothing moves, and the white tint is
-kept. On 16 the check is false, and nothing of the row's own tick is
-made or run: the test iPad on 16.5.1 draws as before. The owner's go,
-2026-10-28, for this and B-176's Quick Look, with the test iPad on
-16.5.1 kept exactly as it is.
+at its size, both copied from UIKit's, the check in the row's blue on a
+white disc; shown too while a finger is down on a row, as UIKit shows
+its ticked image then (`showsTick`, below), and hidden otherwise;
+nothing moves, and the white tint is kept. On 16 the check is false,
+and nothing of the row's own tick is made or run: the test iPad on
+16.5.1 draws as before. The owner's go, 2026-10-28, for this and B-176's
+Quick Look, with the test iPad on 16.5.1 kept exactly as it is.
 
 Seen on the 17.5 and 18.6 simulators, on a build of `fix-j1` with the
 change: the disc rgb(255,255,255) and the check rgb(10,132,255) on both,
 the disc where an unticked row's grey circle is and at its size;
 unticked, the grey circle alone; a second row ticked, the same. 17.0 to
-17.4 were not tried. Nothing was trashed, moved or marked: Cancel.
+17.4 were not tried, and only the default text size. Nothing was
+trashed, moved or marked: Cancel.
+
+A second run, on da4f641, on both: the same, in two panes too and after
+an untick and a re-tick, the disc's box UIKit's own, no pixel differing
+from the tick put in place through the debugger on 17.5 before the
+change was written. A third run, on da4f641 too: on 18.6, after Select
+All, every row scrolled into view ticked, new or reused; the largest
+text size changed nothing, the app being held at Large. But a finger
+held on a row not yet ticked, on its words on 18.6 and on its circle on
+17.5, showed the plain white disc with no check until it lifted: UIKit's
+edit control draws its ticked image while the row is highlighted
+(`_currentImage`, read in the 18.6 runtime), and the row drew its own
+only on a ticked row. Changed the same day (`MessageCell.showsTick`,
+`setHighlighted`, d8119ae): the row's own tick shows while the row is
+ticked or highlighted, so through a press too; on 16 `setHighlighted`
+runs UIKit's alone. Seen on 7362cd2 on both: a finger held on a row's
+words and on another's circle, the white disc with its check in the
+row's blue while it was down; a ticked row held, the same; lifted,
+ticked as before. While the finger is down the rest of the row keeps its
+unticked colours, its unread dot blue on the blue and its grey lines, as
+it did before; the code for them is the same on 16; not changed. What
+16.5.1 shows during a press is taken from the same UIKit code, not
+seen.
 
 *Tests.* `EditModeLikeMailTests`, one new,
 `testFromIOS17TheRowDrawsItsOwnTickOverUIKits`, the row read: the check
@@ -38861,7 +38886,12 @@ UIKit's frame and size copied and nothing of UIKit's moved, no
 test, each an assertion's; the check of 17 alone taken out of
 `layoutSubviews`: 3, each an assertion's; put back, passing. The full
 suite: 3,160 tests, 6 skipped, none failing; the release build for the
-iPad: "Build complete". Not yet seen on the test iPad: the TODO's B-174
+iPad: "Build complete". For the press (d8119ae) the test pins
+`showsTick` and `setHighlighted`'s body, the counts with it, and UIKit's
+tick and control only read (`drawn.` three times, `control.` three, no
+`control.isHidden` or `control.alpha`): the press undone by hand, 6
+failures, each an assertion's; UIKit's tick and control touched by hand,
+3; put back, passing. Not yet seen on the test iPad: the TODO's B-174
 check, steps 8 and 9.
 
 ## B-175 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
@@ -39032,7 +39062,7 @@ Trash" after the pane's Delete, each read mark's Undo one STORE on the
 server and Undo Trash's one MOVE back, the letter where it stood. Nothing
 was sent.
 
-## B-176 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, its ring turning from its first frame the same day, seen there after it the same day. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
+## B-176 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, its ring turning from its first frame the same day, seen there after it the same day, from iOS 18 a picture's Quick Look opening with its bars 2026-10-28 behind a check of the version, seen on the 18.6 and 17.5 simulators, not yet on the test iPad. Files, pictures and links in the reading pane, copied from Mail as the comparison with Mail found them: an attached HEIC is drawn as a photo; Quick Look's title keeps the file's extension; a tapped picture's or PDF's Quick Look has its Markup button again, and what he draws goes into a Reply; a PDF held offers Markup and Reply; a link held keeps WebKit's own menu, Add to Reading List built and taken out at the integration, the menu's look being the layout; a large letter's files come by themselves as it opens, each tile with a ring and "Downloading"
 
 Built in the `bm-cmp-e` worktree (branch `copy-cmp-e`), off int20 at
 b9afe64. Batch E of the comparison plan of 2026-10-27
@@ -39562,18 +39592,24 @@ a tap on the picture brought them. A PDF's opened with them, and on
 Blackmail's doing: Files on the same simulator opened a picture so, and
 so did a small test app of a plain full-screen `QLPreviewController`.
 The cause, read from QuickLook in the iOS 18.6 runtime: iOS 18's Quick
-Look decides once, as it is presented, to open a picture or a video
-with its bars hidden (`_setDefaultFullscreenStateIfNeeded`), unless its
-flag `_didSetDefaultFullscreenState` says it has decided already; 17.5's
-QuickLook has neither. No public setting reaches it. Changed
-(`openAttachment`, `QuickLookBars`, new): from iOS 18 alone, by a
-run-time check of the system's version, and only where Quick Look has
-both the method and the flag, the pane sets the flag between the
-presentation style and the presentation, in the one place every Quick
-Look is made; nothing else in the presentation changed. On 16 and 17
-the check is false and nothing is asked: the test iPad on 16.5.1 opens
-Quick Look as before. The owner's go, 2026-10-28, for this and B-174's
-tick, with the test iPad on 16.5.1 kept exactly as it is.
+Look decides once, as it is presented, to open a picture or a video with
+its bars hidden (`_setDefaultFullscreenStateIfNeeded`), unless its flag
+`_didSetDefaultFullscreenState` says it has decided already; 17.5's
+QuickLook has neither. No public setting reaches it. Only the 18.6
+runtime was read and tried; 18.0 to 18.5 and an iPad on 18, his
+included, were not, and that one behaves so is taken from the setting
+the 18.6 runtime ships, QuickLook's redesign switched on in its feature
+flags. Changed (`openAttachment`, `QuickLookBars`, new): from iOS 18
+alone, by a run-time check of the system's version, and only where Quick
+Look has both the method and the flag, and the flag is a BOOL that
+key-value coding may reach (added the same day, 7362cd2, so that a later
+QuickLook that changed it would leave the bars to a tap, not stop every
+Quick Look), the pane sets the flag between the presentation style and
+the presentation, in the one place every Quick Look is made; nothing
+else in the presentation changed. On 16 and 17 the check is false and
+nothing is asked: the test iPad on 16.5.1 opens Quick Look as before.
+The owner's go, 2026-10-28, for this and B-174's tick, with the test
+iPad on 16.5.1 kept exactly as it is.
 
 Seen on the 18.6 simulator, on a build of `fix-j1` with the change:
 "R6 B-171 photo rj"'s photo, in the Trash, tapped: Quick Look with its
@@ -39581,8 +39617,18 @@ status bar, "IMG_1220.jpeg", Share, Markup and Done in the first shot,
 3 s after the tap; a tap on the picture hid them and a second brought
 them back; Done. Held, Markup and Reply: the same bars; Done with
 nothing drawn, no composer. On 17.5 the tap's Quick Look with its bars,
-as before. A PDF's Quick Look was not opened on the simulators, and
-Mail's on iOS 18 not seen, the simulator having no Mail.
+as before. The PDF was not tapped in that run.
+
+A second run, on da4f641: on 18.6 the photo's bars there on the first
+frame that changed, as Quick Look slid up; the "B-176 pdf.pdf" tile
+tapped on 18.6 and on 17.5, its bars on its first changed frame on
+both, Done; on 17.5 Markup and Reply with its bars and no composer at
+Done. A third run, on da4f641 too: on 18.6 a photo's Quick Look opened a
+second time with its bars, no tap. On 7362cd2, the guard made stricter:
+on 18.6 the photo of "R6 B-176 large rl2" in the Trash tapped, its Quick
+Look with its bars and no tap, so the flag there is a BOOL key-value
+coding reaches; Done. Mail's on iOS 18 was not seen, the simulator
+having no Mail.
 
 *Tests.* `QuickLookBarsTests`, new, two: the names, and the pane read:
 the check of 18 and both guards right after the presentation style and
@@ -39593,8 +39639,11 @@ Changed, as the code they read changed: `MarkupReplyTests` and
 as before: 5 failures in the one test, each an assertion's; the check
 of 18 alone taken out: 3, each an assertion's; put back, passing. The
 full suite: 3,160 tests, 6 skipped, none failing; the release build for
-the iPad: "Build complete". Not yet seen on the test iPad: the TODO's
-B-176 check, steps 8 and 9.
+the iPad: "Build complete". For the stricter guard (7362cd2) the tests
+read the longer guard, the flag's type in `QuickLookBars.flagType`, "B",
+and the one `preview.setValue(`; the guard put back as it was, 3
+failures, each an assertion's; restored, passing. Not yet seen on the
+test iPad: the TODO's B-176 check, steps 8 and 9.
 
 ## B-177 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 

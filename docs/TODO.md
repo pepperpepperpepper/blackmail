@@ -10461,6 +10461,24 @@ checks below is left as not needed, not open, and none is worth a round.*
          and only them, from "Notes" to the Trash, and deletes in the Trash
          only the UIDs that move answered (`COPYUID`). Nothing was sent,
          and nothing else was written to the account.
+      8. *iOS 17.5 and 18.6, on the simulators* (added 2026-10-28,
+         KNOWN_ISSUES B-174, "Found on the iOS 18.6 simulator,
+         2026-10-28"): a signed-in simulated iPad (7th generation) on
+         each, a build with the change; Edit, a row ticked: the row blue,
+         its tick a white disc, rgb(255, 255, 255), with the check in the
+         row's blue, rgb(10, 132, 255), where an unticked row's grey
+         circle is and at its size; unticked, the grey circle alone, no
+         white. A finger held on an unticked row's words, and on another
+         row's circle: while it is down the tick the same, its check
+         blue, never a plain white disc. Screenshot, the circle cropped
+         and its colours read. Cancel: nothing trashed, moved or marked.
+      9. *16.5.1 unchanged,* between 3 and 7: on the test iPad, a build
+         with the change, steps 1 to 3 again: every shot as round
+         r6-j-act's, the tick a white disc with its check rgb(10, 132,
+         255) as in that round's shot 05, nothing else differing. A
+         finger held on an unticked row: its circle as it is drawn, noted
+         (on 16 the row draws nothing of its own, and a held row's circle
+         was never photographed there).
       *Seen on the test iPad 2026-10-28 on int21 (1873724), round
       r6-j-act: 1 to 6 passed, the three APPENDed read and the third made
       unread by Blackmail's own drag to the right, its one STORE before
@@ -10476,24 +10494,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       messages", Edit grey, a tap on it nothing. In 6 "No results", Edit
       mode on and its Cancel blue. Beside bf7575a's shots only what the
       entry changed differed. Nothing was sent.*
-      8. *iOS 17.5 and 18.6, on the simulators* (added 2026-10-28,
-      KNOWN_ISSUES B-174, "Found on the iOS 18.6 simulator, 2026-10-28"):
-      a signed-in simulated iPad (7th generation) on each, a build with
-      the change; Edit, a row ticked: the row blue, its tick a white disc,
-      rgb(255, 255, 255), with the check in the row's blue, rgb(10, 132,
-      255), where an unticked row's grey circle is and at its size;
-      unticked, the grey circle alone, no white. Screenshot, the circle
-      cropped and its colours read. Cancel: nothing trashed, moved or
-      marked.
-      9. *16.5.1 unchanged,* between 3 and 7: on the test iPad, a build
-      with the change, steps 1 to 3 again: every shot as round
-      r6-j-act's, the tick a white disc with its check rgb(10, 132, 255)
-      as in that round's shot 05, nothing else differing.
       *Seen 2026-10-28 on the iOS 17.5 and 18.6 simulators, on a build of
-      `fix-j1` with the change, as 8e27718 has it: 8 passed on both, the
-      disc rgb(255, 255, 255) and the check rgb(10, 132, 255), the disc's
-      light pixels 19 to 61 of an 80-pixel crop and the unticked circle's
-      ring 20 to 60; a second row ticked, the same. 9 not run yet.*
+      `fix-j1` with the change, as 8e27718 has it: 8 passed on both, its
+      press not then a step, the disc rgb(255, 255, 255) and the check
+      rgb(10, 132, 255), the disc's light pixels 19 to 61 of an 80-pixel
+      crop and the unticked circle's ring 20 to 60; a second row ticked,
+      the same. A second run, on da4f641: the same on both, in two panes
+      too and after an untick and a re-tick, the disc's box UIKit's own,
+      no pixel differing from the tick put in place through the debugger
+      on 17.5 before the change. A third run, on da4f641 too: on 18.6,
+      after Select All, every row scrolled into view ticked, new or
+      reused; the largest text size changed nothing, the app held at
+      Large; but a finger held on an unticked row, on its words on 18.6
+      and on its circle on 17.5, showed a plain white disc, no check,
+      until it lifted. Changed for it (d8119ae). On 7362cd2 the press
+      passed on both, on a row's words and on a circle, and a ticked row
+      held kept its tick. 9 not run yet.*
 
 - [x] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
       On the test iPad, the test account only, from a build of the
@@ -10668,6 +10684,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       steps 3, 6 and 7 say what the pane did before B-176 (no Markup and
       Reply on a held PDF, "Tap to Download" on a large letter's PDF, a
       HEIC tile); where they differ, this check is the one to follow.
+      8. *iOS 17.5 and 18.6, on the simulators* (added 2026-10-28,
+      KNOWN_ISSUES B-176, "Found on the iOS 18.6 simulator, 2026-10-28"):
+      a signed-in simulated iPad (7th generation) on each, a build with
+      the change, a letter with a photo among its words ("R6 B-171 photo"
+      in the Trash, or one made as step 0's are): the photo tapped, Quick
+      Look with its status bar, the file's name, Share, Markup and Done in
+      the first shot, with no tap on the picture; a tap on it hides them,
+      a second brings them back; Done. Held, Markup and Reply: the same
+      bars; Done with nothing drawn, no composer. A PDF's tile tapped: its
+      bars as before; Done.
+      9. *16.5.1 unchanged,* between 6 and 7: on the test iPad, a build
+      with the change, step 2 again: Quick Look of the PDF and of the
+      HEIC's photo with their bars at once, as in round r6-j-files' shots,
+      nothing else differing.
       *Seen on the test iPad 2026-10-28 on int21 (1873724), round
       r6-j-files, 6 recorded at 60 frames a second: 1 to 5 passed, and 6
       but its ring, which stood still (KNOWN_ISSUES B-176, "Found on the
@@ -10786,27 +10816,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       come, across the three taps. The rest of B-176 not run, passed on
       ff47eb6 in r6-k-files and not changed since; the letter put back by a
       STORE of the Trash's label. Nothing was sent.*
-      8. *iOS 17.5 and 18.6, on the simulators* (added 2026-10-28,
-      KNOWN_ISSUES B-176, "Found on the iOS 18.6 simulator, 2026-10-28"):
-      a signed-in simulated iPad (7th generation) on each, a build with
-      the change, a letter with a photo among its words ("R6 B-171 photo"
-      in the Trash, or one made as step 0's are): the photo tapped, Quick
-      Look with its status bar, the file's name, Share, Markup and Done in
-      the first shot, with no tap on the picture; a tap on it hides them,
-      a second brings them back; Done. Held, Markup and Reply: the same
-      bars; Done with nothing drawn, no composer. A PDF's tile tapped: its
-      bars as before; Done.
-      9. *16.5.1 unchanged,* between 6 and 7: on the test iPad, a build
-      with the change, step 2 again: Quick Look of the PDF and of the
-      HEIC's photo with their bars at once, as in round r6-j-files' shots,
-      nothing else differing.
-      *Seen 2026-10-28 on the iOS 18.6 simulator, on a build of `fix-j1`
-      with the change, as 5b8fd34 has it: 8 passed but its PDF, not
-      tapped, "R6 B-171 photo rj"'s photo in the Trash, its Quick Look
-      with the bars in the first shot, 3 s after the tap, the two taps
-      hiding and showing them, Markup and Reply's the same and no composer
-      at Done; on the 17.5 simulator the tap's Quick Look with its bars,
-      as before. 9 not run yet.*
+      *Seen 2026-10-28 on the simulators, on a build of `fix-j1` with the
+      change, as 5b8fd34 has it: on 18.6 "R6 B-171 photo rj"'s photo in
+      the Trash, its Quick Look with the bars in the first shot, 3 s after
+      the tap, the two taps hiding and showing them, Markup and Reply's
+      the same and no composer at Done; on 17.5 the tap's Quick Look with
+      its bars, as before; the PDF not tapped. A second run, on da4f641:
+      8 passed in full on 18.6 and 17.5, the photo's bars there on the
+      first frame that changed, as Quick Look slid up, the "B-176 pdf.pdf"
+      tile's on its first changed frame on both, Markup and Reply on 17.5
+      with its bars and no composer at Done. A third run, on da4f641 too:
+      on 18.6 a photo's Quick Look opened a second time with its bars, no
+      tap. On 7362cd2, the flag's guard made stricter: the photo of "R6
+      B-176 large rl2" tapped on 18.6, its Quick Look with its bars, no
+      tap; Done. 9 not run yet.*
 
 - [x] **B-177, a sender only seen offered by name.** On the test iPad,
       the test account only, from a build of the `bm-cmp-f` worktree
