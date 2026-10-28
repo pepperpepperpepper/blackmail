@@ -37288,3 +37288,148 @@ turn together with one, nor three with two, each its turn once and the
 turns given back; and the loader's pin takes the turn, the stopped
 request and the turn given back. Every request let through at once, 2
 failures in the new test; then restored.
+
+## B-173 — FIXED 2026-10-27, not yet seen on the iPad. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
+
+The comparison with Mail of 2026-10-27 (round r6-i-compare, Mail 16.5.1
+on the test iPad against Blackmail bf7575a, comparisons C-11a, C-11b and
+C-12), and the plan made from it (Batch B, items B1 to B3). The owner's
+rulings: copy Mail's behaviour and words (26 Oct), "I don't want to
+change the layout of blackmail" and "just fix these discrepancies" (27
+Oct). Each item is a colour of something already on the pane; no layout
+changed: nothing moved, appeared, stacked or went away, at any text size.
+
+**What Mail does.** In Dark Mode, as seen and sampled on the test iPad:
+
+1. *A light letter* (C-11a, "R6 B-169 web picture rm", a letter with a
+   picture from the web, which Mail draws light): a white sheet,
+   rgb(255, 255, 255), inset in Mail's dark card, from under the header to
+   the letter's foot, x 357 to 898 of a card x 320 to 936, about 37 px of
+   dark margin each side; the words start at the sheet's edge.
+2. *His signature* (C-11b, "R6 B-146 signature rm"): dark, with a grey
+   sheet, rgb(51, 51, 51), under the signature, as wide as the letter's
+   column (x 357 to 898), on the card rgb(28, 28, 30); its words light, its
+   links blue, the black logo visible on the grey. Mail keeps his sheet's
+   white as a grey; it does not remove it.
+3. *Block All Remote Content* (C-12): "Message contains unloaded images."
+   in white over "Load All Images" in blue, on the dark card,
+   rgb(28, 28, 30), on the light letter too: Mail's own colours whatever the
+   letter. Two lines, left, above the header, no rule (its place and shape
+   are layout, part 3 of the plan, K9: kept as Blackmail has them).
+
+**What Blackmail did.**
+
+1. A light letter's white, `#bm`'s background on its own page and
+   `.bm-light`'s in a stack, covered the pane's whole width, x 465 to 955,
+   edge to edge, the pane's margin white too (B-169).
+2. His signature had no sheet since B-146: the pane's invert turned its
+   white to black like the rest, rgb(0, 0, 0) right through, and the logo,
+   dark on transparency, was nearly invisible, black on black. B-146 had
+   read Mail's rules, not seen it ("inferred, not rendered").
+3. The line had grey words, rgb(142, 143, 148), and a blue button,
+   rgb(1, 123, 255), on the letter's white with a rule under it
+   (`RemoteContent.line`, B-168); on a letter the pane inverts, what the
+   invert made of those; on a letter in its own colours, Mail's dark rule
+   and blue only (int19).
+
+**What changed.**
+
+1. *B1, the light letter's white* (`PanePage.letter`,
+   `ConversationDocument.html`). `background-clip: content-box` on the
+   light branch's `#bm` and on `.bm-light`: the white covers the letter's
+   column only, and the padding round it, the pane's inset, shows the
+   pane's black, as Mail's margins do. The padding is as it was, so the
+   words do not move. The picture a light letter's body names behind its
+   words (B-169's backdrop) stops at the column with the white. An
+   inverted letter's white is not clipped (the invert makes all of it
+   black), and a letter in its own colours or a plain one has no white.
+   The pane's black is rgb(0, 0, 0), not Mail's card rgb(28, 28, 30); that
+   is D-010's, not this.
+2. *B2, his signature's grey sheet* (`SignatureSheet.css(in:)`, new,
+   `className`, `underInvert`). On a letter the pane inverts, the sheet,
+   `.bm-signature`, and the tables in it, which this app gives the same
+   white (`AppleMailHTML.signatureTableStyle`), have rgb(204, 204, 204)
+   under the invert, important over the white written on them, and the
+   invert turns it to Mail's rgb(51, 51, 51): grey is left grey by the hue
+   turn. The logo, a picture, is inverted back as every picture is, so it
+   shows dark on the grey. On a letter's own page the rule is in the style
+   only when the sheet's class is in the letter, so every other page is
+   byte for byte as it was; in a stack's style always, under `.bm-html`,
+   as the bodies come after the style. A letter drawn light or in its own
+   colours has its sheet as written; the printed page has no rule for it,
+   as before. What he sends is unchanged.
+3. *B3, the line's colours* (`RemoteContent.mail`, `underInvert`,
+   `colourRule(in:inverted:)`, which replaces `darkRule(in:)`). Mail's
+   colours for every letter: white words, the pane's black behind the
+   line, "Load All Images" in `#0A84FF`, the rule the stack's `#38383a`.
+   On a letter drawn light or in its own colours, by the head's rule, its
+   colours important. On a letter the pane inverts, the line is inside the
+   inverted block, so it is written in the colours the invert turns to
+   those: `#000` words, `#fff` behind, the rule `#c7c7c5`, on the line
+   itself and by the head's rule. Mail's blue cannot be had through the
+   invert: no colour comes out as full and as dark a blue, and `#1597FF`,
+   the nearest, comes out about rgb(14, 144, 248) by CSS's arithmetic
+   (Mail's rgb(10, 132, 255)); the letter's own links there are lighter
+   still, rgb(44, 166, 255). In a stack, a rule for each of the three
+   kinds of body. On a light letter the line's black meets the margin's
+   (B1), so the white sheet begins under the line, as Mail's begins under
+   its band. The line's words, place, single line, button at the right
+   and rule are as they were (K9).
+
+**Reverses** part of B-146: "Mail draws no sheet" (its own reading of
+Mail's rules) is replaced by what Mail was seen to draw; the sheet is not
+inverted back to white, as before B-146, but grey. And B-168's "its look
+here is the pane's own" for the line's colours; its place and shape stay.
+Nothing of B-169's decision of which letters are light, inverted or in
+their own colours changes.
+
+**What he sees.** In Dark Mode, which the pane always is: a letter with
+a picture from the web on a white sheet with black margins each side and
+above, its words where they were; his signature on a dark grey sheet, its
+words white, the logo visible; and, only with Block All Remote Content
+on (off from the factory), the line in white and blue on black. No new
+words, and no layout change.
+
+**Tests.** `LetterColoursLikeMailTests`, new, two: a light letter's
+white clipped to its column on its own page and in a stack, its padding
+as it was, and none clipped on an inverted, own-coloured or plain letter;
+Mail's line in Mail's colours, the colours under the invert checked by
+CSS's arithmetic for the invert and the half turn (white, black,
+rgb(56, 56, 54) for the rule, rgb(14, 144, 248) for the button), the line
+byte for byte, the head's rule on an inverted, a light and an
+own-coloured letter, each only its own, none when nothing is held back,
+and the stack's three. `SignatureLikeMailTests`, rewritten: his letter
+alone with the rule after Mail's bars and only the two inverts; the
+stack's rule once whatever its letters; the rule only on an inverted
+page with the sheet in it (his letter, a reply quoting it, a sheet that
+lost its style), never on a page of the pane's set without it, his
+letter drawn light, or a plain letter with the marker; and the grey under
+the invert turned to 51. Changed: `DarkLikeMailTests` (the light rule
+and `colourRule`), `ConversationDocumentTests` (the stack's style, its
+one signature rule), `PrintPageTests` (the pane's page has the sheet's
+rule, the paper has none).
+
+Each undone by hand in the worktree, the touched classes run, each
+failure read by its line, then restored: the clip taken off both pages,
+4 failures in `testALightLettersWhiteStopsAtItsColumn`; the signature's
+rule made empty, 17 failures across `SignatureLikeMailTests` and
+`ConversationDocumentTests`; the line's head rule given Mail's own
+colours for every letter, an inverted one too, 4 failures in
+`testMailsLineIsInMailsColoursWhateverTheLetter`. The full suite, serially: 3,049
+tests, 3 of them new, 6 skipped as before, none failing. The release
+build for the iPad links.
+
+**Not seen.**
+
+- None of the three on the iPad: the pixels above are Mail's and the
+  old Blackmail's; the new colours are by the rules and the arithmetic.
+  WebKit's filter may round differently from CSS's matrix.
+- His iPadOS 18's Mail: comparisons were on 16.5.1. Mail's dark rules are
+  iOS 13 and later, and the 18.6 code read for B-146 and B-169 says the
+  same rules; most likely the same, not seen.
+- Any white sheet but his: Mail turned his declared white to a grey of
+  51, and most likely does the same to any declared white in a letter it
+  turns dark; this copies his signature only (the narrow way of the plan;
+  the broader one is unmeasured).
+- Mail's card colour, rgb(28, 28, 30), against the pane's black: D-010,
+  unchanged here.
