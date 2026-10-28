@@ -76,17 +76,19 @@ final class RepositoryTrafficTests: XCTestCase {
         XCTAssertEqual(defaults.writes.value, 2)
 
         // A search everywhere draws rows from three mailboxes, the binned
-        // hits of Trash and Spam and a page of All Mail: one write each.
+        // hits of Trash and Spam and a page of All Mail: one write each,
+        // but for Spam's, whose senders are not noted (B-177, int21).
         let hits = try await repository.search(in: "inbox", query: "garden", scope: .allMailboxes,
                                                beforeUID: nil, limit: 50)
         XCTAssertEqual(Set(hits.map(\.mailboxID)), [Server.trash, Server.spam, Server.allMail])
-        XCTAssertEqual(defaults.writes.value, 5)
+        XCTAssertEqual(defaults.writes.value, 4)
 
-        // And what was written is everything noted, his own address among it.
+        // And what was written is everything noted, his own address among
+        // it, and nobody from Spam.
         let reopened = RecipientBook(defaults: defaults)
         XCTAssertEqual(Set(reopened.suggestions(for: "", limit: 100).map(\.address)),
                        [Server.owner.address, Server.sam.address, Server.carlo.address,
-                        Server.jane.address, "prizes@example.net"])
+                        Server.jane.address])
     }
 
     // MARK: - Launch
