@@ -181,6 +181,49 @@ final class EditModeLikeMailTests: XCTestCase {
                        "nothing taken out of Edit mode, nothing kept")
     }
 
+    /// A lost answer's look (B-151) finding the letter the pane had opened
+    /// before Edit mode gone during it: not put back as Edit mode ends,
+    /// from its row nor from the row it had, the pane emptied as the look
+    /// empties it; another letter of its conversation gone leaves it to
+    /// come back; nothing out of Edit mode, and nothing kept for the next.
+    /// Read from the list: told by the list's `movedAfterAll` in Edit mode,
+    /// whether the rows go now or wait for the ticks to be let go.
+    func testALetterBeforeALostAnswersLookFoundGoneIsNotPutBack() throws {
+        let threads = self.threads
+        var pane = EditPane()
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        pane.gone([letter(149, thread: "B")])
+        guard case .empty = pane.end(in: threads.filter { $0.id != "7/149" }, showing: ["7/148"]) else {
+            return XCTFail("gone after all: not from the row it had")
+        }
+
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        pane.gone([letter(149, thread: "B")])
+        guard case .empty = pane.end(in: threads, showing: ["7/148"]) else {
+            return XCTFail("gone, its row held for the ticks")
+        }
+
+        pane.begin(showing: ["7/150", "7/147"], thread: threads[0])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/150", "7/147"]), 2)
+        pane.gone([letter(147, thread: "A")])
+        XCTAssertEqual(ids(pane.end(in: threads, showing: ["7/148"])), ["7/150", "7/147"],
+                       "another letter of its conversation")
+
+        pane.gone([letter(149, thread: "B")])
+        pane.begin(showing: ["7/149"], thread: threads[1])
+        XCTAssertEqual(pane.ticked([2], in: threads, showing: ["7/149"]), 2)
+        XCTAssertEqual(ids(pane.end(in: threads, showing: ["7/148"])), ["7/149"],
+                       "nothing out of Edit mode, nothing kept")
+
+        let list = flat(try source("UI/MessageListViewController.swift"))
+        let moved = flat(body(after: "func movedAfterAll(", in: list))
+        XCTAssertTrue(moved.hasPrefix("{ if inEditMode { editPane.gone(moved.compactMap { m in "
+                                      + "letters.letter(m.id).flatMap { $0.gmailMessageID == m.gmailMessageID "
+                                      + "? $0 : nil } }) } let here = "), moved)
+    }
+
     /// The pane gone on from the ticked letter, as after its own Delete, is
     /// left; a letter before that the list has lost comes back from the row
     /// it had; and Edit mode, once ended, has nothing more to put back.

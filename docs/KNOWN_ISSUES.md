@@ -37765,6 +37765,17 @@ failing. The release build for the iPad links.
   turn its own colour; a border declared white on one side only has its
   four sides made grey.
 
+**Integration (int21, with B-173).** Merged after B-172 with no conflict
+in its code. Checked together, and nothing changed for it: B-169's three
+schemes keep their classes, each with its own rule for B-168's held line
+(`RemoteContent.colourRule`) on the page and in the stack; B-147's bars
+are untouched, a light letter's in their light colours inside its white
+column; B-172's "wrote:" line and `>From` line are a plain letter's,
+drawn by `PlainQuotes` as `bm-text` on the pane's black in the dark
+palette, never on a light letter's white sheet; and the printed page,
+B-172's new header and date with it, has none of B-173's rules. Not seen
+on the iPad.
+
 ## B-174 — FIXED 2026-10-27, not yet seen on the iPad. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`), off int20 at
@@ -37901,6 +37912,29 @@ fetch afresh left "1 Selected", the bar blue and the pane undimmed; and
 the bar's Trash or Move put the letter before back in the pane for a
 moment when it was among the letters it took. Each fixed as above, in the
 same places; no layout changed.
+
+**Integration (int21, with B-174).** Merged after B-172 and B-173, with
+B-175 from the same branch. Wired: a lost answer's look (B-151, the
+container's `movedAfterAll`) finding the letter the pane had opened
+before Edit mode gone, during it, left it to be put back as Edit mode
+ended, from its row while the ticks held the row, or from the row it had
+once the row was gone, though the look had emptied the pane for it and
+Mail shows no letter it no longer has. Now the list tells Edit mode's
+pane of the letters the look found gone, whether their rows go now or
+wait for the ticks (`EditPane.gone`, the list's `movedAfterAll`), and
+the pane is emptied as Edit mode ends where the letter it had opened is
+among them; another letter of its conversation gone leaves it to come
+back. `EditModeLikeMailTests`, one new,
+`testALetterBeforeALostAnswersLookFoundGoneIsNotPutBack`: the rule run,
+and the list's call read; undone by hand (the letters not kept), 1
+failure, an assertion's; restored, passing. Checked, nothing changed:
+B-175's drags and More are off in Edit mode (`RowSwipes.sides(for:editing:)`),
+and a row they take outside it is followed by the bar, the title and the
+pane through the list's `changed` (`updateEmptyState`), as a look's
+taking is; B-158's next letter opens nothing in Edit mode, so no "Undo
+Read" step is made there (B-175); B-157's put-back rows come back where
+they stood (`ListLetters.restore`), which is their place in B-178's date
+order. Not seen on the iPad.
 
 ## B-175 — FIXED 2026-10-27, not yet seen on the iPad. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
@@ -38364,7 +38398,15 @@ this entry for it: the title, the five kept in its opening, E5's
 Tests and E1-to-E5 counts above are the branch's, before the take-out.
 In the TODO: B-176's check, its step 0's screenshots and its step 4, now
 a check that both links' menus are as before; B-145's step 6 and B-141's
-step 0 pointers say so.
+step 0 pointers say so. Checked with the other merges, nothing
+changed for it: the files fetched as a large letter opens go one at a
+time, each a FETCH of its own in the client's interactive line, the next
+asked only once the one before has ended, so B-160's letters fetched
+ahead and B-151's look, which wait their turn on the same one
+connection, are let in between two files and never cut into one, and
+nothing is fetched twice; B-170's tiles are the ones drawn, in B-169's
+and B-173's colours; the tiles of a letter in a pane dimmed by B-174's
+Edit mode are as any of its words, dimmed with it.
 
 ## B-177 — FIXED 2026-10-27, not yet seen on the iPad. Someone whose letter he had only received was never offered in To, Cc or Bcc, as the book filled from his Sent Mail pushed each out as it was noted; Mail offers such a person by name, and so does Blackmail now, after the people he writes to and his Contacts, which is the plan's order: where Mail puts them was not seen
 
@@ -38496,6 +38538,13 @@ notes take on the iPad was not measured: the numbers above are this
 host's debug build, where Foundation's trimming is slower. No layout
 changed: the list under the field has the same rows, drawn the same;
 only who can be in them changed.
+
+**Integration (int21, with B-177).** Merged after B-172 to B-176 with
+no conflict in its code. Checked, nothing changed: the people only seen
+are ranked in the one list `AddressSuggestions` makes, after the people
+he has written to, B-155's book filled from his Sent Mail, and B-162's
+Contacts, with B-017's matches within last; the fill counts as written
+to, so it never fills the part of the book kept for the seen.
 
 ## B-178 — FIXED 2026-10-27, not yet seen on the iPad. The list went in the folder's UID order, so a letter moved back, brought back by an Undo or put in out of turn went to the top whatever its date; it goes in date order, the newest first by when each letter arrived, as Mail's list does
 
@@ -38668,3 +38717,33 @@ comparison of its own.
 
 **Layout.** No layout changed: the same rows, the same parts in the same
 places; only which row comes where in the list.
+
+**Integration (int21, with B-178).** Merged last. Wired: B-161's
+banners went by UID. A check took the twenty highest UIDs above its
+mark and then dropped those that arrived before he left, so a letter put
+back in the Inbox from another device, its UID high and its arrival old,
+took a banner's place and then had none, and the banners went up in UID
+order. Now, with more than twenty unread letters above the mark, their
+dates are asked for first, one `UID FETCH … (UID INTERNALDATE)` in the
+check's hold, and the twenty newest to arrive after he left have their
+banners (`NewMailBanners.newest`); with twenty or fewer nothing more is
+sent; the banners go up oldest first by arrival, the UID breaking a tie
+(`isShownBefore`), as the list has them. `NewMailBannersTests`, two new,
+`testTheNewestBannersGoByWhenTheLettersArrived` and
+`testTheBannersGoUpInTheOrderTheLettersArrived`, over the scripted
+server; undone by hand (no dates asked, the order by UID), 2 failures,
+each an assertion's; restored, passing. Checked, nothing changed: B-157's
+put-back row comes back where it stood, in date order, and at the next
+listing by its arrival (above); B-158's next letter is the row below in
+the list as drawn (`NextLetter.after`), so in date order, and nothing in
+it or in Undo goes by UID; B-160's kept pages are as above, and the
+offline search's hits are in the online search's order
+(`SearchMerge.isOrderedBefore`), which this entry leaves; B-159's kept
+replies carry their arrival and go into a conversation by it
+(B-084); B-115 and B-118's Go to Date land on the first to arrive of his
+day (above); the icon's number is the Inbox's count; B-172's previews
+are fetched after the rows as before, for a letter the watch's news
+places among them too (`showNews` returns it), and a kept one is made
+again when its row is next fetched. Not seen on the iPad. The full suite
+after the integration, B-172 to B-178 with E5 taken out: 3,125 tests, 6
+skipped, none failing; the release build for the iPad: "Build complete".

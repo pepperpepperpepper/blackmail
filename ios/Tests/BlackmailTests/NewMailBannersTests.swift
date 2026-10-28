@@ -192,6 +192,58 @@ final class NewMailBannersTests: XCTestCase {
         XCTAssertEqual(next.banners, [])
     }
 
+    /// The newest by when they arrived, as the list goes since B-178, not
+    /// by UID. Three unread letters put back in the Inbox from another
+    /// device, which Gmail gives the highest UIDs and their old arrival,
+    /// took banners' places and then had none: 17 of the 22 come after he
+    /// left. Now, with more than twenty above the mark, their dates are
+    /// asked first, in one FETCH of dates alone, and the twenty newest to
+    /// arrive have their banners. With twenty or fewer nothing more is
+    /// asked (`testALetterThatCameAfterHeLeftHasItsBanner`).
+    func testTheNewestBannersGoByWhenTheLettersArrived() async throws {
+        leftAfterACheck()
+        for n in 1...22 { arrives("Letter \(n)", after: Double(n) * 60) }
+        for n in 1...3 {
+            var back = Server.Letter(from: Server.sam, to: [Server.owner], subject: "Back \(n)",
+                                     date: left.addingTimeInterval(-3 * 86_400), text: "Old.\r\n",
+                                     messageID: "<\(UUID().uuidString)@example.com>")
+            back.arrived = left.addingTimeInterval(-3 * 86_400 + Double(n))
+            server.arrive(back, in: [Server.inbox, Server.allMail])
+        }
+
+        let found = try await checked()
+        XCTAssertEqual(found.banners.map(\.subtitle), (3...22).map { "Letter \($0)" })
+        XCTAssertEqual(verbs, ["LOGIN", "STATUS", "SELECT", "UID SEARCH", "UID FETCH", "UID FETCH",
+                               "UID FETCH", "LOGOUT"])
+        XCTAssertTrue(server.log[4].command.hasSuffix("(UID INTERNALDATE)"), server.log[4].command)
+    }
+
+    /// The banners go up oldest first by when each letter arrived, so the
+    /// newest is on top, as the list has them (B-178): a letter put in the
+    /// Inbox after another but arrived before it is under it.
+    func testTheBannersGoUpInTheOrderTheLettersArrived() async throws {
+        leftAfterACheck()
+        var later = Server.Letter(from: Server.sam, to: [Server.owner], subject: "Later",
+                                  date: left.addingTimeInterval(1_200), text: "Two.\r\n",
+                                  messageID: "<\(UUID().uuidString)@example.com>")
+        later.arrived = left.addingTimeInterval(1_200)
+        var sooner = later
+        sooner.subject = "Sooner"
+        sooner.messageID = "<\(UUID().uuidString)@example.com>"
+        sooner.arrived = left.addingTimeInterval(600)
+        server.arrive(later, in: [Server.inbox, Server.allMail])
+        server.arrive(sooner, in: [Server.inbox, Server.allMail])
+
+        let found = try await checked()
+        XCTAssertEqual(found.banners.map(\.subtitle), ["Sooner", "Later"])
+        XCTAssertEqual(NewMailBanners.newest(of: [5, 4, 9], arrived: nil, after: left), [9, 5, 4])
+        XCTAssertEqual(NewMailBanners.newest(of: [5, 4, 9, 7],
+                                             arrived: [5: left + 10, 4: left + 20, 9: left - 1],
+                                             after: left), [4, 5], "gone and before he left: none")
+        XCTAssertEqual(NewMailBanners.newest(of: [5, 4], arrived: [5: left + 10, 4: left + 10],
+                                             after: left), [5, 4], "a second: the higher UID first")
+    }
+
     /// The mark is written before any letter is fetched: a check that ends
     /// at its FETCH, a letter's summary that crashes it or the connection
     /// lost, never fetches those letters again, so a letter that ends

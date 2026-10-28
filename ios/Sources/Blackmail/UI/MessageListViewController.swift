@@ -1587,6 +1587,14 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func movedAfterAll(_ moved: [MovedAfterAll],
                        requestSweep: @MainActor () -> Void) -> [MovedAfterAll] {
+        // In Edit mode, the letter before is not put back as it ends if it
+        // is among them, gone now or held until the ticks are let go
+        // (`EditPane.gone`, B-174 with B-151). Neither reads the table.
+        if inEditMode {
+            editPane.gone(moved.compactMap { m in
+                letters.letter(m.id).flatMap { $0.gmailMessageID == m.gmailMessageID ? $0 : nil }
+            })
+        }
         // Asked first: `tableView` loads the view.
         let here = isViewLoaded ? newsPlace : nil
         let showsNews = here.map {

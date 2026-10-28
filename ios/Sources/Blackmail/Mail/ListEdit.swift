@@ -239,6 +239,9 @@ struct EditPane {
     /// The letters the Edit bar's Delete or Move is taking as it ends Edit
     /// mode (`taking`).
     private var going: [MessageSummary] = []
+    /// The letters a lost answer's look found gone during Edit mode
+    /// (`gone`).
+    private var lost: [MessageSummary] = []
 
     /// Edit mode has begun, the pane showing `shown`, in the row `thread`
     /// of the list, if it has one.
@@ -283,10 +286,26 @@ struct EditPane {
         going = letters
     }
 
+    /// A lost answer's look has found `letters` gone from the folder
+    /// during Edit mode (`MailRepository.lookAfterLostAnswers`, B-151):
+    /// their Delete or Move was carried out after all. Their rows go, now
+    /// or once the ticks are let go, and the pane lets go of such a letter
+    /// it opened (`PaneActions.empties`). So the letter before, the one
+    /// the pane opened, is not put back as Edit mode ends if it is among
+    /// them, from its row or from the row it had, as Mail shows no letter
+    /// it no longer has: the pane is emptied instead, as the look empties
+    /// it. Another letter of its conversation gone leaves it to come back.
+    /// Nothing out of Edit mode.
+    mutating func gone(_ letters: [MessageSummary]) {
+        guard before != nil else { return }
+        lost += letters
+    }
+
     /// Edit mode has ended, the pane showing `shown`: what it goes back
     /// to. Out of Edit mode afterwards. Emptied, as it was before Edit mode
     /// or as the batch would empty it, where the letter before is among
-    /// the letters the bar is taking (`taking`).
+    /// the letters the bar is taking (`taking`), or the letter it opened
+    /// one a lost answer's look found gone (`gone`, B-151).
     mutating func end(in threads: [MessageThread], showing shown: [String]) -> Back {
         defer { self = EditPane() }
         guard let before, let tick = shownForTick, shown.first == tick else { return .stay }
@@ -294,6 +313,8 @@ struct EditPane {
         guard let thread = ListEdit.paneRow(in: threads, showing: before).map({ threads[$0] })
                 ?? beforeThread else { return .stay }
         if ListEdit.going(thread.messages, with: going) { return .empty }
+        if let opened = before.first, let letter = thread.messages.first(where: { $0.id == opened }),
+           ListEdit.going([letter], with: lost) { return .empty }
         return .letters(thread)
     }
 }

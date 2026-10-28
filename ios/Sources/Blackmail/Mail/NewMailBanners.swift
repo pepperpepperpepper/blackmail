@@ -49,6 +49,37 @@ enum NewMailBanners {
     /// puts one up for every letter and lets iOS stack them.
     static let most = 20
 
+    /// The letters a check puts banners up for, of `uids`, the unread
+    /// letters above its mark: at most `most`, the newest by when each
+    /// arrived, its INTERNALDATE, the higher UID first within a second, as
+    /// the list goes (`ArrivalOrder`, B-178), of those that arrived after
+    /// he left (`left`). `arrived` is their dates, asked for only when
+    /// there are more than `most`; one it leaves out has gone. Without
+    /// them, nil, the highest UIDs, which are the newest but for a letter
+    /// put back in the Inbox out of turn, and the dates are read from their
+    /// summaries (`isShownBefore`, and the check's own filter). Until the
+    /// list went by date the highest UIDs were taken whatever the dates, so
+    /// a letter moved back to the Inbox from another device, its high UID
+    /// and its old arrival, took a banner's place and then had none.
+    static func newest(of uids: [UInt32], arrived: [UInt32: Date]?, after left: Date) -> [UInt32] {
+        guard let arrived else { return Array(uids.sorted(by: >).prefix(most)) }
+        var dated: [(uid: UInt32, at: Date)] = []
+        for uid in uids {
+            if let at = arrived[uid], at > left { dated.append((uid, at)) }
+        }
+        dated.sort { a, b in a.at != b.at ? a.at > b.at : a.uid > b.uid }
+        return dated.prefix(most).map { $0.uid }
+    }
+
+    /// Whether the banner for `a` goes up before the one for `b`: the
+    /// oldest first, so the newest is on top, by when each arrived and then
+    /// by UID, as the list goes (B-178). A letter whose summary gave no date
+    /// by its UID alone.
+    static func isShownBefore(_ a: IMAPFetchResult, _ b: IMAPFetchResult) -> Bool {
+        if let x = a.internalDate, let y = b.internalDate, x != y { return x < y }
+        return (a.uid ?? 0) < (b.uid ?? 0)
+    }
+
     /// The longest line of a letter's words a banner carries. iOS cuts the
     /// banner to its few lines itself.
     static let longestLine = 400
@@ -289,9 +320,11 @@ final class BannerStore: @unchecked Sendable {
 /// nothing above the last check's mark, that is all, and LOGOUT. Above it,
 /// a SELECT of the Inbox and `UID SEARCH UNSEEN UID n:*`, the unread
 /// letters above the mark, or after the first check and a renumbered Inbox
-/// `UNSEEN SINCE` the day before he left; a `UID FETCH` of the newest
-/// `most` letters' summaries, and of the first of their words, PEEK, as
-/// the list fetches its previews. Nothing marks a letter read, moves it or
+/// `UNSEEN SINCE` the day before he left; with more than `most` of them,
+/// `UID FETCH … (UID INTERNALDATE)`, when each arrived, so the newest are
+/// the list's newest (B-178); a `UID FETCH` of the newest `most` letters'
+/// summaries, and of the first of their words, PEEK, as the list fetches
+/// its previews. Nothing marks a letter read, moves it or
 /// writes anything: no STORE, MOVE, EXPUNGE or APPEND, and no SMTP. Nothing
 /// it fetches is kept, the copy of his mail and the address book included.
 ///
@@ -385,10 +418,17 @@ struct InboxCheck {
         // Not above `highest`: a letter come since the STATUS is above the
         // mark, and the next check's. `n:*` names the highest UID even
         // below `n`, so the mark is applied here as well.
-        let newest = found.uids
-            .filter { $0 <= highest && $0 > (before?.uid ?? 0) }
-            .sorted(by: >)
-            .prefix(NewMailBanners.most)
+        let above = found.uids.filter { $0 <= highest && $0 > (before?.uid ?? 0) }
+        // More than a check banners: the newest by when they arrived, as
+        // the list has them (B-178), their dates asked for first.
+        var arrived: [UInt32: Date]?
+        if above.count > NewMailBanners.most {
+            try Task.checkCancellation()
+            arrived = try await client.arranging(in: "INBOX", validity: validity) { asking in
+                try await asking.arrivals(above)
+            }
+        }
+        let newest = NewMailBanners.newest(of: above, arrived: arrived, after: left)
         guard !newest.isEmpty else { return Found(unread: unread, banners: []) }
         try Task.checkCancellation()
         let fetched = try await client.fetchSummaries(uids: Array(newest), in: "INBOX",
@@ -402,7 +442,7 @@ struct InboxCheck {
         let words = await previews(of: fetched, validity: validity, client: client)
         try Task.checkCancellation()
         let banners = fetched
-            .sorted { ($0.uid ?? 0) < ($1.uid ?? 0) }
+            .sorted(by: NewMailBanners.isShownBefore)
             .compactMap { r -> NewMailBanners.Banner? in
                 guard let uid = r.uid else { return nil }
                 return NewMailBanners.banner(id: "\(validity)/\(uid)",
