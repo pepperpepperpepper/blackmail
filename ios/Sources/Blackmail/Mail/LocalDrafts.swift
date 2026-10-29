@@ -204,7 +204,7 @@ extension LocalDraft {
 
     /// Whom the letter is to, as he left the fields, rides on the row, so
     /// Drafts names them on its top line as it names a Gmail draft's
-    /// (`RowNames`, B-060), and "No Recipients" when he has addressed it to
+    /// (`RowNames`, B-060), and "No Recipient" when he has addressed it to
     /// nobody yet. The sender is still his, for whatever goes by it.
     private func row(_ id: String, in mailboxID: String, from sender: String,
                      preview: String, signing: Signing?) -> MessageSummary {

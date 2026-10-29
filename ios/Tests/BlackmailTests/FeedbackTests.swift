@@ -68,8 +68,9 @@ final class FeedbackTests: XCTestCase {
     /// "Updated Just Now" used to be said at every fetch and never again,
     /// whatever the time, so an hour-old list said it had just been fetched.
     /// It ages now, as Mail's does: just now for the first minute, then the
-    /// minutes, then the time of day, then yesterday, then the date. A clock
-    /// set back is not taken for just now.
+    /// minutes through five, then the time of day, then yesterday, then the
+    /// date (B-184: the minutes went on to the hour). A clock set back is
+    /// not taken for just now.
     func testTheLineAgesAsMailsDoes() {
         var line = UpdatedLine()
         line.succeeded(at: checked)
@@ -78,7 +79,9 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(said(line, after: 60), "Updated 1 minute ago")
         XCTAssertEqual(said(line, after: 119), "Updated 1 minute ago")
         XCTAssertEqual(said(line, after: 120), "Updated 2 minutes ago")
-        XCTAssertEqual(said(line, after: 59 * 60 + 59), "Updated 59 minutes ago")
+        XCTAssertEqual(said(line, after: 5 * 60 + 59), "Updated 5 minutes ago")
+        XCTAssertEqual(said(line, after: 6 * 60), "Updated at 14:13")
+        XCTAssertEqual(said(line, after: 59 * 60 + 59), "Updated at 14:13")
         XCTAssertEqual(said(line, after: 3_600), "Updated at 14:13")
         XCTAssertEqual(said(line, after: 9 * 3_600), "Updated at 14:13")
         XCTAssertEqual(said(line, after: 10 * 3_600), "Updated Yesterday")
@@ -97,7 +100,7 @@ final class FeedbackTests: XCTestCase {
         line.failed(.passwordNeedsUpdating)
         XCTAssertEqual(said(line, after: 5 * 60), "Updated 5 minutes ago\nPassword Needs Updating")
         line.reached()
-        XCTAssertEqual(said(line, after: 6 * 60), "Updated 6 minutes ago")
+        XCTAssertEqual(said(line, after: 4 * 60), "Updated 4 minutes ago")
         line.failed(.cannotConnect)
         line.succeeded(at: checked.addingTimeInterval(7 * 60))
         XCTAssertEqual(said(line, after: 7 * 60), "Updated Just Now")

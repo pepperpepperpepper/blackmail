@@ -5216,6 +5216,13 @@ each at a smaller size, shorter words, or the wrap as it is, which
 leaves the possible cut), is its layout, and the owner's to rule on.
 Not changed.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-6a and
+C-6b), by the owner's ruling of that day, copy Apple Mail: Mail's line
+counts the minutes only to about five, "Updated 5 minutes ago" at 5:14
+and "Updated at 12:36 PM" at 10:08, and is white; here the minutes went
+on to the hour, in grey. Both copied by B-184, the turn provisional at
+the sixth minute. Its baseline, 1 pt lower here, is layout: not copied.
+
 ---
 
 ## B-052 — CHANGED 2026-09-30, seen on the iPad. A letter that could not be sent lasted only as long as its sheet
@@ -11494,6 +11501,12 @@ passed on the iPad.
   holds its name in the Outbox.
 - VoiceOver was read from the accessibility tree in the simulator, and off
   its Caption Panel on the iPad (2026-10-19), not heard.
+
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-5a, in
+passing), by the owner's ruling of that day, copy Apple Mail: Mail's
+draft row to nobody says "No Recipient", one, as its string table was
+read here; "No Recipients" was kept. Copied by B-182, in Drafts, Sent
+Mail and the Outbox alike.
 
 ---
 
@@ -27082,6 +27095,12 @@ day's list began with its row either way. The same day, on the Mac's iOS
 highlighted again, the letter in the pane, the list where it was. Nothing
 was sent; the two letters deleted went to the Trash with B-132's.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-1b, in
+passing), by the owner's ruling of that day, copy Apple Mail: Mail's
+open letter's row is its blue with white words, as its ticked row,
+where here it was dark grey. Copied by B-181; where the highlight shows
+is as above, unchanged.
+
 ## B-134 — CHANGED 2026-10-25 to copy Apple Mail, seen in part on the test iPad 2026-10-25. With a bubble's menu up, letters typed opened the list under the menu and left the bubble and its menu; now they take the bubble's place, as typing over Mail's picked-out recipient does, the menu goes, and the list is in sight. "Cc/Bcc" stayed under Bcc once they were open; it goes while they show, and they fold back, as Mail's do
 
 **Found** on the test iPad on 2026-10-07, in passing, in B-076's second
@@ -30854,6 +30873,14 @@ Mail" inside a grey "[Gmail]" group, kept as Blackmail's layout; and its
 bar grey with nothing ticked and "1 Selected", copied by B-174. NOT
 COMPARABLE, where All Mail stands for his Google account on 18. "Unable to
 Attach" not compared, Files' picker showing the owner's iCloud Drive.
+
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-5a), by
+the owner's ruling of that day, copy Apple Mail: in Drafts with a draft
+ticked Mail's third button says "Trash" in the bar's blue, as built;
+its Mark and Move are grey there, here blue: copied by B-183. Mail's
+Outbox bar NOT COMPARABLE (C-5b): it cannot be seen without a letter
+waiting there, which would be sent. "Trash" for the letters kept on
+the iPad stays (TODO, the owner's item ruled).
 
 ## B-145 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A link tapped in a letter asked "Open this link?" before it opened; it opens at once, in Safari or the app that claims it, as Mail opens one, and a `mailto:` still opens the composer with its address
 
@@ -38469,6 +38496,13 @@ and Mail's paperclips and Blackmail's the same on all twelve letters.
 The previews, the quotes and the paper, not changed since, stand as seen
 on 1873724. Nothing was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-3a, and
+C-5a in passing), by the owner's ruling of that day, copy Apple Mail:
+the row of a letter that is only a picture says "Attachment: " and the
+file's name on its second line in Mail, empty here; a row with no
+subject says "No Subject" in grey in Mail, "(no subject)" in white
+here. Both copied by B-182.
+
 ## B-173 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 
 The comparison with Mail of 2026-10-27 (round r6-i-compare, Mail 16.5.1
@@ -39058,6 +39092,13 @@ test iPad: the TODO's B-174 check, step 9 as rewritten, whose FAIL is
 a ticked row's disc with no check, its check outside the disc, the
 disc off an unticked row's grey circle's place or size, or a second
 disc or ring.
+
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-5a and
+C-1b), by the owner's ruling of that day, copy Apple Mail: in Drafts
+Mail shows a ticked draft in the pane as a letter, where `EditPane`
+left Drafts out, and its Mark and Move stay grey there: both copied by
+B-183, a draft kept on the iPad left out. The open letter's row out of
+Edit mode is drawn as a ticked row is, Mail's blue: B-181.
 
 ## B-175 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
@@ -40910,3 +40951,249 @@ complete".
   both.
 - A sender's own important rule on the line's element weighs over the
   class's, as over the quotes'.
+
+## B-181 — FIXED 2026-10-29. The row of the letter open in the reading pane was a dark grey with white words; Mail's is its blue, as its ticked row in Edit mode is, and so is Blackmail's now
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail
+16.5.1 on the test iPad against Blackmail int21 at 65e32ab, C-1b, seen
+in passing, its second run agreeing), and the plan made from it (area
+3). The owner's ruling of 2026-10-29: "for the app -- all should copy
+apple mail which we have access to", Mail 16.5.1 on the test iPad the
+reference; for what Mail does not decide, the layout rule of 2026-10-27
+(D-025). A colour.
+
+**What Mail does.** The row of the letter in its pane is its tint,
+rgb(10, 132, 255), with white words, as its ticked row is; under Smart
+Invert it came out orange, rgb(245, 123, 0), its blue inverted.
+Measured on the round's shots (`04-mail-list-view.png`, and the same
+with Smart Invert off).
+
+**What Blackmail did.** `Theme.selection`, rgb(38, 38, 38), behind white
+words (`MessageCell`, its selected ground out of Edit mode); light grey,
+rgb(217, 217, 217), under Smart Invert.
+
+**What changed** (`RowShade`, new, and `MessageCell`). The row of the
+letter in the pane, a selected row out of Edit mode, is drawn as a
+ticked row has been since B-174: the blue ground, the names and the
+subject white as always, the grey lines, the paperclip and the arrow
+in Mail's see-through grey, and the unread dot and the conversation's
+mark white, as they would be lost blue on blue. A finger's press on a
+row that is not selected keeps the dark grey: Mail's press was not
+seen. A row let go of as the selection moves on fades out in the
+colour it had, not grey first. Edit mode as before. Which colours for
+selected, pressed and ticked is `RowShade`'s, out of the cell, so the
+suite runs it. Nothing moves: Mail's selection is a rounded tile set
+in from the edges, Blackmail's runs edge to edge, and that is layout,
+not copied. Where the row shows is B-133's, unchanged.
+
+**What he sees.** The letter he has open stands out in the list in
+Mail's blue, as it does in Mail.
+
+**Tests.** `ListLikeMailTests`, new (thirteen for B-181 to B-184),
+three here: the open row blue with its lines on the blue, pressed
+again still blue, a press on another row grey, a row neither selected
+nor pressed left as it is; Edit mode's tick and press as before; the
+cell drawn by `RowShade` at every change of the selection, a press and
+Edit mode. Changed: `EditModeLikeMailTests`' pins of the cell, which
+read the shade where they read the tick.
+
+`RowShade` put back as it was, the ground blue only in Edit mode and
+the lines on the blue only for a tick: 3 failures in 1 test, each an
+assertion's; put back, passing.
+
+**Not covered.**
+
+- Mail's press on a row out of Edit mode was not seen: the grey kept.
+- The unread dot white on the open row is inferred from Mail's ticked
+  row, seen with no dot; Mail's open unread row was not seen.
+- UIKit clears the colour of a view in a row while it is pressed, as
+  it may the dot's; the cell sets it again as the press ends, as for a
+  tick. Not seen on the iPad.
+
+## B-182 — FIXED 2026-10-29. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3a,
+C-5a in passing, its second run agreeing), and the plan made from it
+(area 3). The owner's ruling of 2026-10-29, copy Apple Mail; the layout
+rule of 2026-10-27 (D-025) for the rest. Words, and one colour.
+
+**What Mail does.** The rows of the round's two letters that are only
+a picture, one drawn by `cid:` in its HTML and one attached, say
+"Attachment: h-photo.jpg" and "Attachment: IMG_0131.jpg" on their
+second line, in the preview's grey. A draft to nobody says "No
+Recipient". A letter with no subject says "No Subject" on its subject
+line, in grey, about rgb(143, 143, 150), sampled from the Drafts shots
+(`11-mail-drafts-one-view.png`).
+
+**What Blackmail did.** The two rows' grey lines empty; "No Recipients"
+(`RowNames`, kept at B-075 from the Outbox's rows of B-052, though
+Mail's string table was read then as "No Recipient"); "(no subject)" in
+white (`MessageCell`).
+
+**What changed** (`RowPreview`, new, `RowNames`, `ListLetters`,
+`MessageCell`, the list's `draw`).
+
+1. *"Attachment: name".* A row whose letter was drawn with no words,
+   its preview asked for and answered with none
+   (`ListLetters.drawnWithNoWords`, from what B-135 keeps), and which
+   carries a file with a name, says "Attachment: " and the first such
+   file's name in its grey lines, in the files' order in the letter's
+   structure (`MessageSummary.attachments`), inline pictures among
+   them, as Mail's row of the `cid:` picture says. A row whose preview
+   has not come yet shows nothing, as before: its letter may have
+   words. From the letter whose preview the row shows, a
+   conversation's newest.
+2. *"No Recipient"*, one, in Drafts, Sent Mail and the Outbox alike
+   (`RowNames.noRecipient`): Mail's one table, as B-075 read it.
+3. *"No Subject"* on the row's subject line in the row's grey, the
+   see-through grey on a blue row (B-174, B-181); a subject white as
+   before.
+
+Nothing moves: the words go where the preview and the subject were.
+
+**What he sees.** A photo sent with no words says on its row what it
+is, as in Mail; a row with no subject says so in grey, so the next
+line does not read as its subject.
+
+**Tests.** In `ListLikeMailTests`, six: a picture attached and one by
+`cid:` named, the first named of three; its words where it has any,
+nothing before its preview has come, nothing with no file or none
+named; the list knowing a letter drawn with no words once its preview
+comes back empty, and not before; "No Subject" and its grey; "No
+Recipient", the Outbox's too; the list and the cell using them.
+Changed: the pins of the list's one writer of a row
+(`RowComingIntoSightTests`, `DatesRedrawnTests`,
+`SentRowLikeMailTests`, `SentRowNamesTests`), and "No Recipients" to
+"No Recipient" in `SentRowLikeMailTests` and `SentRowNamesTests`.
+
+The file's line, "No Subject" and "No Recipient" each put back as they
+were, together: 23 failures in 11 tests, each an assertion's; put back,
+passing.
+
+**Not covered.**
+
+- A letter of two or more files: Mail was seen with one; named by its
+  first here, a guess for the check.
+- A file with no name: Mail not seen; such a file is passed over.
+- The reading pane's header, the printed page and a new letter's
+  banner still say "(no subject)" (`MessageHeaderView`, `PrintPage`,
+  `NewMailBanners`): Mail's were not seen there.
+- VoiceOver reads the row as before, with no file's name.
+
+## B-183 — FIXED 2026-10-29. In Drafts' Edit mode Mark and Move were blue with a draft ticked and the reading pane said "No message selected"; Mail's are grey there and its pane shows the ticked draft as a letter, and so do Blackmail's now
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, C-5a, its
+second run agreeing), and the plan made from it (area 3). The owner's
+ruling of 2026-10-29, copy Apple Mail; the layout rule of 2026-10-27
+(D-025) for the rest. Behaviour.
+
+**What Mail does.** In Drafts, Edit, one draft on the server ticked:
+"1 Selected", Trash blue, rgb(10, 132, 255), and Mark and Move grey,
+rgb(59, 59, 59) and rgb(62, 63, 62) (`scratch/11-colours.txt`); the
+draft shown in the pane as a letter, its header and its words, no
+composer and no keyboard; Cancel puts the pane back. With nothing
+ticked all three grey, as elsewhere (B-174).
+
+**What Blackmail did.** Mark, Move and Trash blue alike
+(`EditBar.acts(ticked:)`); the pane "No message selected", as
+`EditPane` left Drafts out (B-174).
+
+**What changed** (`EditBar`, `EditPane` in `ListEdit`, the list's
+controller).
+
+1. *Mark and Move* grey in a list of Drafts whatever is ticked
+   (`EditBar.marksAndMoves`), by the list's folder, as the third
+   button's word is; the third button follows the ticks, as before.
+   The Outbox as before: Mail's bar there cannot be seen without a
+   letter waiting in it, which would be sent (C-5b).
+2. *The pane.* One draft on the server ticked in Drafts is shown in
+   the pane as a tick shows a letter elsewhere (`EditPane.opens`), as
+   a letter, not marked read, and put back as Edit mode ends. Not a
+   draft kept on the iPad (`LocalDraft.key(ofRow:)`), which is no letter
+   on the server for the pane to show and which Mail has no row like:
+   the pane stays as it is. Not the Outbox. A tap out of Edit mode in
+   Drafts opens the composer, as before.
+
+**What he sees.** In Drafts' Edit mode the bar as Mail's, and the draft
+he ticked in the pane, to see which it is before he trashes it.
+
+**Tests.** In `ListLikeMailTests`, two: Mark and Move grey in Drafts
+with and without a tick, Trash with one, the Inbox's, a list with no
+role's and the Outbox's as before; a server draft opening in the pane
+in Drafts and Cancel putting the pane back, a draft kept on the iPad
+not, nothing in the Outbox, the Inbox's as before. Changed:
+`EditModeLikeMailTests`' pins of the list's bar and its pane, and its
+test of a folder whose rows open the composer, now one whose letter
+does not open in the pane.
+
+`marksAndMoves` with Drafts taken out, and `opens` false for every
+draft: 4 failures in 2 tests, each an assertion's; put back, passing.
+
+**Not covered.**
+
+- Mail with two or more drafts ticked: not seen; the pane stays as it
+  is, as elsewhere (B-174).
+- The pane's own buttons over a draft shown so are the letter's: its
+  Trash puts the draft in the Trash, as Mail's would be taken to.
+  Mail's were not tried.
+- A search of all mailboxes from Drafts goes by the list's folder:
+  Mark and Move grey over its hits too.
+
+## B-184 — FIXED 2026-10-29. The line under the list counted the minutes for an hour, "Updated 9 minutes ago", and was grey; Mail's gives the time of day from about the sixth minute, "Updated at 12:36 PM", and is white, and so is Blackmail's now
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, C-6a and
+C-6b, its second run agreeing), and the plan made from it (area 3).
+The owner's ruling of 2026-10-29, copy Apple Mail; the layout rule of
+2026-10-27 (D-025) for the rest. Words and a colour.
+
+**What Mail does.** After a pull in Notes, nothing fetched by itself
+meanwhile: "Updated Just Now", "Updated 2 minutes ago" at 2:07,
+"Updated 5 minutes ago" at 5:14, "Updated at 12:36 PM" at 10:08. One
+line, its words white, rgb(255, 255, 255) (`12-13-line-raw.txt`).
+
+**What Blackmail did.** The minutes until the hour (`UpdatedLine.age`),
+"Updated 9 minutes ago" at 10:02; grey, rgb(142, 142, 142), the
+label's `Theme.secondaryText`.
+
+**What changed** (`UpdatedLine` in `MailWatch`, the list's controller).
+
+1. *The words.* The minutes through five, "Updated 5 minutes ago",
+   and the time of day from the sixth minute, "Updated at 12:36 PM"
+   (`UpdatedLine.minutesUntil`, 360 seconds). Provisional: Mail was
+   seen at 5:14 and 10:08 and nothing between, and no public source
+   gives the turn, so it is the first whole minute after the last one
+   Mail was seen to count, one constant for the check to set. The rest
+   as before: just now for the first minute, "1 minute ago", the time
+   of day, "Yesterday", the date.
+2. *The colour.* White, `Theme.primaryText`, as Mail's; the unsent
+   count and what went wrong, on the same label, white with it (Mail's
+   not seen).
+
+Not copied: Blackmail's line sits 1 pt lower than Mail's, a baseline,
+and that is layout. The count against the tap, Mail 2 at 2:07 and
+Blackmail 1 at 2:02, counted from the listing's end a few seconds after
+the tap, is within the shots' slack: not changed; the check measures
+it.
+
+**What he sees.** The line says what time the list was fetched once it
+is more than a few minutes old, as Mail's does, in white.
+
+**Tests.** In `ListLikeMailTests`, two: the minutes through 5:59, the
+time of day at 6:00, 10:08 and 59 minutes, "1 minute ago", just now;
+the label white. Changed: `FeedbackTests`, its "59 minutes ago" and "6
+minutes ago" now the time of day and "4 minutes ago".
+
+`minutesUntil` back to the hour and the label grey again: 8 failures
+in 3 tests, each an assertion's; put back, passing.
+
+The full suite with the four: 3,193 tests, 6 skipped, none failing.
+The release build for the iPad: "Build complete".
+
+**Not covered.**
+
+- The turn itself: between 5:14 and 10:08, not seen. The check reads
+  Mail's line every 30 seconds from 4:30 (TODO).
+- His iPad's 10.2-inch wrap (B-049, "Updated 2 minutes ago" on two
+  lines there) is now for ages of two to five minutes only; its layout
+  stays the owner's to rule on.
+- The unsent count's and a failure's colours in Mail were not seen.

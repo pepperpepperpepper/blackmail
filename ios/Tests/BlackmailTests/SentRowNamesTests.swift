@@ -7,7 +7,7 @@ import XCTest
 /// drafts, and could tell them apart only by their subjects.
 ///
 /// Since B-075 the names are Mail's: the To alone, one person whole, two or
-/// more by short names joined "Jane & Sam", "No Recipients" for a letter
+/// more by short names joined "Jane & Sam", "No Recipient" for a letter
 /// with nobody in To, and no count (`SentRowLikeMailTests` holds the rule
 /// itself). Which folder a row was listed from decides it, so a letter of
 /// his found in All Mail by an All Mailboxes search still names him, as it
@@ -93,23 +93,23 @@ final class SentRowNamesTests: XCTestCase {
                         .displayRow(in: Self.sent, mine: Self.mine).sender, "Jane Example")
     }
 
-    /// A draft begun and put aside, addressed to nobody: "No Recipients",
+    /// A draft begun and put aside, addressed to nobody: "No Recipient",
     /// a conversation's letters all so too, and the people a letter in it
     /// is to when one is, with no count since B-075. A letter to Bcc alone,
-    /// or to Cc alone, says "No Recipients", as Mail's does: its To is
+    /// or to Cc alone, says "No Recipient", as Mail's does: its To is
     /// empty. B-060 named the Bcc.
     func testALetterToNobodySaysNoRecipients() {
         let nobody = letter("1/9", in: Self.drafts, to: [])
-        XCTAssertEqual(row([nobody]).displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipients")
-        XCTAssertEqual(row([nobody]).displayRow(in: Self.drafts, mine: Self.mine).sender, RowNames.noRecipients)
+        XCTAssertEqual(row([nobody]).displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipient")
+        XCTAssertEqual(row([nobody]).displayRow(in: Self.drafts, mine: Self.mine).sender, RowNames.noRecipient)
         XCTAssertEqual(row([nobody, letter("1/8", in: Self.drafts, to: [], hoursAgo: 1)])
-                        .displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipients")
+                        .displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipient")
         XCTAssertEqual(row([nobody, letter("1/8", in: Self.drafts, to: [Self.jane], hoursAgo: 1)])
                         .displayRow(in: Self.drafts, mine: Self.mine).sender, "Jane Example")
         XCTAssertEqual(row([letter("1/7", in: Self.drafts, to: [], bcc: ["lee@example.com"])])
-                        .displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipients")
+                        .displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipient")
         XCTAssertEqual(row([letter("1/6", in: Self.sent, to: [], cc: [Self.jane])])
-                        .displayRow(in: Self.sent, mine: Self.mine).sender, "No Recipients")
+                        .displayRow(in: Self.sent, mine: Self.mine).sender, "No Recipient")
     }
 
     /// A conversation in Sent Mail names everyone he wrote to in it, the
@@ -177,7 +177,7 @@ final class SentRowNamesTests: XCTestCase {
     /// VoiceOver reads the names the row shows, then how many letters, in
     /// words, which the row in Sent Mail marks after its date since B-075,
     /// then the subject and the time: whom the letters are to in Sent Mail,
-    /// "No Recipients" and the mark of a draft kept on the iPad in Drafts,
+    /// "No Recipient" and the mark of a draft kept on the iPad in Drafts,
     /// and who wrote everywhere else.
     func testVoiceOverReadsTheNamesTheRowShows() {
         let stamp = MailFormat.listTimestamp(Self.now, now: Self.now)
@@ -195,7 +195,7 @@ final class SentRowNamesTests: XCTestCase {
                               gone: false)
             .row(in: Self.drafts.id, from: "Owner Example")
         XCTAssertEqual(row([kept]).accessibilityLabel(in: Self.drafts, mine: Self.mine, now: Self.now),
-                       "On this iPad only, No Recipients, Half a letter, \(stamp)")
+                       "On this iPad only, No Recipient, Half a letter, \(stamp)")
 
         var received = letter("1/9", in: Self.inbox, to: [Self.me])
         received.sender = Self.jane
@@ -224,7 +224,7 @@ final class SentRowNamesTests: XCTestCase {
         XCTAssertEqual(row([landed]).displayRow(in: Self.drafts, mine: Self.mine).sender,
                        "Jane Example")
         XCTAssertEqual(row([kept(Draft()).row(in: Self.drafts.id, from: "Owner Example")])
-                        .displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipients")
+                        .displayRow(in: Self.drafts, mine: Self.mine).sender, "No Recipient")
 
         let waiting = kept(addressed).outboxRow(sending: false, saying: nil)
         XCTAssertEqual(row([waiting]).displayRow(in: Self.outbox, mine: Self.mine).sender,
@@ -232,7 +232,7 @@ final class SentRowNamesTests: XCTestCase {
         XCTAssertEqual(Outbox.addressees(of: addressed), "Jane Example")
         addressed.to.append("sam@example.com")
         XCTAssertEqual(Outbox.addressees(of: addressed), "Jane & sam")
-        XCTAssertEqual(Outbox.addressees(of: Draft()), "No Recipients")
+        XCTAssertEqual(Outbox.addressees(of: Draft()), "No Recipient")
     }
 
     // MARK: - The server's rows
@@ -294,9 +294,9 @@ final class SentRowNamesTests: XCTestCase {
         let draftRows = try await repository.listMessages(in: drafts.id, beforeUID: nil, limit: 20)
         let draftNames = MessageThread.rows(for: draftRows, grouped: true)
             .map { $0.displayRow(in: drafts, mine: Self.mine).sender }
-        XCTAssertEqual(Set(draftNames), ["No Recipients", "Sam Example"])
+        XCTAssertEqual(Set(draftNames), ["No Recipient", "Sam Example"])
         XCTAssertEqual(draftNames.filter { $0 == "Sam Example" }.count, 2, "the seeded drafts")
-        XCTAssertEqual(draftNames.filter { $0 == "No Recipients" }.count, 2,
+        XCTAssertEqual(draftNames.filter { $0 == "No Recipient" }.count, 2,
                        "the draft to nobody and the one to Lee alone, by Bcc")
 
         let inSent = try await repository.search(in: sent.id, query: "Lunch on Sunday",
@@ -322,10 +322,10 @@ final class SentRowNamesTests: XCTestCase {
     // MARK: - The copy kept on the iPad
 
     /// Whom a row is to, and its Bcc, are kept with it and read back, an
-    /// empty To as empty, so a draft to nobody still says "No Recipients"
+    /// empty To as empty, so a draft to nobody still says "No Recipient"
     /// at the next launch. A page kept before rows carried a To reads, its
     /// rows not knowing, and they name their sender as they did until the
-    /// folder is listed: no new format, and no "No Recipients" over every
+    /// folder is listed: no new format, and no "No Recipient" over every
     /// kept row in Sent Mail on the first launch of this build.
     func testWhomARowIsToIsKeptAndAPageKeptWithoutItNamesItsSender() throws {
         let account = MailAccount(address: "owner@example.com", username: "owner@example.com")
@@ -341,7 +341,7 @@ final class SentRowNamesTests: XCTestCase {
         XCTAssertEqual(back.map(\.to), rows.map(\.to))
         XCTAssertEqual(back.map(\.bcc), rows.map(\.bcc))
         XCTAssertEqual(MessageThread.rows(for: back, grouped: true).map { $0.displayRow(in: Self.sent, mine: Self.mine).sender },
-                       ["Jane Example", "No Recipients", "Sam Example"])
+                       ["Jane Example", "No Recipient", "Sam Example"])
 
         // The page as a build before the To wrote it.
         let file = try pageFile(of: Self.sent.id, under: writing.directory)
@@ -401,7 +401,7 @@ final class SentRowNamesTests: XCTestCase {
         // previews land (`RowParts`).
         for wiring in [
             "case let .thread(thread): if parts.contains(.lines) { "
-                + "cell.configure(with: thread.displayRow(in: mailbox, mine: mine),",
+                + "var row = thread.displayRow(in: mailbox, mine: mine) ",
             "if parts.contains(.label) { "
                 + "cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine) }",
             "draw(cell, at: ip, .made) return cell }",

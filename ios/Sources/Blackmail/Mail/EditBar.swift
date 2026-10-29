@@ -31,8 +31,12 @@ enum EditBar {
     /// "Trash" is not always where the tap puts them. In the Outbox, and
     /// for the letters kept on the iPad at the top of Drafts, it takes
     /// them off the iPad (`LocalDrafts.delete`), with nothing asked and no
-    /// copy in the Trash, where the word was "Delete" in red. Left to the
-    /// owner (TODO, "Blocked on the owner").
+    /// copy in the Trash, where the word was "Delete" in red. Ruled by the
+    /// owner on 2026-10-29, copy Apple Mail: Mail's word in Drafts with a
+    /// draft ticked is "Trash" in the bar's blue (round r6-n-compare,
+    /// C-5a), its Outbox's bar cannot be seen without a letter waiting in
+    /// it (C-5b), and Mail has no row like a draft kept on the iPad:
+    /// "Trash" stays.
     ///
     /// "Archive" where the account discards into the Archive and the
     /// folder's letters can be archived, `canArchive`: there is an All Mail
@@ -120,6 +124,18 @@ enum EditBar {
     /// ticked, as Mail's, which are grey with none (r6 comparison C-03,
     /// rgb(65,65,65)) and blue from the first tick. Select All always can.
     static func acts(ticked: Int) -> Bool { ticked > 0 }
+
+    /// Whether Mark and Move can be tapped in a list of the folder with
+    /// `role`: as the third button (`acts`), but never in Drafts, where
+    /// Mail's are grey with a draft ticked, rgb(59, 59, 59) and rgb(62,
+    /// 63, 62), and its Trash blue (the comparison with Mail of
+    /// 2026-10-29, round r6-n-compare, C-5a, B-183). Here they were blue.
+    /// By the list's folder, as the third button's word is. The Outbox's
+    /// as before: Mail's bar there cannot be seen without a letter waiting
+    /// in it, which would be sent (C-5b).
+    static func marksAndMoves(ticked: Int, inFolderWithRole role: Mailbox.Role?) -> Bool {
+        role != .drafts && acts(ticked: ticked)
+    }
 
     /// Whether Edit can be tapped: not in a folder with no rows, as Mail's
     /// Edit is grey in an empty Junk (C-03); Cancel always.

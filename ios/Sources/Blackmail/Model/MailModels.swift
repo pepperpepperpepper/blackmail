@@ -152,7 +152,7 @@ struct MessageSummary: Identifiable, Hashable {
     /// Nil where it is not known: a row kept on the iPad by a build before
     /// rows carried it (`MailShelf`), and a row the server gave no ENVELOPE
     /// for. Such a row names its sender, as every row did, until the folder
-    /// is next listed, rather than say "No Recipients" of a letter that had
+    /// is next listed, rather than say "No Recipient" of a letter that had
     /// some.
     var to: [String]? = nil
     /// Whom the letter was copied to, as the ENVELOPE the row is fetched

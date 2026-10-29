@@ -1193,7 +1193,7 @@ final class MailShelf: @unchecked Sendable {
         /// empty list for a letter to nobody; absent in a page kept before
         /// the rows carried it, which reads as not known, so such a row
         /// names its sender until the folder is listed again, rather than
-        /// "No Recipients" over every kept row in Sent Mail. No new format.
+        /// "No Recipient" over every kept row in Sent Mail. No new format.
         var to: [String]?
         /// `MessageSummary.bcc`: absent for a letter with none, and in a
         /// page kept before the rows carried it, which reads as none.

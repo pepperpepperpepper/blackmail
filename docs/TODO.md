@@ -11315,6 +11315,67 @@ checks below is left as not needed, not open, and none is worth a round.*
          (`COPYUID`). Nothing was sent, and nothing else was written to
          the account.
 
+- [ ] **B-181, the open letter's row blue as Mail's.** On the test
+      iPad, the test account only, from a build of the `bm-fix-j1`
+      worktree (branch `fix-j1`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted. Dark Mode,
+      Smart Invert off; full-size screenshots, Mail beside Blackmail.
+      1. *Three panes,* a letter in Notes tapped open in both: its row
+         rgb(10, 132, 255) with white names and subject, its date and
+         preview the see-through grey, about rgb(145, 194, 249), as
+         Mail's; the row edge to edge, as before. Screenshots.
+      2. *Two panes:* the same.
+      3. *A press:* a finger held on another row, not let go: the row
+         dark grey, rgb(38, 38, 38), as before; then slid off, nothing
+         opened. Another letter tapped: the old row back to black, no
+         grey between, the new one blue.
+      4. *Edit, Cancel:* the ticked row blue with its tick as before;
+         after Cancel the open letter's row blue again.
+
+- [ ] **B-182, a row's words as Mail's.** As B-181's check, the same
+      build, nothing composed, sent or moved. The letters are round
+      r6-n-compare's "R6 B-131 picture only rn" and "R6 B-131
+      attached picture rn", and its draft "R6 B-144 draft rn", or made
+      again as that round made them: the host APPENDs each, read, to
+      the label "Notes" (the draft to Drafts, as the round did),
+      noting each UID from its APPENDUID; it stops if one has none.
+      Mail beside Blackmail.
+      1. *The two picture letters' rows* in Notes: "Attachment:
+         h-photo.jpg" and "Attachment: IMG_0131.jpg" in the grey
+         lines, as Mail's. Screenshots.
+      2. *Drafts:* the draft's row "No Recipient", as Mail's; rows with
+         no subject "No Subject" in grey, about rgb(143, 143, 150), as
+         Mail's. Screenshots.
+      3. *A row with no subject opened:* its pane header beside Mail's,
+         written down (it still says "(no subject)"; not failed).
+      4. *Put back:* the host moves the UIDs it noted, and only them,
+         to the Trash, and deletes in the Trash only the UIDs that move
+         answered (`COPYUID`). Nothing was sent.
+
+- [ ] **B-183, Drafts in Edit mode as Mail's.** As B-182's check, its
+      draft. Nothing is deleted: Cancel only.
+      1. *Drafts, Edit,* the server draft ticked: Mark and Move grey,
+         Trash blue, "1 Selected", the draft in the pane as a letter,
+         its header and words, no composer and no keyboard, as Mail's.
+         Screenshots.
+      2. *Cancel:* the pane back as it was before Edit; nothing
+         deleted, the draft still in Drafts.
+      3. *The Inbox, Edit, a letter ticked:* Mark, Move and Trash blue,
+         as before; Cancel.
+
+- [ ] **B-184, the Updated line as Mail's.** The test account, Notes,
+      both apps. Nothing is written to the account.
+      1. *Mail:* a pull in Notes, nothing fetched by itself after (no
+         "Checking for Mail…" on any shot); its line read every 30 s
+         from 4:30 to 10:30; the first second it says "Updated at"
+         written down, and when it goes from "Just Now" to "1 minute
+         ago". Screenshots of the line at each turn.
+      2. *Blackmail:* Refresh in Notes, the same reading: "Updated 5
+         minutes ago" to 5:59, "Updated at" from 6:00; the line white,
+         rgb(255, 255, 255), beside Mail's.
+      3. If Mail turns at another minute, `UpdatedLine.minutesUntil`
+         is set to it (KNOWN_ISSUES B-184).
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -11682,7 +11743,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       cover over the pane from the tap, lifted once WebKit has painted
       "Loading…", which would hide the letter if it ever failed to lift.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-149.*
-- [ ] **Trash for letters only on the iPad** (B-144): in the Outbox, and
+- [x] **Trash for letters only on the iPad** (B-144): in the Outbox, and
       for the letters kept on the iPad at the top of Drafts, Edit mode's
       third button says "Trash" in the bar's blue, the ruling's word
       outside the Trash, and its tap takes them off the iPad with nothing
@@ -11692,6 +11753,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       (the default), or "Delete" there: one line for the Outbox; in
       Drafts, which holds the server's drafts too, the word would follow
       his ticks.
+      *Ruled 2026-10-29: copy Apple Mail. Mail's word in Drafts with a
+      draft ticked is "Trash" in the bar's blue (C-5a): as built; Mail's
+      Outbox bar cannot be seen without a letter waiting in it (C-5b),
+      and Mail has no row for a draft kept on the iPad: "Trash" stays.
+      Mark and Move grey there, B-183.*
 
 ## Open, recorded, not scheduled
 

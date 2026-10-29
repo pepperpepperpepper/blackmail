@@ -215,8 +215,10 @@ final class RowComingIntoSightTests: XCTestCase {
         XCTAssertEqual(draw,
             "private func draw(_ cell: MessageCell, at ip: IndexPath, _ parts: RowParts) { "
             + "guard ip.row < rows.count else { return } switch rows[ip.row] { case let .thread(thread): "
-            + "if parts.contains(.lines) { cell.configure(with: thread.displayRow(in: mailbox, mine: mine), "
-            + "marked: thread.marksConversation(in: mailbox)) } "
+            + "if parts.contains(.lines) { var row = thread.displayRow(in: mailbox, mine: mine) "
+            + "row.preview = RowPreview.preview(of: thread.newest, "
+            + "drawnWithNoWords: letters.drawnWithNoWords(thread.newest)) "
+            + "cell.configure(with: row, marked: thread.marksConversation(in: mailbox)) } "
             + "else if parts.contains(.date) { cell.drawDate() } "
             + "if parts.contains(.busy) { cell.isBusy = thread.messages.contains { $0.id == drafts.loading } } "
             + "if parts.contains(.label) { "

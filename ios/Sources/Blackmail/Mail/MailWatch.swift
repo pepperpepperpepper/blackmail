@@ -355,14 +355,27 @@ struct UpdatedLine: Equatable {
         return lines.compactMap { $0 }.joined(separator: "\n")
     }
 
-    /// "Updated Just Now" for the first minute, then the minutes, then the
-    /// time of day, then "Yesterday", then the date. An update dated after
-    /// now, the clock having been set back, is given by its time or date
-    /// rather than called just now.
+    /// Up to when the line counts the minutes, after which it gives the
+    /// time of day (`age`), in seconds: through "5 minutes ago", and "at
+    /// 12:36 PM" from the sixth minute (B-184). Provisional. Mail 16.5.1 on
+    /// the test iPad said "Updated 5 minutes ago" 5:14 after a pull and
+    /// "Updated at 12:36 PM" at 10:08, and nothing between was seen (the
+    /// comparison with Mail of 2026-10-29, round r6-n-compare, C-6a); no
+    /// public source gives the turn. So the first whole minute after the
+    /// last one Mail was seen to count, to be set to what Mail does when
+    /// the line is read again on the test iPad (TODO). It was the hour,
+    /// "Updated 59 minutes ago".
+    static let minutesUntil: TimeInterval = 6 * 60
+
+    /// "Updated Just Now" for the first minute, then the minutes through
+    /// five (`minutesUntil`), then the time of day, then "Yesterday", then
+    /// the date, as Mail's line goes. An update dated after now, the clock
+    /// having been set back, is given by its time or date rather than
+    /// called just now.
     static func age(of updated: Date, now: Date, calendar: Calendar, locale: Locale) -> String {
         let seconds = now.timeIntervalSince(updated)
         if seconds >= 0, seconds < 60 { return "Updated Just Now" }
-        if seconds >= 60, seconds < 3_600 {
+        if seconds >= 60, seconds < minutesUntil {
             let minutes = Int(seconds / 60)
             return minutes == 1 ? "Updated 1 minute ago" : "Updated \(minutes) minutes ago"
         }

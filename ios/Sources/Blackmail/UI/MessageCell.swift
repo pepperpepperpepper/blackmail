@@ -51,8 +51,12 @@ final class MessageCell: UITableViewCell {
     /// The preview's words, drawn in the grey the row's state calls for
     /// (`drawPreview`).
     private var previewText = ""
-    /// The selected row's ground: the grey of the letter in the pane, or
-    /// Mail's blue for a tick in Edit mode (`colour`, B-174).
+    /// The letter has no subject: the subject line says Mail's "No
+    /// Subject" in the row's grey (`drawSubject`, `RowPreview`, B-182).
+    private var subjectIsGrey = false
+    /// The ground of a selected or pressed row: Mail's blue for the letter
+    /// in the pane and for a tick in Edit mode, the grey of a press
+    /// otherwise (`colour`, `RowShade`, B-174, B-181).
     private let selectedGround = UIView()
 
     /// The list is in Edit mode, where a selected row is a tick, drawn as
@@ -60,7 +64,10 @@ final class MessageCell: UITableViewCell {
     /// rgb(10,132,255), the tick a white disc, the names and the subject
     /// white as always, and the grey lines in Mail's see-through grey,
     /// which reads (145,194,249) on the blue. It was the letter-in-the-pane
-    /// grey with a blue tick. Colours only: nothing moves (B-174).
+    /// grey with a blue tick. Colours only: nothing moves (B-174). Since
+    /// B-181 the letter in the pane is drawn in the same colours out of
+    /// Edit mode, as Mail's is (`RowShade`); this says only whether a press
+    /// is blue and whether the row's own tick shows.
     var ticks = false {
         didSet {
             guard ticks != oldValue else { return }
@@ -94,9 +101,10 @@ final class MessageCell: UITableViewCell {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
         selectionStyle = .default
 
-        // Full-bleed selection with black text, the pre-iOS-13 treatment. The
-        // modern default insets the highlight and greys the text, both of which
-        // make "which message am I looking at" harder to answer at a glance.
+        // Full-bleed selection, the pre-iOS-13 treatment. The modern default
+        // insets the highlight and greys the text, both of which make "which
+        // message am I looking at" harder to answer at a glance. Its colour
+        // as the row is selected or pressed (`colour`, `RowShade`).
         selectedGround.backgroundColor = Theme.selection
         selectedBackgroundView = selectedGround
 
@@ -183,7 +191,10 @@ final class MessageCell: UITableViewCell {
         // (`MessageSummary.listDate`, B-178).
         date = m.listDate
         drawDate()
-        subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
+        // Mail's "No Subject" in the grey where there is none (B-182).
+        subjectLabel.text = RowPreview.subject(m.subject)
+        subjectIsGrey = RowPreview.subjectIsGrey(m.subject)
+        drawSubject()
 
         previewText = m.preview
         drawPreview()
@@ -214,55 +225,65 @@ final class MessageCell: UITableViewCell {
         ])
     }
 
-    /// Ticked: selected in Edit mode (`ticks`).
-    private var ticked: Bool { ticks && isSelected }
+    /// The row's colours as it is now: selected, pressed, in Edit mode
+    /// (`RowShade`, B-174, B-181).
+    private var shade: RowShade {
+        RowShade(selected: isSelected, pressed: isHighlighted, ticks: ticks)
+    }
 
-    /// The second lines' grey: Mail's see-through one on a ticked row.
-    private var grey: UIColor { ticked ? Self.tickedGrey : Theme.secondaryText }
-
-    /// The row's own tick shows (`placeTick`) whenever UIKit's
-    /// edit control draws its ticked image: on a ticked row, and while a
-    /// finger is down on a row of Edit mode, which the control draws
-    /// ticked as the row is highlighted. Seen white on white during a held
-    /// press on the iOS 17.5 and 18.6 simulators (B-174).
-    private var showsTick: Bool { ticks && (isSelected || isHighlighted) }
+    /// The second lines' grey: Mail's see-through one on a selected row,
+    /// the letter in the pane or a tick.
+    private var grey: UIColor { shade.onBlue ? Self.tickedGrey : Theme.secondaryText }
 
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
         colour()
     }
 
-    /// The row's own tick follows a press as UIKit's does (`showsTick`).
+    /// A press's ground, and the row's own tick, which follows a press as
+    /// UIKit's does (`RowShade.tick`).
     override func setHighlighted(_ highlighted: Bool, animated: Bool) {
         super.setHighlighted(highlighted, animated: animated)
-        tickMark.isHidden = !showsTick
-        setNeedsLayout()
+        colour()
     }
 
-    /// The row's colours as it is ticked or not (`ticks`, B-174): the
-    /// ground, the tick, and on a ticked row the grey lines, the paperclip
-    /// and the arrow in Mail's see-through grey, and the unread dot and the
+    /// The row's colours as it is selected, pressed or ticked (`RowShade`,
+    /// B-174, B-181): the ground, the tick, and on a selected row, the
+    /// letter in the pane as a tick, the grey lines, the paperclip and the
+    /// arrow in Mail's see-through grey, and the unread dot and the
     /// conversation's mark white, as they would be lost blue on blue (Mail's
     /// ticked row was seen with neither). The names, the subject and the
-    /// flag keep theirs. Out of Edit mode as it always was.
+    /// flag keep theirs; a missing subject's "No Subject" takes the grey.
     private func colour() {
-        selectedGround.backgroundColor = ticks ? Theme.tintBlue : Theme.selection
+        let shade = self.shade
+        switch shade.ground {
+        case .blue?: selectedGround.backgroundColor = Theme.tintBlue
+        case .grey?: selectedGround.backgroundColor = Theme.selection
+        case nil: break
+        }
         // UIKit draws the tick in the cell's tint: on 16 a plain white
         // disc, no check, as round r6-m-fix saw (KNOWN_ISSUES B-174), and
         // from 17 a white check on it. The row draws its own tick over
         // UIKit's on both (`placeTick`). The circle of a row not ticked
         // is UIKit's grey whatever the tint.
         tintColor = ticks ? .white : nil
-        tickMark.isHidden = !showsTick
+        tickMark.isHidden = !shade.tick
         setNeedsLayout()
         let grey = self.grey
         guard timestampLabel.textColor != grey else { return }
         timestampLabel.textColor = grey
         attachmentIcon.tintColor = grey
         statusIcon.tintColor = grey
-        unreadDot.backgroundColor = ticked ? .white : Theme.tintBlue
-        conversationMark.tintColor = ticked ? .white : Theme.tintBlue
+        unreadDot.backgroundColor = shade.onBlue ? .white : Theme.tintBlue
+        conversationMark.tintColor = shade.onBlue ? .white : Theme.tintBlue
+        drawSubject()
         drawPreview()
+    }
+
+    /// The subject line's colour: white, or the row's grey for Mail's "No
+    /// Subject" (`subjectIsGrey`, B-182).
+    private func drawSubject() {
+        subjectLabel.textColor = subjectIsGrey ? grey : Theme.primaryText
     }
 
     /// The date at the top right written from the row's own, as the iPad
@@ -416,7 +437,7 @@ final class MessageCell: UITableViewCell {
     }
 
     /// The row's own tick on a ticked row and during a press on one of
-    /// Edit mode (`showsTick`), on 16 as from 17 (`tickMark`):
+    /// Edit mode (`RowShade.tick`), on 16 as from 17 (`tickMark`):
     /// the check in the row's blue on a white disc (`tickPalette`), put
     /// inside UIKit's edit control over UIKit's own tick, at its frame and
     /// at its size at every text size, so it slides in and out with it and
@@ -432,7 +453,7 @@ final class MessageCell: UITableViewCell {
     /// UIKit's control had, whose frame and content mode the row's tick
     /// would then take in place of the tick's.
     private func placeTick() {
-        guard showsTick, let control = subviews.first(where: { $0 is UIControl }),
+        guard shade.tick, let control = subviews.first(where: { $0 is UIControl }),
               let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark })
                 as? UIImageView
         else {

@@ -221,6 +221,12 @@ enum ListEdit {
 /// shows it for a tick was not seen. With two or more ticked the pane stays
 /// as it is (Mail draws a stack of them there, which is not copied).
 ///
+/// In Drafts too, for a draft on the server, shown as a letter, its header
+/// and words, as Mail shows a ticked draft (the comparison with Mail of
+/// 2026-10-29, round r6-n-compare, C-5a, B-183); a tap out of Edit mode
+/// still opens the composer. Not for a draft kept on the iPad, which Mail
+/// has no row like, nor in the Outbox (`opens`).
+///
 /// Put back at every end of Edit mode, not only Cancel: after the Edit
 /// bar's Trash, Move or Mark the pane is as it was before this, the letter
 /// shown before Edit, emptied if it went (`ListEdit.going`). Only when the
@@ -253,16 +259,29 @@ struct EditPane {
 
     /// The ticks have changed, `ticked` the rows ticked: the row whose
     /// letter goes in the pane, when there is exactly one, the pane does not
-    /// already show it (`ListEdit.paneRow`), and the folder's rows open in
-    /// the pane (`opens`: not Drafts or the Outbox, where a tap opens the
-    /// composer). Nil otherwise, and the pane stays as it is.
+    /// already show it (`ListEdit.paneRow`), and its letter opens in the
+    /// pane (`opens`, `EditPane.opens`). Nil otherwise, and the pane stays
+    /// as it is.
     mutating func ticked(_ ticked: [Int], in threads: [MessageThread], showing shown: [String],
-                         opens: Bool = true) -> Int? {
-        guard before != nil, opens, ticked.count == 1, let row = ticked.first,
-              threads.indices.contains(row),
+                         opens: (MessageThread) -> Bool = { _ in true }) -> Int? {
+        guard before != nil, ticked.count == 1, let row = ticked.first,
+              threads.indices.contains(row), opens(threads[row]),
               ListEdit.paneRow(in: threads, showing: shown) != row else { return nil }
         shownForTick = threads[row].newest.id
         return row
+    }
+
+    /// Whether a ticked row's `thread` goes in the pane, in a list of the
+    /// folder with `role`: everywhere but the Outbox (`outbox`), whose
+    /// letters a tap opens to be changed, and in Drafts but a draft kept on
+    /// the iPad (`LocalDraft.key(ofRow:)`), which is no letter on the
+    /// server for the pane to show and which Mail has no row like. A draft
+    /// on the server is shown as a letter, as Mail shows it (B-183).
+    static func opens(_ thread: MessageThread, inFolderWithRole role: Mailbox.Role?,
+                      outbox: Bool) -> Bool {
+        if outbox { return false }
+        guard role == .drafts else { return true }
+        return !thread.messages.contains { LocalDraft.key(ofRow: $0.id) != nil }
     }
 
     /// What the pane goes back to as Edit mode ends.

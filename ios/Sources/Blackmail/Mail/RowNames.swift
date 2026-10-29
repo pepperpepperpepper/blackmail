@@ -22,10 +22,13 @@ import Foundation
 enum RowNames {
 
     /// What the top line says of a letter with nobody in its To: a draft
-    /// begun and put aside, or a letter sent to Cc or Bcc alone. The words
-    /// the Outbox's rows have used since B-052. Mail's own string table for
-    /// its rows holds "No Recipient", one; these stayed (B-075).
-    static let noRecipients = "No Recipients"
+    /// begun and put aside, or a letter sent to Cc or Bcc alone, in Drafts,
+    /// Sent Mail and the Outbox alike. Mail's own string table for its rows
+    /// holds "No Recipient", one; "No Recipients", the words the Outbox's
+    /// rows had used since B-052, stayed at B-075. Mail's draft row said
+    /// "No Recipient" in the comparison with Mail of 2026-10-29 (round
+    /// r6-n-compare, C-5a, in passing), and so does Blackmail's (B-182).
+    static let noRecipient = "No Recipient"
 
     /// Whether a row listed from `folderID`, in the list of `list`, names
     /// whom its letter is to: in Sent Mail, Drafts and the Outbox, for a row
@@ -50,7 +53,7 @@ enum RowNames {
     /// The top line of a row that names whom its letter is to, from the
     /// entries of its To alone, as Mail on the iPad builds it (B-075):
     ///
-    /// - Nobody in To: "No Recipients". Not the Cc, not the Bcc, so a
+    /// - Nobody in To: "No Recipient". Not the Cc, not the Bcc, so a
     ///   letter sent to Bcc alone says so too.
     /// - One: the name whole, "Jane Example", or the address where the
     ///   letter gives no name. A name that is only the address again is
@@ -70,7 +73,7 @@ enum RowNames {
     /// its end, as every row's is, and Mail's rows have no "& 2 more".
     static func line(to entries: [String], mine: OwnAddresses) -> String {
         let people = entries.compactMap(person(in:))
-        guard let first = people.first else { return noRecipients }
+        guard let first = people.first else { return noRecipient }
         guard people.count > 1 else { return fullName(first) }
 
         var seenAddresses = Set<String>()

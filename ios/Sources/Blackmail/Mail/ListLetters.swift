@@ -211,6 +211,16 @@ final class ListLetters: PaneActionList {
         rows.filter { !drawn.hasDrawn($0) }
     }
 
+    /// Whether `row`'s letter was drawn with no words: it has no preview,
+    /// and its preview was asked for and answered with none
+    /// (`SearchPreviews.hasDrawn`), as for a letter that is only a
+    /// picture. Its row says what file it carries in its grey lines
+    /// instead, as Mail's does (`RowPreview`, B-182). False for a row whose
+    /// preview has not come yet.
+    func drawnWithNoWords(_ row: MessageSummary) -> Bool {
+        row.preview.isEmpty && drawn.hasDrawn(row)
+    }
+
     /// Drafts' letters kept on the iPad and not yet on the server
     /// (`LocalDrafts`), at the top, newest first, above the folder's own
     /// letters, and in place of the copies on the server they will replace

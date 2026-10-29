@@ -117,9 +117,9 @@ final class EditModeLikeMailTests: XCTestCase {
     }
 
     /// Nothing goes in the pane for no tick, two or more ticks, the row the
-    /// pane already shows, a row out of range, outside Edit mode, or in a
-    /// folder whose rows open the composer; and with nothing put in the
-    /// pane, nothing is put back.
+    /// pane already shows, a row out of range, outside Edit mode, or whose
+    /// letter does not open in the pane (`EditPane.opens`); and with
+    /// nothing put in the pane, nothing is put back.
     func testOnlyOneTickOfAnotherRowChangesThePane() {
         let threads = self.threads
         var pane = EditPane()
@@ -129,7 +129,7 @@ final class EditModeLikeMailTests: XCTestCase {
         XCTAssertNil(pane.ticked([1, 2], in: threads, showing: ["7/150"]))
         XCTAssertNil(pane.ticked([0], in: threads, showing: ["7/150"]), "already in the pane")
         XCTAssertNil(pane.ticked([9], in: threads, showing: ["7/150"]))
-        XCTAssertNil(pane.ticked([2], in: threads, showing: ["7/150"], opens: false), "Drafts")
+        XCTAssertNil(pane.ticked([2], in: threads, showing: ["7/150"], opens: { _ in false }), "the Outbox")
         guard case .stay = pane.end(in: threads, showing: ["7/150"]) else {
             return XCTFail("nothing to put back")
         }
@@ -271,15 +271,17 @@ final class EditModeLikeMailTests: XCTestCase {
         let list = try source("UI/MessageListViewController.swift")
         let update = flat(body(after: "private func updateSelectAllTitle()", in: list))
         inOrder(["let ticked = inEditMode ? (tableView.indexPathsForSelectedRows?.count ?? 0) : 0",
-                 "for item in [markItem, moveItem, deleteItem] { item?.isEnabled = "
-                    + "EditBar.acts(ticked: ticked) }",
+                 "for item in [markItem, moveItem] { item?.isEnabled = EditBar.marksAndMoves("
+                    + "ticked: ticked, inFolderWithRole: mailbox.role) }",
+                 "deleteItem?.isEnabled = EditBar.acts(ticked: ticked)",
                  "title = EditBar.title(ticked: ticked, folder: mailbox.displayName)",
                  "onPaneDimmed?(EditBar.dimsPane(editing: inEditMode, ticked: ticked))"],
                 in: update)
 
         let follows = flat(body(after: "private func paneFollowsTicks()", in: list))
-        inOrder(["editPane.ticked(ticked, in: threads, showing: lettersInPane(), "
-                    + "opens: mailbox.role != .drafts && !isOutbox)",
+        inOrder(["let role = mailbox.role let outbox = isOutbox",
+                 "editPane.ticked(ticked, in: threads, showing: lettersInPane(), "
+                    + "opens: { EditPane.opens($0, inFolderWithRole: role, outbox: outbox) })",
                  "showInPane(threads[row])"], in: follows)
         let show = flat(body(after: "private func showInPane(_ thread: MessageThread)", in: list))
         XCTAssertTrue(show.contains("onSelectThread?(thread, CompleteThreads.thread("))
@@ -393,21 +395,29 @@ final class EditModeLikeMailTests: XCTestCase {
 
     /// A ticked row in Mail's blue with the tick white, its grey lines in
     /// Mail's see-through grey, set as Edit mode begins and as the row is
-    /// selected; the grey of the letter in the pane out of Edit mode.
+    /// selected or pressed (`RowShade`); since B-181 the letter in the pane
+    /// out of Edit mode in the same colours, and a press there grey.
     func testATickedRowIsBlueWithAWhiteTick() throws {
         let cell = try source("UI/MessageCell.swift")
         XCTAssertTrue(flat(cell).contains("var ticks = false { didSet { guard ticks != oldValue "
                                           + "else { return } colour() } }"))
         XCTAssertTrue(flat(cell).contains("private static let tickedGrey = UIColor(red: 235 / 255, "
                                           + "green: 235 / 255, blue: 245 / 255, alpha: 0.6)"))
-        XCTAssertTrue(flat(cell).contains("private var ticked: Bool { ticks && isSelected }"))
+        XCTAssertTrue(flat(cell).contains("private var shade: RowShade { RowShade(selected: isSelected, "
+                                          + "pressed: isHighlighted, ticks: ticks) }"))
+        XCTAssertTrue(flat(cell).contains("private var grey: UIColor { shade.onBlue ? Self.tickedGrey "
+                                          + ": Theme.secondaryText }"))
         XCTAssertTrue(flat(cell).contains("override func setSelected(_ selected: Bool, animated: Bool) "
                                           + "{ super.setSelected(selected, animated: animated) colour() }"))
         let colour = flat(body(after: "private func colour()", in: cell))
-        inOrder(["selectedGround.backgroundColor = ticks ? Theme.tintBlue : Theme.selection",
+        inOrder(["let shade = self.shade switch shade.ground { "
+                    + "case .blue?: selectedGround.backgroundColor = Theme.tintBlue "
+                    + "case .grey?: selectedGround.backgroundColor = Theme.selection case nil: break }",
                  "tintColor = ticks ? .white : nil",
                  "timestampLabel.textColor = grey",
-                 "unreadDot.backgroundColor = ticked ? .white : Theme.tintBlue",
+                 "unreadDot.backgroundColor = shade.onBlue ? .white : Theme.tintBlue",
+                 "conversationMark.tintColor = shade.onBlue ? .white : Theme.tintBlue",
+                 "drawSubject()",
                  "drawPreview()"], in: colour)
         XCTAssertTrue(flat(body(after: "private func drawPreview()", in: cell))
                         .contains(".foregroundColor: grey"))
@@ -442,17 +452,16 @@ final class EditModeLikeMailTests: XCTestCase {
         XCTAssertTrue(layout.hasPrefix("{ super.layoutSubviews() placeTick() let w = "))
         let colour = flat(body(after: "private func colour()", in: cell))
         XCTAssertTrue(colour.contains("tintColor = ticks ? .white : nil "
-                                      + "tickMark.isHidden = !showsTick setNeedsLayout() let grey = self.grey"),
+                                      + "tickMark.isHidden = !shade.tick setNeedsLayout() let grey = self.grey"),
                       "the tint as it was, and the tick shown or hidden before the early return")
-        XCTAssertTrue(code.contains("private var showsTick: Bool { ticks && (isSelected || isHighlighted) }"),
+        XCTAssertTrue(RowShade(selected: false, pressed: true, ticks: true).tick,
                       "as UIKit's edit control draws its ticked image: selected or highlighted")
         let press = flat(body(after: "override func setHighlighted(_ highlighted: Bool, animated: Bool)", in: cell))
-        XCTAssertEqual(press, "{ super.setHighlighted(highlighted, animated: animated) "
-                       + "tickMark.isHidden = !showsTick setNeedsLayout() }",
-                       "a press shows the row's tick as it shows UIKit's")
+        XCTAssertEqual(press, "{ super.setHighlighted(highlighted, animated: animated) colour() }",
+                       "a press shows the row's tick as it shows UIKit's, and its ground")
 
         let place = flat(body(after: "private func placeTick()", in: cell))
-        XCTAssertEqual(place, "{ guard showsTick, let control = subviews.first(where: { $0 is UIControl }), "
+        XCTAssertEqual(place, "{ guard shade.tick, let control = subviews.first(where: { $0 is UIControl }), "
                        + "let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark }) "
                        + "as? UIImageView else { tickMark.isHidden = true return } "
                        + "if tickMark.superview !== control { control.addSubview(tickMark) } "
@@ -472,12 +481,12 @@ final class EditModeLikeMailTests: XCTestCase {
         XCTAssertEqual(count("control.", in: place), 3,
                        "UIKit's control only read and added to: subviews, addSubview, bringSubviewToFront")
 
-        // The tick reached in `colour`, `setHighlighted` and `placeTick`
-        // alone, and `placeTick` called in `layoutSubviews` alone.
+        // The tick reached in `colour` and `placeTick` alone, and
+        // `placeTick` called in `layoutSubviews` alone.
         XCTAssertEqual(count("placeTick()", in: code), 2, "its declaration and its one call")
-        XCTAssertEqual(count("tickMark", in: code), count("tickMark", in: place) + 3,
-                       "its declaration and colour's and setHighlighted's one use each besides placeTick's")
-        XCTAssertEqual(count("showsTick", in: code), 4, "its declaration, colour's, setHighlighted's and the guard")
+        XCTAssertEqual(count("tickMark", in: code), count("tickMark", in: place) + 2,
+                       "its declaration and colour's one use besides placeTick's")
+        XCTAssertEqual(count("shade.tick", in: code), 2, "colour's and the guard")
     }
 
     // MARK: - Reading the source

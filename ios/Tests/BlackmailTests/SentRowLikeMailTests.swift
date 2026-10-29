@@ -59,14 +59,14 @@ final class SentRowLikeMailTests: XCTestCase {
 
     // MARK: - The name line: nobody, and one
 
-    /// Nobody in To: "No Recipients". A blank entry, an empty group as a
+    /// Nobody in To: "No Recipient". A blank entry, an empty group as a
     /// letter sent to Bcc alone carries, and spaces name nobody.
     func testNobodyInToSaysNoRecipients() {
-        XCTAssertEqual(line([]), "No Recipients")
-        XCTAssertEqual(line([" ", ""]), "No Recipients")
-        XCTAssertEqual(line(["undisclosed-recipients:;"]), "No Recipients")
-        XCTAssertEqual(line(["Friends: ;"]), "No Recipients")
-        XCTAssertEqual(line(["\n"]), RowNames.noRecipients)
+        XCTAssertEqual(line([]), "No Recipient")
+        XCTAssertEqual(line([" ", ""]), "No Recipient")
+        XCTAssertEqual(line(["undisclosed-recipients:;"]), "No Recipient")
+        XCTAssertEqual(line(["Friends: ;"]), "No Recipient")
+        XCTAssertEqual(line(["\n"]), RowNames.noRecipient)
     }
 
     /// One person: whole. The name the letter gives, a quoted one and one
@@ -100,7 +100,7 @@ final class SentRowLikeMailTests: XCTestCase {
     /// An address with a semicolon after it, as a draft's field keeps one
     /// typed so, and the last of a group's people, are named: only an
     /// entry with no address in it names nobody. Drafts and the Outbox
-    /// read such a draft as Jane's, not "No Recipients".
+    /// read such a draft as Jane's, not "No Recipient".
     func testAnAddressBeforeASemicolonIsNamed() {
         XCTAssertEqual(line(["jane@example.com;"]), "jane@example.com")
         XCTAssertEqual(line(["Jane Example <jane@example.com>;"]), "Jane Example")
@@ -196,7 +196,7 @@ final class SentRowLikeMailTests: XCTestCase {
     // MARK: - Rows
 
     /// The row names the To alone: not the Cc, not the Bcc, and not him.
-    /// A letter sent to Cc or Bcc alone says "No Recipients".
+    /// A letter sent to Cc or Bcc alone says "No Recipient".
     func testARowNamesItsToAlone() {
         let one = letter("1/9", in: Self.sent, to: [Self.jane], cc: [Self.sam], bcc: [Self.bob])
         XCTAssertEqual(MessageThread(messages: [one]).displayRow(in: Self.sent, mine: Self.mine).sender,
@@ -204,7 +204,7 @@ final class SentRowLikeMailTests: XCTestCase {
         for blind in [letter("1/8", in: Self.sent, to: [], bcc: [Self.bob]),
                       letter("1/7", in: Self.sent, to: [], cc: [Self.sam])] {
             XCTAssertEqual(MessageThread(messages: [blind]).displayRow(in: Self.sent, mine: Self.mine)
-                            .sender, "No Recipients")
+                            .sender, "No Recipient")
         }
     }
 
@@ -367,8 +367,8 @@ final class SentRowLikeMailTests: XCTestCase {
         for wiring in [
             "private lazy var mine = OwnAddresses(account: CredentialStore.loadAccount())",
             "case let .thread(thread): if parts.contains(.lines) { "
-                + "cell.configure(with: thread.displayRow(in: mailbox, mine: mine), "
-                + "marked: thread.marksConversation(in: mailbox)) }",
+                + "var row = thread.displayRow(in: mailbox, mine: mine) ",
+            "cell.configure(with: row, marked: thread.marksConversation(in: mailbox)) }",
             "draw(cell, at: ip, .made) return cell }",
             "rebuildRows() drawRowsInSight(.previewsLanded) }",
             "case let .thread(thread) where thread.count > 1:",

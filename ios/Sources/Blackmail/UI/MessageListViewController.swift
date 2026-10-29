@@ -619,7 +619,11 @@ final class MessageListViewController: UITableViewController {
         // actually my mail, or is it stale?" - a question that otherwise ends
         // in a phone call.
         statusLabel.font = Theme.fontToolbarStatus
-        statusLabel.textColor = Theme.secondaryText
+        // White, as Mail's line is (B-184): it was the grey of a row's
+        // date, rgb(142, 142, 142), where Mail's reads rgb(255, 255, 255)
+        // (round r6-n-compare, C-6b). The unsent count and what went wrong,
+        // on the same label, with it.
+        statusLabel.textColor = Theme.primaryText
         statusLabel.textAlignment = .center
         // Up to three lines, as Mail's bar has them: how old the list is,
         // the letters waiting in the Outbox, and what went wrong
@@ -629,7 +633,7 @@ final class MessageListViewController: UITableViewController {
         // Five taps here opens the connection log. Hidden on purpose:
         // `PRODUCT_SPEC.md` forbids showing protocol text to him, but whoever is helping
         // over the phone needs to see what the server actually said, and
-        // "tap the grey words five times" is a thing that can be said down a
+        // "tap the words at the bottom five times" is a thing that can be said down a
         // telephone to someone who cannot navigate a settings screen.
         DiagnosticsViewController.attachOpener(to: statusLabel) { [weak self] in self }
         // The footer is a real labelled control, not just a status line.
@@ -1498,9 +1502,15 @@ final class MessageListViewController: UITableViewController {
             // folder a conversation is marked after the date, with no
             // count, and VoiceOver reads what it names and how many
             // (B-080).
+            //
+            // A letter drawn with no words says the file it carries in its
+            // grey lines, "Attachment: IMG_0131.jpg", as Mail's row does
+            // (`RowPreview`, B-182).
             if parts.contains(.lines) {
-                cell.configure(with: thread.displayRow(in: mailbox, mine: mine),
-                               marked: thread.marksConversation(in: mailbox))
+                var row = thread.displayRow(in: mailbox, mine: mine)
+                row.preview = RowPreview.preview(of: thread.newest,
+                                                 drawnWithNoWords: letters.drawnWithNoWords(thread.newest))
+                cell.configure(with: row, marked: thread.marksConversation(in: mailbox))
             } else if parts.contains(.date) {
                 cell.drawDate()
             }
@@ -2634,29 +2644,38 @@ final class MessageListViewController: UITableViewController {
 
     /// The bar, the title and the pane as the ticks are now, at every
     /// change of them and as Edit mode begins and ends: Select All's word;
-    /// Mark, Move and the third button grey with nothing ticked; the title
-    /// "1 Selected"; the reading pane dimmed with nothing ticked, as Mail's
-    /// (`EditBar`, B-174). Out of Edit mode the selected row is the letter
-    /// in the pane, not a tick: the folder's name, and no dimming.
+    /// Mark, Move and the third button grey with nothing ticked, and Mark
+    /// and Move grey in Drafts whatever is ticked; the title "1 Selected";
+    /// the reading pane dimmed with nothing ticked, as Mail's (`EditBar`,
+    /// B-174, B-183). Out of Edit mode the selected row is the letter in
+    /// the pane, not a tick: the folder's name, and no dimming.
     private func updateSelectAllTitle() {
         guard let selectAllItem else { return }
         let all = rows.count > 0 && (tableView.indexPathsForSelectedRows?.count ?? 0) == rows.count
         selectAllItem.title = all ? "Deselect All" : "Select All"
         selectAllItem.isEnabled = rows.count > 0
         let ticked = inEditMode ? (tableView.indexPathsForSelectedRows?.count ?? 0) : 0
-        for item in [markItem, moveItem, deleteItem] { item?.isEnabled = EditBar.acts(ticked: ticked) }
+        for item in [markItem, moveItem] {
+            item?.isEnabled = EditBar.marksAndMoves(ticked: ticked, inFolderWithRole: mailbox.role)
+        }
+        deleteItem?.isEnabled = EditBar.acts(ticked: ticked)
         title = EditBar.title(ticked: ticked, folder: mailbox.displayName)
         onPaneDimmed?(EditBar.dimsPane(editing: inEditMode, ticked: ticked))
     }
 
     /// The ticks have changed: with exactly one, its letter in the reading
     /// pane, as a tap would put it there, and not marked read (`EditPane`,
-    /// B-174).
+    /// B-174); in Drafts a draft on the server too, shown as a letter, as
+    /// Mail shows it, where a tap opens the composer (B-183).
     @MainActor
     private func paneFollowsTicks() {
         let ticked = (tableView.indexPathsForSelectedRows ?? []).map(\.row)
+        let role = mailbox.role
+        let outbox = isOutbox
         guard let row = editPane.ticked(ticked, in: threads, showing: lettersInPane(),
-                                        opens: mailbox.role != .drafts && !isOutbox) else { return }
+                                        opens: { EditPane.opens($0, inFolderWithRole: role,
+                                                                outbox: outbox) })
+        else { return }
         showInPane(threads[row])
     }
 
