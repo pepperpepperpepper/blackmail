@@ -76,14 +76,15 @@ final class MessageCell: UITableViewCell {
     /// Whether the row draws its own tick (`placeTick`): from iOS 17,
     /// whose UIKit draws the check white on a disc in the tint, so in the
     /// white tint of a ticked row the check was lost, white on white, on
-    /// the iOS 17.5 and 18.6 simulators (B-174). On 16 UIKit cuts the
-    /// check out of the disc and the row's blue shows through it, and the
-    /// row draws nothing of its own. Read by `ProcessInfo`, as
+    /// the iOS 17.5 and 18.6 simulators (B-174). On 16 UIKit draws a
+    /// plain white disc, no check, as round r6-m-fix saw on the test iPad
+    /// (KNOWN_ISSUES B-174, Corrected 2026-10-28), and the row draws
+    /// nothing of its own. Read by `ProcessInfo`, as
     /// `#available` does not link with this toolchain.
     private static let drawsOwnTick = ProcessInfo.processInfo.isOperatingSystemAtLeast(
         OperatingSystemVersion(majorVersion: 17, minorVersion: 0, patchVersion: 0))
-    /// The tick's colours, [check, disc]: the row's blue on white, as 16
-    /// draws it and Mail's is.
+    /// The tick's colours, [check, disc]: the row's blue on white, as
+    /// Mail's is.
     private static let tickPalette = UIImage.SymbolConfiguration(paletteColors: [Theme.tintBlue, .white])
     /// The row's own tick, over UIKit's in UIKit's edit control; made the
     /// first time it is asked for, so never on 16 (`drawsOwnTick`).
@@ -254,10 +255,10 @@ final class MessageCell: UITableViewCell {
     /// flag keep theirs. Out of Edit mode as it always was.
     private func colour() {
         selectedGround.backgroundColor = ticks ? Theme.tintBlue : Theme.selection
-        // UIKit draws the tick in the cell's tint. On 16 that is a white
-        // disc with the check cut out of it, so the row's blue shows
-        // through it, as Mail's. From 17 UIKit draws the check itself in
-        // white, and the row draws its own tick over UIKit's
+        // UIKit draws the tick in the cell's tint. On 16 that is a plain
+        // white disc, no check, as round r6-m-fix saw (KNOWN_ISSUES
+        // B-174, Corrected 2026-10-28). From 17 UIKit draws the check
+        // itself in white, and the row draws its own tick over UIKit's
         // (`placeTick`). The circle of a row not ticked is UIKit's grey
         // whatever the tint.
         tintColor = ticks ? .white : nil

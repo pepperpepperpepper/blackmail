@@ -347,13 +347,13 @@ extension Message {
     /// wrote "On Oct 28, 2026, at 2:15 PM, ... wrote:" for the letter
     /// dated 1 March 2024 that arrived at 2:15 PM, and "Oct 8, 2026" for
     /// the one that arrived on 8 October. Forward's header goes by it as
-    /// well, by the same rule: Mail's Forward was not looked at.
+    /// well, as Mail's Forward does (round r6-m-fix, 2026-10-28).
     var headerDate: Date { arrived ?? date }
 
     /// This letter with the arrival of `row`, its row in the list, for the
     /// header, Print, a reply and Forward (`headerDate`): the letter as the
-    /// server reads it does not say when it arrived, and its row does. Unchanged when `row` is
-    /// another letter's, or nil.
+    /// server reads it does not say when it arrived, and its row does.
+    /// Unchanged when `row` is another letter's, or nil.
     func arriving(as row: MessageSummary?) -> Message {
         guard let row, row.id == id else { return self }
         var m = self

@@ -9304,7 +9304,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       Drafts` emptied; one copy in Drafts, read over IMAP in place of the
       web. In 5 the app's own `\Deleted` and `UID EXPUNGE` of its copy;
       Drafts as found. Nothing was sent.*
-- [ ] **B-166, the exact layout at every text size.** Changed
+- [x] **B-166, the exact layout at every text size.** Changed
       2026-10-27 by the owner's ruling, "Let's keep the exact layout for
       now": Blackmail is drawn at Large whatever the iPad's text size, and
       this check, which looked for the size followed, now looks for the
@@ -9646,6 +9646,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       18 on the Mac's simulator, another round's: still open, so this item
       is not ticked. The other held questions are not in the check. Nothing
       was sent.*
+      *Seen on the iOS 18.6 simulator 2026-10-28, a simulated iPad (7th
+      generation), as his iPad is, on a simulator build of 260aea0, int21's
+      code with the app's own size answered Large, nothing of B-166
+      changed since: 9 passed. The app left open, at the largest of the
+      seven and the largest accessibility size, the Reply sheet, the Flag
+      popover and "Add Another Email…", its title in sight and its Cancel
+      and Add side by side, each the same as at Large, frames and words,
+      and so (a)'s file's held sheet and the bubble's menu over Reply
+      All's composer, more than the step asks; every screen under them
+      the same but for the toolbar's "Updated" line and iOS's predictive
+      bar, every row 96 points; the Share sheet from the file's held sheet
+      its anchor, arrow and frame as at Large, what iOS draws inside it
+      larger, at the largest accessibility size the apps' names broken
+      over lines and its last rows pushed out of the frame, iOS's own by
+      7, written down. The size put back to Large. The same run's look at
+      the rest of the app found what B-174 and B-176 now have under
+      "Found on the iOS 18.6 simulator", and B-049's "Updated" line. An
+      iPad on iPadOS 18, his included, not seen. Every step is now seen
+      or not needed, so this item is ticked. Nothing was sent, saved,
+      moved or flagged.*
 - [ ] **B-167, Mail's options in Settings.** On the test iPad, the test
       account only, from a build of the `bm-cm-mailsettings` worktree
       (branch `copy-mailsettings`) or of the int it is merged into.
@@ -10478,7 +10498,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          255) as in that round's shot 05, nothing else differing. A
          finger held on an unticked row: its circle as it is drawn, noted
          (on 16 the row draws nothing of its own, and a held row's circle
-         was never photographed there).
+         was never photographed there). (Corrected 2026-10-28 after round
+         r6-m-fix: shot 05's tick is a plain white disc, no check;
+         KNOWN_ISSUES B-174, "Corrected 2026-10-28".)
       *Seen on the test iPad 2026-10-28 on int21 (1873724), round
       r6-j-act: 1 to 6 passed, the three APPENDed read and the third made
       unread by Blackmail's own drag to the right, its one STORE before
@@ -10487,13 +10509,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       (Mail's rgb(65, 65, 65) on its rgb(23, 24, 23)), the letter and its
       header at 0.57 of their colours, the circles rgb(70, 70, 73); Flag
       and Reply answered no tap. In 2 the ticked row rgb(10, 132, 255), its
-      tick disc and its names white, its unread dot white and still there;
-      the host's FLAGS without `\Seen` at 1, 7 and 43 s; from Edit to
-      Cancel no STORE, MOVE or APPEND in the log, only the ticked letters'
-      `BODY.PEEK[]`. In 4 "1 Sele…" (4 corrected). In 5 Junk empty, "No
-      messages", Edit grey, a tap on it nothing. In 6 "No results", Edit
-      mode on and its Cancel blue. Beside bf7575a's shots only what the
-      entry changed differed. Nothing was sent.*
+      tick disc, with no check in it (corrected below, round r6-m-fix), and
+      its names white, its unread dot white and still there; the host's
+      FLAGS without `\Seen` at 1, 7 and 43 s; from Edit to Cancel no STORE,
+      MOVE or APPEND in the log, only the ticked letters' `BODY.PEEK[]`. In
+      4 "1 Sele…" (4 corrected). In 5 Junk empty, "No messages", Edit grey,
+      a tap on it nothing. In 6 "No results", Edit mode on and its Cancel
+      blue. Beside bf7575a's shots only what the entry changed differed.
+      Nothing was sent.*
       *Seen 2026-10-28 on the iOS 17.5 and 18.6 simulators, on a build of
       `fix-j1` with the change, as 8e27718 has it: 8 passed on both, its
       press not then a step, the disc rgb(255, 255, 255) and the check
@@ -10510,6 +10533,32 @@ checks below is left as not needed, not open, and none is worth a round.*
       until it lifted. Changed for it (d8119ae). On 7362cd2 the press
       passed on both, on a row's words and on a circle, and a ticked row
       held kept its tick. 9 not run yet.*
+      *Seen on the test iPad 2026-10-28 on int21 (73fdf8e), round
+      r6-m-fix: 9 passed, 16.5.1 unchanged: 1 to 3 again, nothing ticked,
+      one, two, one again with the second's letter in the pane, none and
+      Cancel, each the same to the pixel as r6-j-act's shot of it outside
+      the boxes left out (the rows' times and subjects' ends, the unread
+      dot's place and the Mailboxes' count beside Notes, the pane's
+      header, the rows below), its colours r6-j-act's, nothing of the
+      row's own tick drawn; 1's Flag and Reply and 2's unread letter not
+      run, the three letters made read, passed in r6-j-act; a finger
+      held 2.5 s on an unticked row's circle: while it was down the row
+      Mail's blue and its circle a white disc, the title still "Notes",
+      noted; lifted, ticked as a tap ticks, one tap unticking it; the
+      flags as made, no STORE, MOVE or APPEND in the log. But the round
+      passed the tick by 957 pixels of the row's blue in a box around it,
+      taken for its check, as r6-j-act's 05-colours had; a second run
+      found the round's own crop a plain white disc, no check, the 957
+      the blue around the disc. So 9's "unchanged" is met, and the item's
+      "white tick" on 16 is not: Mail 16.5.1's is a white disc with a
+      blue check (round r6-i-compare, 03-mail-edit-one), and 16.5.1 has
+      drawn no check since int21, r6-j-act's pass of 2 wrong in that
+      (KNOWN_ISSUES B-174, "Corrected 2026-10-28"). From 17 the row's own
+      tick draws Mail's (8, on the simulators); on 16 nothing changed, by
+      the owner's word of 2026-10-28, the test iPad kept on 16.5.1 exactly
+      as it is: whether the row's own tick is drawn on 16 too is open for
+      him, so this item is not ticked. On 73fdf8e the simulators passed 8
+      again on 18.6 and 17.5, the press too. Nothing was sent.*
 
 - [x] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
       On the test iPad, the test account only, from a build of the
@@ -10574,7 +10623,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       and "Undo Unread". A shake now and then brought nothing, and the next
       the alert. Nothing was sent.*
 
-- [ ] **B-176, files, pictures and links in the pane as Mail has them.** On
+- [x] **B-176, files, pictures and links in the pane as Mail has them.** On
       the test iPad, the test account only, from a build of the `fix-j1`
       branch at its tip (the ring turning by CSS, and a letter's own page
       asking for its files as it opens, 2026-10-28) or of the int it is
@@ -10830,6 +10879,21 @@ checks below is left as not needed, not open, and none is worth a round.*
       tap. On 7362cd2, the flag's guard made stricter: the photo of "R6
       B-176 large rl2" tapped on 18.6, its Quick Look with its bars, no
       tap; Done. 9 not run yet.*
+      *Seen on the test iPad 2026-10-28 on int21 (73fdf8e), round
+      r6-m-fix: 9 passed, 16.5.1 unchanged: the "B-176 pdf.pdf" tile's
+      Quick Look and the HEIC's photo's, "IMG_4176.HEIC", each with its
+      bars as its page came, in bursts of about 13 frames a second, and
+      the same to the pixel as r6-j-files' shots, the PDF's as
+      r6-k-files' too; a photo tapped, and Markup and Reply on it (B-171's
+      step 2), the same beside r6-j-files' shots of them; each Done with
+      nothing drawn, no composer 6 s after; each file fetched once as it
+      opened, nothing written, no markup in the log. On 73fdf8e the
+      simulators passed 8 again on 18.6 and 17.5 but for its taps hiding
+      and showing the bars, not run again (last seen on da4f641): a
+      photo's Quick Look, tapped and by Markup and Reply, with its bars on
+      its first changed frame, no composer at Done, and the PDF tile's as
+      before. Every step of the check is now seen or shown not possible.
+      Nothing was sent.*
 
 - [x] **B-177, a sender only seen offered by name.** On the test iPad,
       the test account only, from a build of the `bm-cmp-f` worktree
@@ -10876,7 +10940,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       To. Not possible: nobody noted from Junk, the host APPENDing to
       "Notes" alone; a host test has it. Nothing was sent.*
 
-- [ ] **B-178, the list in date order.** On the test iPad, the test
+- [x] **B-178, the list in date order.** On the test iPad, the test
       account only, from a build of the `fix-j1` branch at its tip (the
       row's date and Go to Date by arrival, 2026-10-28) or of the int it
       is merged into; the round of 2026-10-28 ran steps 0 to 8 on int21
@@ -11118,6 +11182,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       In 10 the letters put back by a STORE of the Trash's label, no move
       or delete. A letter of his from Sent Mail in a stack: no step has
       one. Nothing was sent.*
+      *Seen on the test iPad 2026-10-28 on int21 (73fdf8e), round
+      r6-m-fix: 0, 2's rows and headers, 3 and 10 passed, each pass borne
+      out by a second run; the rest not run, passed on 260aea0, ff47eb6
+      or 1873724, nothing for them changed since but 4's rows' dates,
+      fixed since and seen in 2; Mail's print and reply not run again,
+      seen in r6-l-fix. "dated old" arrived at 7.04 pm, its Date 1 March
+      2024 at noon; "came old" arrived on 8 October at noon, its Date 28
+      October at 9 am. In 3 Mail's Forward, on both, "Date:
+      October 28, 2026 at 7:04:17 PM EDT" and "Date: October 8, 2026 at
+      12:00:00 PM EDT", the arrival, its lines From, Date, To and
+      Subject; Blackmail's Forward the same word for word on both; its
+      print "Date: Oct 28, 2026 at 7:04:17 PM" and "Date: Oct 8, 2026 at
+      12:00:00 PM", and its reply "On Oct 28, 2026, at 7:04 PM, …" and "On
+      Oct 8, 2026, at 12:00 PM, …", the arrival, as Mail's in r6-l-fix,
+      never the Dates; the paper the same to the pixel as r6-l-fix's but
+      for the date's words and the subject's end. Nothing printed, each
+      composer cancelled, none asking, Drafts, Sent Mail and Mail's Outbox
+      as before. In 10 the letters put back by a STORE of the Trash's
+      label, no move or delete. Reply All, a row's More Reply, a
+      conversation's letter's reply and Markup and Reply's not run, pinned
+      on the host; a letter of his from Sent Mail in a stack: no step has
+      one. Every step of the check is now seen. Nothing was sent.*
 
 ## Blocked on the owner
 
