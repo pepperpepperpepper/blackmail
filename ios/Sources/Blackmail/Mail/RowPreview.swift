@@ -11,8 +11,8 @@ import Foundation
 /// Seen in the comparison with Mail of 2026-10-29 (round r6-n-compare,
 /// Mail 16.5.1 on the test iPad). C-3a: Mail's rows of the two letters
 /// that are only a picture, one inline by `cid:` and one attached, said
-/// "Attachment: h-photo.jpg" and "Attachment: IMG_0131.jpg" on their
-/// second line; Blackmail's said nothing. C-5a, in passing: Mail's rows
+/// "Attachment: h-photo.jpg" and "Attachment: IMG_0131.jpg" in the
+/// preview's place, under the subject line; Blackmail's said nothing. C-5a, in passing: Mail's rows
 /// with no subject said "No Subject" in its grey, rgb(143, 143, 150);
 /// Blackmail's "(no subject)" in white.
 enum RowPreview {
@@ -35,16 +35,19 @@ enum RowPreview {
     /// words; where it was drawn with no words (`drawnWithNoWords`,
     /// `ListLetters.drawnWithNoWords`) and carries a file with a name,
     /// "Attachment: " and the first such file's name, the files in the
-    /// order the letter's structure lists them (`MessageSummary.attachments`);
-    /// nothing otherwise. A row whose preview has not come yet shows
-    /// nothing, as it did: its letter may yet have words.
+    /// order the letter's structure lists them, a picture its body shows
+    /// by `cid:` among them (`MessageSummary.firstFileName`, or, for a row
+    /// not listed from the server, its `attachments`); nothing otherwise.
+    /// A row whose preview has not come yet shows nothing, as it did: its
+    /// letter may yet have words.
     ///
     /// Mail was seen with one file to a letter; a letter of two or more,
     /// named by its first here, was not seen.
     static func preview(of letter: MessageSummary, drawnWithNoWords: Bool) -> String {
         guard letter.preview.isEmpty, drawnWithNoWords,
-              let file = letter.attachments.first(where: { !$0.filename.isEmpty })
+              let name = letter.firstFileName
+                ?? letter.attachments.first(where: { !$0.filename.isEmpty })?.filename
         else { return letter.preview }
-        return "Attachment: \(file.filename)"
+        return "Attachment: \(name)"
     }
 }

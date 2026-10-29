@@ -38535,11 +38535,12 @@ on 1873724. Nothing was sent.
 **Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-3a, and
 C-5a in passing), by the owner's ruling of that day, copy Apple Mail:
 the row of a letter that is only a picture says "Attachment: " and the
-file's name on its second line in Mail, empty here; a row with no
-subject says "No Subject" in grey in Mail, "(no subject)" in white
-here. Both copied by B-182. The paper's header on the round's two
-picture letters had Mail's lines in Mail's order (C-3b); under it,
-Mail's print of the attached one is the header alone, copied by B-185.
+file's name in the preview's place, under the subject line, in Mail,
+empty here; a row with no subject says "No Subject" in grey in Mail,
+"(no subject)" in white here. Both copied by B-182. The paper's header
+on the round's two picture letters had Mail's lines in Mail's order
+(C-3b); under it, Mail's print of the attached one is the header alone,
+copied by B-185.
 
 ## B-173 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 
@@ -41048,7 +41049,7 @@ assertion's; put back, passing.
   it may the dot's; the cell sets it again as the press ends, as for a
   tick. Not seen on the iPad.
 
-## B-182 — FIXED 2026-10-29. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
+## B-182 — FIXED 2026-10-29, fixed again the same day. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3a,
 C-5a in passing, its second run agreeing), and the plan made from it
@@ -41057,8 +41058,10 @@ rule of 2026-10-27 (D-025) for the rest. Words, and one colour.
 
 **What Mail does.** The rows of the round's two letters that are only
 a picture, one drawn by `cid:` in its HTML and one attached, say
-"Attachment: h-photo.jpg" and "Attachment: IMG_0131.jpg" on their
-second line, in the preview's grey. A draft to nobody says "No
+"Attachment: h-photo.jpg" and "Attachment: IMG_0131.jpg" in the
+preview's place, under the subject line, in the preview's grey (the
+round's words said "second line"; its shot, `14-mail-one-view.png`,
+has it on the third, where the preview is). A draft to nobody says "No
 Recipient". A letter with no subject says "No Subject" on its subject
 line, in grey, about rgb(143, 143, 150), sampled from the Drafts shots
 (`11-mail-drafts-one-view.png`).
@@ -41076,8 +41079,10 @@ white (`MessageCell`).
    (`ListLetters.drawnWithNoWords`, from what B-135 keeps), and which
    carries a file with a name, says "Attachment: " and the first such
    file's name in its grey lines, in the files' order in the letter's
-   structure (`MessageSummary.attachments`), inline pictures among
-   them, as Mail's row of the `cid:` picture says. A row whose preview
+   structure, a picture shown by `cid:` among them, as Mail's row of
+   the `cid:` picture says (`MessageSummary.firstFileName`, since the
+   paragraph "Fixed again" below; as first built, the row's
+   `attachments`, which hold no such picture). A row whose preview
    has not come yet shows nothing, as before: its letter may have
    words. From the letter whose preview the row shows, a
    conversation's newest.
@@ -41107,6 +41112,51 @@ Changed: the pins of the list's one writer of a row
 The file's line, "No Subject" and "No Recipient" each put back as they
 were, together: 23 failures in 11 tests, each an assertion's; put back,
 passing.
+
+**Fixed again 2026-10-29**, after a second run read the change
+against the listing: as first built, neither of the round's C-3a
+letters said its file on a real list. The tests had handed the rule
+rows the listing never makes.
+
+1. *The attached picture alone* ("R6 B-131 attached picture", a
+   mixed holding one JPEG as an attachment): its structure has no
+   part of words, so `MIMEDecoder.previewPart` found none, the
+   repository remembered nothing for it, and `previews` left it out
+   of its answer, as it leaves a row listed before the last refresh.
+   The list never knew it drawn, and the row stayed empty. Now the
+   repository notes a letter whose structure was seen with no part of
+   words (`wordless`, bounded with the preview parts, by their order)
+   and answers it with an empty preview, nothing fetched; a row listed
+   with no structure, or before the last refresh, is still left out,
+   not drawn.
+2. *The `cid:` picture alone* ("R6 B-131 picture only", a related of
+   HTML and its JPEG by `cid:`): drawn with no words, but the row's
+   `attachments` leave out a picture the body shows
+   (`listedAttachments`, B-170), so the rule found no file. Now the
+   listing gives each row the name of its first named file from the
+   same BODYSTRUCTURE, before that filter
+   (`MessageSummary.firstFileName`, `MIMEDecoder.firstFileName(in:)`),
+   and the rule names it; B-170's `attachments` are as they were. A
+   row not listed from the server, which has no such name, is named by
+   its `attachments`, as before.
+
+The same two faults would have left empty the row of an iPhone's photo
+sent with no words, and of a letter of two files and no words.
+
+Tests, in `ListLikeMailTests`: one new, the round's two letters made as
+the round made them and a letter of words with a photo, through the
+shipping repository and the scripted server as Gmail describes them,
+listed, their previews asked for as the list asks and drawn by its
+rule: "Attachment: IMG_0131.jpg", "Attachment: h-photo.jpg" and the
+letter's words; the attached picture answered empty with no fetch
+naming it, the `cid:` picture still no row's `attachments`, and none of
+the three asked for again. Changed: the rule's test names the `cid:`
+picture by `firstFileName`, as the listing gives it, and a row with
+only `attachments` by those. The empty answer taken out: 3 failures in
+the new test, each an assertion's; the listing's name taken out: 1, the
+`cid:` row's. Put back, passing. The full suite: 3,196 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
 
 **Not covered.**
 

@@ -11342,7 +11342,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       Mail beside Blackmail.
       1. *The two picture letters' rows* in Notes: "Attachment:
          h-photo.jpg" and "Attachment: IMG_0131.jpg" in the grey
-         lines, as Mail's. Screenshots.
+         lines, under the subject, as Mail's, once the list's
+         previews have come; a Refresh, the same. Screenshots. (As
+         first built neither row said it; fixed again the same day,
+         KNOWN_ISSUES B-182.)
       2. *Drafts:* the draft's row "No Recipient", as Mail's; rows with
          no subject "No Subject" in grey, about rgb(143, 143, 150), as
          Mail's. Screenshots.

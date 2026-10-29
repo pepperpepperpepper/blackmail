@@ -1160,6 +1160,15 @@ enum MIMEDecoder {
         flatten(structure) { _ in nil }.attachments.filter { !$0.isShownInBody }
     }
 
+    /// The name of the first file `structure` carries that has one, in the
+    /// order `flatten` finds them, the pictures the body shows by `cid:`
+    /// among them, which `listedAttachments(in:)` leaves out: what a list
+    /// row of a letter with no words names, as Mail's does (`RowPreview`,
+    /// B-182). Nil for a letter with no file named.
+    static func firstFileName(in structure: MIMEPart) -> String? {
+        flatten(structure) { _ in nil }.attachments.first { !$0.filename.isEmpty }?.filename
+    }
+
     /// Finds a part by its IMAP section path ("2", "1.3").
     ///
     /// The counterpart to `parse`'s `bodies` dictionary: that gives the

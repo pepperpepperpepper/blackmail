@@ -16,6 +16,8 @@ import XCTest
 /// it.
 final class ListLikeMailTests: XCTestCase {
 
+    private typealias Server = ScriptedIMAPServer
+
     // MARK: - B-181, the open letter's row
 
     /// Out of Edit mode the selected row, the letter in the pane, is
@@ -77,24 +79,31 @@ final class ListLikeMailTests: XCTestCase {
     }
 
     private func row(_ id: String, preview: String = "", subject: String = "A picture",
-                     files: [Attachment] = []) -> MessageSummary {
+                     files: [Attachment] = [], firstFile: String? = nil) -> MessageSummary {
         MessageSummary(id: id, mailboxID: "INBOX", sender: "Pia Photo <pia@example.com>",
                        subject: subject, preview: preview,
                        date: Date(timeIntervalSince1970: 1_790_000_000),
                        isRead: true, isFlagged: false, hasAttachment: !files.isEmpty,
-                       attachments: files)
+                       attachments: files, firstFileName: firstFile)
     }
 
     /// A letter drawn with no words says its file, inline or attached, as
     /// Mail's rows said "Attachment: h-photo.jpg" and "Attachment:
-    /// IMG_0131.jpg"; its first named file where it has more.
+    /// IMG_0131.jpg"; its first named file where it has more. A picture
+    /// shown by `cid:` is not among the row's `attachments` (B-170), and is
+    /// named by `firstFileName`, as the listing gives it; a row not listed
+    /// from the server, with no `firstFileName`, by its `attachments`.
     func testALetterWithNoWordsSaysItsFile() {
-        XCTAssertEqual(RowPreview.preview(of: row("1/5", files: [file("IMG_0131.jpg")]),
+        XCTAssertEqual(RowPreview.preview(of: row("1/5", files: [file("IMG_0131.jpg")],
+                                                  firstFile: "IMG_0131.jpg"),
                                           drawnWithNoWords: true),
                        "Attachment: IMG_0131.jpg")
-        XCTAssertEqual(RowPreview.preview(of: row("1/6", files: [file("h-photo.jpg", inline: true)]),
+        XCTAssertEqual(RowPreview.preview(of: row("1/6", firstFile: "h-photo.jpg"),
                                           drawnWithNoWords: true),
                        "Attachment: h-photo.jpg")
+        XCTAssertEqual(RowPreview.preview(of: row("1/8", files: [file("IMG_0131.jpg")]),
+                                          drawnWithNoWords: true),
+                       "Attachment: IMG_0131.jpg", "a row not listed from the server")
         XCTAssertEqual(RowPreview.preview(of: row("1/7", files: [file(""), file("Menu.pdf"),
                                                                    file("Map.jpg")]),
                                           drawnWithNoWords: true),
@@ -133,6 +142,103 @@ final class ListLikeMailTests: XCTestCase {
                        "Attachment: IMG_0131.jpg")
         XCTAssertFalse(list.drawnWithNoWords(list.shownRow(of: words) ?? words))
         XCTAssertFalse(list.drawnWithNoWords(waiting))
+    }
+
+    /// The round's two letters that are only a picture, made as the round
+    /// made them, through the shipping repository and the scripted server,
+    /// as Gmail describes them: "R6 B-131 attached picture", a mixed
+    /// holding one JPEG as an attachment and no words, and "R6 B-131
+    /// picture only", a related of HTML that shows its JPEG by `cid:`.
+    /// Listed, their previews asked for as the list asks, and drawn by the
+    /// list's rule: "Attachment: IMG_0131.jpg" and "Attachment:
+    /// h-photo.jpg", as Mail's rows said (C-3a). A letter with words says
+    /// them. The letter with no words is answered empty with nothing of it
+    /// fetched, and the `cid:` picture is still no file of the row's
+    /// `attachments` (B-170).
+    @MainActor
+    func testTheRoundsPictureLettersSayTheirFilesFromTheirStructure() async throws {
+        let server = ScriptedIMAPServer(inboxCount: 1)
+        defer { XCTAssertEqual(server.violations, []) }
+        let suite = "ListLikeMailTests.pictures"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let repository = IMAPMailRepository(
+            account: server.account, password: server.password, transport: server.transportFactory,
+            recipients: RecipientBook(defaults: defaults), signatureImages: { [] },
+            shelf: keptShelf(for: server.account))
+
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0xFF, 0xD9])
+            .base64EncodedString()
+        func header(_ subject: String) -> String {
+            "From: Abe Example <abe@example.net>\r\nTo: Carlo <carlo@example.org>\r\n"
+                + "Subject: \(subject)\r\nMIME-Version: 1.0\r\n"
+        }
+        let attached = header("R6 B-131 attached picture")
+            + "Content-Type: multipart/mixed; boundary=\"M\"\r\n\r\n--M\r\n"
+            + "Content-Type: image/jpeg; name=\"IMG_0131.jpg\"\r\n"
+            + "Content-Disposition: attachment; filename=\"IMG_0131.jpg\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\n\(jpeg)\r\n--M--\r\n"
+        let shown = header("R6 B-131 picture only")
+            + "Content-Type: multipart/related; boundary=\"R\"\r\n\r\n--R\r\n"
+            + "Content-Type: text/html; charset=utf-8\r\n\r\n"
+            + "<html><body><div><img src=\"cid:p131i@example.net\" width=\"320\" alt=\"photo\">"
+            + "</div></body></html>\r\n--R\r\n"
+            + "Content-Type: image/jpeg; name=\"h-photo.jpg\"\r\n"
+            + "Content-Disposition: inline; filename=\"h-photo.jpg\"\r\n"
+            + "Content-ID: <p131i@example.net>\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+            + "\(jpeg)\r\n--R--\r\n"
+        let worded = header("Roses")
+            + "Content-Type: multipart/mixed; boundary=\"W\"\r\n\r\n--W\r\n"
+            + "Content-Type: text/plain; charset=utf-8\r\n\r\nThe roses are out.\r\n--W\r\n"
+            + "Content-Type: image/jpeg; name=\"roses.jpg\"\r\n"
+            + "Content-Disposition: attachment; filename=\"roses.jpg\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\n\(jpeg)\r\n--W--\r\n"
+        var uids: [UInt32] = []
+        for (i, raw) in [attached, shown, worded].enumerated() {
+            let letter = Server.Letter(from: Server.carlo, to: [Server.owner], subject: "\(i)",
+                                       date: Server.newestDate.addingTimeInterval(Double(i + 1) * 60),
+                                       text: "", messageID: "<picture\(i)@example.net>")
+            uids.append(try XCTUnwrap(server.deliver(described: Data(raw.utf8), as: letter,
+                                                     to: [Server.inbox])[Server.inbox]))
+        }
+
+        let listed = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        func listedRow(_ uid: UInt32) throws -> MessageSummary {
+            try XCTUnwrap(listed.first { $0.id.hasSuffix("/\(uid)") })
+        }
+        XCTAssertEqual(try listedRow(uids[1]).attachments.map(\.filename), [], "B-170's list as it was")
+
+        let list = ListLetters()
+        _ = list.fetchedAfresh(listed)
+        let fetchesBefore = server.log.filter { $0.command.contains("BODY.PEEK[") }.count
+        let previews = try await repository.previews(for: list.toDraw(listed).map(\.id), in: "inbox")
+        let fetched = server.log.filter { $0.command.contains("BODY.PEEK[") }.dropFirst(fetchesBefore)
+        XCTAssertEqual(previews[try listedRow(uids[0]).id], "", "answered with none")
+        // The UID set of each fetch of a part, "UID FETCH 3,5:6 (...)".
+        func names(_ uid: UInt32, _ command: String) -> Bool {
+            let words = command.split(separator: " ")
+            guard words.count > 2 else { return false }
+            return words[2].split(separator: ",").contains { piece in
+                let ends = piece.split(separator: ":").compactMap { UInt32($0) }
+                return ends.count == 2 ? (min(ends[0], ends[1])...max(ends[0], ends[1])).contains(uid)
+                    : ends.first == uid
+            }
+        }
+        XCTAssertFalse(fetched.isEmpty, "the letter with words fetched")
+        XCTAssertFalse(fetched.contains { names(uids[0], $0.command) },
+                       "nothing of it fetched: \(fetched)")
+        list.apply(previews: previews, in: "inbox")
+
+        func drawn(_ uid: UInt32) throws -> String {
+            let row = try XCTUnwrap(list.shownRow(of: try listedRow(uid)))
+            return RowPreview.preview(of: row, drawnWithNoWords: list.drawnWithNoWords(row))
+        }
+        XCTAssertEqual(try drawn(uids[0]), "Attachment: IMG_0131.jpg")
+        XCTAssertEqual(try drawn(uids[1]), "Attachment: h-photo.jpg")
+        XCTAssertEqual(try drawn(uids[2]), "The roses are out.")
+        let shownRows = try uids.map { try XCTUnwrap(list.shownRow(of: try listedRow($0))) }
+        XCTAssertEqual(list.toDraw(shownRows).map(\.id), [], "none of the three asked for again")
     }
 
     /// "No Subject" for a letter with none, in the grey; a subject white.

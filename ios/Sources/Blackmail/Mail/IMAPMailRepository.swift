@@ -105,6 +105,13 @@ actor IMAPMailRepository: MailRepository {
     /// Without it, `previews` would have to re-fetch every structure it was
     /// just handed.
     private var previewParts: [String: MIMEPart] = [:]
+    /// The listed messages whose structure has no part a preview is made
+    /// of, as a photo sent with no words has none: answered with an empty
+    /// preview by `previews` with nothing fetched, so the list knows them
+    /// drawn with no words and its row names the file, as Mail's does
+    /// (`ListLetters.drawnWithNoWords`, `RowPreview`, B-182). Bounded with
+    /// `previewParts`, by the same order.
+    private var wordless: Set<String> = []
     /// LIST attribute (lowercased) → real folder name, learned alongside
     /// `roleNames`. Needed because Gmail's Starred and Important carry
     /// attributes with no `Mailbox.Role`, Starred's `\Flagged` (RFC 6154)
@@ -1408,6 +1415,9 @@ actor IMAPMailRepository: MailRepository {
                 gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
                 attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [],
+                // The first file's name, a picture shown by `cid:` too, for
+                // the row of a letter with no words (`RowPreview`, B-182).
+                firstFileName: r.bodyStructure.flatMap(MIMEDecoder.firstFileName(in:)),
                 // Whom it is to, for the row's top line in Sent Mail and
                 // Drafts (`RowNames`, B-060). Nil with no ENVELOPE, which
                 // names the sender as before rather than say a letter had
@@ -1771,9 +1781,17 @@ actor IMAPMailRepository: MailRepository {
     }
 
     private func rememberPreviewPart(_ structure: MIMEPart?, for id: String) {
-        guard let structure, let part = MIMEDecoder.previewPart(structure) else { return }
-        if previewParts[id] == nil { previewPartOrder.append(id) }
-        previewParts[id] = part
+        guard let structure else { return }
+        if previewParts[id] == nil, !wordless.contains(id) { previewPartOrder.append(id) }
+        // A structure with no words is noted as such (B-182); one listed
+        // with no structure at all is not, and is not drawn, as before.
+        if let part = MIMEDecoder.previewPart(structure) {
+            previewParts[id] = part
+            wordless.remove(id)
+        } else {
+            previewParts[id] = nil
+            wordless.insert(id)
+        }
         // Was `previewParts.removeAll()` — a total flush, not an eviction.
         // Tolerable while a folder was one page of fifty; not once a search
         // pages past its first hundred, because crossing the bound threw
@@ -1781,7 +1799,9 @@ actor IMAPMailRepository: MailRepository {
         // was reading. Drop the oldest instead: they are the ones furthest
         // from the window, and nobody is going to ask for them.
         while previewPartOrder.count > Self.maximumRememberedParts {
-            previewParts.removeValue(forKey: previewPartOrder.removeFirst())
+            let oldest = previewPartOrder.removeFirst()
+            previewParts.removeValue(forKey: oldest)
+            wordless.remove(oldest)
         }
     }
 
@@ -1846,8 +1866,15 @@ actor IMAPMailRepository: MailRepository {
             // ordinary, so neither is an error. A renumbering nobody has seen
             // yet is found by the fetch's own SELECT, and the client sends
             // nothing for those. Neither is in the answer: not drawn.
-            guard let part = previewParts[id], let message = try? Self.parseID(id),
+            guard let message = try? Self.parseID(id),
                   known == nil || known == message.validity else { continue }
+            // A letter listed with no words in its structure, only a file:
+            // drawn with none, nothing fetched (B-182).
+            if wordless.contains(id) {
+                out[id] = ""
+                continue
+            }
+            guard let part = previewParts[id] else { continue }
             if part.size == 0 {
                 out[id] = ""
                 continue
