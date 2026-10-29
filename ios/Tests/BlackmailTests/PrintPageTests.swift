@@ -280,9 +280,9 @@ final class PrintPageTests: XCTestCase {
 
     /// Every value of the header escaped, as text: a sender with an
     /// ampersand and an address, a subject with a script in it; and a
-    /// file whose name has `&` and `<`, in the body since B-170. The only
-    /// attributes in the header are its own classes, and the page has no
-    /// script of its own.
+    /// file whose name has `&` and `<`, in the body from B-170 and on
+    /// neither since B-185. The only attributes in the header are its own
+    /// classes, and the page has no script of its own.
     func testTheHeaderIsEscaped() throws {
         let m = letter(sender: "Smith & Sons <x@y>", to: ["\"A <b>\" <a@b.example>"],
                        subject: "<script>alert(1)</script> & more",
@@ -293,7 +293,7 @@ final class PrintPageTests: XCTestCase {
         XCTAssertTrue(head.contains("<span class=\"bm-name\">Smith &amp; Sons</span>"), head)
         XCTAssertTrue(head.contains(">&lt;script&gt;alert(1)&lt;/script&gt; &amp; more<"), head)
         XCTAssertFalse(head.contains(".pdf"), head)
-        XCTAssertTrue(try body(page).contains(">a &amp; b &lt;c&gt;.pdf</span>"), page)
+        XCTAssertFalse(try body(page).contains(".pdf"), page)
         XCTAssertFalse(page.contains("<script"), page)
         let classes = head.components(separatedBy: " class=\"bm-").count - 1
         XCTAssertEqual(classes, 4 + 2 + 2 + 4 + 1, "From's four, Subject's two, Date's two, To's four, the rule")

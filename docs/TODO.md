@@ -11376,6 +11376,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. If Mail turns at another minute, `UpdatedLine.minutesUntil`
          is set to it (KNOWN_ISSUES B-184).
 
+- [ ] **B-185, a printed letter without its files, as Mail's.** As
+      B-182's check, the same build and the same two picture letters,
+      with a letter of words and a PDF the host APPENDs, read, to
+      "Notes" in the same way. Print preview only: Cancel each time,
+      nothing printed, nothing sent. Mail beside Blackmail.
+      1. *The attached picture letter:* Reply, Print: the header alone,
+         nothing under it, no "This message has no text.", one page,
+         as Mail's. Screenshots of both previews.
+      2. *The `cid:` picture letter:* the header and the picture, as
+         before, one page (Mail's blank second page not copied).
+      3. *The letter with words and a PDF:* its words and no tile; Mail's
+         preview written down, the PDF printed or not (the rule there is
+         inferred, KNOWN_ISSUES B-185).
+      4. *The pane:* each letter's files drawn in it as before.
+      5. *Put back:* the host moves the UIDs it noted, and only them,
+         to the Trash, and deletes in the Trash only the UIDs that move
+         answered (`COPYUID`).
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -11533,10 +11551,13 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       is kept here, so they are not there. Keep it so (the default), or
       keep their summaries beside the kept letters.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-159.*
-- [ ] **A printed letter's faint colours** (B-110): with no backgrounds
+- [x] **A printed letter's faint colours** (B-110): with no backgrounds
       printed, WebKit lightens a sender's light colours, small grey print
       all but gone. As built, Mail's light print (the default), or the
       sender's backgrounds printed.
+      *Ruled 2026-10-29: copy Apple Mail. Mail 16.5.1 prints no
+      backgrounds and its light greys as faint (C-2a to C-2c): as
+      built.*
 - [x] **A PDF's two rows** (B-113), one in the header and one among the
       words: both (the default), or one.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-148.*
@@ -11654,10 +11675,13 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       seen). The app's white sheet in both panes (built, the default), or
       none in the stack either, as Mail.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-146.*
-- [ ] **A letter that is only a picture, printed in words** (B-131): when
+- [x] **A letter that is only a picture, printed in words** (B-131): when
       its page cannot be drawn, its header alone (built, the default), as
       the pane never says it has no text; or "This message has no text."
       under it, as before, true of its words and not of the letter.
+      *Ruled 2026-10-29: copy Apple Mail. Mail never writes a "no text"
+      line on such a letter (C-3b): as built, the header alone; an
+      attached picture is left off the paper as Mail leaves it, B-185.*
 - [x] **The new words on his screen**, each held from his iPad until the
       owner approves it, the entry listing them: VoiceOver's "Replied" and
       "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's

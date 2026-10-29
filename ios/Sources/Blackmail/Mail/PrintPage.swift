@@ -2,8 +2,8 @@ import Foundation
 
 /// A letter made into the page that is printed (B-110): light, black on
 /// white, its header as Mail prints it (B-172), then its body as the pane
-/// shows it, in the sender's own colours, with its pictures and its files
-/// (B-170).
+/// shows it, in the sender's own colours, with the pictures its markup
+/// draws and none of its files (B-185).
 ///
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
@@ -57,9 +57,9 @@ enum PrintPage {
     /// The header's lines, as Mail prints them (B-172): "From:",
     /// "Subject:", "Date:" and "To:", in that order, each label grey and
     /// set to the right, then the name in black and the address after it
-    /// in grey; and a line per file of the letter, which the page draws in
-    /// its body, as the pane does, and not in the header, and the letter
-    /// in words lists after its text (B-170).
+    /// in grey; and a line per file of the letter, which the letter in
+    /// words lists after its text (B-170), and neither the header nor,
+    /// since B-185, the page's body draws.
     ///
     /// Seen on the test iPad, Mail 16.5.1, 2026-10-27 (round r6-i-compare,
     /// C-17b), in the print's preview of a plain letter: "From: Sam Plain
@@ -155,12 +155,15 @@ enum PrintPage {
     ///
     /// Light only: `color-scheme` says so, the page is white with black
     /// words, and nothing is inverted, so an HTML letter is in its own
-    /// colours and a plain one is black. Its files are in its body, where
-    /// the pane draws them, its pictures at their size and every other
-    /// file as its tile in Mail's light colours with no "Tap to Download"
-    /// (`BodyFiles`, B-170): Mail prints a letter as its body's web view
-    /// draws it, files and all. The header lists none, as the pane's does
-    /// not. A signature's white sheet prints as written, its words black
+    /// colours and a plain one is black. A picture its HTML draws by
+    /// `cid:` prints there; none of its files is printed, neither where
+    /// the pane draws one nor after the words, and the header lists none
+    /// (B-185). Mail 16.5.1 prints a letter whose only content is an
+    /// attached picture as its header alone, and one whose HTML shows its
+    /// picture by `cid:` with the picture (round r6-n-compare, C-3b, 29
+    /// October 2026); from B-170 to B-185 the paper drew a letter's files
+    /// as the pane does, each picture at its size and every other file as
+    /// its tile. A signature's white sheet prints as written, its words black
     /// on the paper's white, its logo as drawn;
     /// the pane, which had rules of its own for the sheet until B-146, now
     /// inverts it with the rest. Every value of the header is escaped, and
@@ -223,10 +226,6 @@ enum PrintPage {
         let bars = "\n" + QuoteBars.css(in: "#bm")
             + (isHTML && body.contains(QuoteBars.attributionClass)
                 ? "\n" + QuoteBars.attributionCSS(in: "#bm") : "")
-        // A file's tile at the body's size, as in the pane (`BodyFiles.sizeRule`,
-        // B-166, B-170); nothing at Large or below, nor for a letter with none.
-        let tileRule = BodyFiles.sizeRule(bodyPointSize: style.bodyPointSize)
-        let tiles = tileRule.isEmpty || !body.contains(BodyFiles.tileClass) ? "" : "\n  " + tileRule
         // The header prints in its own colours (`exact`), its lines grey as
         // in the pane and as Mail's header, which UIKit draws, prints them.
         // With no backgrounds printed (`LetterPrint.load`), WebKit changes
@@ -270,7 +269,7 @@ enum PrintPage {
                 line-height: \(style.lineHeight);
                 color: #000; word-wrap: break-word;\(isHTML ? "" : " white-space: pre-wrap;") }
           img, table { max-width: 100% !important; height: auto; }
-          a { color: #007AFF; }\(bars)\(tiles)
+          a { color: #007AFF; }\(bars)
         </style></head><body><div id="bm-head"><table>\(lines.joined())</table>\(rule)</div><div id="bm">\(body)</div></body></html>
         """
     }
@@ -281,12 +280,13 @@ enum PrintPage {
     /// nothing in it, where the pane says them (`PanePage.isEmpty`). A
     /// letter shown only in part never has them, in the pane or on paper:
     /// its line is over whatever came, nothing included (B-114, B-131).
-    /// Its files drawn in it as the pane draws them, on paper
-    /// (`BodyFiles.drawn`, B-170): where they sat, and the rest after the
-    /// words, or above them under the line for a letter cut. Whether it is
-    /// the letter's HTML. Its pictures decoded as they are drawn
-    /// (`decodedAtOnce`): an HTML letter's and its picture files; a plain
-    /// letter's words have none, every `<` in them written `&lt;`.
+    /// None of its files, as Mail prints none (B-185): the mark of a file
+    /// among the words (`BodyFiles.mark`) is left the comment it came as,
+    /// which nothing draws, and nothing goes after the words; a picture
+    /// the HTML shows by `cid:` is the HTML's own, and prints. Whether it
+    /// is the letter's HTML. Its pictures decoded as they are drawn
+    /// (`decodedAtOnce`); a plain letter's words have none, every `<` in
+    /// them written `&lt;`.
     static func body(_ m: Message, heldBack: Bool = false) -> (html: String, isHTML: Bool) {
         body(m, isEmpty: PanePage.isEmpty(m), heldBack: heldBack)
     }
@@ -304,18 +304,15 @@ enum PrintPage {
             // the words as a file; printed as no background is (B-169).
             let backdrop = PanePage.backdrop(LetterScheme.reading(html: html).bodyPicture, on: "#bm")
             return (notice(shown)
-                        + decodedAtOnce(BodyFiles.drawn(
-                            in: PanePage.content(text: nil, html: cut ?? html, known: known, flowed: false,
-                                                 heldBack: heldBack, backdrop: backdrop),
-                            of: m, on: .paper, cut: shown)), true)
+                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known, flowed: false,
+                                                         heldBack: heldBack, backdrop: backdrop)), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
         let shown = cut != nil || m.isShortened
         return (notice(shown)
-                    + decodedAtOnce(BodyFiles.drawn(
-                        in: PanePage.content(text: cut ?? text, html: nil, known: known, flowed: m.textIsFlowed),
-                        of: m, on: .paper, cut: shown)), false)
+                    + decodedAtOnce(PanePage.content(text: cut ?? text, html: nil, known: known,
+                                                     flowed: m.textIsFlowed)), false)
     }
 
     /// The pane's words for a letter with nothing in it, grey on paper too.
@@ -410,8 +407,9 @@ enum PrintPage {
     /// header's lines, a blank line, then its text (an HTML letter's made
     /// words, `HTMLText`), under the same limits and line as the page, or
     /// the pane's words for a letter with none, only where the pane says
-    /// them (`PanePage.isEmpty`, B-131), and a line per file after them,
-    /// where the page draws the files it has no mark for (B-170). A letter
+    /// them (`PanePage.isEmpty`, B-131), and a line per file after them
+    /// (B-170). Mail has no such words to copy, so they still name the
+    /// files the page no longer prints (B-185). A letter
     /// shown only in part, or cut here, with no words in what is printed
     /// is the header and the line alone; a letter whose page shows no words
     /// but has something to show, a picture, is the header alone.

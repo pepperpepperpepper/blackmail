@@ -116,8 +116,8 @@ final class PrintWiringTests: XCTestCase {
     /// pane's: its names as the pane's lines name a person
     /// (`MailFormat.recipientName`) with their addresses, and the subject
     /// in the pane's words. Neither lists a file: each is drawn in the
-    /// body, on the pane and on paper, by `BodyFiles` (B-170), and the
-    /// letter in words lists them after its text.
+    /// pane's body by `BodyFiles` (B-170), none on paper since B-185, as
+    /// Mail prints none, and the letter in words lists them after its text.
     func testThePrintedHeaderIsMailsFromTheSameLetter() throws {
         let header = try source("UI/MessageHeaderView.swift")
         let printed = try source("Mail/PrintPage.swift")
@@ -140,8 +140,8 @@ final class PrintWiringTests: XCTestCase {
             XCTAssertFalse(header.contains(files), files)
         }
         XCTAssertTrue(printed.contains("files: m.listedAttachments.map"))
-        XCTAssertEqual(printed.components(separatedBy: "BodyFiles.drawn(").count - 1, 2)
-        XCTAssertEqual(printed.components(separatedBy: "of: m, on: .paper, cut: shown)").count - 1, 2)
+        XCTAssertFalse(printed.contains("BodyFiles.drawn("), "no file on paper (B-185)")
+        XCTAssertFalse(printed.contains("on: .paper"), "no file on paper (B-185)")
         // On screen when the letter arrived, as Mail's header shows it
         // (B-178, the second round); on paper too, as Mail prints it (the
         // third round).

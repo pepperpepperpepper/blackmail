@@ -22046,6 +22046,22 @@ with the dark head, and the rest, judged on the panel's preview and its
 PDFs on 2026-10-23. Not looked for: the Mac's Printer Simulator. Nothing
 was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-2a to
+C-2c; C-2b's margins in passing), by the owner's ruling of that day,
+copy Apple Mail: Mail prints no backgrounds, the yellow paragraph and
+the blue cells white, and its light greys as faint as Blackmail's, a
+16 px #9a9a9a line as rgb(243, 243, 243) and a 12 px #b4b4b4 line not
+at all, as here: the same, nothing changed (the owner's item "A
+printed letter's faint colours" ruled so). Seen in passing, Mail's
+margins are wider. Read off the preview's crops, about 3.8 pt to a
+view px, so a few points either way: Mail's body words begin about 61
+pt from the paper's left and its table ends about 57 pt from the
+right, against the 36 here (`PrintPage.margin`), so Mail wraps a line
+this page does not, and its header is set a little larger and further
+right. That is the paper's layout: not copied, by the layout rule of
+2026-10-27; one constant if the owner asks for it. A letter's files
+are left off the paper since B-185.
+
 ## B-111 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
 Built in the `feat-kept` worktree, off `featAB-int` (master at 88ef40d
@@ -26735,6 +26751,17 @@ header, then the same grey line and nothing under it, never "This message
 has no text.". (b): "This message has no text." in the pane, and the same
 words under the header in its print's preview. Each closed with Cancel;
 nothing was printed or sent. The host put the two letters in the Trash.
+
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-3b), by
+the owner's ruling of that day, copy Apple Mail: Mail writes no "no
+text" line on a letter that is only a picture, printing the one whose
+HTML shows its picture by `cid:` with the picture and the one whose
+picture is attached as its header alone. No such line here either: as
+built (the owner's item "A letter that is only a picture, printed in
+words" ruled so). The attached picture is left off the paper as Mail
+leaves it, B-185. The words themselves, printed only when the page
+cannot be drawn, were not reached: no page failed, and Mail has no
+such words to compare.
 
 ## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, seen in part on the test iPad 2026-10-25. A failed Edit mode Delete seemed to leave its rows off the list until a Refresh: they were back on it, out of sight above; every row that did not move, of a Delete or a Move, comes back where it stood
 
@@ -37765,6 +37792,15 @@ draws with the switch off. The difference is this entry's NOT
 COMPARABLE, a PDF drawn as its page, not Smart Invert's: nothing
 changed for it (B-179).
 
+**Compared with Mail on 16.5.1, 2026-10-29** (round r6-n-compare,
+C-3b): "Mail prints a letter as its body's web view draws it, files and
+all", this entry's rule for the paper, read in 18.6's code, is not what
+Mail 16.5.1 does. It prints a letter whose only content is an attached
+picture as its header alone, where the paper here had the picture under
+it at 88% of the page's width. By the owner's ruling of that day, copy
+Apple Mail, the paper has none of a letter's files since B-185; the
+pane draws them as this entry built it.
+
 ## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27/28, a marked-up HEIC's row named as Quick Look's JPEG copy is. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
 Built in the `bm-cm-markup` worktree (branch `copy-markup`), off int18 at
@@ -38501,7 +38537,9 @@ C-5a in passing), by the owner's ruling of that day, copy Apple Mail:
 the row of a letter that is only a picture says "Attachment: " and the
 file's name on its second line in Mail, empty here; a row with no
 subject says "No Subject" in grey in Mail, "(no subject)" in white
-here. Both copied by B-182.
+here. Both copied by B-182. The paper's header on the round's two
+picture letters had Mail's lines in Mail's order (C-3b); under it,
+Mail's print of the attached one is the header alone, copied by B-185.
 
 ## B-173 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. Three of a letter's colours in the dark pane were not Mail's: a light letter's white ran edge to edge, his signature was black on black, and the "unloaded images" line was grey on the letter's white; each is Mail's colour now, and nothing on the pane moved
 
@@ -41197,3 +41235,78 @@ The release build for the iPad: "Build complete".
   lines there) is now for ages of two to five minutes only; its layout
   stays the owner's to rule on.
 - The unsent count's and a failure's colours in Mail were not seen.
+
+## B-185 — FIXED 2026-10-29. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them, a letter that is only an attached picture as its header alone, and so does Blackmail now
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
+to C-2c in passing), and the plan made from it (area 4). The owner's
+ruling of 2026-10-29, copy Apple Mail; the layout rule of 2026-10-27
+(D-025) for the rest. Behaviour, of the paper alone: nothing on the
+screens changed.
+
+**What Mail does.** In the print's preview, Cancel each time: the
+round's letter whose only content is an attached picture, "R6 B-131
+attached picture rn", is its header alone, one page, no picture. The
+letter whose HTML shows its picture by `cid:`, "R6 B-131 picture only
+rn", is its header and the picture, 68 view px wide, the size it is
+here, and then a second, blank page. Neither says it has no text.
+
+**What Blackmail did.** The printed page drew a letter's files as the
+pane does (`BodyFiles.drawn` on `.paper`, B-170): the attached picture
+under the header, 143 by 104 view px, 88% of the page's width; a PDF
+as its tile; every file after the words, or at its mark among them.
+
+**What changed** (`PrintPage.body`). The printed page draws none of a
+letter's files: no picture file, no tile, nothing after the words.
+The mark of a file among the words (`BodyFiles.mark`) is left the
+comment it came as, which nothing draws. A picture the HTML shows by
+`cid:` is the HTML's own and prints there, as Mail's does. A letter
+left with nothing under its header prints its header alone, with no
+"no text" line, as B-131 has it. The tile's size rule went off the
+paper with the tiles. `BodyFiles.Page.paper` stays, drawn by no page.
+
+The rule is measured for a picture (attached, left off; shown by
+`cid:`, printed) and inferred for every other file, a PDF among them.
+
+Not copied:
+
+- Mail's blank second page for the `cid:` picture letter: a fault of
+  its paging that wastes a sheet.
+- Mail's wider margins and larger header (C-2b, in passing): the
+  paper's layout, said in B-110.
+
+Settled, nothing changed: C-2a to C-2c, Mail prints no backgrounds and
+its light greys as faint (B-110); C-3b, no "no text" line (B-131).
+
+**What he sees.** A letter he prints is its header and its words, and
+the pictures its words show, as Mail prints it; an attached photo or a
+PDF is not printed with it.
+
+**Tests.** In `FileListedOnceTests`, one in place of the paper's old
+one: an attached picture alone prints the header and nothing under it;
+an HTML and a plain letter with a photo and a PDF print their words
+with no picture, tile or file name, while the pane still draws both;
+a plain letter with a PDF prints its words alone; a file's mark stays
+a comment; a picture shown by `cid:` prints, once, decoded as drawn.
+Changed: `FileListedOnceTests` (a picture sent to be shown that the
+HTML does not show, the tile's size rule, a file a cut would swallow),
+`PrintPageTests` (a file's escaped name, now on neither header nor
+body) and `PrintWiringTests` (`PrintPage` names no `BodyFiles.drawn`).
+
+`.paper` files put back in `PrintPage.body`: 18 failures in the new
+test, each an assertion's; put back, passing.
+
+The full suite: 3,193 tests, 6 skipped, none failing. The release
+build for the iPad: "Build complete".
+
+**Not covered.**
+
+- Every file but a picture is left off by inference: Mail's print of
+  a letter with a PDF or another file was not seen (the check prints
+  one to the preview).
+- A letter with words and an attached picture: Mail's print not seen;
+  by the rule, its words alone.
+- The words, printed only when the page cannot be drawn, still list
+  the letter's files after its text (B-170): Mail has no such words to
+  copy, and no page failed in the round.
+- Mail on 18: its print not seen.

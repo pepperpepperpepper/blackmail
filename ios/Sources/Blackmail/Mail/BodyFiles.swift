@@ -55,7 +55,8 @@ enum BodyFiles {
         case dark
         /// A printed letter, on white (`PrintPage`): in the light colours,
         /// printed as written, and with no "Tap to Download", which is
-        /// nothing to do on paper.
+        /// nothing to do on paper. Not drawn since B-185: the printed page
+        /// has none of a letter's files, as Mail's has none.
         case paper
     }
 

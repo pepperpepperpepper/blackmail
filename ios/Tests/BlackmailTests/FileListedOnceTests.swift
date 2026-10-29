@@ -218,16 +218,15 @@ final class FileListedOnceTests: XCTestCase {
             XCTAssertTrue(try XCTUnwrap(m.attachments.first).isShownInBody, shape.name)
             XCTAssertFalse(PanePage.isEmpty(m), shape.name)
             let page = try XCTUnwrap(PanePage.letter(m, style: style), shape.name)
-            for (kind, body) in [("page", page), ("stack", PanePage.stackBody(m).html),
-                                 ("printed", PrintPage.body(m).html)] {
+            for (kind, body) in [("page", page), ("stack", PanePage.stackBody(m).html)] {
                 let label = "\(shape.name), \(kind)"
                 XCTAssertEqual(count(drawn(section, of: m), in: body), 1, label)
                 order(shape.order.map { $0 == section ? drawn(section, of: m) : $0 }, in: body, label)
                 XCTAssertFalse(body.contains(MailText.emptyBodyNotice), label)
                 XCTAssertFalse(body.contains("<!--bm-file:"), label)
             }
-            XCTAssertTrue(PrintPage.body(m).html.contains("<img decoding=sync src=\"bmcid://bmfile-m7_3-"),
-                          shape.name)
+            // Not on paper, where the HTML does not draw it (B-185).
+            XCTAssertFalse(PrintPage.body(m).html.contains("bmcid://bmfile-"), shape.name)
             let address = BodyFiles.pictureID(section, of: m.id)
             XCTAssertEqual(PanePage.pictures(of: [m])[address],
                            PanePage.Picture(messageID: "7/3", mailboxID: "INBOX", section: section,
@@ -349,7 +348,8 @@ final class FileListedOnceTests: XCTestCase {
                           .contains(rule))
         let print = PrintPage.Style(senderPointSize: 33, metaPointSize: 29, subjectPointSize: 33,
                                     bodyPointSize: 33, lineHeight: 1.41)
-        XCTAssertTrue(PrintPage.made(plainHTML, style: print, size: { "\($0) bytes" }).page.contains(rule))
+        // On paper no tile, and so no rule for one (B-185).
+        XCTAssertFalse(PrintPage.made(plainHTML, style: print, size: { "\($0) bytes" }).page.contains("zoom:"))
     }
 
     func testATileIsMailsTile() throws {
@@ -550,46 +550,97 @@ final class FileListedOnceTests: XCTestCase {
         m.isShortened = false
         order(["<p>One.</p>", drawn("2", of: m), "<p>Two, cut", drawn("4", of: m)],
               in: try XCTUnwrap(PanePage.letter(m, style: style)), "whole")
-        // Printed, cut by the print's own limit.
+        // Printed, cut by the print's own limit: the line and the words,
+        // and no file (B-185).
         let long = Message(id: "7/3", mailboxID: "INBOX", sender: "Jane <jane@example.com>",
                            senderAddress: "jane@example.com", to: [], cc: [], subject: "Long",
                            date: Date(timeIntervalSince1970: 1_792_679_717), textBody: nil,
                            htmlBody: "<p>" + String(repeating: "a", count: PrintPage.htmlLimit + 1),
                            attachments: [after])
         let printed = PrintPage.body(long).html
-        order([PrintPage.shortened, drawn("4", of: long), "<p>aaa"], in: printed, "printed")
+        order([PrintPage.shortened, "<p>aaa"], in: printed, "printed")
+        XCTAssertFalse(printed.contains("bmfile"), "printed")
     }
 
     // MARK: - On paper
 
-    /// A printed letter's files are in its body as the pane draws them,
-    /// on paper: tiles with no "Tap to Download", and a picture file's
-    /// picture decoded as it is drawn, an HTML letter's and a plain
-    /// letter's; none in its header.
-    func testAPrintedLettersFilesAreInItsBody() throws {
-        let raw = Self.letter(Self.mixed([Self.html("Our garden."), Self.jpeg("photo.jpg"), Self.pdf("plan.pdf")]))
-        var m = Self.message(raw)
-        m.filesLeftOnServer = true
-        let page = PrintPage.letter(m, style: .init(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 17,
-                                                    bodyPointSize: 17, lineHeight: 1.41),
-                                    size: { "\($0) bytes" })
-        let head = try XCTUnwrap(page.components(separatedBy: "<div id=\"bm\">").first)
-        XCTAssertFalse(head.contains("plan.pdf"))
-        XCTAssertFalse(head.contains("photo.jpg"))
-        order(["Our garden.", "<img decoding=sync src=\"bmcid://bmfile-m7_3-2\"",
-               BodyFiles.tile(m.listedAttachments[1], of: m, on: .paper)], in: page, "printed")
-        XCTAssertFalse(page.contains("Tap to Download"))
-        XCTAssertNotNil(PanePage.pictures(of: [m])["bmfile-m7_3-2"], "the print's loader has it")
+    /// A printed letter has none of its files, as Mail prints none (B-185;
+    /// round r6-n-compare, C-3b, 29 October 2026): Mail 16.5.1 prints the
+    /// letter whose only content is an attached picture as its header
+    /// alone, and the one whose HTML shows its picture by `cid:` with the
+    /// picture. So an attached picture prints no `<img>`, a PDF no tile,
+    /// a letter with words and files its words alone, a file's mark among
+    /// the words stays the comment it came as, and a picture the HTML
+    /// shows by `cid:` prints there, decoded as it is drawn. The pane
+    /// draws every one, as before. From B-170 to B-185 the paper drew
+    /// them as the pane does.
+    func testAPrintedLetterHasNoneOfItsFilesAsMailsHasNone() throws {
+        let print = PrintPage.Style(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 17,
+                                    bodyPointSize: 17, lineHeight: 1.41)
+        func page(_ m: Message) -> String {
+            PrintPage.letter(m, style: print, size: { "\($0) bytes" })
+        }
+        func body(_ page: String) throws -> String {
+            let start = try XCTUnwrap(page.range(of: "<div id=\"bm\">"))
+            let end = try XCTUnwrap(page.range(of: "</div></body></html>", options: .backwards))
+            return String(page[start.upperBound..<end.lowerBound])
+        }
 
-        // A plain letter's photo the same: its words have no picture of
-        // their own, and the photo the pane draws after them is decoded as
-        // it is drawn, or prints as a blank of its shape (seen 2026-10-23).
-        let plain = Self.message(Self.letter(Self.mixed([Self.plain("Our garden."), Self.jpeg("photo.jpg")])))
-        XCTAssertNil(plain.htmlBody)
-        let printed = PrintPage.body(plain)
-        XCTAssertFalse(printed.isHTML)
-        order(["Our garden.", "<img decoding=sync src=\"bmcid://bmfile-m7_3-2\""], in: printed.html, "plain")
-        XCTAssertEqual(count("<img ", in: printed.html), 1)
+        // Only an attached picture: the header alone, as Mail's.
+        let picture = Self.message(Self.letter(Self.mixed([Self.jpeg("IMG_0131.jpg")])))
+        XCTAssertEqual(picture.attachments.map(\.id), ["1"])
+        XCTAssertFalse(PanePage.isEmpty(picture), "the pane draws it")
+        XCTAssertTrue(try XCTUnwrap(PanePage.letter(picture, style: style)).contains(drawn("1", of: picture)))
+        let alone = page(picture)
+        XCTAssertEqual(try body(alone), "", "nothing under the header")
+        XCTAssertFalse(alone.contains("<img"), "no picture")
+        XCTAssertFalse(alone.contains(MailText.emptyBodyNotice), "no \"no text\" line, as Mail's")
+        XCTAssertTrue(alone.contains("<td class=\"bm-label\">From:</td>"), "the header")
+
+        // Words and files: the words, with no picture and no tile, in an
+        // HTML letter and a plain one.
+        for (kind, words) in [("HTML", Self.html("Our garden.")), ("plain", Self.plain("Our garden."))] {
+            var m = Self.message(Self.letter(Self.mixed([words, Self.jpeg("photo.jpg"), Self.pdf("plan.pdf")])))
+            m.filesLeftOnServer = true
+            XCTAssertEqual(m.attachments.map(\.id), ["2", "3"], kind)
+            let pane = try XCTUnwrap(PanePage.letter(m, style: style), kind)
+            order(["Our garden.", drawn("2", of: m), drawn("3", of: m)], in: pane, "\(kind), the pane")
+            let printed = try body(page(m))
+            XCTAssertTrue(printed.contains("Our garden."), kind)
+            for file in [drawn("2", of: m), drawn("3", of: m), "bmcid://", "<img", BodyFiles.tileClass,
+                         "plan.pdf", "photo.jpg", "Tap to Download"] {
+                XCTAssertFalse(printed.contains(file), "\(kind): \(file)")
+            }
+            XCTAssertFalse(page(m).contains("zoom:"), "\(kind): no tile's rule")
+        }
+
+        // A plain letter with a PDF alone: its words, no tile.
+        let pdf = Self.message(Self.letter(Self.mixed([Self.plain("The plan."), Self.pdf("plan.pdf")])))
+        XCTAssertEqual(try body(page(pdf)), "The plan.")
+
+        // A file's mark among the words: the comment it came as, which
+        // nothing draws; the pane makes it the file.
+        let tile = Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 9)
+        let marked = Message(id: "7/3", mailboxID: "INBOX", sender: "Jane <jane@example.com>",
+                             senderAddress: "jane@example.com", to: [], cc: [], subject: "Plan",
+                             date: Date(timeIntervalSince1970: 1_792_679_717), textBody: nil,
+                             htmlBody: "<p>One.</p>" + BodyFiles.mark("2") + "<p>Two.</p>", attachments: [tile])
+        XCTAssertEqual(try body(page(marked)), "<p>One.</p>" + BodyFiles.mark("2") + "<p>Two.</p>")
+        order(["<p>One.</p>", drawn("2", of: marked), "<p>Two.</p>"],
+              in: try XCTUnwrap(PanePage.letter(marked, style: style)), "marked, the pane")
+
+        // A picture the HTML shows by `cid:`: printed there, decoded as it
+        // is drawn, as Mail prints it; once.
+        let named = Self.message(Self.letter(Self.mixed([
+            Self.html("Our garden. <img src=\"cid:photo@example.com\">"),
+            Self.jpeg("h-photo.jpg", contentID: "photo@example.com", disposition: "inline")])))
+        let shown = try body(page(named))
+        order(["Our garden.", "<img decoding=sync src=\"" + address("photo@example.com") + "\""],
+              in: shown, "cid")
+        XCTAssertEqual(count("<img ", in: shown), 1)
+        XCTAssertFalse(shown.contains("bmcid://bmfile-"))
+        XCTAssertNotNil(PanePage.pictures(of: [named])["photo@example.com"],
+                        "the print's loader has it")
     }
 
     // MARK: - Its tile shows it coming
