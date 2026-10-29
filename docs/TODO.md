@@ -10492,15 +10492,25 @@ checks below is left as not needed, not open, and none is worth a round.*
          row's circle: while it is down the tick the same, its check
          blue, never a plain white disc. Screenshot, the circle cropped
          and its colours read. Cancel: nothing trashed, moved or marked.
-      9. *16.5.1 unchanged,* between 3 and 7: on the test iPad, a build
-         with the change, steps 1 to 3 again: every shot as round
-         r6-j-act's, the tick a white disc with its check rgb(10, 132,
-         255) as in that round's shot 05, nothing else differing. A
-         finger held on an unticked row: its circle as it is drawn, noted
-         (on 16 the row draws nothing of its own, and a held row's circle
-         was never photographed there). (Corrected 2026-10-28 after round
-         r6-m-fix: shot 05's tick is a plain white disc, no check;
-         KNOWN_ISSUES B-174, "Corrected 2026-10-28".)
+      9. *16.5.1, Mail's tick,* between 3 and 7: on the test iPad, a
+         build with the row's tick on 16 (changed 2026-10-29), steps 1
+         to 3 again. A ticked row's tick as Mail 16.5.1's (round
+         r6-i-compare, 03-mail-edit-one): a white disc, rgb(255, 255,
+         255), with its check in the row's blue, rgb(10, 132, 255), the
+         row rgb(10, 132, 255), the circle where an unticked row's grey
+         circle is and at its size; the check's pixels counted inside
+         the disc, not in the box's corners. Unticked, the grey circle
+         alone. Every other pixel as round r6-m-fix's shot of it outside
+         its boxes left out. A finger held on an unticked row's circle:
+         the same disc and check while it is down; lifted, ticked.
+         Screenshot, the circle cropped and its colours read. If a
+         ticked row's disc shows no check, or the check is not inside
+         the disc, the step FAILS: the round stops, the shots are kept,
+         and the row's view tree is noted for KNOWN_ISSUES B-174 (the
+         row draws nothing where UIKit's edit control or its image view
+         is not found). (Was "16.5.1 unchanged" until the owner's ruling
+         of 2026-10-29, "all should copy apple mail"; KNOWN_ISSUES
+         B-174, "Changed 2026-10-29".)
       *Seen on the test iPad 2026-10-28 on int21 (1873724), round
       r6-j-act: 1 to 6 passed, the three APPENDed read and the third made
       unread by Blackmail's own drag to the right, its one STORE before
@@ -10559,6 +10569,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       as it is: whether the row's own tick is drawn on 16 too is open for
       him, so this item is not ticked. On 73fdf8e the simulators passed 8
       again on 18.6 and 17.5, the press too. Nothing was sent.*
+      *Changed 2026-10-29: the owner ruled "all should copy apple mail",
+      and the row draws its own tick on 16 too (KNOWN_ISSUES B-174,
+      "Changed 2026-10-29"). On 17.5 and 18.6 a ticked row seen again
+      as 8 has it, the press not run again; 9, as rewritten, not run
+      yet.*
 
 - [x] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
       On the test iPad, the test account only, from a build of the

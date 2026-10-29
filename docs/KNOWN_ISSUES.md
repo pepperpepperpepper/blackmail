@@ -38655,7 +38655,7 @@ conversation; Mail's line white with its button rgb(10, 131, 255), rgb(14,
 144, 248) over an inverted letter, the line, its button and its rule where
 they were. Nothing was sent.
 
-## B-174 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, from iOS 17 its tick drawn by the row 2026-10-28 behind a check of the version, seen on the 17.5 and 18.6 simulators, and 16.5.1 seen unchanged on the test iPad after it; corrected the same day: on 16.5.1 a ticked row's circle is a plain white disc with no check, as it has been since int21, open for the owner. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
+## B-174 — FIXED 2026-10-27, seen on the test iPad 2026-10-28, from iOS 17 its tick drawn by the row 2026-10-28 behind a check of the version, seen on the 17.5 and 18.6 simulators, and 16.5.1 seen unchanged on the test iPad after it; corrected the same day: on 16.5.1 a ticked row's circle is a plain white disc with no check, as it has been since int21; changed 2026-10-29 by the owner's ruling: the row draws its own tick on 16 too, to be seen on the test iPad. Edit mode as Mail's: Mark, Move and Trash grey until a row is ticked, Edit grey in an empty folder, the title "1 Selected", a ticked row's letter in the reading pane and the letter before put back as Edit mode ends, the pane dimmed with nothing ticked, and a ticked row blue with a white tick
 
 Built in the `bm-cmp-cd` worktree (branch `copy-cmp-cd`), off int20 at
 b9afe64, as Batch C of the plan of 27 October (items C1 to C6), under the
@@ -38961,6 +38961,45 @@ changed, by the owner's word of 2026-10-28, "keeping the test iPad on
 16.5.1 exactly as it is", so 16 still draws no check. Open for the
 owner: whether the row's own tick should be drawn on 16 too. Why 16
 draws no check in a white tint was not read from its UIKit.
+
+**Changed 2026-10-29.** The owner ruled, "all should copy apple mail",
+which settles the question above: the row draws its own tick on 16 as
+well, so a ticked row on 16.5.1 is to show Mail's blue check on the
+white disc, as on 17 and 18. His word of 2026-10-28, keeping 16.5.1
+exactly as it was, was given when 16 was believed to draw the check.
+Changed (`MessageCell`, 46dcd5f): the check of the version,
+`drawsOwnTick`, is gone, and `colour`, `setHighlighted` and
+`layoutSubviews` show, hide and place the row's tick on every iOS.
+Nothing else on 16 changed: the white tint, the colours, the layout and
+the row's blue are as they were. Whether 16's UIKit is reached the same
+way was read where it could be: on the 17.5 simulator, through the
+debugger, the edit control is `UITableViewCellEditControl`, a
+`UIControl` and the cell's own subview, its first image view its
+`_imageView`, UIKit's tick (`checkmark.circle.fill`, white on the
+tint), at (0 1; 26 26), its content mode scale to fill, with the row's
+tick the second; the iOS 16.5 SDK has the same class, its ivars `_cell`
+and `_reserved` as the older UIKit's, which had `_imageView` too. No 16
+runtime was there to read. `placeTick`'s fallback is kept: where the
+control or its image view is not found the row's tick stays hidden, so
+a 16 that differs shows what it showed before. Seen on the 17.5 and
+18.6 simulators on a build of the change (46dcd5f but for one comment):
+a ticked row's disc rgb(255,255,255) with its check rgb(10,132,255) on
+the row's rgb(10,132,255), the unticked rows' grey circles, as before;
+the press not run again. Nothing was trashed, moved or marked: Cancel.
+What a press shows on 16 is now the row's tick while the finger is
+down, as from 17, not seen there.
+
+*Tests.* `EditModeLikeMailTests`, the test renamed
+`testOnEveryIOSTheRowDrawsItsOwnTickOverUIKits`: no `drawsOwnTick` and
+no `isOperatingSystemAtLeast` in the row, `placeTick` called first in
+`layoutSubviews`, the tick shown or hidden in `colour` and
+`setHighlighted` with no check around it, the rest as before. The row
+as it was at dcb769b: 5 failures, each an assertion's; a check of 16
+put back around `layoutSubviews`' call alone: 3; the fallback's hiding
+taken out of `placeTick`: 1; put back, passing. The full suite: 3,160
+tests, 6 skipped, none failing; the release build for the iPad: "Build
+complete". Not yet seen on the test iPad: the TODO's B-174 check, step
+9 as rewritten, whose FAIL is a ticked row's disc with no check.
 
 ## B-175 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
