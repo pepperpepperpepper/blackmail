@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -40700,9 +40700,10 @@ the same screen with Smart Invert off):
 
 1. *A letter Mail turns to the dark* (C-1d, "R6 B-SI photos"): every
    pixel the system's plain inversion of OFF, 255 less each channel, the
-   photos too: in the photos' box a mean difference of 0.3 from the
-   inversion, every pixel nearer it; a photo point OFF
-   rgb(88, 120, 167), ON rgb(167, 135, 88).
+   photos too: a photo point OFF rgb(88, 120, 167), ON rgb(167, 135,
+   88). In the photos' box a mean difference of 0.3 from the inversion,
+   every pixel nearer it, the box mostly the pane's ground, as the
+   round's second run noted: the photo point carries it.
 2. *A light letter* (C-1e, "R6 B-SI light", a picture from the web in
    it): its page white, rgb(255, 255, 255), its words black, its link
    blue (its fullest pixels rgb(19, 136, 255)), as on paper. Its
@@ -40742,18 +40743,22 @@ the same screen with Smart Invert off):
 `MessageDetailViewController`).
 
 1. *The switch.* The pane reads iOS's own,
-   `UIAccessibility.isInvertColorsEnabled` (Smart Invert or Classic
-   Invert; iOS 11's, no check of the version), for every page it builds,
-   and follows `invertColorsStatusDidChangeNotification` while it is
-   open. Not WebKit's `@media (inverted-colors)`: WebKit's own style
-   sheet has had a rule under it since 2018 that inverts every picture a
-   second time, which would draw a picture natural; the light letter's
+   `UIAccessibility.isInvertColorsEnabled` (iOS 11's, no check of the
+   version), for every page it builds, and follows
+   `invertColorsStatusDidChangeNotification` while it is open. Apple
+   documents the property as Classic Invert's; whether it is true under
+   Smart Invert on 16.5.1 or on 18 is not known (see "Fixed again"
+   below, and "Not covered"). Not WebKit's `@media
+   (inverted-colors)`: WebKit's own style sheet has had a rule under it
+   since 2018 that inverts every picture a second time, which would
+   draw a picture natural; the light letter's
    pictures, with no filter of the app's, came out inverted, so that
    rule does not take in the pane's web view.
 2. *A letter the pane inverts* (`LetterScheme.inverted`). The page keeps
-   its invert; its pictures, `img`, `video`, `svg`, `picture` and an
-   element with a `background-image` in its style, have `filter: none`,
-   over the pane's rule that inverted them a second time. If a picture
+   its invert; its photos, `img` and `video`, have `filter: none`, over
+   the pane's rule that inverted them a second time (as first built,
+   `svg`, `picture` and a `background-image` too; see "Fixed again"
+   below). If a picture
    under Smart Invert escapes the page's invert and keeps its own, the
    photos come out the plain inversion, Mail's; if it keeps the page's
    and loses its own, they come out hue-turned as before. No worse
@@ -40841,8 +40846,47 @@ built at 65e32ab: the same to the byte. The full suite: 3,168 tests, 6
 skipped, none failing. The release build for the iPad: "Build
 complete".
 
+**Fixed again 2026-10-29**, after a second run read the change
+against the round's shots.
+
+1. *Only the photos.* As first built, `svg`, `picture` and an element
+   with a `background-image` lost the pane's filter too, but the round
+   measured only an `img` photo losing one of its two inverts. In the
+   round's PDF shot (`03-bm-pdf-view.png`, "R6 B-SI pdf", an inverted
+   HTML letter) the tile is rgb(255, 255, 255) at (510, 320) and its
+   `svg` sheet icon rgb(0, 0, 0) at (556, 330): a white icon with both
+   inverts, then the system's. With no filter it would take the page's
+   alone and come out white on the white tile, a faint outline left,
+   where C-1f found the tile SAME; the busy ring and a background
+   picture the same way. Now `filter: none` names `img` and `video`
+   alone (`SmartInvert.pictures(in:)`); the rest keep the pane's own
+   rule, as with the switch off.
+2. *Whether the switch fires.* B-179 draws anything only where
+   `isInvertColorsEnabled` is true under Smart Invert. Apple documents
+   it as Classic Invert's, reports differ, and the round fits either
+   answer: WebKit's `inverted-colors` rule took in neither app. The
+   pane now writes what it read in the Connection log, "pane:
+   isInvertColorsEnabled true, page built" (or false) when it builds a
+   page with rules for the switch, and "..., changed" when the answer
+   changes (`SmartInvert.note`), so the check reads whether it fired
+   before it reads the photos.
+
+Tests, in `SmartInvertLikeMailTests`: two new, neither sheet, a
+letter's or a stack's, naming `svg`, `picture` or `background-image`,
+the pane's own rule for them as it was; and the log's two lines.
+Changed: the inverted letter's and the stack's sheets byte for byte,
+`img` and `video` alone; the pane's wiring, the two log lines. The old
+list put back: 11 failures in 3 tests, each an assertion's; the
+change's log line taken out: 1 failure in `testThePaneFollowsTheSwitch`.
+Put back, passing. The full suite: 3,196 tests, 6 skipped, none
+failing. The release build for the iPad: "Build complete".
+
 **Not covered.**
 
+- Whether `isInvertColorsEnabled` is true under Smart Invert, on
+  16.5.1 and on 18: Apple documents Classic Invert's, and nothing has
+  shown it either way. If it is false, none of B-179 is drawn and the
+  log says "false" with Smart Invert on; the check reads it first.
 - Which way a picture goes under Smart Invert (2): if the check finds
   the photos still hue-turned, the next step is not another filter but
   WebKit's colour filter, `-apple-color-filter:

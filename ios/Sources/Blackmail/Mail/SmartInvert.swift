@@ -15,7 +15,8 @@ import Foundation
 /// inverted by the system with nothing to undo it.
 ///
 /// So under the switch, and only under it: a letter the pane inverts
-/// keeps its invert, and its pictures have no filter (`inverted`); a light
+/// keeps its invert, and its photos, `img` and `video`, have no filter
+/// (`inverted`); a light
 /// letter's markup and its white are inverted plainly, `invert(1)` with no
 /// half turn of the hue, which the system's inversion undoes, so its page
 /// is white, its words black and its link `#007AFF`, as Mail's; its
@@ -25,9 +26,13 @@ import Foundation
 /// plain letter, a letter in its own colours, a notice, the printed page
 /// and Quick Look are as they were.
 ///
-/// The switch is iOS's (`UIAccessibility.isInvertColorsEnabled`, Smart
-/// Invert or Classic Invert), read by the pane, which follows it while it
-/// is open (`MessageDetailViewController`). Not WebKit's own `@media
+/// The switch is iOS's (`UIAccessibility.isInvertColorsEnabled`), read by
+/// the pane, which follows it while it is open
+/// (`MessageDetailViewController`). Apple documents it as Classic
+/// Invert's; whether it is true under Smart Invert on 16.5.1 and on 18 is
+/// not known, so the pane writes what it read in its log (`note`) for the
+/// device check to see. If it is false under Smart Invert, none of this
+/// is drawn. Not WebKit's own `@media
 /// (inverted-colors)`: the light letter's pictures, with no filter of the
 /// app's on them, came out inverted, so WebKit's rule for that query does
 /// not take in the pane's web view.
@@ -48,17 +53,23 @@ enum SmartInvert {
     /// The id of the sheet in the page's head that holds the rules.
     static let sheetID = "bm-si"
 
-    /// The pictures of a letter inside `scope`, as the pane's invert names
-    /// them (`PanePage.letter`, `ConversationDocument.html`), under the
-    /// class.
+    /// The photos of a letter inside `scope`, under the class: `img` and
+    /// `video` alone of what the pane's invert names as pictures
+    /// (`PanePage.letter`, `ConversationDocument.html`). The round measured
+    /// an `img` photo, drawn with one of the page's two inverts under
+    /// Smart Invert; the PDF tile's `svg` sheet came out with both, black on
+    /// the light tile as Mail's page is the inversion, and would go white
+    /// on white with no filter. So `svg`, `picture` and an element with a
+    /// `background-image`, the busy ring among them, keep the pane's own
+    /// rule, as with the switch off.
     static func pictures(in scope: String) -> String {
-        ["img", "video", "svg", "picture", "[style*=\"background-image\"]"]
+        ["img", "video"]
             .map { "html.\(className) \(scope) \($0)" }.joined(separator: ", ")
     }
 
     /// The rule for a letter the pane inverts inside `scope`, `#bm` on its
-    /// page or `.bm-html` in a stack: its pictures with no filter. The
-    /// page keeps its invert.
+    /// page or `.bm-html` in a stack: its photos with no filter. The page
+    /// keeps its invert.
     static func inverted(in scope: String) -> String {
         pictures(in: scope) + " { filter: none; }"
     }
@@ -96,6 +107,14 @@ enum SmartInvert {
     /// otherwise.
     static func sheet(on: Bool, rules: String) -> String {
         on && !rules.isEmpty ? "<style id=\"\(sheetID)\">\n" + rules + "\n</style>" : ""
+    }
+
+    /// The pane's log line for the switch as iOS answered it (B-179's
+    /// check): `built`, as a page with rules for it was built; otherwise
+    /// when the answer changed. What the check reads to know whether the
+    /// switch took under Smart Invert, before it reads the photos.
+    static func note(on: Bool, built: Bool) -> String {
+        "pane: isInvertColorsEnabled \(on)" + (built ? ", page built" : ", changed")
     }
 
     /// The start of every page the pane builds, to the end of its `<html>`

@@ -196,6 +196,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private var invertRules = ""
     private var invertBuiltOn = false
     private var invertShown = false
+    /// What iOS last answered for the switch, as the log has it
+    /// (`SmartInvert.note`); nil before the first.
+    private var invertNoted: Bool?
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -340,8 +343,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
-    /// The iPad's Smart Invert, or Classic Invert, gone on or off, or the
-    /// app back in front, or a page loaded (`SmartInvert`, B-179): the page
+    /// iOS's invert switch gone on or off, or the app back in front, or a
+    /// page loaded (`SmartInvert`, B-179): what iOS answers written in the
+    /// log when it changed, and the page
     /// shown is told by script, its class put on or taken off, and its
     /// rules put in if it was built without them, when it has rules and
     /// does not have the switch as iOS has it now. Nothing is drawn again
@@ -351,6 +355,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`pageStyle`).
     @objc private func followSmartInvert() {
         let on = UIAccessibility.isInvertColorsEnabled
+        if on != invertNoted {
+            invertNoted = on
+            Diagnostics.log(.note, SmartInvert.note(on: on, built: false))
+        }
         guard !invertRules.isEmpty, on != invertShown else { return }
         invertShown = on
         let toggle = SmartInvert.Toggle(on: on, rules: invertRules)
@@ -1019,6 +1027,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         invertRules = SmartInvert.rules(ofPage: html)
         invertBuiltOn = SmartInvert.isOn(inPage: html)
         invertShown = invertBuiltOn
+        // A page with rules is built on, by the switch's answer then: in
+        // the log, for the check (B-179).
+        if !invertRules.isEmpty {
+            invertNoted = invertBuiltOn
+            Diagnostics.log(.note, SmartInvert.note(on: invertBuiltOn, built: true))
+        }
         let navigation = webView.loadHTMLString(html, baseURL: nil)
         document.loaded(content, navigation: navigation.map(ObjectIdentifier.init))
         paneCover.loaded(navigation.map(ObjectIdentifier.init))

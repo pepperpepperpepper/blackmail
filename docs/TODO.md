@@ -11234,24 +11234,34 @@ checks below is left as not needed, not open, and none is worth a round.*
 - [ ] **B-179, a letter under Smart Invert as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
       worktree (branch `fix-j1`) or of the int it is merged into.
-      Nothing is composed, sent, saved, moved or deleted in the app. The
-      letters are round r6-n-compare's, "R6 B-SI photos", "R6 B-SI
-      light" and "R6 B-SI pdf", and a plain letter, or made again as
-      that round made them: the host makes each from another address,
+      Nothing is composed, sent, moved or deleted in the app, and
+      nothing saved in it but step 3's one setting, put back as from
+      the factory. The letters are round r6-n-compare's, "R6 B-SI
+      photos", "R6 B-SI light" and "R6 B-SI pdf", and a plain letter,
+      or made again as that round made them: the host makes each from
+      another address,
       with a new Message-ID of its own, and APPENDs it, read (`\Seen`),
       to the label "Notes", never the Inbox, noting each UID from its
       APPENDUID; it stops if one has none. Dark Mode, three panes;
       full-size screenshots, colours sampled from them as the round
       sampled them; Mail beside Blackmail at each step.
       1. *Smart Invert on*, as the round turned it on (Settings >
-         Accessibility > Display & Text Size > Smart Invert).
+         Accessibility > Display & Text Size > Smart Invert). Then,
+         before any colour is read, whether the switch fired: the
+         light letter opened in Blackmail, its page white (as in 3),
+         and the Connection log's "pane: isInvertColorsEnabled true,
+         page built". If the log says false and the page is black,
+         iOS's switch does not fire under Smart Invert: written down,
+         and 2 and 3 read as "not drawn", not as a wrong filter
+         (KNOWN_ISSUES B-179, "Not covered").
       2. *The photos letter* opened in both: Mail's photos as in C-1d.
          Blackmail's at the round's points, (677, 552) and (549, 338):
          about 255 less their OFF colours, rgb(120, 92, 38) and
          rgb(128, 135, 128), as Mail's photos are; or as before,
          rgb(187, 158, 105) and rgb(117, 124, 117), hue-turned, which
-         is written down, not failed: the next step, WebKit's colour
-         filter, is decided then (KNOWN_ISSUES B-179). The page round
+         is written down, not failed: with 1 found to fire, the next
+         step, WebKit's colour filter, is decided then (KNOWN_ISSUES
+         B-179). The page round
          the photos as before. Screenshots.
       3. *The light letter* opened in both: Blackmail's page at
          (900, 200) white, as Mail's, its words black, its link about
@@ -11265,7 +11275,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          factory.
       4. *A plain letter and the PDF letter*: each as in the round, the
          plain letter's page the inversion, as Mail's; the PDF's tile
-         light, as before. Screenshots.
+         light, as before, and its sheet icon black on it, as in the
+         round's shot, near rgb(0, 0, 0) at (556, 330), not white on
+         the white tile. Screenshots.
       5. *The switch while a letter is open:* the light letter open in
          Blackmail, scrolled a little down; Smart Invert turned off in
          Settings and the app brought back: the letter's white sheet in

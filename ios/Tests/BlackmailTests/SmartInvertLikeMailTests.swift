@@ -4,7 +4,7 @@ import XCTest
 /// A letter in the reading pane under the iPad's Smart Invert as Mail's
 /// comes out under it (B-179), as the comparison with Mail 16.5.1 on the
 /// test iPad of 2026-10-29 found it (r6-n-compare, C-1d and C-1e): a
-/// letter the pane inverts keeps its invert and its pictures have no
+/// letter the pane inverts keeps its invert and its photos have no
 /// filter; a light letter's sheet is inverted plainly, its pictures with
 /// no filter of the pane's, Mail's line over it inverted back; a plain
 /// letter, one in its own colours and every page with the switch off are
@@ -73,9 +73,7 @@ final class SmartInvertLikeMailTests: XCTestCase {
         let page = try XCTUnwrap(PanePage.letter(m, style: on))
         XCTAssertTrue(page.hasPrefix("<!DOCTYPE html><html class=\"bm-si\"><head>"), page)
         let rules = try sheet(of: page)
-        XCTAssertEqual(rules, "\nhtml.bm-si #bm img, html.bm-si #bm video, html.bm-si #bm svg, "
-                        + "html.bm-si #bm picture, html.bm-si #bm [style*=\"background-image\"] "
-                        + "{ filter: none; }\n")
+        XCTAssertEqual(rules, "\nhtml.bm-si #bm img, html.bm-si #bm video { filter: none; }\n")
         XCTAssertFalse(rules.contains("invert"), rules)
         // The page keeps its invert, and its own rule for pictures, which
         // the sheet comes after.
@@ -86,6 +84,33 @@ final class SmartInvertLikeMailTests: XCTestCase {
         XCTAssertLessThan(si.lowerBound, try XCTUnwrap(page.range(of: "</head>")).lowerBound)
         XCTAssertEqual(withoutTheSwitch(page, rules: SmartInvert.rules(for: .inverted)),
                        PanePage.letter(m, style: off))
+    }
+
+    /// Under the switch only the photos, `img` and `video`, lose the
+    /// pane's filter: the round's PDF tile's `svg` sheet came out black on
+    /// the light tile with both inverts (C-1f, SAME), and with no filter
+    /// would go white on white; `svg`, `picture` and an element with a
+    /// `background-image`, the busy ring among them, keep the pane's own
+    /// rule. Neither sheet names them, on a letter's page or in a stack.
+    func testOnlyThePhotosLoseTheFilterUnderSmartInvert() throws {
+        let page = try XCTUnwrap(PanePage.letter(photos, style: on))
+        let stacked = stack([photos, light], smartInvert: true)
+        for rules in [try sheet(of: page), try sheet(of: stacked)] {
+            for kept in ["svg", "picture", "background-image"] {
+                XCTAssertFalse(rules.contains(kept), "\(kept): \(rules)")
+            }
+            XCTAssertTrue(rules.contains(" img, "), rules)
+            XCTAssertTrue(rules.contains(" video { filter: none; }"), rules)
+        }
+        // The pane's own rule for them is in the page as it was.
+        XCTAssertTrue(page.contains("#bm img, #bm video, #bm svg, #bm picture, #bm [style*=\"background-image\"]"))
+    }
+
+    /// The pane's log line for the switch as iOS answers it, for the
+    /// device check: a page with rules built, and a change.
+    func testTheLogSaysWhatTheSwitchAnswered() {
+        XCTAssertEqual(SmartInvert.note(on: true, built: true), "pane: isInvertColorsEnabled true, page built")
+        XCTAssertEqual(SmartInvert.note(on: false, built: false), "pane: isInvertColorsEnabled false, changed")
     }
 
     /// Under the switch, a light letter's markup and its white are
@@ -160,9 +185,7 @@ final class SmartInvertLikeMailTests: XCTestCase {
         let page = stack(letters, smartInvert: true)
         XCTAssertTrue(page.hasPrefix(SmartInvert.onStart))
         let rules = try sheet(of: page)
-        XCTAssertEqual(rules, "\nhtml.bm-si .bm-html img, html.bm-si .bm-html video, html.bm-si .bm-html svg, "
-                        + "html.bm-si .bm-html picture, html.bm-si .bm-html [style*=\"background-image\"] "
-                        + "{ filter: none; }\n"
+        XCTAssertEqual(rules, "\nhtml.bm-si .bm-html img, html.bm-si .bm-html video { filter: none; }\n"
                         + "html.bm-si .bm-light { filter: invert(1); }\n"
                         + "html.bm-si .bm-light .bm-unloaded { filter: invert(1); }\n")
         XCTAssertFalse(rules.contains(".bm-own") || rules.contains(".bm-text"), rules)
@@ -201,7 +224,9 @@ final class SmartInvertLikeMailTests: XCTestCase {
     /// follows it while a page is shown: when iOS says it changed, when
     /// the app comes back to the front, and when a page has loaded, which
     /// may have been built before the change or told of it while it
-    /// loaded. Each page's rules are read off it as it is given to WebKit.
+    /// loaded. Each page's rules are read off it as it is given to WebKit,
+    /// and what iOS answered is written in the log for a page with rules
+    /// and at a change of the answer.
     func testThePaneFollowsTheSwitch() throws {
         let pane = try TextSizeTests.source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(pane.contains("lineHeight: Theme.detailBodyLineHeight, "
@@ -212,6 +237,8 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                     + "#selector(followSmartInvert), name: name, object: nil) }"))
         XCTAssertTrue(pane.contains("@objc private func followSmartInvert() { "
                                     + "let on = UIAccessibility.isInvertColorsEnabled "
+                                    + "if on != invertNoted { invertNoted = on "
+                                    + "Diagnostics.log(.note, SmartInvert.note(on: on, built: false)) } "
                                     + "guard !invertRules.isEmpty, on != invertShown else { return } "
                                     + "invertShown = on "
                                     + "let toggle = SmartInvert.Toggle(on: on, rules: invertRules) "
@@ -221,6 +248,8 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                     + "invertRules = SmartInvert.rules(ofPage: html) "
                                     + "invertBuiltOn = SmartInvert.isOn(inPage: html) "
                                     + "invertShown = invertBuiltOn "
+                                    + "if !invertRules.isEmpty { invertNoted = invertBuiltOn "
+                                    + "Diagnostics.log(.note, SmartInvert.note(on: invertBuiltOn, built: true)) } "
                                     + "let navigation = webView.loadHTMLString(html, baseURL: nil)"))
         XCTAssertTrue(pane.contains("func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) { "
                                     + "invertShown = invertBuiltOn followSmartInvert() "
