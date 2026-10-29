@@ -10500,17 +10500,26 @@ checks below is left as not needed, not open, and none is worth a round.*
          row rgb(10, 132, 255), the circle where an unticked row's grey
          circle is and at its size; the check's pixels counted inside
          the disc, not in the box's corners. Unticked, the grey circle
-         alone. Every other pixel as round r6-m-fix's shot of it outside
-         its boxes left out. A finger held on an unticked row's circle:
-         the same disc and check while it is down; lifted, ticked.
-         Screenshot, the circle cropped and its colours read. If a
-         ticked row's disc shows no check, or the check is not inside
-         the disc, the step FAILS: the round stops, the shots are kept,
-         and the row's view tree is noted for KNOWN_ISSUES B-174 (the
-         row draws nothing where UIKit's edit control or its image view
-         is not found). (Was "16.5.1 unchanged" until the owner's ruling
-         of 2026-10-29, "all should copy apple mail"; KNOWN_ISSUES
-         B-174, "Changed 2026-10-29".)
+         alone. Every other pixel as in round r6-m-fix's shot of the
+         same screen, the tick boxes, the dates and the clock left out.
+         A finger held on an unticked row's circle: the circle while it
+         is down, by the row's design the disc and its check; lifted,
+         ticked. Then in Mail 16.5.1 on the same iPad, Edit, a finger
+         held on an unticked row's circle, lifted, and Cancel: nothing
+         trashed, moved or marked. Screenshot both while the finger is
+         down, the circles cropped and their colours read; any
+         difference between them is noted for KNOWN_ISSUES B-174, as
+         Mail's held circle was never photographed on 16 and the row's
+         own design alone does not pass it. The step FAILS if a ticked
+         row's disc shows no check, its check is not inside the disc,
+         the disc is not where an unticked row's grey circle is or not
+         at its size, or a second disc or ring shows: the round stops,
+         the shots are kept, and the row's view tree is noted for
+         KNOWN_ISSUES B-174 (the row draws nothing where UIKit's edit
+         control or an image view in it is not found, and takes the
+         first image view in the control for UIKit's tick). (Was "16.5.1
+         unchanged" until the owner's ruling of 2026-10-29, "all should
+         copy apple mail"; KNOWN_ISSUES B-174, "Changed 2026-10-29".)
       *Seen on the test iPad 2026-10-28 on int21 (1873724), round
       r6-j-act: 1 to 6 passed, the three APPENDed read and the third made
       unread by Blackmail's own drag to the right, its one STORE before
@@ -10571,9 +10580,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       again on 18.6 and 17.5, the press too. Nothing was sent.*
       *Changed 2026-10-29: the owner ruled "all should copy apple mail",
       and the row draws its own tick on 16 too (KNOWN_ISSUES B-174,
-      "Changed 2026-10-29"). On 17.5 and 18.6 a ticked row seen again
-      as 8 has it, the press not run again; 9, as rewritten, not run
-      yet.*
+      "Changed 2026-10-29"). On a build of fb3322c the simulators ran
+      8 whole on 17.5 and 18.6: a row ticked, the presses on a circle
+      and on another row's words, all unticked, and Cancel, each shot's
+      list column as 73fdf8e's to the pixel but for two rows' dates;
+      nothing trashed, moved or marked. 9, as rewritten, not run yet.*
 
 - [x] **B-175, the drags, More, Ask Before Deleting and Undo as Mail's.**
       On the test iPad, the test account only, from a build of the

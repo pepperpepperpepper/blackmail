@@ -38979,27 +38979,54 @@ debugger, the edit control is `UITableViewCellEditControl`, a
 tint), at (0 1; 26 26), its content mode scale to fill, with the row's
 tick the second; the iOS 16.5 SDK has the same class, its ivars `_cell`
 and `_reserved` as the older UIKit's, which had `_imageView` too. No 16
-runtime was there to read. `placeTick`'s fallback is kept: where the
-control or its image view is not found the row's tick stays hidden, so
-a 16 that differs shows what it showed before. Seen on the 17.5 and
-18.6 simulators on a build of the change (46dcd5f but for one comment):
-a ticked row's disc rgb(255,255,255) with its check rgb(10,132,255) on
-the row's rgb(10,132,255), the unticked rows' grey circles, as before;
-the press not run again. Nothing was trashed, moved or marked: Cancel.
-What a press shows on 16 is now the row's tick while the finger is
-down, as from 17, not seen there.
+runtime was there to read. `placeTick`'s fallback is kept: the row's
+tick stays hidden only where the control, or an image view in it, is
+not found, and there a 16 that differs shows what it showed before.
+One case is not covered: another image view in the control ahead of
+UIKit's tick, as the older UIKit's `_shadowView` (with
+`wantsImageShadow`); the row's tick would then take that view's frame
+and content mode in place of the tick's. The 17.5 tree has one image
+view in each control and no shadow view, and 16's plain white disc
+looks as 17's white check on its white disc does, which points to the
+same drawing; so that case was thought unlikely, not ruled out. Seen
+on the 17.5 and 18.6 simulators on a build of the change (46dcd5f but
+for one comment): a ticked row's disc rgb(255,255,255) with its check
+rgb(10,132,255) on the row's rgb(10,132,255), the unticked rows' grey
+circles, as before; that run had no press and no Cancel. Then, on a
+build of fb3322c (its sources 46dcd5f's), the TODO's step 8 was run
+whole on both, the simulators `fixk1v-17` and `fixk1v-18`: a row
+ticked; a finger held on an unticked row's circle and on another
+row's words, each the white disc with its blue check while it was
+down, and ticked when lifted; the three unticked, grey circles alone;
+then Cancel, nothing trashed, moved or marked. In each of those shots,
+Edit's to Cancel's, the list column matched 73fdf8e's run of the same
+step to the pixel, but for the first two rows' dates. What a press
+shows on 16 is now the row's tick while the finger is down, as from
+17, not seen there; Mail 16.5.1's circle under a held finger was never
+photographed either, so step 9 now asks for both.
 
 *Tests.* `EditModeLikeMailTests`, the test renamed
 `testOnEveryIOSTheRowDrawsItsOwnTickOverUIKits`: no `drawsOwnTick` and
 no `isOperatingSystemAtLeast` in the row, `placeTick` called first in
 `layoutSubviews`, the tick shown or hidden in `colour` and
-`setHighlighted` with no check around it, the rest as before. The row
-as it was at dcb769b: 5 failures, each an assertion's; a check of 16
-put back around `layoutSubviews`' call alone: 3; the fallback's hiding
-taken out of `placeTick`: 1; put back, passing. The full suite: 3,160
-tests, 6 skipped, none failing; the release build for the iPad: "Build
-complete". Not yet seen on the test iPad: the TODO's B-174 check, step
-9 as rewritten, whose FAIL is a ticked row's disc with no check.
+`setHighlighted` with no check around it, the rest as before. At
+46dcd5f the row as it was at dcb769b: 5 failures, each an assertion's;
+a check of 16 put back around `layoutSubviews`' call alone: 3; the
+fallback's hiding taken out of `placeTick`: 1. A check of the version
+put back at the top of `placeTick` (`ProcessInfo`, `majorVersion >=
+17`, the tick hidden) passed there, `placeTick` being pinned only in
+order. So (4cfaceb) `placeTick`'s whole body is pinned, as
+`setHighlighted`'s is, and the row is to have no `#unavailable`,
+`ProcessInfo`, `operatingSystemVersion` or `systemVersion`. Then that
+check at the top of `placeTick`: 3 failures, each an assertion's; a
+check of `systemVersion` inside it: 2; one of `#unavailable(iOS 17)`:
+2; the fallback's hiding taken out: 1; the row as at dcb769b: 6; put
+back, passing. The full suite: 3,160 tests, 6 skipped, none failing;
+the release build for the iPad: "Build complete". Not yet seen on the
+test iPad: the TODO's B-174 check, step 9 as rewritten, whose FAIL is
+a ticked row's disc with no check, its check outside the disc, the
+disc off an unticked row's grey circle's place or size, or a second
+disc or ring.
 
 ## B-175 — FIXED 2026-10-27, seen on the test iPad 2026-10-28. A row's drags, More, Ask Before Deleting and Undo as Mail's: More says "Trash" and "Move Message…", in Mail's order with Archive Message; under Ask Before Deleting a slow drag's Trash and More's go at once, only the pane's Trash and the Edit bar asking; and a read mark from a full drag is a step of Undo, "Undo Read" or "Undo Unread", undone on the server too, as is the read mark of the letter opened after the pane's Delete, "Undo Read" on top of "Undo Trash"
 
