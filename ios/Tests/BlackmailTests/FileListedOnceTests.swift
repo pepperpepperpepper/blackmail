@@ -198,7 +198,7 @@ final class FileListedOnceTests: XCTestCase {
     /// name: after a plain letter's words, after the words of HTML that
     /// never names it, and alone for a letter of nothing else, which is not
     /// said to have no text; once, at its size, from the loader, opened as
-    /// a file is, and printed decoded as it is drawn. Not for a letter
+    /// a file is, and not printed since B-185. Not for a letter
     /// shown only in part, whose HTML names it in what did not come, as
     /// often as not, while its files are drawn above the words; and the
     /// HTML that names one draws it itself, the pane not again.

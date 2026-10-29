@@ -107,8 +107,10 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             loaded, WebKit's data in memory; pictures from the web still
             load. See B-055, and its check under "Blocked on the iPad
             coming back".*
-- [ ] On the day: Smart Invert off, what to do about Apple Mail's badges,
-      the six-task test with him. Look at Settings > Apps > Mail > Mail
+- [ ] On the day: what to do about Apple Mail's badges, the six-task
+      test with him. (*2026-10-29: Smart Invert is no longer turned
+      off, B-179/D-010; whether he has it on is read with "His iPad's
+      own settings".*) Look at Settings > Apps > Mail > Mail
       Accounts on his iPad: whether his Gmail account lists his second
       address under Email, and whether that address is an account of its
       own. Then add his second address in Blackmail's Settings with "Add
@@ -11368,7 +11370,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          answered (`COPYUID`). Nothing was sent.
 
 - [ ] **B-183, Drafts in Edit mode as Mail's.** As B-182's check, its
-      draft. Nothing is deleted: Cancel only.
+      draft, APPENDed to Drafts again in the same way if B-182's check
+      ran first and put it in the Trash. Nothing is deleted in the
+      app: Cancel only.
       1. *Drafts, Edit,* the server draft ticked: Mark and Move grey,
          Trash blue, "1 Selected", the draft in the pane as a letter,
          its header and words, no composer and no keyboard, as Mail's.
@@ -11377,6 +11381,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          deleted, the draft still in Drafts.
       3. *The Inbox, Edit, a letter ticked:* Mark, Move and Trash blue,
          as before; Cancel.
+      4. *Put back:* the host moves the UID it noted, and only it, to
+         the Trash, and deletes in the Trash only the UID that move
+         answered (`COPYUID`). Nothing was sent.
 
 - [ ] **B-184, the Updated line as Mail's.** The test account, Notes,
       both apps. Nothing is written to the account.
@@ -11404,8 +11411,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. *The letter with words and a PDF:* its words and no tile; Mail's
          preview written down, the PDF printed or not (the rule there is
          inferred, KNOWN_ISSUES B-185).
-      4. *The pane:* each letter's files drawn in it as before.
-      5. *Put back:* the host moves the UIDs it noted, and only them,
+      4. *A plain letter of words with an inline photo after them*
+         (`Content-Disposition: inline`, no markup naming it), the
+         host APPENDs it, read, to "Notes" in the same way: Print
+         preview only, Cancel: Blackmail's its words alone, no photo
+         (inferred, KNOWN_ISSUES B-185); Mail's preview beside it,
+         written down, the photo printed or not. Screenshots.
+      5. *The pane:* each letter's files drawn in it as before.
+      6. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move
          answered (`COPYUID`).
 

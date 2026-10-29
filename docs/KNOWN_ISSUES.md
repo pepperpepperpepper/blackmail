@@ -41359,8 +41359,11 @@ left with nothing under its header prints its header alone, with no
 "no text" line, as B-131 has it. The tile's size rule went off the
 paper with the tiles. `BodyFiles.Page.paper` stays, drawn by no page.
 
-The rule is measured for a picture (attached, left off; shown by
-`cid:`, printed) and inferred for every other file, a PDF among them.
+The rule is measured for two kinds of picture (attached, left off;
+shown by `cid:`, printed) and inferred for every other file: a PDF
+among them, and a picture sent inline that the markup does not name,
+as a photo after a plain letter's words comes, which the pane draws
+among the words and the paper printed until B-185.
 
 Not copied:
 
@@ -41395,9 +41398,14 @@ build for the iPad: "Build complete".
 
 **Not covered.**
 
-- Every file but a picture is left off by inference: Mail's print of
-  a letter with a PDF or another file was not seen (the check prints
-  one to the preview).
+- Every file but the two pictures measured is left off by inference:
+  Mail's print of a letter with a PDF or another file was not seen
+  (the check prints one to the preview). So is a picture sent inline
+  that the markup does not name (`isShownInBody` with no `cid:` in
+  the HTML, or a plain letter's): the commonest way a family photo
+  comes, after a few words; the pane draws it among them, the paper
+  printed it until B-185 and prints it no more, and Mail's print of
+  one was not seen (the check prints one to the preview).
 - A letter with words and an attached picture: Mail's print not seen;
   by the rule, its words alone.
 - The words, printed only when the page cannot be drawn, still list
