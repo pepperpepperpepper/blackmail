@@ -420,13 +420,17 @@ final class EditModeLikeMailTests: XCTestCase {
     /// So on every iOS the row draws its own over it, as Mail's reads: the
     /// check in the row's blue on a white disc, inside UIKit's edit control
     /// at UIKit's frame and size, hidden on a row not ticked, moving
-    /// nothing, and hidden wherever the control is not found (B-174).
+    /// nothing, behind no check of the iOS version, and hidden wherever
+    /// the control or an image view in it is not found (B-174).
     func testOnEveryIOSTheRowDrawsItsOwnTickOverUIKits() throws {
         let cell = try source("UI/MessageCell.swift")
         let code = flat(cell)
         XCTAssertFalse(cell.contains("#available"))
         XCTAssertFalse(code.contains("drawsOwnTick"), "no check of the iOS version: 16 as 17 and 18")
         XCTAssertFalse(code.contains("isOperatingSystemAtLeast"), "the row's tick behind no version")
+        for version in ["#unavailable", "ProcessInfo", "operatingSystemVersion", "systemVersion"] {
+            XCTAssertFalse(code.contains(version), "the row reads no iOS version: \(version)")
+        }
         XCTAssertTrue(code.contains("private static let tickPalette = "
                                     + "UIImage.SymbolConfiguration(paletteColors: [Theme.tintBlue, .white])"),
                       "[check, disc]: the row's blue on white")
@@ -448,16 +452,17 @@ final class EditModeLikeMailTests: XCTestCase {
                        "a press shows the row's tick as it shows UIKit's")
 
         let place = flat(body(after: "private func placeTick()", in: cell))
-        inOrder(["guard showsTick, let control = subviews.first(where: { $0 is UIControl }),",
-                 "let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark }) "
-                    + "as? UIImageView else { tickMark.isHidden = true return }",
-                 "if tickMark.superview !== control { control.addSubview(tickMark) } "
-                    + "else { control.bringSubviewToFront(tickMark) }",
-                 "tickMark.preferredSymbolConfiguration = drawn.preferredSymbolConfiguration",
-                 "tickMark.image = UIImage(systemName: \"checkmark.circle.fill\", "
-                    + "withConfiguration: Self.tickPalette)",
-                 "tickMark.frame = drawn.frame",
-                 "tickMark.isHidden = false"], in: place)
+        XCTAssertEqual(place, "{ guard showsTick, let control = subviews.first(where: { $0 is UIControl }), "
+                       + "let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark }) "
+                       + "as? UIImageView else { tickMark.isHidden = true return } "
+                       + "if tickMark.superview !== control { control.addSubview(tickMark) } "
+                       + "else { control.bringSubviewToFront(tickMark) } "
+                       + "tickMark.preferredSymbolConfiguration = drawn.preferredSymbolConfiguration "
+                       + "tickMark.contentMode = drawn.contentMode "
+                       + "tickMark.image = UIImage(systemName: \"checkmark.circle.fill\", "
+                       + "withConfiguration: Self.tickPalette) "
+                       + "tickMark.frame = drawn.frame tickMark.isHidden = false }",
+                       "the whole of placeTick: hidden only where the control or its image view is not found")
         for moved in ["drawn.frame =", "control.frame", "drawn.isHidden", "drawn.image =",
                       "control.isHidden", "control.alpha"] {
             XCTAssertFalse(place.contains(moved), "nothing of UIKit's is touched: \(moved)")

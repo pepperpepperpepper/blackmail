@@ -422,12 +422,15 @@ final class MessageCell: UITableViewCell {
     /// at its size at every text size, so it slides in and out with it and
     /// nothing moves. UIKit's edit control is the row's one control: the
     /// content view is none, and the row has no accessory or reorder
-    /// control. Hidden otherwise, and wherever the control or its tick is
-    /// not found, which leaves UIKit's. The control, UIKit's
-    /// `UITableViewCellEditControl`, a `UIControl` that is the cell's own
-    /// subview with its tick the first image view in it, as read on the
-    /// 17.5 simulator through the debugger; the same class is in the
-    /// iOS 16.5 SDK, and a 16 where it differs shows UIKit's alone.
+    /// control. Hidden otherwise, and wherever the control or an image
+    /// view in it is not found, which leaves UIKit's alone. The control,
+    /// UIKit's `UITableViewCellEditControl`, a `UIControl` that is the
+    /// cell's own subview with its tick the first image view in it, as
+    /// read on the 17.5 simulator through the debugger; the same class is
+    /// in the iOS 16.5 SDK. Not covered: another image view in the control
+    /// ahead of UIKit's tick, as the shadow view (`_shadowView`) an older
+    /// UIKit's control had, whose frame and content mode the row's tick
+    /// would then take in place of the tick's.
     private func placeTick() {
         guard showsTick, let control = subviews.first(where: { $0 is UIControl }),
               let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark })
