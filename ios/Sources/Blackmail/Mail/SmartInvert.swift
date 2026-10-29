@@ -37,6 +37,21 @@ import Foundation
 /// app's on them, came out inverted, so WebKit's rule for that query does
 /// not take in the pane's web view.
 ///
+/// **Found on the test iPad, 2026-10-29 (r6-p-copy).** The switch is
+/// true under Smart Invert on 16.5.1. The photos still came out
+/// hue-turned, and a light letter's pictures natural: a filter of a
+/// photo's own does not draw under the switch, so taking the pane's
+/// second invert off them changed nothing, and the page's invert above
+/// them still turns their hue. So, under the switch, a letter the pane
+/// inverts is made dark by WebKit's colour filter instead, as Mail's is,
+/// where the page says it takes it (`ColourFilter`): with the second class
+/// on the root (`colourFilterClass`) and its rules in a sheet of their own
+/// (`colourFilter(in:)`), no filter on the letter or its pictures, the
+/// pictures drawn as they are and inverted by the system, as Mail's. Where
+/// the page does not take it, the page is as before. A light letter's
+/// photos are inverted by a filter of their own under the switch, a try:
+/// if that filter does not draw either, they stay natural, as before.
+///
 /// Off, every page is byte for byte as it was. On, a page is built with
 /// the class on its `<html>` and its rules in a sheet of their own in its
 /// head (`root`, `sheet`); a change of the switch while a page is shown
@@ -77,11 +92,67 @@ enum SmartInvert {
     /// The rules for a light letter, `scope` the element that holds its
     /// markup and its white, `#bm` on its page or `.bm-light` in a stack:
     /// inverted plainly, and Mail's line in it (`RemoteContent.line`)
-    /// inverted back, so it is the pane's colour as before.
+    /// inverted back, so it is the pane's colour as before. Its photos,
+    /// `img` and `video`, inverted once more (r6-p-copy, 2026-10-29), so
+    /// that with the system's inversion they come out inverted as Mail's,
+    /// if a photo's own filter draws under the switch; if it does not, as
+    /// for the photos of a letter inverted, they are natural as before.
     static func light(in scope: String) -> String {
         "html.\(className) \(scope) { filter: invert(1); }\n"
-            + "html.\(className) \(scope) .\(RemoteContent.lineClass) { filter: invert(1); }"
+            + "html.\(className) \(scope) .\(RemoteContent.lineClass) { filter: invert(1); }\n"
+            + pictures(in: scope) + " { filter: invert(1); }"
     }
+
+    /// The second class the page's `<html>` has, with `className`, while
+    /// a letter it inverts is made dark by WebKit's colour filter
+    /// (`ColourFilter`), and the id of the sheet of its rules.
+    static let colourFilterClass = "bm-cf"
+    static let colourFilterSheetID = "bm-cf"
+
+    /// What the colour filter's rules take off a letter's pictures: every
+    /// kind the pane's invert names (`PanePage.letter`,
+    /// `ConversationDocument.html`).
+    static let allPictures = ["img", "video", "picture", "svg", "[style*=\"background-image\"]"]
+
+    /// The rules for a letter the pane inverts inside `scope`, `#bm` on its
+    /// page or `.bm-html` in a stack, made dark by WebKit's colour filter
+    /// as Mail's is, under both classes alone (r6-p-copy, 2026-10-29):
+    /// - the letter: no filter, no white of its own, so the pane's black
+    ///   is behind it, and the colour filter, whose white is rgb(51, 51,
+    ///   51), not black;
+    /// - its pictures, every kind: no filter, drawn as they are, so the
+    ///   system's inversion inverts them, as Mail's;
+    /// - Mail's quote bars and the line before a quote: Mail's dark
+    ///   colours as they are, out of the colour filter, which cannot reach
+    ///   them, as Mail's are in its Dark Mode;
+    /// - Mail's line over held-back pictures: Mail's own colours, out of
+    ///   the colour filter;
+    /// - his signature's sheet: its white as written, which the colour
+    ///   filter makes Mail's grey, rgb(51, 51, 51), by itself.
+    /// Links and the sender's own colours are left to the colour filter,
+    /// as Mail's are.
+    static func colourFilter(in scope: String) -> String {
+        let s = "html.\(className).\(colourFilterClass) \(scope)"
+        return [
+            "\(s) { filter: none; background: transparent; \(ColourFilter.property): \(ColourFilter.value); }",
+            allPictures.map { "\(s) \($0)" }.joined(separator: ", ") + " { filter: none; }",
+            QuoteBars.css(in: s, palette: QuoteBars.dark),
+            QuoteBars.attributionCSS(in: s, palette: QuoteBars.dark),
+            "\(s) \(QuoteBars.quote), \(s) .\(QuoteBars.attributionClass), "
+                + "\(s) .\(RemoteContent.lineClass) { \(ColourFilter.property): none; }",
+            RemoteContent.colourRule(in: s, inverted: false),
+            SignatureSheet.css(in: s, colour: SignatureSheet.white),
+        ].joined(separator: "\n")
+    }
+
+    /// The colour filter's rules for a letter's own page drawn `scheme`:
+    /// a letter inverted alone has them.
+    static func colourFilter(for scheme: LetterScheme?) -> String {
+        scheme == .inverted ? colourFilter(in: "#bm") : ""
+    }
+
+    /// The same for a conversation's stack: its HTML letters inverted.
+    static let stackColourFilter = colourFilter(in: ".bm-html")
 
     /// The rules for a letter's own page drawn `scheme`: "" for a letter in
     /// its own colours and a plain one (`nil`), whose pages are as they
@@ -98,15 +169,23 @@ enum SmartInvert {
     static let stack = inverted(in: ".bm-html") + "\n" + light(in: ".bm-light")
 
     /// The page's `<html>` tag: with the class while the switch is on and
-    /// the page has rules, as it always was otherwise.
-    static func root(on: Bool, rules: String) -> String {
-        on && !rules.isEmpty ? "<html class=\"\(className)\">" : "<html>"
+    /// the page has rules, as it always was otherwise; and with the colour
+    /// filter's class too when it is given the colour filter's rules,
+    /// `colourFilter`, which the pane gives only once the page has said it
+    /// takes them.
+    static func root(on: Bool, rules: String, colourFilter: String = "") -> String {
+        guard on && !rules.isEmpty else { return "<html>" }
+        return colourFilter.isEmpty
+            ? "<html class=\"\(className)\">" : "<html class=\"\(className) \(colourFilterClass)\">"
     }
 
-    /// The sheet of `rules` for the page's head while the switch is on; ""
-    /// otherwise.
-    static func sheet(on: Bool, rules: String) -> String {
-        on && !rules.isEmpty ? "<style id=\"\(sheetID)\">\n" + rules + "\n</style>" : ""
+    /// The sheet of `rules` for the page's head while the switch is on, and
+    /// after it the colour filter's, when given; "" otherwise.
+    static func sheet(on: Bool, rules: String, colourFilter: String = "") -> String {
+        guard on && !rules.isEmpty else { return "" }
+        return "<style id=\"\(sheetID)\">\n" + rules + "\n</style>"
+            + (colourFilter.isEmpty
+                ? "" : "<style id=\"\(colourFilterSheetID)\">\n" + colourFilter + "\n</style>")
     }
 
     /// The pane's log line for the switch as iOS answered it (B-179's
@@ -118,11 +197,28 @@ enum SmartInvert {
     }
 
     /// The start of every page the pane builds, to the end of its `<html>`
-    /// tag, with the class.
+    /// tag, with the class; and with the colour filter's too.
     static let onStart = "<!DOCTYPE html><html class=\"\(className)\">"
+    static let onStartColourFilter = "<!DOCTYPE html><html class=\"\(className) \(colourFilterClass)\">"
 
-    /// Whether `page` was built with the switch on.
-    static func isOn(inPage page: String) -> Bool { page.hasPrefix(onStart) }
+    /// Whether `page` was built with the switch on, with the colour filter
+    /// or without.
+    static func isOn(inPage page: String) -> Bool {
+        page.hasPrefix(onStart) || page.hasPrefix(onStartColourFilter)
+    }
+
+    /// Whether `page` was built with the colour filter's class on.
+    static func hasColourFilter(inPage page: String) -> Bool { page.hasPrefix(onStartColourFilter) }
+
+    /// `page` with the colour filter's class taken off its root, its sheet
+    /// left, which then matches nothing: for a page built with it that the
+    /// pane gives WebKit when the setting no longer reads on, so its
+    /// letter is never drawn with its white taken off and no colour filter
+    /// to make its words light.
+    static func withoutColourFilter(_ page: String) -> String {
+        guard hasColourFilter(inPage: page) else { return page }
+        return onStart + page.dropFirst(onStartColourFilter.count)
+    }
 
     /// The rules for `page`, a page the pane built, read off its head,
     /// which is the app's alone: a letter's page inverted or light, or a
@@ -140,18 +236,37 @@ enum SmartInvert {
         return ""
     }
 
+    /// The colour filter's rules for `page`, read off its head as `rules`
+    /// are: a letter's page inverted, a stack; "" for any other.
+    static func colourFilter(ofPage page: String) -> String {
+        let start = page.prefix(65_536)
+        let head = start.range(of: "</head>").map { start[..<$0.lowerBound] } ?? start
+        if head.contains(PanePage.invertedRule) { return colourFilter(for: .inverted) }
+        if head.contains(ConversationDocument.invertedRule) { return stackColourFilter }
+        return ""
+    }
+
     /// What the pane tells the page's script when the switch changes, or
     /// when a page built before the change has loaded: the class on or
     /// off, and the page's rules, put in its head if it has no sheet of
     /// them. Run by `callAsyncJavaScript` in the app's content world, where
     /// `ConversationDocument.script` defined `bmSmartInvert`; the page's
     /// `<html>` is the same element in every world.
+    ///
+    /// `colourFilter` is the page's colour filter rules, given only while
+    /// the switch is on and the page has said it takes the filter, ""
+    /// otherwise: the script asks the page again
+    /// (`ColourFilter.test`), puts them in a sheet of their own where the
+    /// head has none, and puts the colour filter's class on only if it
+    /// answers yes; it takes the class off with the switch, or when not
+    /// given them.
     struct Toggle: Equatable {
         let on: Bool
         let rules: String
+        var colourFilter: String = ""
 
-        static let script = "bmSmartInvert(on, rules)"
+        static let script = "bmSmartInvert(on, rules, colourFilter)"
 
-        var arguments: [String: Any] { ["on": on, "rules": rules] }
+        var arguments: [String: Any] { ["on": on, "rules": rules, "colourFilter": colourFilter] }
     }
 }

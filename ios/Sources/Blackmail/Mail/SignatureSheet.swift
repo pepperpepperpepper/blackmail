@@ -93,11 +93,18 @@ enum SignatureSheet {
     /// this app gives them (`AppleMailHTML.signatureTableStyle`), grey
     /// under the invert, over the white written on them; and the borders
     /// written white in it the same grey, so they are lost in the sheet as
-    /// Mail's are (B-173).
-    static func css(in scope: String) -> String {
+    /// Mail's are (B-173). `colour` is `underInvert` but under WebKit's
+    /// colour filter, which the pane uses under Smart Invert where the page
+    /// takes it (`SmartInvert.colourFilter`, B-179): there the sheet and
+    /// its borders are `white`, as written, which the colour filter makes
+    /// Mail's grey by itself.
+    static func css(in scope: String, colour: String = underInvert) -> String {
         sheetWhites.map { "\(scope) .\(className)[style*=\"\($0)\"], " }.joined()
             + "\(scope) .\(className) table[style^=\"\(AppleMailHTML.signatureTableStyle)\"] "
-            + "{ background-color: \(underInvert) !important; } "
-            + "\(scope) .\(className) [style*=\"\(borderWhite)\"] { border-color: \(underInvert) !important; }"
+            + "{ background-color: \(colour) !important; } "
+            + "\(scope) .\(className) [style*=\"\(borderWhite)\"] { border-color: \(colour) !important; }"
     }
+
+    /// The sheet's white as it declares it, for the colour filter's rule.
+    static let white = "rgb(255, 255, 255)"
 }

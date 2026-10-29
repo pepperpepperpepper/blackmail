@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day, seen in part on the test iPad 2026-10-29. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -40896,7 +40896,8 @@ failing. The release build for the iPad: "Build complete".
   colour filter, `-apple-color-filter: apple-invert-lightness()`, Mail's
   own way, which leaves pictures alone, behind WebKit's private
   `colorFilterEnabled` preference, set only where the web view answers
-  to it; or the photos left hue-turned. Not built here.
+  to it; or the photos left hue-turned. Built after that check: "Fixed
+  again 2026-10-29, after the test iPad (r6-p-copy)", below.
 - An `<img>`'s own filter does not draw under Smart Invert: inferred
   from four measured cases, two at 65e32ab (round r6-n-compare) and two
   at 7803dbb (round r6-p-copy), the mechanism not in WebKit's open
@@ -40962,6 +40963,155 @@ switch on as off, where Mail's are inverted, its cube OFF rgb(195, 164,
 the letter's own colour (not a difference to fix). Not run: step 3's
 Block All Remote Content line and step 5's second turn on with the
 letter scrolled. Nothing was sent.
+
+**Fixed again 2026-10-29, after the test iPad (r6-p-copy).** By the plan
+made from that round (area 1); "The B-179 to B-185 plan looks good", the
+owner, 2026-10-29.
+
+**Found on the test iPad, 2026-10-29 (r6-p-copy).** The switch fired:
+`isInvertColorsEnabled` is true under Smart Invert on 16.5.1. The photos
+letter's photos still came out hue-turned, (677, 552) OFF rgb(135, 163,
+217), ON rgb(187, 158, 105), as at 65e32ab, where Mail's are inverted, a
+point OFF rgb(88, 120, 167), ON rgb(167, 135, 88); the light letter's
+pictures natural, the cube rgb(127, 96, 66), where Mail's are inverted.
+Read with the four cases in the table under "Not covered" above: an
+`<img>`'s own filter does not draw under Smart Invert, while the page's
+filter on its ancestors does, so taking the photos' second invert off
+them changed nothing, and the page's `invert(1) hue-rotate(180deg)`
+under the system's plain inversion is the half turn of the hue alone.
+Mail's photos come out inverted because nothing above them is filtered:
+Mail makes an HTML letter dark with WebKit's colour filter,
+`-apple-color-filter: apple-invert-lightness()`, which turns the colours
+named in CSS, words, grounds and borders, and never a picture's pixels.
+Blackmail's light letter showed the same at 65e32ab: a picture with no
+filter in a page with none came out exactly 255 less its OFF colour.
+
+**What changed** (`ColourFilter`, new; `SmartInvert`;
+`PanePage.Style.colourFilter`; `ConversationDocument.html` and its
+script; `SignatureSheet.css`; `MessageDetailViewController`).
+
+1. *The setting.* WebKit's colour filter is behind a private preference
+   of its own, off by default, which Mail turns on: `WKPreferences`'
+   `_setColorFilterEnabled:` (`WKPreferencesPrivate.h`, since iOS 12).
+   The pane sets it by key-value coding, the key `colorFilterEnabled`,
+   only where the web view's preferences answer to its setter and its
+   getter, as for the cover's private setter (B-149): on while the
+   switch is on, off while it is off, at the pane's start and before
+   each turn of the switch's script, as WebKit reads it when it reads a
+   sheet. With the switch off a letter's own colour filter is not read.
+
+2. *The page's answer.* Once the setting reads back on and a page with
+   rules for the switch has been given, the pane asks the page, once for
+   its web view, in the app's content world:
+   `CSS.supports('-apple-color-filter', 'apple-invert-lightness()')`. It
+   writes "pane: colour filter supported true" in the Connection log, or
+   "false", or "absent" where there was no setting to set. The colour
+   filter is used only on true, and the script asks the page again
+   before it puts the class on. A setting or a property renamed in a
+   later iOS leaves the page as at 7803dbb, never a letter with its
+   white taken off and nothing to turn its words.
+
+3. *A letter the pane inverts*, under the switch, on the page's yes: a
+   second class, `bm-cf`, on its `<html>`, and the rules in a sheet of
+   their own, `<style id="bm-cf">`, after the switch's, every one under
+   `html.bm-si.bm-cf` (`SmartInvert.colourFilter(in:)`), on its page
+   (`#bm`) and in a stack (`.bm-html`):
+
+   - the letter: `filter: none; background: transparent;` and the colour
+     filter. Its black words come out white, black on screen; the pane's
+     black shows through it, white on screen. The colour filter's white
+     is rgb(51, 51, 51), not black, so the letter's own white goes;
+   - every picture, `img`, `video`, `picture`, `svg` and an element with
+     a `background-image`: `filter: none`, drawn as it is, so the
+     system's inversion inverts it, as Mail's;
+   - Mail's quote bars and the "wrote:" line before a quote:
+     `-apple-color-filter: none` and Mail's dark colours as they are
+     (`QuoteBars.dark`), which the colour filter cannot reach (Mail's
+     violet comes back rgb(188, 97, 187) by WebKit's matrix, not
+     rgb(191, 90, 242));
+   - Mail's line over held-back pictures (B-168): out of the colour
+     filter, in Mail's own colours (`RemoteContent.mail`);
+   - his signature's sheet and its white borders: their white as written
+     (`SignatureSheet.css(in:colour:)`), which the colour filter makes
+     Mail's grey, rgb(51, 51, 51), by itself;
+   - links and the sender's own colours: left to the colour filter, as
+     Mail's are.
+
+   A page built once the answer is known is built with both classes and
+   both sheets; one built before is given the class and the sheet by the
+   script when the answer comes, nothing drawn again and nothing
+   scrolled. A page built with the class and given to WebKit after the
+   setting went off is given without the class
+   (`SmartInvert.withoutColourFilter`).
+
+4. *A light letter's photos, a try.* Its `img` and `video` under
+   `html.bm-si` have `filter: invert(1)` too, on its page and in a
+   stack. If a photo's own filter drew under the switch they would come
+   out inverted, Mail's; by the finding above they most likely stay
+   natural, as before, which is no worse.
+
+5. *Unchanged.* A plain letter, a letter in its own colours, a notice,
+   the printed page and Quick Look. With the switch off: not the
+   setting, not the class, not a byte of the page. With the switch on
+   and no yes from the page: the page as at 7803dbb, but for the light
+   letter's photos' rule.
+
+**What he sees**, if it takes: under Smart Invert, a letter with photos
+as Mail's, its page white, its words black, its photos inverted; a PDF's
+tile on it light grey, rgb(204, 204, 204), where it was white. With
+Smart Invert off, nothing new.
+
+**Tests.** `ColourFilterLikeMailTests`, new, nine: the names pinned, the
+setting's setter and getter reached by its key; an inverted letter's
+page with the filter, both classes, its sheet after the switch's and
+every selector of it under both classes, the letter's rule, `filter:
+none` on the five kinds of picture; the quotes, the "wrote:" line and
+Mail's line out of the colour filter, in Mail's dark colours and its
+own, the signature's white; without the page's answer, and with the
+switch off, every page as before, byte for byte; only an inverted letter
+taking the filter, a light, plain and own-colours letter as without it,
+and the page less the class and the sheet the page without them; the
+stack's; the page read for the switch with either root, its colour
+filter rules read off its head, the class taken off; the script asking
+the page and taking the class off with the switch's; the pane's wiring,
+read from the source. Changed: `SmartInvertLikeMailTests`' light sheet,
+in a letter and in the stack, with its photos' rule; its pins of the
+pane's wiring and of the script's arguments; `TextSizeWiringTests`' pin
+of the stack's build.
+
+Each new test undone by hand, the test run, each failure read by its
+line, then put back: the getter's name changed, 2 failures; `svg` taken
+off the pictures, 1; the quotes' `-apple-color-filter: none` taken out,
+1; the filter built without the page's answer, 4; a light letter given
+the filter, 4; the stack given a letter's rules, failures at two lines;
+the root with both classes not read as on, 2; the script not taking the
+class off, 1; the pane not setting the setting at its start, 1; the
+light letter's photos' rule taken out, 2; the pane not telling the page
+on the answer, 1. Each failure an assertion's. The full suite: 3,205
+tests, 6 skipped, none failing. The release build for the iPad: "Build
+complete".
+
+**Not covered** (this change):
+
+- The setting is private, WebKit's and not Apple's documented API, as
+  the cover's is. Where the log says "supported false" or "absent", the
+  photos letter is as at 7803dbb, its photos hue-turned; nothing more
+  can be done without another private route, the owner's call.
+- A light letter's pictures if the try does not take: the only other
+  route seen is an element round each picture carrying the invert, which
+  is markup and layout (a `max-width: 100%` picture inside a box that
+  shrinks to fit it). Not built; the owner's to rule on.
+- A sender's own white inside a quote is out of the colour filter with
+  the quote: white in the render, black on screen under Smart Invert,
+  where out of a quote it is light grey, as Mail's would be. Mail's not
+  seen.
+- The PDF tile's ground under Smart Invert is rgb(204, 204, 204) on
+  screen, where it was white; Mail draws the PDF's page there (B-170),
+  not comparable. Its sheet icon about rgb(117) or rgb(109), as WebKit
+  turns an `svg`'s fill or not, dark on the tile either way; worked out,
+  not seen.
+- Whether the colour filter takes in the iPad's WebKit at all, and on
+  18: the log's line says so, and the check reads it first.
 
 ## B-180 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 

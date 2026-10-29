@@ -119,7 +119,9 @@ final class SmartInvertLikeMailTests: XCTestCase {
     /// `#007AFF`, as Mail's (C-1e), where Blackmail's was black with white
     /// words and an orange link. Its pictures have no filter of the
     /// pane's; Mail's line over it, held back, is inverted back, so it is
-    /// the pane's colour under the system's inversion, as before.
+    /// the pane's colour under the system's inversion, as before. Its
+    /// photos are inverted once more by a filter of their own, a try for
+    /// Mail's inverted pictures (r6-p-copy).
     func testALightLettersSheetIsInvertedPlainlyUnderSmartInvert() throws {
         let m = light
         XCTAssertEqual(LetterScheme.of(html: m.htmlBody!), .light)
@@ -128,9 +130,10 @@ final class SmartInvertLikeMailTests: XCTestCase {
             XCTAssertTrue(page.hasPrefix(SmartInvert.onStart), page)
             let rules = try sheet(of: page)
             XCTAssertEqual(rules, "\nhtml.bm-si #bm { filter: invert(1); }\n"
-                            + "html.bm-si #bm .bm-unloaded { filter: invert(1); }\n")
+                            + "html.bm-si #bm .bm-unloaded { filter: invert(1); }\n"
+                            + "html.bm-si #bm img, html.bm-si #bm video { filter: invert(1); }\n")
             XCTAssertFalse(rules.contains("hue-rotate"), rules)
-            XCTAssertFalse(rules.contains("img"), rules)
+            XCTAssertFalse(rules.contains("svg") || rules.contains("picture"), rules)
             XCTAssertTrue(page.contains(PanePage.lightRule))
             XCTAssertEqual(page.contains("class=\"\(RemoteContent.lineClass)\""), held)
             XCTAssertEqual(withoutTheSwitch(page, rules: SmartInvert.rules(for: .light)),
@@ -187,7 +190,8 @@ final class SmartInvertLikeMailTests: XCTestCase {
         let rules = try sheet(of: page)
         XCTAssertEqual(rules, "\nhtml.bm-si .bm-html img, html.bm-si .bm-html video { filter: none; }\n"
                         + "html.bm-si .bm-light { filter: invert(1); }\n"
-                        + "html.bm-si .bm-light .bm-unloaded { filter: invert(1); }\n")
+                        + "html.bm-si .bm-light .bm-unloaded { filter: invert(1); }\n"
+                        + "html.bm-si .bm-light img, html.bm-si .bm-light video { filter: invert(1); }\n")
         XCTAssertFalse(rules.contains(".bm-own") || rules.contains(".bm-text"), rules)
         let own = try XCTUnwrap(page.range(of: ".bm-html img, .bm-html video"))
         XCTAssertLessThan(own.lowerBound, try XCTUnwrap(page.range(of: "<style id=\"bm-si\">")).lowerBound)
@@ -226,37 +230,51 @@ final class SmartInvertLikeMailTests: XCTestCase {
     /// may have been built before the change or told of it while it
     /// loaded. Each page's rules are read off it as it is given to WebKit,
     /// and what iOS answered is written in the log for a page with rules
-    /// and at a change of the answer.
+    /// and at a change of the answer. WebKit's colour filter follows the
+    /// switch before the script runs, the page is asked once whether it
+    /// takes it, and on its yes the script is given its rules (B-179,
+    /// r6-p-copy).
     func testThePaneFollowsTheSwitch() throws {
         let pane = try TextSizeTests.source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(pane.contains("lineHeight: Theme.detailBodyLineHeight, "
-                                    + "smartInvert: UIAccessibility.isInvertColorsEnabled) }"))
+                                    + "smartInvert: UIAccessibility.isInvertColorsEnabled, "
+                                    + "colourFilter: colourFilterTaken == true && colourFilterReadsOn) }"))
         XCTAssertTrue(pane.contains("for name in [UIAccessibility.invertColorsStatusDidChangeNotification, "
                                     + "UIApplication.didBecomeActiveNotification] { "
                                     + "NotificationCenter.default.addObserver(self, selector: "
                                     + "#selector(followSmartInvert), name: name, object: nil) }"))
         XCTAssertTrue(pane.contains("@objc private func followSmartInvert() { "
                                     + "let on = UIAccessibility.isInvertColorsEnabled "
+                                    + "let filterOn = colourFilterFollows(on) "
                                     + "if on != invertNoted { invertNoted = on "
                                     + "Diagnostics.log(.note, SmartInvert.note(on: on, built: false)) } "
-                                    + "guard !invertRules.isEmpty, on != invertShown else { return } "
-                                    + "invertShown = on "
-                                    + "let toggle = SmartInvert.Toggle(on: on, rules: invertRules) "
+                                    + "if on && !invertRules.isEmpty { askColourFilter(filterOn) } "
+                                    + "let filtered = on && filterOn && colourFilterTaken == true "
+                                    + "&& !invertColourFilter.isEmpty "
+                                    + "guard !invertRules.isEmpty, on != invertShown || filtered != colourFilterShown "
+                                    + "else { return } "
+                                    + "invertShown = on colourFilterShown = filtered "
+                                    + "let toggle = SmartInvert.Toggle(on: on, rules: invertRules, "
+                                    + "colourFilter: filtered ? invertColourFilter : \"\") "
                                     + "webView.callAsyncJavaScript(SmartInvert.Toggle.script, "
                                     + "arguments: toggle.arguments, in: nil, in: .defaultClient) }"))
-        XCTAssertTrue(pane.contains("private func load(_ html: String, as content: PaneDocument.Content) { "
+        XCTAssertTrue(pane.contains("private func load(_ page: String, as content: PaneDocument.Content) { "
+                                    + "let html = colourFilterReadsOn ? page : SmartInvert.withoutColourFilter(page) "
                                     + "invertRules = SmartInvert.rules(ofPage: html) "
+                                    + "invertColourFilter = SmartInvert.colourFilter(ofPage: html) "
                                     + "invertBuiltOn = SmartInvert.isOn(inPage: html) "
-                                    + "invertShown = invertBuiltOn "
+                                    + "colourFilterBuiltOn = SmartInvert.hasColourFilter(inPage: html) "
+                                    + "invertShown = invertBuiltOn colourFilterShown = colourFilterBuiltOn "
                                     + "if !invertRules.isEmpty { invertNoted = invertBuiltOn "
                                     + "Diagnostics.log(.note, SmartInvert.note(on: invertBuiltOn, built: true)) } "
                                     + "let navigation = webView.loadHTMLString(html, baseURL: nil)"))
         XCTAssertTrue(pane.contains("func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) { "
-                                    + "invertShown = invertBuiltOn followSmartInvert() "
-                                    + "guard let navigation else { return }"))
-        XCTAssertEqual(pane.components(separatedBy: "followSmartInvert()").count - 1, 2,
-                       "defined, and at a page's end")
-        XCTAssertEqual(pane.components(separatedBy: "UIAccessibility.isInvertColorsEnabled").count - 1, 2)
+                                    + "invertShown = invertBuiltOn colourFilterShown = colourFilterBuiltOn "
+                                    + "followSmartInvert() guard let navigation else { return }"))
+        XCTAssertEqual(pane.components(separatedBy: "followSmartInvert()").count - 1, 3,
+                       "defined, at a page's end, and at the page's answer")
+        XCTAssertEqual(pane.components(separatedBy: "UIAccessibility.isInvertColorsEnabled").count - 1, 3,
+                       "at init, for a page, and at a change")
     }
 
     /// The pane's script follows the switch on any page: the class on the
@@ -265,15 +283,16 @@ final class SmartInvertLikeMailTests: XCTestCase {
     func testTheScriptFollowsTheSwitch() {
         let script = ConversationDocument.script.split(whereSeparator: { $0 == " " || $0 == "\n" })
             .joined(separator: " ")
-        XCTAssertTrue(script.contains("function bmSmartInvert(on, rules) {"))
+        XCTAssertTrue(script.contains("function bmSmartInvert(on, rules, colourFilter) {"))
         XCTAssertTrue(script.contains("!document.head.querySelector('style#\(SmartInvert.sheetID)')"))
         XCTAssertTrue(script.contains("sheet.id = '\(SmartInvert.sheetID)'; sheet.textContent = rules; "
                                       + "document.head.appendChild(sheet); }"))
         XCTAssertTrue(script.contains("if (on) root.classList.add('\(SmartInvert.className)'); "
                                       + "else root.classList.remove('\(SmartInvert.className)');"))
-        XCTAssertEqual(SmartInvert.Toggle.script, "bmSmartInvert(on, rules)")
+        XCTAssertEqual(SmartInvert.Toggle.script, "bmSmartInvert(on, rules, colourFilter)")
         let toggle = SmartInvert.Toggle(on: true, rules: SmartInvert.stack)
         XCTAssertEqual(toggle.arguments["on"] as? Bool, true)
         XCTAssertEqual(toggle.arguments["rules"] as? String, SmartInvert.stack)
+        XCTAssertEqual(toggle.arguments["colourFilter"] as? String, "")
     }
 }

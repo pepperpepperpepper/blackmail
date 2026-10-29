@@ -11233,85 +11233,92 @@ checks below is left as not needed, not open, and none is worth a round.*
       on the host; a letter of his from Sent Mail in a stack: no step has
       one. Every step of the check is now seen. Nothing was sent.*
 
-- [ ] **B-179, a letter under Smart Invert as Mail's.** On the test
-      iPad, the test account only, from a build of the `bm-fix-j1`
-      worktree (branch `fix-j1`) or of the int it is merged into.
-      Nothing is composed, sent, moved or deleted in the app, and
-      nothing saved in it but step 3's one setting, put back as from
-      the factory. The letters are round r6-n-compare's, "R6 B-SI
-      photos", "R6 B-SI light" and "R6 B-SI pdf", and a plain letter,
-      or made again as that round made them: the host makes each from
-      another address,
-      with a new Message-ID of its own, and APPENDs it, read (`\Seen`),
-      to the label "Notes", never the Inbox, noting each UID from its
-      APPENDUID; it stops if one has none. Dark Mode, three panes;
-      full-size screenshots, colours sampled from them as the round
-      sampled them; Mail beside Blackmail at each step.
+- [ ] **B-179, a letter under Smart Invert as Mail's.** On the test iPad,
+      the test account only, from a build of the `bm-fix-j1` worktree
+      (branch `fix-j1`) or of the int it is merged into, the colour
+      filter's change in it (KNOWN_ISSUES B-179, "Fixed again 2026-10-29,
+      after the test iPad (r6-p-copy)"). Nothing is composed, sent, moved
+      or deleted in the app, nothing printed (where a print panel comes in,
+      its preview only, then Cancel), and nothing saved in it but step 3's
+      one setting, put back as from the factory. The letters are round
+      r6-n-compare's, "R6 B-SI photos", "R6 B-SI light" and "R6 B-SI pdf",
+      and a plain letter, or made again as that round made them: the host
+      makes each from another address, with a new Message-ID of its own,
+      and APPENDs it, read (`\Seen`), to the label "Notes", never the
+      Inbox, noting each UID from its APPENDUID; it stops if one has none.
+      Dark Mode, three panes; full-size screenshots, colours sampled from
+      them as the rounds sampled them, with the invcheck numbers written
+      beside them; Mail beside Blackmail at each step.
       1. *Smart Invert on*, as the round turned it on (Settings >
-         Accessibility > Display & Text Size > Smart Invert). Then,
-         before any colour is read, whether the switch fired: the
-         light letter opened in Blackmail, its page white (as in 3),
-         and the Connection log's "pane: isInvertColorsEnabled true,
-         page built". If the log says false and the page is black,
-         iOS's switch does not fire under Smart Invert: written down,
-         and 2 and 3 read as "not drawn", not as a wrong filter
-         (KNOWN_ISSUES B-179, "Not covered").
+         Accessibility > Display & Text Size > Smart Invert). Then, before
+         any colour is read, the Connection log: "pane:
+         isInvertColorsEnabled true, page built" as a letter with rules
+         opens, and once, "pane: colour filter supported true". Written
+         down whichever it says. "false" or "absent": the setting is a
+         no-op on this iOS, and 2 is read as 7803dbb's (photos hue-turned),
+         not as a wrong rule.
       2. *The photos letter* opened in both: Mail's photos as in C-1d.
-         Blackmail's at the round's points, (677, 552) and (549, 338):
-         about 255 less their OFF colours, rgb(120, 92, 38) and
-         rgb(128, 135, 128), as Mail's photos are; or as before,
-         rgb(187, 158, 105) and rgb(117, 124, 117), hue-turned, which
-         is written down, not failed: with 1 found to fire, the next
-         step, WebKit's colour filter, is decided then (KNOWN_ISSUES
-         B-179). The page round
-         the photos as before. Screenshots.
-      3. *The light letter* opened in both: Blackmail's page at
-         (900, 200) white, as Mail's, its words black, its link about
-         rgb(0, 122, 255); the web picture's cube about rgb(84, 116,
-         148) as Mail's, or tan, natural, written down which; the pane
-         round the white sheet white, where Mail's is light grey (not
-         copied). Screenshots. Then Blackmail's Settings, Block All
-         Remote Content on, the letter again: Mail's line over it black
-         words on white, as the pane round it, its button the tint,
-         orange; Block All Remote Content off again, as from the
-         factory.
-      4. *A plain letter and the PDF letter*: each as in the round, the
-         plain letter's page the inversion, as Mail's; the PDF's tile
-         light, as before, and its sheet icon black on it, as in the
-         round's shot, near rgb(0, 0, 0) at (556, 330), not white on
-         the white tile. Screenshots.
-      5. *The switch while a letter is open:* the light letter open in
+         Blackmail's at (677, 552) and (549.2, 276.4) against 255 less
+         their OFF colours, rgb(120, 92, 38) and rgb(229, 133, 38), as
+         Mail's photos are, the invcheck numbers written down. The page
+         round the photos white and the words black, as Mail's. If the log
+         said true and the photos are still hue-turned, rgb(187, 158, 105)
+         at (677, 552): a filter still reaches them, the page's sheets read
+         for their order and weight. If the photos are 255 less OFF but the
+         page round them grey or black: `#bm`'s white was not taken off.
+         Screenshots.
+      3. *The light letter* opened in both: Blackmail's page at (900, 200)
+         white, as Mail's, its words black, its link about rgb(0, 122,
+         255). The web picture's cube: about rgb(128, 159, 189), 255 less
+         OFF, if the photos' try took, as Mail's; about rgb(127, 96, 66),
+         natural, if not: written down which, not failed. Screenshots. Then
+         Blackmail's Settings, Block All Remote Content on, the letter
+         again: Mail's line over it black words on white, as the pane round
+         it, its button the tint, orange; Block All Remote Content off
+         again, as from the factory.
+      4. *A plain letter and the PDF letter*: the plain letter's page the
+         inversion, as Mail's, the same as in round r6-p-copy. The PDF
+         letter's tile now light grey, about rgb(204, 204, 204), where it
+         was white, and its sheet icon dark on it, about rgb(117) or
+         rgb(109): written down. Screenshots.
+      5. *The switch while a letter is open:* the photos letter open in
          Blackmail, scrolled a little down; Smart Invert turned off in
-         Settings and the app brought back: the letter's white sheet in
-         its column on the black, as with the switch off, at the place
-         it was scrolled to, no "Loading…" and nothing drawn again;
-         Smart Invert on again and back: the page white as in 3, at the
-         same place. Screenshots.
-      6. *Put back:* Smart Invert off, as it was before the check.
-         "Notes" left, the Inbox at its top. The host moves the UIDs it
-         noted, and only them, from "Notes" to the Trash, and deletes
-         in the Trash only the UIDs that move answered (`COPYUID`).
-         Nothing was sent, and nothing else was written to the account.
+         Settings and the app brought back: the page as with the switch
+         off, at the place it was scrolled to, no "Loading…" and nothing
+         drawn again (the script takes both classes off); Smart Invert on
+         again and back: the photos as in 2, at the same place, the class
+         put back by the script. The same with the light letter.
+         Screenshots.
+      6. *With Smart Invert off:* the photos, light, plain and PDF letters
+         opened in Blackmail, each compared with round r6-p-copy's OFF
+         shots of 7803dbb by pxcmp: mean 0. No new colour filter line in
+         the log.
+      7. *Put back:* Smart Invert off, as it was before the check. "Notes"
+         left, the Inbox at its top. The host moves the UIDs it noted, and
+         only them, from "Notes" to the Trash, and deletes in the Trash
+         only the UIDs that move answered (`COPYUID`). Nothing was sent,
+         and nothing else was written to the account.
       *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
-      r6-p-copy: 1, 2, 3 but its Block All Remote Content line, 4, 5 but
-      its second turn on, and 6. In 1 the switch fired: the log said "pane:
-      isInvertColorsEnabled true, changed" at 17:33:30.8 and "true, page
-      built" at 17:35:02.5, and "false, changed" after Smart Invert went
-      off; the log's view opened at its oldest line, so the lines were read
-      in a copy of the log saved after the step. In 2 the photos hue-turned
-      as before, (677, 552) rgb(187, 158, 105), where Mail's are inverted:
-      written down, the colour filter's step to come (KNOWN_ISSUES B-179,
-      "Not covered"). In 3 the page white, rgb(255, 255, 255), its words
-      black and its link the sender's #007AFF, as Mail's page and words;
-      the cube rgb(127, 96, 66), natural, where Mail's are inverted; the
-      pane round it white, Mail's rgb(227, 227, 225), not copied. In 4 the
-      plain and PDF letters the same to the pixel as at 65e32ab, the tile
-      light and its icon black. In 5 Smart Invert turned off with the
-      letter open and scrolled: no reload and no scroll, the page as with
-      the switch off; turned on with it open: as a fresh open. In 6 Smart
-      Invert off as before and the letters put in the Trash, nothing
-      erased. Not run: 3's Block All Remote Content line and 5's second
-      turn on with the letter scrolled. Nothing was sent.*
+      r6-p-copy, the check's steps as they were then: 1, 2, 3 but its Block
+      All Remote Content line, 4, 5 but its second turn on, and 6. In 1 the
+      switch fired: the log said "pane: isInvertColorsEnabled true,
+      changed" at 17:33:30.8 and "true, page built" at 17:35:02.5, and
+      "false, changed" after Smart Invert went off; the log's view opened
+      at its oldest line, so the lines were read in a copy of the log saved
+      after the step. In 2 the photos hue-turned as before, (677, 552)
+      rgb(187, 158, 105), where Mail's are inverted: written down; the
+      colour filter's step was built after it, and the steps above are its
+      check. In 3 the page white, rgb(255, 255, 255), its words black and
+      its link the sender's #007AFF, as Mail's page and words; the cube
+      rgb(127, 96, 66), natural, where Mail's are inverted; the pane round
+      it white, Mail's rgb(227, 227, 225), not copied. In 4 the plain and
+      PDF letters the same to the pixel as at 65e32ab, the tile light and
+      its icon black. In 5 Smart Invert turned off with the letter open and
+      scrolled: no reload and no scroll, the page as with the switch off;
+      turned on with it open: as a fresh open. In 6 Smart Invert off as
+      before and the letters put in the Trash, nothing erased. Not run: 3's
+      Block All Remote Content line and 5's second turn on with the letter
+      scrolled. Nothing was sent.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`

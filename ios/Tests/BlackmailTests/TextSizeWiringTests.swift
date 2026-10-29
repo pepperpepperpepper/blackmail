@@ -540,7 +540,8 @@ final class TextSizeWiringTests: XCTestCase {
                                   + "bodyPointSize: Int(Theme.scaled(17)),", in: pane))
         XCTAssertNotNil(place(of: "load(ConversationDocument.html(entries: entries, inset: style.inset, "
                                   + "bodyPointSize: style.bodyPointSize, lineHeight: style.lineHeight, "
-                                  + "stacked: Theme.textSize.stacksRowDate, smartInvert: style.smartInvert), "
+                                  + "stacked: Theme.textSize.stacksRowDate, smartInvert: style.smartInvert, "
+                                  + "colourFilter: style.colourFilter), "
                                   + "as: .conversation(entries))",
                               in: pane))
         XCTAssertEqual(count("ConversationDocument.html(", in: pane), 1, "the stack is built in one place")

@@ -31,6 +31,11 @@ enum PanePage {
         /// B-179): a letter inverted or light is drawn for it, as Mail's
         /// comes out under it. Off, the page is as it always was.
         var smartInvert: Bool = false
+        /// WebKit's colour filter on and taken by the page, as the pane
+        /// last asked it (`ColourFilter`, B-179): under the switch, a
+        /// letter inverted is built made dark by it, as Mail's is. Read
+        /// only with `smartInvert`.
+        var colourFilter: Bool = false
     }
 
     /// The rule that inverts a letter's page, the first of its head's
@@ -257,10 +262,13 @@ enum PanePage {
         // the page's root and the rules in a sheet of their own after the
         // page's, so they weigh over its rules for pictures; with the
         // switch off, or for a plain letter or one in its own colours, the
-        // page is as it was, byte for byte.
+        // page is as it was, byte for byte. A letter inverted is made dark
+        // by WebKit's colour filter too, under its own class and sheet,
+        // where the page has said it takes it (`SmartInvert.colourFilter`).
         let inverts = SmartInvert.rules(for: drawn)
-        let root = SmartInvert.root(on: style.smartInvert, rules: inverts)
-        let sheet = SmartInvert.sheet(on: style.smartInvert, rules: inverts)
+        let filters = style.colourFilter ? SmartInvert.colourFilter(for: drawn) : ""
+        let root = SmartInvert.root(on: style.smartInvert, rules: inverts, colourFilter: filters)
+        let sheet = SmartInvert.sheet(on: style.smartInvert, rules: inverts, colourFilter: filters)
         return """
         <!DOCTYPE html>\(root)<head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">

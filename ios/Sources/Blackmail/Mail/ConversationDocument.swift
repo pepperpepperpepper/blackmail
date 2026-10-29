@@ -273,8 +273,13 @@ enum ConversationDocument {
     ///     the class on the root and the stack's rules for it in a sheet
     ///     of their own (`SmartInvert`, B-179). Off, the stack is as it
     ///     always was, byte for byte.
+    ///   - colourFilter: WebKit's colour filter taken by the page, as the
+    ///     pane last asked it: under the switch, the HTML letters inverted
+    ///     made dark by it, as Mail's are, in a sheet and under a class of
+    ///     their own (`SmartInvert.colourFilter`, B-179).
     static func html(entries: [Entry], inset: Int, bodyPointSize: Int,
-                     lineHeight: Double, stacked: Bool = false, smartInvert: Bool = false) -> String {
+                     lineHeight: Double, stacked: Bool = false, smartInvert: Bool = false,
+                     colourFilter: Bool = false) -> String {
         var sections = ""
         for entry in entries {
             sections += section(entry)
@@ -282,8 +287,9 @@ enum ConversationDocument {
         // Where the pane opens (`opensAt`), for `script` to read as the
         // document ends: in the head, which no letter's markup reaches.
         let opens = opensAt(entries).map { "\n<meta name=\"bm-opens\" content=\"\($0)\">" } ?? ""
-        let root = SmartInvert.root(on: smartInvert, rules: SmartInvert.stack)
-        let sheet = SmartInvert.sheet(on: smartInvert, rules: SmartInvert.stack)
+        let filters = colourFilter ? SmartInvert.stackColourFilter : ""
+        let root = SmartInvert.root(on: smartInvert, rules: SmartInvert.stack, colourFilter: filters)
+        let sheet = SmartInvert.sheet(on: smartInvert, rules: SmartInvert.stack, colourFilter: filters)
 
         return """
         <!DOCTYPE html>\(root)<head><meta charset="utf-8">
@@ -654,7 +660,12 @@ enum ConversationDocument {
     /// in a sheet of their own, where the head has none: a page built with
     /// the switch off has none. A sheet in the head is the app's, as no
     /// letter's markup goes there. A class and a sheet: nothing is drawn
-    /// again and nothing scrolls.
+    /// again and nothing scrolls. Given the colour filter's rules too, it
+    /// asks the page whether its CSS takes the colour filter
+    /// (`ColourFilter.test`), and only if it does puts them in a sheet of
+    /// their own where the head has none and the second class,
+    /// `SmartInvert.colourFilterClass`, on the root; that class goes with
+    /// the first, and whenever it is not given them (B-179).
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -675,7 +686,7 @@ enum ConversationDocument {
       body.innerHTML = html;
       bmWirePictures(body);
     }
-    function bmSmartInvert(on, rules) {
+    function bmSmartInvert(on, rules, colourFilter) {
       var root = document.documentElement;
       if (on && rules && document.head && !document.head.querySelector('style#bm-si')) {
         var sheet = document.createElement('style');
@@ -683,7 +694,16 @@ enum ConversationDocument {
         sheet.textContent = rules;
         document.head.appendChild(sheet);
       }
+      var filter = !!(on && rules && colourFilter && window.CSS && CSS.supports
+                      && CSS.supports('-apple-color-filter', 'apple-invert-lightness()'));
+      if (filter && document.head && !document.head.querySelector('style#bm-cf')) {
+        var filters = document.createElement('style');
+        filters.id = 'bm-cf';
+        filters.textContent = colourFilter;
+        document.head.appendChild(filters);
+      }
       if (on) root.classList.add('bm-si'); else root.classList.remove('bm-si');
+      if (filter) root.classList.add('bm-cf'); else root.classList.remove('bm-cf');
     }
     function bmScheme(scheme) {
       return scheme === 'bm-light' || scheme === 'bm-own' ? scheme : 'bm-html';

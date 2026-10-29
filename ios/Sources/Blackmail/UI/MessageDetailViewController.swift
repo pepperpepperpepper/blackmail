@@ -199,6 +199,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// What iOS last answered for the switch, as the log has it
     /// (`SmartInvert.note`); nil before the first.
     private var invertNoted: Bool?
+    /// WebKit's colour filter under the switch (`ColourFilter`, B-179):
+    /// the web view's preferences, which hold its setting, and whether
+    /// they have it; the page's colour filter rules, "" for a page with
+    /// none; whether it was built with them on, and has them on now; and
+    /// what the page answered when asked whether it takes them, once per
+    /// web view, nil before an answer.
+    private let preferences: WKPreferences
+    private let colourFilterSettable: Bool
+    private var invertColourFilter = ""
+    private var colourFilterBuiltOn = false
+    private var colourFilterShown = false
+    private var colourFilterAsked = false
+    private var colourFilterTaken: Bool?
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -239,6 +252,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // Off until the pane shows something under Block All Remote
         // Content (`holdBackTheWeb`).
         self.remoteList = RemoteBlockList(on: config.userContentController)
+        // WebKit's colour filter, for a letter inverted under the iPad's
+        // Smart Invert (B-179): private, by its name, and only where the
+        // web view's preferences have its setter and its getter; on while
+        // the switch is, so with it off no letter's own colour filter is
+        // read. The preferences the page uses: `configuration` hands back
+        // a copy, sharing them.
+        let preferences = webView.configuration.preferences
+        self.preferences = preferences
+        self.colourFilterSettable = preferences.responds(to: NSSelectorFromString(ColourFilter.setter))
+            && preferences.responds(to: NSSelectorFromString(ColourFilter.getter))
         // What WebKit has painted, told to `renderingProgressDidChange`,
         // for the cover at a tap (B-149). Private, by its name, and only
         // where the web view has the setter; with none, the cover lifts at
@@ -248,6 +271,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         self.painting = painting
 
         super.init(nibName: nil, bundle: nil)
+
+        colourFilterFollows(UIAccessibility.isInvertColorsEnabled)
 
         // Added after `super.init` because it captures self. This is how a
         // tap on a collapsed letter reaches Swift. In the app's content world
@@ -353,17 +378,72 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// and a notice are told nothing, as the switch changes none of them.
     /// A page built after this is built for the switch as it is then
     /// (`pageStyle`).
+    ///
+    /// WebKit's colour filter follows the switch first, before the script
+    /// puts any sheet in, as WebKit reads the setting when it reads a
+    /// sheet. Under the switch, with a page of rules given, the page is
+    /// asked once whether it takes the filter (`askColourFilter`); and on
+    /// its yes, a letter inverted is made dark by it as Mail's is, its
+    /// class and its rules put in by the same script, which asks the page
+    /// again (`ColourFilter`, B-179).
     @objc private func followSmartInvert() {
         let on = UIAccessibility.isInvertColorsEnabled
+        let filterOn = colourFilterFollows(on)
         if on != invertNoted {
             invertNoted = on
             Diagnostics.log(.note, SmartInvert.note(on: on, built: false))
         }
-        guard !invertRules.isEmpty, on != invertShown else { return }
+        if on && !invertRules.isEmpty { askColourFilter(filterOn) }
+        let filtered = on && filterOn && colourFilterTaken == true && !invertColourFilter.isEmpty
+        guard !invertRules.isEmpty, on != invertShown || filtered != colourFilterShown else { return }
         invertShown = on
-        let toggle = SmartInvert.Toggle(on: on, rules: invertRules)
+        colourFilterShown = filtered
+        let toggle = SmartInvert.Toggle(on: on, rules: invertRules,
+                                        colourFilter: filtered ? invertColourFilter : "")
         webView.callAsyncJavaScript(SmartInvert.Toggle.script, arguments: toggle.arguments,
                                     in: nil, in: .defaultClient)
+    }
+
+    /// WebKit's colour filter set `on`, where the preferences have its
+    /// setting and it is not so already; and whether it reads back on
+    /// (`ColourFilter`, B-179).
+    @discardableResult
+    private func colourFilterFollows(_ on: Bool) -> Bool {
+        guard colourFilterSettable else { return false }
+        if colourFilterReadsOn != on { preferences.setValue(on, forKey: ColourFilter.key) }
+        return colourFilterReadsOn
+    }
+
+    private var colourFilterReadsOn: Bool {
+        colourFilterSettable && (preferences.value(forKey: ColourFilter.key) as? Bool) == true
+    }
+
+    /// The page asked, once per web view, whether its CSS takes WebKit's
+    /// colour filter (`ColourFilter.question`), the answer kept and written
+    /// in the log, and the pane following the switch again with it; with
+    /// no setting that reads back on, nothing asked, the log saying so. An
+    /// answer that does not come, the page gone first, is asked again at
+    /// the next turn.
+    private func askColourFilter(_ filterOn: Bool) {
+        guard !colourFilterAsked else { return }
+        colourFilterAsked = true
+        guard filterOn else {
+            colourFilterTaken = false
+            Diagnostics.log(.note, ColourFilter.note(.absent))
+            return
+        }
+        webView.callAsyncJavaScript(ColourFilter.question, arguments: [:], in: nil,
+                                    in: .defaultClient) { [weak self] result in
+            guard let self else { return }
+            guard case .success(let answer) = result else {
+                self.colourFilterAsked = false
+                return
+            }
+            let taken = (answer as? Bool) == true
+            self.colourFilterTaken = taken
+            Diagnostics.log(.note, ColourFilter.note(taken ? .supported : .unsupported))
+            self.followSmartInvert()
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -1001,7 +1081,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private var pageStyle: PanePage.Style {
         .init(inset: Int(Theme.detailContentInsetLeft), bodyPointSize: Int(Theme.scaled(17)),
               lineHeight: Theme.detailBodyLineHeight,
-              smartInvert: UIAccessibility.isInvertColorsEnabled)
+              smartInvert: UIAccessibility.isInvertColorsEnabled,
+              colourFilter: colourFilterTaken == true && colourFilterReadsOn)
     }
 
     /// The stack itself, drawn at the tap as the stand-in, on the main
@@ -1015,18 +1096,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                        bodyPointSize: style.bodyPointSize,
                                        lineHeight: style.lineHeight,
                                        stacked: Theme.textSize.stacksRowDate,
-                                       smartInvert: style.smartInvert),
+                                       smartInvert: style.smartInvert,
+                                       colourFilter: style.colourFilter),
              as: .conversation(entries))
     }
 
     /// Gives the web view a document, and `document` what it holds; and,
     /// while the cover is up, the cover the document to wait for.
-    private func load(_ html: String, as content: PaneDocument.Content) {
+    private func load(_ page: String, as content: PaneDocument.Content) {
+        // A page built with WebKit's colour filter whose setting no longer
+        // reads on, the switch gone off as it was built: given without the
+        // filter's class, so its letter is never drawn with its white
+        // taken off and nothing to make its words light (B-179).
+        let html = colourFilterReadsOn ? page : SmartInvert.withoutColourFilter(page)
         // What the page is for Smart Invert (B-179), read off its head,
         // for `followSmartInvert` once it has loaded and at a change.
         invertRules = SmartInvert.rules(ofPage: html)
+        invertColourFilter = SmartInvert.colourFilter(ofPage: html)
         invertBuiltOn = SmartInvert.isOn(inPage: html)
+        colourFilterBuiltOn = SmartInvert.hasColourFilter(inPage: html)
         invertShown = invertBuiltOn
+        colourFilterShown = colourFilterBuiltOn
         // A page with rules is built on, by the switch's answer then: in
         // the log, for the check (B-179).
         if !invertRules.isEmpty {
@@ -1642,6 +1732,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // the switch is now, before its bodies go in (B-179). WebKit
         // finishes no page but the last one given, which a new one stops.
         invertShown = invertBuiltOn
+        colourFilterShown = colourFilterBuiltOn
         followSmartInvert()
         guard let navigation else { return }
         if paneCover.finished(ObjectIdentifier(navigation), painting: painting) { cover.isHidden = true }
