@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day, seen in part on the test iPad 2026-10-29. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -40883,17 +40883,45 @@ failing. The release build for the iPad: "Build complete".
 
 **Not covered.**
 
-- Whether `isInvertColorsEnabled` is true under Smart Invert, on
-  16.5.1 and on 18: Apple documents Classic Invert's, and nothing has
-  shown it either way. If it is false, none of B-179 is drawn and the
-  log says "false" with Smart Invert on; the check reads it first.
-- Which way a picture goes under Smart Invert (2): if the check finds
-  the photos still hue-turned, the next step is not another filter but
-  WebKit's colour filter, `-apple-color-filter:
-  apple-invert-lightness()`, Mail's own way, which leaves pictures
-  alone, behind WebKit's private `colorFilterEnabled` preference, set
-  only where the web view answers to it; or the photos left hue-turned.
-  Decided after the check, not built.
+- Whether `isInvertColorsEnabled` is true under Smart Invert on 18. On
+  16.5.1 it is: seen on the test iPad 2026-10-29 (round r6-p-copy),
+  "true, changed" in the log as Smart Invert went on and "false,
+  changed" as it went off. Apple documents Classic Invert's; if 18
+  answers false, none of B-179 is drawn there and the log says "false"
+  with Smart Invert on, which the check reads first.
+- Which way a picture goes under Smart Invert (2): the check of
+  2026-10-29 found the photos still hue-turned, the switch having fired,
+  and a light letter's pictures natural (below, and "Seen on the test
+  iPad, 2026-10-29"). The next step is not another filter but WebKit's
+  colour filter, `-apple-color-filter: apple-invert-lightness()`, Mail's
+  own way, which leaves pictures alone, behind WebKit's private
+  `colorFilterEnabled` preference, set only where the web view answers
+  to it; or the photos left hue-turned. Not built here.
+- An `<img>`'s own filter does not draw under Smart Invert: inferred
+  from four measured cases, two at 65e32ab (round r6-n-compare) and two
+  at 7803dbb (round r6-p-copy), the mechanism not in WebKit's open
+  source. The system's Smart Invert was a plain inversion, I, 255 less
+  each channel, of what the app draws, for every flat colour measured
+  and for the whole of Mail's photos letter. F is the pane's `invert(1)
+  hue-rotate(180deg)`, H the half turn of the hue alone, so I·F is H; x
+  is a picture's natural colour.
+
+  | Case | Expected on screen | Measured |
+  |---|---|---|
+  | light letter, 65e32ab: no filters | I(x), inverted | inverted |
+  | light letter, 7803dbb: page I, picture none | I·I(x) = x, natural | natural |
+  | photos, 7803dbb: page F, photo none | I·F(x) = H(x), hue-turned | hue-turned |
+  | photos, 65e32ab: page F, photo F | I·F·F(x) = I(x), inverted | H(x), hue-turned |
+
+  The last case came out as if the photo's own filter were not there; in
+  the photos' box the mean difference from H of OFF was 0.3 at 65e32ab
+  and 0.5 at 7803dbb, from the inversion about 20. The page's filter on
+  the photo's ancestors draws, and so does an `svg`'s own: the PDF
+  tile's sheet icon came out the inversion of OFF. With Smart Invert off
+  the photo's filter draws, the photos natural. So under the switch no
+  filter on or round a photo can be counted on to undo the page's:
+  Mail's photos come out inverted because nothing above them is
+  filtered.
 - A light letter's picture behind its words, its body's `background`
   (B-169), is `#bm`'s own and so inverted with it: as the sender drew it
   under the system's inversion, where Mail's pictures come out inverted.
@@ -40910,7 +40938,32 @@ failing. The release build for the iPad: "Build complete".
 - The switch changed while a letter is open: by the script, which the
   host's tests read but cannot run; not seen.
 
-## B-180 — FIXED 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, int21 with B-179 to
+B-185, round r6-p-copy, Mail 16.5.1 beside it, Dark Mode, three panes.
+The switch fired: the Connection log said "pane: isInvertColorsEnabled
+false, page built" with Smart Invert off, "true, changed" at 17:33:30.8
+as the app came back after Smart Invert went on, "true, page built" at
+17:35:02.5, and "false, changed" after it went off. The log's view
+opened at its oldest line, so the lines were read in a copy of the log
+saved after the step. The light letter's page white, rgb(255, 255, 255),
+its words black and its link the sender's `#007AFF`, as Mail's page and
+words; the pane round it white, where Mail's is rgb(227, 227, 225) (not
+copied). Smart Invert turned on with the letter open: drawn as a fresh
+open; turned off with it open and scrolled: no reload and no scroll, the
+page in its look with the switch off, the same to the pixel. A plain
+letter and the PDF letter the same to the pixel as at 65e32ab, the tile
+light and its sheet icon black, as built. Differing from Mail: the
+photos letter's photos hue-turned, as at 65e32ab, (677, 552) OFF
+rgb(135, 163, 217), ON rgb(187, 158, 105), where Mail's are inverted, a
+point OFF rgb(88, 120, 167), ON rgb(167, 135, 88); the light letter's
+pictures natural, the web picture's cube rgb(127, 96, 66) with the
+switch on as off, where Mail's are inverted, its cube OFF rgb(195, 164,
+129), ON rgb(60, 91, 127). Mail's link rgb(10, 132, 255), Blackmail's
+the letter's own colour (not a difference to fix). Not run: step 3's
+Block All Remote Content line and step 5's second turn on with the
+letter scrolled. Nothing was sent.
+
+## B-180 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, C-4b DIFFERENT,
@@ -41018,9 +41071,9 @@ complete".
 
 **Not covered.**
 
-- Mail's paper with such a line was not seen: the paper gives the line
-  the light first colour and its bar, as Mail's paper gives a quote,
-  inferred.
+- Mail's paper with such a line: seen on the test iPad 2026-10-29 (round
+  r6-p-copy), in the print's preview, a 1 px bar and the words in the
+  light first colour, as Blackmail's paper has them.
 - Levels two and three are the nearest the invert reaches, about 43
   and 15 from 18.6's in sRGB; 16.5.1's own shades, rgb(64, 200, 224)
   and rgb(48, 209, 88), are not used, as for plain letters.
@@ -41031,11 +41084,35 @@ complete".
   Blackmail's HTML letter the second level's words begin about 3 view
   px right of its plain letter's, a 4 px run at view x 498.8 between
   the bar and the words (`08-runs.txt`); Mail's are at the same x in
-  both.
+  both. Seen again 2026-10-29 (round r6-p-copy, on 7803dbb): the run
+  gone, the second level's words at the plain letter's x, 495.6.
 - A sender's own important rule on the line's element weighs over the
   class's, as over the quotes'.
 
-## B-181 — FIXED 2026-10-29. The row of the letter open in the reading pane was a dark grey with white words; Mail's is its blue, as its ticked row in Edit mode is, and so is Blackmail's now
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy, Mail
+16.5.1 beside it, Dark Mode, Smart Invert off, three panes. The HTML
+letter's first level, bar and words, rgb(191, 90, 242), as Mail's, and
+again after the third; levels two and three rgb(16, 160, 246) and
+rgb(93, 204, 118), iOS 18.6's as this entry says, where Mail 16.5.1 has
+rgb(64, 200, 224) and rgb(48, 209, 88): the shades for his iPad's iOS,
+not a difference to fix. Its "wrote:" line violet with the first level's
+bar, its words from view x 491.2 beside the quote's at 490.8, as Mail's
+stand at its quote's x; every other line where it was, and the second
+level's words now at the plain letter's x, the stray 4 px run of 65e32ab
+gone. A line before a quote not ending "wrote:" white with no bar, as
+Mail's. The plain letter the same to the pixel as at 65e32ab. Print's
+preview of the HTML letter, then Cancel, nothing printed: the line's 1
+px bar and words in the light violet, about rgb(170, 169, 234) and
+rgb(142, 141, 227) in the preview, Mail's about rgb(166, 165, 233) and
+rgb(128, 126, 224), one page each. Differing from Mail: in a Gmail reply
+the nested "Gail wrote:" line, Gmail's `div.gmail_attr` inside the first
+level before the second, is drawn by Mail as the second level's, both
+bars and its words cyan, about rgb(99, 239, 255), at the second level's
+x; here as the first level's words, violet, beside the first level's bar
+alone. The top line of the reply as Mail's. Not run: step 3's two panes
+and stack. Nothing was sent.
+
+## B-181 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. The row of the letter open in the reading pane was a dark grey with white words; Mail's is its blue, as its ticked row in Edit mode is, and so is Blackmail's now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail
 16.5.1 on the test iPad against Blackmail int21 at 65e32ab, C-1b, seen
@@ -41093,7 +41170,17 @@ assertion's; put back, passing.
   it may the dot's; the cell sets it again as the press ends, as for a
   tick. Not seen on the iPad.
 
-## B-182 — FIXED 2026-10-29, fixed again the same day. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy, Mail
+16.5.1 beside it. The open letter's row rgb(10, 132, 255), names and
+subject white, its preview, date and paperclip about rgb(144, 193, 249),
+Mail's rgb(145, 194, 249), in three panes and in two, and again after
+Edit mode's Cancel; edge to edge where Mail's is a rounded tile set in
+from the edges (layout, not copied). Under Smart Invert orange, rgb(245,
+123, 0), names and subject black, as Mail's. Edit mode's ticked row as
+before. Not possible: step 3, a finger held on a row, which the tools
+cannot do. Nothing was sent.
+
+## B-182 — FIXED 2026-10-29, fixed again the same day, seen on the test iPad 2026-10-29. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3a,
 C-5a in passing, its second run agreeing), and the plan made from it
@@ -41204,15 +41291,37 @@ complete".
 
 **Not covered.**
 
-- A letter of two or more files: Mail was seen with one; named by its
-  first here, a guess for the check.
+- A letter of two or more files and no words: Mail's row, seen
+  2026-10-29 (round r6-p-copy), says "Attachments: " and every file's
+  name, joined by commas; Blackmail's names the first alone.
 - A file with no name: Mail not seen; such a file is passed over.
-- The reading pane's header, the printed page and a new letter's
-  banner still say "(no subject)" (`MessageHeaderView`, `PrintPage`,
-  `NewMailBanners`): Mail's were not seen there.
+- The reading pane's header, the printed page and a new letter's banner
+  still say "(no subject)" (`MessageHeaderView`, `PrintPage`,
+  `NewMailBanners`). Mail's header says "No Subject", seen 2026-10-29
+  (round r6-p-copy); its paper and banner were not seen.
 - VoiceOver reads the row as before, with no file's name.
 
-## B-183 — FIXED 2026-10-29. In Drafts' Edit mode Mark and Move were blue with a draft ticked and the reading pane said "No message selected"; Mail's are grey there and its pane shows the ticked draft as a letter, and so do Blackmail's now
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy, Mail
+16.5.1 beside it. The two picture letters' rows "Attachment:
+IMG_0131.jpg" and "Attachment: h-photo.jpg" in the grey lines, about
+rgb(142, 142, 142) against Mail's rgb(141, 141, 147), before a Refresh
+and after it, as Mail's; the draft's row "No Recipient"; a row with no
+subject "No Subject" in grey, and in the see-through grey, rgb(145, 194,
+249), on the open row, as Mail's. The rows where they were. Differing
+from Mail, written down, not failed:
+
+- A letter of two files and no words: Mail's row says "Attachments:
+  IMG_0182.jpg, R6 B-182 two.pdf", every file's name after
+  "Attachments:", joined by commas, on two lines; Blackmail's
+  "Attachment: IMG_0182.jpg", the first alone, the guess "Not covered"
+  named.
+- The reading pane's header of a letter with no subject: Mail's says "No
+  Subject", white, in the subject's place; Blackmail's "(no subject)",
+  white.
+
+Nothing was sent.
+
+## B-183 — FIXED 2026-10-29, seen on the test iPad 2026-10-29. In Drafts' Edit mode Mark and Move were blue with a draft ticked and the reading pane said "No message selected"; Mail's are grey there and its pane shows the ticked draft as a letter, and so do Blackmail's now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-5a, its
 second run agreeing), and the plan made from it (area 3). The owner's
@@ -41271,7 +41380,17 @@ draft: 4 failures in 2 tests, each an assertion's; put back, passing.
 - A search of all mailboxes from Drafts goes by the list's folder:
   Mark and Move grey over its hits too.
 
-## B-184 — FIXED 2026-10-29. The line under the list counted the minutes for an hour, "Updated 9 minutes ago", and was grey; Mail's gives the time of day from about the sixth minute, "Updated at 12:36 PM", and is white, and so is Blackmail's now
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy: in
+Drafts' Edit mode, the server draft ticked, "1 Selected", Mark and Move
+grey, about rgb(50, 50, 50), and Trash blue, as Mail's of round
+r6-n-compare (Mark rgb(59, 59, 59), Move rgb(62, 63, 62)); the draft in
+the pane as a letter, its header and words, no composer and no keyboard.
+Cancel put the pane back, "No message selected", and the draft was still
+in Drafts. Edit mode elsewhere, seen in Notes rather than the Inbox:
+Mark, Move and Trash blue with a row ticked, as before. Nothing was
+deleted or sent.
+
+## B-184 — FIXED 2026-10-29, seen on the test iPad 2026-10-29. The line under the list counted the minutes for an hour, "Updated 9 minutes ago", and was grey; Mail's gives the time of day from about the sixth minute, "Updated at 12:36 PM", and is white, and so is Blackmail's now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-6a and
 C-6b, its second run agreeing), and the plan made from it (area 3).
@@ -41323,14 +41442,25 @@ The release build for the iPad: "Build complete".
 
 **Not covered.**
 
-- The turn itself: between 5:14 and 10:08, not seen. The check reads
-  Mail's line every 30 seconds from 4:30 (TODO).
+- The turn itself: seen 2026-10-29 (round r6-p-copy) at the sixth minute
+  in Mail, as built (below).
 - His iPad's 10.2-inch wrap (B-049, "Updated 2 minutes ago" on two
   lines there) is now for ages of two to five minutes only; its layout
   stays the owner's to rule on.
 - The unsent count's and a failure's colours in Mail were not seen.
 
-## B-185 — FIXED 2026-10-29. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them, a letter that is only an attached picture as its header alone, and so does Blackmail now
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy, in
+Notes, a pull in Mail and Refresh in Blackmail, each line read about
+every 30 seconds to seven and a half minutes. Mail's last "Updated 5
+minutes ago" at 361.7 s and its first "Updated at 5:42 PM" by 391.8 s;
+Blackmail's at 361.4 s and 391.5 s, "Updated at 5:50 PM": the same turn,
+at 6:00, each line late by its redraw, Blackmail's every 30 seconds.
+White, rgb(255, 255, 255), as Mail's. At 120 s Mail said "Just Now" and
+Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
+`UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
+was written to the account.
+
+## B-185 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them, a letter that is only an attached picture as its header alone, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -41398,9 +41528,12 @@ build for the iPad: "Build complete".
 
 **Not covered.**
 
-- Every file but the two pictures measured is left off by inference:
-  Mail's print of a letter with a PDF or another file was not seen
-  (the check prints one to the preview). So is a picture sent inline
+- A PDF: Mail 16.5.1 prints its page under the letter's words, seen
+  2026-10-29 (round r6-p-copy, below); Blackmail prints none, so the
+  inference was wrong for a PDF.
+- Every other file but the two pictures measured is left off by
+  inference: Mail's print of a letter with another file was not seen.
+  So is a picture sent inline
   that the markup does not name (`isShownInBody` with no `cid:` in
   the HTML, or a plain letter's): the commonest way a family photo
   comes, after a few words; the pane draws it among them, the paper
@@ -41412,3 +41545,18 @@ build for the iPad: "Build complete".
   the letter's files after its text (B-170): Mail has no such words to
   copy, and no page failed in the round.
 - Mail on 18: its print not seen.
+
+**Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy,
+Print's preview only, Cancel each time, nothing printed (the log's
+`PRINT ready pages=1`, `PRINT panel over=true` and `PRINT closed
+done=false` four times each). The attached picture's letter its header
+alone, nothing under it, "Page 1 of 1", as Mail's of round r6-n-compare;
+the picture still drawn in the pane. The `cid:` picture letter its
+header and the picture, 68 view px wide, one page, the same as at
+65e32ab (Mail's blank second page not copied). Differing from Mail: the
+letter of words and a PDF prints its words alone here, "Page 1 of 1";
+Mail's preview prints the PDF's page under the words, drawn about as
+wide as the words' column and running on to a blank second paper page,
+"Page 1 of 2". Not run: step 4, the plain letter with an inline
+photo, added to the check after the round's letters were made. Nothing
+was sent.

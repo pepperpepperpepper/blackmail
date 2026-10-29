@@ -2016,3 +2016,63 @@ and no URL has to return.
 
 **One deviation kept**: the portrait stays out until the owner supplies
 a photograph.
+
+## A read mark at a launch before round r6-p-copy (2026-10-29)
+
+Round r6-p-copy (int21 at 7803dbb, the test account) noted that
+Blackmail's own launch, at about 21:25Z, before the round's first call
+to the iPad at 21:25:40Z, stored `\Seen` on an Inbox letter, UID 246, a
+newsletter of 17 Oct. The question was whether the app marked read a
+letter nobody opened. It did not.
+
+**What the log shows** (the round's saved Connection log, its first line
+17:25:02.720 EDT):
+
+- The app's process started about 21:25:00Z, 18 minutes after that day's
+  install and 40 s before the round's first call; its
+  `Launches/unfinished` file is dated 17:25.
+- 17:25:03.271: `KEPT-LETTER shown bytes=116772`, a letter shown from
+  the copy kept on the iPad (D-016), while the launch's STATUS sweep
+  ran.
+- 17:25:03.407: `UID STORE 246 +FLAGS.SILENT (\Seen)`, answered `FLAGS
+  (\Seen)`.
+- 7 s later, `UID FETCH 371 (UID BODY.PEEK[])` and "pane:
+  isInvertColorsEnabled false, page built": a second letter opened, one
+  already read, the one in the pane on the round's first shot, the list
+  scrolled a little down.
+
+**Was 246 unread before?** Yes:
+
+- The IMAP lists of earlier rounds name it unseen on 2026-10-27 at
+  21:03Z and on 2026-10-29 at 16:00Z, 16:47Z and 17:12Z; the round's own
+  list at 21:27Z does not.
+- Its size, 116,772 bytes (RFC822.SIZE), is the size the `KEPT-LETTER
+  shown` line gives.
+- Between 17:12Z and 21:27Z three more Inbox letters went `\Seen`, and
+  none of their STOREs is in the log's ring: the iPad's mail was in use
+  between the rounds.
+
+**What can open a letter.** No path in the code opens one at a launch
+by itself:
+
+- The pane starts on "No message selected". No pane letter is stored: no
+  defaults key for it and no state restoration.
+- A letter is opened and marked read only by a row tapped
+  (`didSelectRowAt`, `open`, `markReadIfNeeded`); a banner tapped
+  (`userNotificationCenter(_:didReceive:)`, `openFromBanner`, `openRow`,
+  B-161, which logs nothing); the letter after a Delete or Move (B-158,
+  `openNext`), and no MOVE, COPY or `\Deleted` is in the ring; or a
+  letter opened inside a conversation (B-074). Edit mode's tick opens a
+  letter with no read mark (B-174).
+- Two opens 7 s apart with a scroll between them are a hand's: a tap, or
+  a banner and then a tap.
+
+**What Mail does.** Mail 16.5.1 kept a letter in its pane between uses,
+one already read; showing a letter already read writes nothing. Mail
+marks a letter read when its row or its banner is tapped, and so does
+Blackmail, as B-161 copied it.
+
+**Verdict.** Blackmail did not mark read a letter he did not open.
+Nothing changed. If a later round has to tell a banner from a tap
+without reasoning it out, one log line in `openFromBanner` would do it;
+not added.

@@ -11292,6 +11292,26 @@ checks below is left as not needed, not open, and none is worth a round.*
          noted, and only them, from "Notes" to the Trash, and deletes
          in the Trash only the UIDs that move answered (`COPYUID`).
          Nothing was sent, and nothing else was written to the account.
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: 1, 2, 3 but its Block All Remote Content line, 4, 5 but
+      its second turn on, and 6. In 1 the switch fired: the log said "pane:
+      isInvertColorsEnabled true, changed" at 17:33:30.8 and "true, page
+      built" at 17:35:02.5, and "false, changed" after Smart Invert went
+      off; the log's view opened at its oldest line, so the lines were read
+      in a copy of the log saved after the step. In 2 the photos hue-turned
+      as before, (677, 552) rgb(187, 158, 105), where Mail's are inverted:
+      written down, the colour filter's step to come (KNOWN_ISSUES B-179,
+      "Not covered"). In 3 the page white, rgb(255, 255, 255), its words
+      black and its link the sender's #007AFF, as Mail's page and words;
+      the cube rgb(127, 96, 66), natural, where Mail's are inverted; the
+      pane round it white, Mail's rgb(227, 227, 225), not copied. In 4 the
+      plain and PDF letters the same to the pixel as at 65e32ab, the tile
+      light and its icon black. In 5 Smart Invert turned off with the
+      letter open and scrolled: no reload and no scroll, the page as with
+      the switch off; turned on with it open: as a fresh open. In 6 Smart
+      Invert off as before and the letters put in the Trash, nothing
+      erased. Not run: 3's Block All Remote Content line and 5's second
+      turn on with the letter scrolled. Nothing was sent.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11328,6 +11348,23 @@ checks below is left as not needed, not open, and none is worth a round.*
          and deletes in the Trash only the UIDs that move answered
          (`COPYUID`). Nothing was sent, and nothing else was written to
          the account.
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: 1, 2, 3's three panes, 4, 5 and 6. In 1 the first level
+      rgb(191, 90, 242) as Mail's, levels two and three rgb(16, 160, 246)
+      and rgb(93, 204, 118), 18.6's as built, where Mail 16.5.1 has rgb(64,
+      200, 224) and rgb(48, 209, 88): not a difference to fix. In 2 the
+      line violet with the first level's bar, its words at 491.2 beside the
+      quote's at 490.8, as Mail's at its quote's x; the rest of the page
+      where it was. In 3 the top line as Mail's; the nested "Gail wrote:"
+      line, which Mail draws as the second level's, two bars and its words
+      cyan at that level's x, was the first level's words, violet, with one
+      bar: written down (KNOWN_ISSUES B-180). A line before a quote not
+      ending "wrote:" white with no bar, as Mail's. In 4 the plain letter
+      the same to the pixel as at 65e32ab. In 5, print preview only,
+      Cancel, nothing printed: the line's bar and words in the light
+      violet, as Mail's preview has them. In 6 the letters put in the
+      Trash, nothing erased. Not run: 3's two panes and stack. Nothing was
+      sent.*
 
 - [ ] **B-181, the open letter's row blue as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11345,8 +11382,16 @@ checks below is left as not needed, not open, and none is worth a round.*
          grey between, the new one blue.
       4. *Edit, Cancel:* the ticked row blue with its tick as before;
          after Cancel the open letter's row blue again.
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: 1, 2 and 4. In 1 and 2 the row rgb(10, 132, 255), names
+      and subject white, its grey lines about rgb(144, 193, 249), Mail's
+      rgb(145, 194, 249), edge to edge where Mail's is a rounded tile (not
+      copied); under Smart Invert orange, rgb(245, 123, 0), as Mail's. In 4
+      the ticked row as before and the open row blue again after Cancel.
+      Not possible: 3, a finger held on a row, which the tools cannot do.
+      Nothing was sent.*
 
-- [ ] **B-182, a row's words as Mail's.** As B-181's check, the same
+- [x] **B-182, a row's words as Mail's.** As B-181's check, the same
       build, nothing composed, sent or moved. The letters are round
       r6-n-compare's "R6 B-131 picture only rn" and "R6 B-131
       attached picture rn", and its draft "R6 B-144 draft rn", or made
@@ -11368,8 +11413,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move
          answered (`COPYUID`). Nothing was sent.
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: every step. In 1 "Attachment: IMG_0131.jpg" and
+      "Attachment: h-photo.jpg" in the grey lines, before a Refresh and
+      after it, as Mail's. In 2 "No Recipient", and "No Subject" in grey,
+      about rgb(142, 142, 142), Mail's rgb(141, 141, 147). In 3 the header
+      "(no subject)", white, where Mail's says "No Subject": written down
+      (KNOWN_ISSUES B-182). Seen besides: a letter of two files and no
+      words, Mail's row "Attachments: IMG_0182.jpg, R6 B-182 two.pdf",
+      Blackmail's "Attachment: IMG_0182.jpg": written down (KNOWN_ISSUES
+      B-182). In 4 the letters put in the Trash, nothing erased. Nothing
+      was sent.*
 
-- [ ] **B-183, Drafts in Edit mode as Mail's.** As B-182's check, its
+- [x] **B-183, Drafts in Edit mode as Mail's.** As B-182's check, its
       draft, APPENDed to Drafts again in the same way if B-182's check
       ran first and put it in the Trash. Nothing is deleted in the
       app: Cancel only.
@@ -11384,8 +11440,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *Put back:* the host moves the UID it noted, and only it, to
          the Trash, and deletes in the Trash only the UID that move
          answered (`COPYUID`). Nothing was sent.
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: every step, 3 in Notes rather than the Inbox, the same
+      bar. In 1 "1 Selected", Mark and Move grey, Trash blue, the draft in
+      the pane as a letter, no composer and no keyboard, as Mail's. In 2
+      the pane back, "No message selected", the draft still in Drafts. In 3
+      Mark, Move and Trash blue with a row ticked, as before; Cancel. In 4
+      the draft put in the Trash, nothing erased. Nothing was deleted in
+      the app or sent.*
 
-- [ ] **B-184, the Updated line as Mail's.** The test account, Notes,
+- [x] **B-184, the Updated line as Mail's.** The test account, Notes,
       both apps. Nothing is written to the account.
       1. *Mail:* a pull in Notes, nothing fetched by itself after (no
          "Checking for Mail…" on any shot); its line read every 30 s
@@ -11397,6 +11461,14 @@ checks below is left as not needed, not open, and none is worth a round.*
          rgb(255, 255, 255), beside Mail's.
       3. If Mail turns at another minute, `UpdatedLine.minutesUntil`
          is set to it (KNOWN_ISSUES B-184).
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: every step. In 1 Mail's last "Updated 5 minutes ago" at
+      361.7 s, its first "Updated at 5:42 PM" by 391.8 s, "Just Now" still
+      at 120 s (no "1 minute ago" shot). In 2 Blackmail's at 361.4 s and
+      391.5 s, "1 minute ago" at 121 s, each line late by its redraw;
+      white, rgb(255, 255, 255), as Mail's. In 3 Mail turns at 6:00, so
+      `UpdatedLine.minutesUntil` stays 360 s. Nothing was written to the
+      account.*
 
 - [ ] **B-185, a printed letter without its files, as Mail's.** As
       B-182's check, the same build and the same two picture letters,
@@ -11421,6 +11493,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move
          answered (`COPYUID`).
+      *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
+      r6-p-copy: 1, 2, 3, 5 and 6, print preview only, Cancel each time,
+      nothing printed (the log's `PRINT closed done=false` four times). In
+      1 the header alone, "Page 1 of 1", as Mail's. In 2 the header and the
+      picture, one page, as before. In 3 Blackmail's words alone, "Page 1
+      of 1"; Mail's preview printed the PDF's page under the words, "Page 1
+      of 2", its second page blank: written down (KNOWN_ISSUES B-185). In 5
+      the attached picture still drawn in the pane. In 6 the letters put in
+      the Trash, nothing erased. Not run: 4, added after the round's
+      letters were made. Nothing was sent.*
 
 ## Blocked on the owner
 
