@@ -74,7 +74,7 @@ final class SignatureLikeMailTests: XCTestCase {
             #bm { filter: \(SignatureSheet.invert); background: #fff; }
             #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                 filter: \(SignatureSheet.invert); }
-            \(QuoteBars.css(in: "#bm"))
+            \(QuoteBars.css(in: "#bm", palette: QuoteBars.inverted))
             \(SignatureSheet.css(in: "#bm"))
 
             """), sheet)

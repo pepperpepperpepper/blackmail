@@ -11279,6 +11279,42 @@ checks below is left as not needed, not open, and none is worth a round.*
          in the Trash only the UIDs that move answered (`COPYUID`).
          Nothing was sent, and nothing else was written to the account.
 
+- [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
+      iPad, the test account only, from a build of the `bm-fix-j1`
+      worktree (branch `fix-j1`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app. The
+      letters are round r6-n-compare's "R6 B-101 html quotes rn" and
+      "R6 B-101 plain quotes rn", and a reply in Gmail's form (its
+      `div.gmail_attr` line, then its `blockquote.gmail_quote`), or made
+      again as that round made them: the host makes each from another
+      address, with a new Message-ID of its own, and APPENDs it, read
+      (`\Seen`), to the label "Notes", never the Inbox, noting each UID
+      from its APPENDUID; it stops if one has none. Dark Mode, Smart
+      Invert off, three panes; full-size screenshots, colours sampled as
+      the round sampled them (`08-runs.txt`); Mail beside Blackmail.
+      1. *The HTML letter:* Blackmail's bars and words about rgb(191,
+         90, 242), rgb(16, 160, 246) and rgb(93, 204, 118), and the
+         first again, against Mail's rgb(191, 90, 242), rgb(64, 200,
+         224) and rgb(48, 209, 88); none rgb(152, 150, 255).
+      2. *Its "wrote:" line:* a bar beside it in the first level's
+         colour, joined to the quote's, its words violet, and their x
+         the quote's words' x, as Mail's (362.4 against 362.4 there).
+         The line's top and the quote's where they were, only its
+         words 6 px right. Screenshots.
+      3. *The Gmail reply:* its "wrote:" line the same, Gmail's grey bar
+         not seen. Then two panes, and a conversation's stack with the
+         letter in it if the test account has one: the same.
+      4. *The plain letter:* as before, its colours rgb(191, 90, 242),
+         rgb(0, 200, 250) and rgb(87, 217, 119), its line in its quote.
+      5. *Print's preview only* of the HTML letter, then Cancel, nothing
+         printed: the line's bar and words in the light violet,
+         rgb(88, 86, 214), as the quote's.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves
+         the UIDs it noted, and only them, from "Notes" to the Trash,
+         and deletes in the Trash only the UIDs that move answered
+         (`COPYUID`). Nothing was sent, and nothing else was written to
+         the account.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -11610,10 +11646,13 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       here only HTML quotes have it. As built (no bar, the default), or
       Mail's bars there too.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-147.*
-- [ ] **The quoted words in the bar's colour** (B-101): Mail colours the
+- [x] **The quoted words in the bar's colour** (B-101): Mail colours the
       quoted words as well as the bar; that is built. The bar alone is one
       line out of `QuoteBars.css`. As built (Mail's, the default), or the
       bar alone.
+      *Ruled 2026-10-29: copy Apple Mail. Mail colours the words in an
+      HTML letter too (C-4b): as built; their colours Mail's dark ones
+      and the "wrote:" line's bar, B-180.*
 - [x] **Mail's paperclip in the keyboard's shortcut bar** (B-108): Mail
       offers Attach File and Photo Library from a paperclip at the right
       of the bar above the keyboard; here they are two buttons under the

@@ -18198,6 +18198,13 @@ first shot. Not done there: 4's touch as the bodies come, and 5 in the
 stack, both passed on the test iPad 2026-10-22. Not tried: Mail's own
 bars, there being no device with Mail. Nothing was sent.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-4b), by
+the owner's ruling of that day, copy Apple Mail: Mail colours an HTML
+letter's quoted words as well as its bars, as built, but in Dark in
+its dark colours, the plain letter's, where the light ones here came
+out turned by the letter's invert; and the "wrote:" line before the
+quote has the first level's bar and colour. Both copied by B-180.
+
 ## B-102 — BUILT 2026-10-22, seen on the iPad 2026-10-22. Rows had no reply or forward arrow; Mail's show one in the gutter
 
 **What Mail does.** A letter he has answered has a small grey arrow on its
@@ -31271,6 +31278,13 @@ line inside the first level and a ">From" line a quote, on the pane and on
 paper; copied by B-172. NOT COMPARABLE, the deeper levels' shades, rgb(64,
 200, 224) and rgb(48, 209, 88) on 16.5.1, Blackmail's being 18.6's.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (r6-n-compare, C-4a and
+C-4b), by the owner's ruling of that day, copy Apple Mail: a plain
+letter's quotes SAME, words in the bar's colour, the "wrote:" line with
+its bar. Mail's HTML letter has the same dark colours, where Blackmail's
+had the light ones under the invert, and its "wrote:" line outside the
+quote the first level's bar and colour: copied by B-180.
+
 ## B-148 — FIXED 2026-10-26, seen on the test iPad 2026-10-27. A PDF put among a letter's words had two rows, one there and one in the header's list of files; it has the one among the words, and the header, decided from the letter's structure at the tap, does not change height when the body comes
 
 **Found** in the owner's question "A PDF's two rows" (TODO, under
@@ -40771,3 +40785,128 @@ complete".
   picture weighs over them, as over the pane's invert now.
 - The switch changed while a letter is open: by the script, which the
   host's tests read but cannot run; not seen.
+
+## B-180 — FIXED 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
+on the test iPad against Blackmail int21 at 65e32ab, C-4b DIFFERENT,
+its second run agreeing), and the plan made from it (area 2). The
+owner's ruling of 2026-10-29: "for the app -- all should copy apple
+mail which we have access to", Mail 16.5.1 on the test iPad the
+reference; for what Mail does not decide, the layout rule of 2026-10-27
+(D-025). A colour, and the room of the bar the colour is drawn in.
+
+**What Mail does.** The round's HTML letter, "R6 B-101 html quotes rn":
+a `<p>` "On Monday, ... wrote:", then three `<blockquote type="cite">`
+one in another, and back to the first. In Dark Mode its bars and words
+are rgb(191, 90, 242), rgb(64, 200, 224) and rgb(48, 209, 88), and
+rgb(191, 90, 242) again: the colours of its plain letter's quotes, in
+the same places, every bar and run of words at the plain letter's x.
+The "wrote:" line, a `<p>` outside the quote, has the first level's bar
+beside it and its colour, its words at the quote's words' x (view x
+362.4 in both). Measured (`scratch/08-runs.txt`). That Mail picks the
+line by its "wrote:" is inferred from B-172's plain rule, which was
+measured.
+
+**What Blackmail did.** The light colours, rgb(88, 86, 214), rgb(0,
+175, 205) and rgb(18, 192, 14), turned by the letter's
+`invert(1) hue-rotate(180deg)`: rgb(152, 150, 255), rgb(0, 150, 180)
+and rgb(0, 163, 0). The "wrote:" line white, rgb(255, 255, 255), with
+no bar (`QuoteBars` barred blockquotes only).
+
+**What changed** (`QuoteBars`, `PanePage`, `ConversationDocument`,
+`PrintPage`, and `LetterScheme.Markup`, which reads the line).
+
+1. *The colours.* A letter the pane inverts, `#bm` on its page and
+   `.bm-html` in a stack, has a third palette, `QuoteBars.inverted`:
+   the light colours the invert turns into Mail's dark ones,
+   `QuoteBars.dark`, iOS 18.6's, which a plain letter's quotes have
+   already (the 27 Oct plan keeps 18.6's shades for levels 2 to 4).
+   Solved with the filter's two matrices in sRGB, clamped at the end,
+   which turns rgb(88, 86, 214) into the measured rgb(152, 150, 255).
+   Level one, rgb(201, 100, 252), comes out rgb(191, 90, 242), within
+   a unit. The invert clamps, so levels two and three cannot be reached:
+   the nearest are rgb(0, 144, 230), which comes out about rgb(16, 160,
+   246) against rgb(0, 200, 250), and rgb(0, 111, 25), about rgb(93,
+   204, 118) against rgb(87, 217, 119). Exact shades there need the
+   quote drawn outside the invert, which would take a sender's own
+   colours inside the quote with it, black words on the black, and
+   invert its pictures: not done. A light letter (`.bm-light`) and the
+   paper keep the light colours, a letter in its own colours
+   (`.bm-own`) the dark ones, as before.
+2. *The "wrote:" line.* As the page is built (`PanePage.content`, so
+   the letter's own page, the stack and the paper alike), the element
+   directly before a quote that is in no other quote, nothing but
+   spaces between them, whose words end "wrote:", with no quote in it,
+   is given the class `bm-attribution`, its own classes kept
+   (`QuoteBars.attributed`): Mail's `<p>`, Gmail's `div.gmail_attr`, a
+   `<p>` the quote's tag closes. Its rule, `QuoteBars.attributionCSS`,
+   is the first level's bar and colour in the scope's palette, its words
+   5 px from the 1 px bar as a quote's are, so they stand at the quote's
+   words' x, as Mail's do. Those 6 px are the one thing that moves: the
+   bar is the colour copied and cannot be drawn without its room. Its
+   margins are its own, as before. Mail's own reply, whose line is in a
+   quote already inside a `div`, is as it came. A letter with no such
+   line comes out byte for byte as before, its markup and, on its own
+   page and on paper, its style; the stack's style has the line's three
+   rules whatever its letters. A CSS-only `:has(+ blockquote)` was not
+   used: it would bar any line before a quote, which Mail was not seen
+   to do.
+3. *Bounded.* The reading is skipped for a letter without "wrote:" and
+   "blockquote" in it, follows at most 512 elements open at once, as
+   deep as WebKit builds a page, and reads the last 4 KB of a line's
+   words.
+
+**What he sees.** In the dark pane an HTML letter's quotes in the
+violet, teal and green of a plain letter's, and the "On ... wrote:"
+line above a quoted letter violet with its bar, its words 6 px to
+the right, where the quote's are. Plain letters as
+before.
+
+**Tests.** `HTMLQuotesLikeMailTests`, new, twelve: the invert's sum
+turning Mail's light violet into the round's measured rgb(152, 150,
+255); `inverted` through the invert within 2, 44 and 15 of `dark`, and
+no colour a step from it in any channel nearer, so solved again; the
+round's letter on its own page, its quotes and line in `inverted`, none
+of the light colours, its `<p>` marked; the same body in a stack, and
+the stack's rules for `.bm-html`, `.bm-light` and `.bm-own` in their
+palettes, none for `.bm-text`; a light letter's and one in its own
+colours; the paper's, in the light colour, and none on a letter
+without; a plain letter's page as before; Gmail's line keeping
+`gmail_attr`; a `<p>` the quote closes, upper-case tags and `&nbsp;`,
+a line in a `div` with a `span`; a class quoted, single-quoted, empty
+and with no value; no line marked before a nested quote, not ending
+"wrote:", with a `<br>`, words or a comment between, bare words, a
+blockquote that is no quote, a `<style>`, Mail's own reply, a letter
+with no quote; two lines before two quotes; 20,000 elements left open,
+and 2,000 lines and quotes. Changed: the pins of the pane's pages and
+the stack's bodies, which take out the new palette, the line's rule and
+its class as they took out the old palette; the ordinary letters'
+fingerprints, unchanged with the inverted palette taken out; and the
+pins of the stack's style, the paper's and a signature's page.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the old palette under the invert, on the page and in the
+stack, 6 failures in 2 tests; the class not put on, 18 failures in 9
+tests. Each failure an assertion's. The full suite: 3,180 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
+
+**Not covered.**
+
+- Mail's paper with such a line was not seen: the paper gives the line
+  the light first colour and its bar, as Mail's paper gives a quote,
+  inferred.
+- Levels two and three are the nearest the invert reaches, about 43
+  and 15 from 18.6's in sRGB; 16.5.1's own shades, rgb(64, 200, 224)
+  and rgb(48, 209, 88), are not used, as for plain letters.
+- That Mail picks the line by its "wrote:" is inferred from its plain
+  letters (B-172); a line ending otherwise, or before a quote with a
+  `<br>` between, was not seen in Mail and is as before.
+- Seen in passing in the round's shots, not looked into: in
+  Blackmail's HTML letter the second level's words begin about 3 view
+  px right of its plain letter's, a 4 px run at view x 498.8 between
+  the bar and the words (`08-runs.txt`); Mail's are at the same x in
+  both.
+- A sender's own important rule on the line's element weighs over the
+  class's, as over the quotes'.

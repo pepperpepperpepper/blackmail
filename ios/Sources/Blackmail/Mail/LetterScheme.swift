@@ -626,3 +626,186 @@ private func isLetter(_ c: UInt8) -> Bool {
 private func isSpace(_ c: UInt8) -> Bool {
     c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0C || c == 0x0D
 }
+
+// MARK: - The line before a quote
+
+/// Where the lines Mail draws with a quote's first level are, read by the
+/// same tokenizer (`QuoteBars.attributed`, B-180).
+extension LetterScheme.Markup {
+
+    /// Elements with no end tag, never open.
+    private static let void: Set<String> = [
+        "area", "base", "br", "col", "embed", "hr", "image", "img", "input", "keygen", "link", "meta",
+        "param", "source", "track", "wbr",
+    ]
+
+    /// The start tags that close an open `<p>`, as HTML's do.
+    private static let closesP: Set<String> = [
+        "address", "article", "aside", "blockquote", "center", "details", "dialog", "dir", "div", "dl",
+        "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header",
+        "hgroup", "hr", "main", "menu", "nav", "ol", "p", "pre", "section", "summary", "table", "ul",
+    ]
+
+    /// The most elements open at once that the reading follows, as deep
+    /// as WebKit builds a page; a letter deeper is read no further.
+    private static let deepest = 512
+
+    /// Whether a `<blockquote>` with `attributes` is a quote as Mail's
+    /// style sheet finds one (`QuoteBars.quote`): `type=cite` in any case,
+    /// or `gmail_quote` among its classes.
+    private static func isQuote(_ attributes: [String: String]) -> Bool {
+        attributes["type"]?.lowercased() == "cite"
+            || (attributes["class"] ?? "").components(separatedBy: LetterScheme.htmlSpaces)
+                .contains("gmail_quote")
+    }
+
+    /// The start tag, `<` to just past `>`, of each element directly
+    /// before a quote that is in no other quote, nothing but spaces between
+    /// them, whose words end "wrote:" (spaces after it aside), and with no
+    /// quote in it: Mail's own reply has its "wrote:" line in a quote of
+    /// its own, inside a `div`, which has its bar already. Elements are
+    /// opened and closed as HTML's tokenizer reads their tags, an end tag
+    /// closing the elements opened in it, a `<p>` closed by a block's start
+    /// tag; a tag never closed ends the reading.
+    func attributions() -> [Range<Int>] {
+        let n = b.count
+        var found: [Range<Int>] = []
+        // Each element open, and how many quotes had begun before it.
+        var open: [(name: String, tag: Range<Int>, isQuote: Bool, quotesBefore: Int)] = []
+        var quotes = 0
+        // The element last closed: how many were open around it, its
+        // start tag, where its words end and just past its end, and
+        // whether a quote began in it, as Mail's own "wrote:" line is a
+        // quote's (B-172), which has its bar already.
+        var closed: (depth: Int, tag: Range<Int>, wordsEnd: Int, end: Int, hasQuote: Bool)?
+        func close(from k: Int, wordsEnd: Int, end: Int) {
+            closed = (k, open[k].tag, wordsEnd, end, quotes > open[k].quotesBefore)
+            open.removeSubrange(k...)
+        }
+        var i = 0
+        while i < n {
+            guard b[i] == lt, i + 1 < n else { i += 1; continue }
+            let next = b[i + 1]
+            if next == bang {
+                if starts("<!--", at: i) {
+                    guard let end = commentEnd(from: i + 4) else { break }
+                    i = end
+                } else {
+                    guard let end = index(of: gt, from: i + 2) else { break }
+                    i = end + 1
+                }
+                continue
+            }
+            if next == question {
+                guard let end = index(of: gt, from: i + 2) else { break }
+                i = end + 1
+                continue
+            }
+            if next == slash {
+                guard i + 2 < n, isLetter(b[i + 2]) else { i += 1; continue }
+                var j = i + 2
+                while j < n, !isSpace(b[j]), b[j] != slash, b[j] != gt { j += 1 }
+                let name = lowercased((i + 2)..<j)
+                guard let end = tagEnd(from: i + 2) else { break }
+                if let k = open.lastIndex(where: { $0.name == name }) {
+                    close(from: k, wordsEnd: i, end: end + 1)
+                }
+                i = end + 1
+                continue
+            }
+            guard isLetter(next) else { i += 1; continue }
+            guard let tag = startTag(at: i) else { break }
+            if tag.name == "plaintext" { break }
+            if Self.closesP.contains(tag.name), open.last?.name == "p" {
+                close(from: open.count - 1, wordsEnd: i, end: i)
+            }
+            let range = i..<tag.end
+            i = tag.end
+            if Self.rawText.contains(tag.name) {
+                guard let end = rawTextEnd(of: tag.name, from: i).flatMap({ tagEnd(from: $0 + 2) })
+                else { break }
+                closed = nil
+                i = end + 1
+                continue
+            }
+            guard !Self.void.contains(tag.name) else { continue }
+            guard open.count < Self.deepest else { break }
+            let isQuote = tag.name == "blockquote" && Self.isQuote(tag.attributes)
+            if isQuote, !open.contains(where: \.isQuote), let line = closed, line.depth == open.count,
+               !line.hasQuote, b[line.end..<range.lowerBound].allSatisfy(isSpace),
+               endsWrote(line.tag.upperBound..<line.wordsEnd) {
+                found.append(line.tag)
+            }
+            open.append((tag.name, range, isQuote, quotes))
+            if isQuote { quotes += 1 }
+        }
+        return found
+    }
+
+    /// Whether the words in `range`, its tags left out and its character
+    /// references read, end "wrote:", spaces after it aside. Its last 4 KB
+    /// only, which hold the end of its words, so an element of the whole
+    /// letter before a quote is not read again.
+    private func endsWrote(_ range: Range<Int>) -> Bool {
+        var words: [UInt8] = []
+        var j = max(range.lowerBound, range.upperBound - 4_096)
+        while j < range.upperBound {
+            if b[j] == lt, j + 1 < range.upperBound, isLetter(b[j + 1]) || b[j + 1] == slash || b[j + 1] == bang {
+                guard let end = index(of: gt, from: j + 1), end < range.upperBound else { break }
+                j = end + 1
+                continue
+            }
+            words.append(b[j])
+            j += 1
+        }
+        var text = String(decoding: words, as: UTF8.self)
+        if text.contains("&") { text = HTMLText.decodingEntities(text) }
+        let trimmed = text.trimmingCharacters(in: LetterScheme.htmlSpaces.union(["\u{00A0}"]))
+        return trimmed.hasSuffix("wrote:")
+    }
+
+    /// The edit that adds `name` to the classes of the start tag at `tag`:
+    /// after its `class`'s value, quoted, or as a `class` of its own after
+    /// its name where it has none.
+    func classAdded(_ name: String, toTagAt tag: Range<Int>) -> (range: Range<Int>, text: String) {
+        var j = tag.lowerBound + 1
+        let end = tag.upperBound
+        while j < end, !isSpace(b[j]), b[j] != slash, b[j] != gt { j += 1 }
+        let afterName = j
+        while j < end {
+            while j < end, isSpace(b[j]) || b[j] == slash { j += 1 }
+            guard j < end, b[j] != gt else { break }
+            let attributeStart = j
+            j += 1
+            while j < end, !isSpace(b[j]), b[j] != slash, b[j] != gt, b[j] != equals { j += 1 }
+            let attribute = lowercased(attributeStart..<j)
+            let attributeEnd = j
+            while j < end, isSpace(b[j]) { j += 1 }
+            guard j < end, b[j] == equals else {
+                if attribute == "class" { return (attributeEnd..<attributeEnd, "=\"\(name)\"") }
+                j = attributeEnd
+                continue
+            }
+            j += 1
+            while j < end, isSpace(b[j]) { j += 1 }
+            if j < end, b[j] == quote || b[j] == apostrophe {
+                let close = index(of: b[j], from: j + 1) ?? end
+                let value = (j + 1)..<close
+                if attribute == "class" {
+                    let space = value.isEmpty ? "" : " "
+                    return (close..<close, space + name)
+                }
+                j = close + 1
+            } else {
+                let start = j
+                while j < end, !isSpace(b[j]), b[j] != gt { j += 1 }
+                if attribute == "class" {
+                    let value = String(decoding: b[start..<j], as: UTF8.self)
+                        .replacingOccurrences(of: "\"", with: "&quot;")
+                    return (start..<j, "\"" + value + " " + name + "\"")
+                }
+            }
+        }
+        return (afterName..<afterName, " class=\"\(name)\"")
+    }
+}

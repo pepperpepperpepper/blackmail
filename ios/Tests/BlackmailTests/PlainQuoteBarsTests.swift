@@ -171,7 +171,7 @@ final class PlainQuoteBarsTests: XCTestCase {
     /// In a conversation's stack the same letter's body is the same quote,
     /// escaped as the stack escapes text, at first draw and by `bmFill`;
     /// the stack's rules under `.bm-text`, a plain letter's body, in Mail's
-    /// dark colours, beside the HTML's light ones under `.bm-html`.
+    /// dark colours, beside the HTML's under `.bm-html` (B-180).
     func testAConversationHasTheBarsToo() throws {
         let body = PanePage.stackBody(quoted)
         XCTAssertEqual(body, .init(html: "Dear Sam,\n\nIt's &lt;b&gt;not&lt;/b&gt; bold &amp; it's \"quoted\" "
@@ -182,7 +182,8 @@ final class PlainQuoteBarsTests: XCTestCase {
                             isExpanded: true, preview: "")],
             inset: style.inset, bodyPointSize: style.bodyPointSize, lineHeight: style.lineHeight)
         XCTAssertTrue(html.contains("<div class=\"bm-body bm-text\">\(body.html)</div>"), html)
-        XCTAssertTrue(html.contains("\n" + QuoteBars.css(in: ".bm-html") + "\n"
+        XCTAssertTrue(html.contains("\n" + QuoteBars.css(in: ".bm-html", palette: QuoteBars.inverted) + "\n"
+                                    + QuoteBars.attributionCSS(in: ".bm-html", palette: QuoteBars.inverted) + "\n"
                                     + QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark) + "\n"), html)
         let fill = ConversationDocument.Fill(sectionID: "m1_1", body: body)
         XCTAssertEqual(try XCTUnwrap(fill.arguments["html"] as? String), body.html)

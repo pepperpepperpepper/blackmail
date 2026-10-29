@@ -361,11 +361,15 @@ enum ConversationDocument {
              sheet, its logo showing on it, its white borders lost in it
              (SignatureSheet, B-173). */
           \(SignatureSheet.css(in: ".bm-html"))
-          /* Mail's bars beside quoted text (B-101): a letter's HTML in its
-             light colours, which the invert turns; a plain letter's quotes,
-             Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
-             as a plain letter is not inverted. */
-        \(QuoteBars.css(in: ".bm-html"))
+          /* Mail's bars beside quoted text (B-101): a letter's HTML in the
+             light colours the invert turns into Mail's dark ones, as Mail's
+             HTML letter has them in Dark Mode (QuoteBars.inverted, B-180),
+             and the line before a quote ending "wrote:" with the first
+             level's bar and colour; a plain letter's quotes, Mail's
+             blockquotes too (PlainQuotes, B-147), in its dark ones, as a
+             plain letter is not inverted. */
+        \(QuoteBars.css(in: ".bm-html", palette: QuoteBars.inverted))
+        \(QuoteBars.attributionCSS(in: ".bm-html", palette: QuoteBars.inverted))
         \(QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark))
           .bm-body img, .bm-body table { max-width: 100% !important; height: auto; }
           .bm-text a { color: #0A84FF; }
@@ -386,7 +390,9 @@ enum ConversationDocument {
           .bm-own { color: #fff; color-scheme: light dark; }
           :where(.bm-own) a { color: #0A84FF; }
         \(QuoteBars.css(in: ".bm-light"))
+        \(QuoteBars.attributionCSS(in: ".bm-light"))
         \(QuoteBars.css(in: ".bm-own", palette: QuoteBars.dark))
+        \(QuoteBars.attributionCSS(in: ".bm-own", palette: QuoteBars.dark))
           .bm-waiting { color: #8e8e93; padding: 0 \(inset)px \(inset)px \(inset)px; }
           /* Where his letter from another folder was found, over it once
              it is open (B-104): grey, as the time on the line. */

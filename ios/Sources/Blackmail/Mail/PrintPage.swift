@@ -216,7 +216,13 @@ enum PrintPage {
         // Mail's light colours, which on white are as Mail draws them. A
         // plain letter's too, its quotes Mail's blockquotes as in the pane
         // (`PlainQuotes`, B-147), in the same light colours on the paper.
+        // The line before a quote ending "wrote:" with the first level's
+        // bar and colour, as in the pane (`QuoteBars.attributed`, B-180):
+        // Mail's paper with such a line was not seen, so its light colour
+        // here is inferred from Mail's paper for the quotes.
         let bars = "\n" + QuoteBars.css(in: "#bm")
+            + (isHTML && body.contains(QuoteBars.attributionClass)
+                ? "\n" + QuoteBars.attributionCSS(in: "#bm") : "")
         // A file's tile at the body's size, as in the pane (`BodyFiles.sizeRule`,
         // B-166, B-170); nothing at Large or below, nor for a letter with none.
         let tileRule = BodyFiles.sizeRule(bodyPointSize: style.bodyPointSize)

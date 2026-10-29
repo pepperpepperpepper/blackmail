@@ -192,10 +192,17 @@ enum PanePage {
         // (`SignatureSheet.css`, B-173): only on a page with the sheet in
         // it, so every other page is as it was.
         // After the invert, Mail's bars beside quoted text (`QuoteBars`,
-        // B-101), in its light colours, which the invert turns. A plain
-        // letter's quotes are Mail's blockquotes too (`PlainQuotes`,
+        // B-101), in the light colours the invert turns into its dark ones
+        // (B-180). A plain letter's quotes are Mail's blockquotes too (`PlainQuotes`,
         // B-147), and its page is not inverted: the bars in Mail's dark
         // colours, as Mail draws a plain letter in Dark Mode.
+        //
+        // Mail's HTML letter in Dark Mode has its quotes in its dark
+        // colours whatever its page's filter does (C-4b, B-180): an
+        // inverted letter's bars in the light colours the invert turns into
+        // those (`QuoteBars.inverted`). The line before a quote that ends
+        // "wrote:" has the first level's bar and colour, in each letter's
+        // palette, on a page with such a line only.
         //
         // Inverted only where Mail turns the letter to the dark, which is
         // a letter with no scheme of its own, no picture from the web and
@@ -209,6 +216,10 @@ enum PanePage {
         // moves. One that declares the dark is drawn in its own colours,
         // words white on the pane's black, its style for the dark with it
         // (`inOwnColours`), Mail's bars in its dark colours.
+        func attribution(_ palette: [String]) -> String {
+            content.contains(QuoteBars.attributionClass)
+                ? "\n" + QuoteBars.attributionCSS(in: "#bm", palette: palette) : ""
+        }
         let smartInvert: String
         switch drawn {
         case .inverted?:
@@ -216,14 +227,15 @@ enum PanePage {
               \(invertedRule)
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: \(SignatureSheet.invert); }
-              """ + "\n" + QuoteBars.css(in: "#bm")
+              """ + "\n" + QuoteBars.css(in: "#bm", palette: QuoteBars.inverted)
+                + attribution(QuoteBars.inverted)
                 + (content.contains(SignatureSheet.className) ? "\n" + SignatureSheet.css(in: "#bm") : "")
         case .light?:
             smartInvert = lightRule + "\n"
-                + QuoteBars.css(in: "#bm")
+                + QuoteBars.css(in: "#bm") + attribution(QuoteBars.colours)
         case .own?:
             smartInvert = "#bm { color-scheme: light dark; }\n"
-                + QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+                + QuoteBars.css(in: "#bm", palette: QuoteBars.dark) + attribution(QuoteBars.dark)
         case nil:
             smartInvert = QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
         }
@@ -324,10 +336,15 @@ enum PanePage {
     /// rewriter points a `cid:` in it at the loader and the part is counted
     /// as drawn by the letter (`BodyFiles`), and the hold-back holds one of
     /// the web back, as they do the markup's (B-169).
+    ///
+    /// The line just before a quote, ending "wrote:", has
+    /// `QuoteBars.attributionClass`, as Mail draws it with the quote's bar
+    /// and colour (`QuoteBars.attributed`, B-180): the pane's page, the
+    /// stack's and the printed page all have it.
     static func content(text: String?, html: String?, known: Set<String>, flowed: Bool,
                         heldBack: Bool = false, backdrop: String = "") -> String {
         if let html {
-            let page = backdrop + DocumentWrapper.stripped(from: html)
+            let page = backdrop + QuoteBars.attributed(DocumentWrapper.stripped(from: html))
             return TextLinks.html(InlineImageRewriter.rewrite(heldBack ? RemoteContent.blocked(page) : page,
                                                               known: known))
         }

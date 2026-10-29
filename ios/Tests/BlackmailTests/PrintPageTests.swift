@@ -515,16 +515,22 @@ final class PrintPageTests: XCTestCase {
     /// the end of every letter's style, in Mail's light colours on the
     /// paper; a plain letter's too since B-147, its quotes Mail's
     /// blockquotes as in the pane, whose plain page has Mail's dark ones.
+    /// An inverted letter's pane has the colours the invert turns into
+    /// Mail's dark ones since B-180, and Gmail's "wrote:" line its rule,
+    /// on paper in the light colour.
     func testTheQuoteBarsAreThePanes() throws {
         let rules = QuoteBars.css(in: "#bm")
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
         for (i, m) in PaneLetters.all.enumerated() {
             let sheet = try self.sheet(page(m))
-            XCTAssertTrue(sheet.hasSuffix("\n" + rules + "\n"), "letter \(i)")
+            let line = m.htmlBody == PanePageTests.gmailReply ? QuoteBars.attributionCSS(in: "#bm") + "\n" : ""
+            XCTAssertTrue(sheet.hasSuffix("\n" + rules + "\n" + line), "letter \(i)")
             XCTAssertFalse(sheet.contains(QuoteBars.dark[0]), "letter \(i)")
+            XCTAssertFalse(sheet.contains(QuoteBars.inverted[0]), "letter \(i)")
             guard let pane = PanePage.letter(m, style: style) else { continue }
             XCTAssertTrue(try self.sheet(pane).contains(m.htmlBody != nil
-                                                        ? "\n" + rules + "\n"
+                                                        ? "\n" + QuoteBars.css(in: "#bm", palette: QuoteBars.inverted)
+                                                            + "\n"
                                                         : QuoteBars.css(in: "#bm", palette: QuoteBars.dark)),
                           "letter \(i)")
         }

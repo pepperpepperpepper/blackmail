@@ -156,15 +156,25 @@ final class PanePageTests: XCTestCase {
     /// Byte for byte, but for Mail's quote bars (B-101): in an HTML
     /// letter's style once, after the invert, and in a plain letter's once,
     /// in Mail's dark colours (B-147). Taken out, the page is the page the
-    /// pane built. No rule for a signature's white sheet (B-146).
+    /// pane built. No rule for a signature's white sheet (B-146). An
+    /// inverted letter's bars in the colours the invert turns into Mail's
+    /// dark ones since B-180, a light letter's in Mail's light ones.
     func testALettersPageComesOutByteForByteAsThePaneBuiltIt() {
         let bars = "\n" + QuoteBars.css(in: "#bm")
+        let invertedBars = "\n" + QuoteBars.css(in: "#bm", palette: QuoteBars.inverted)
         for (i, m) in letters.enumerated() where i != Self.linked && i != Self.quoted {
             let page = PanePage.letter(m, style: style)
-            let added = m.htmlBody == nil ? Self.plainBars : bars
+            let added = m.htmlBody == nil
+                ? Self.plainBars : page?.contains(PanePage.invertedRule) == true ? invertedBars : bars
             XCTAssertEqual(page.map { $0.components(separatedBy: added).count - 1 }, page.map { _ in 1 },
                            "letter \(i)")
-            XCTAssertEqual(page.map { Array($0.replacingOccurrences(of: added, with: "").utf8) },
+            // Gmail's "wrote:" line's class and rule (B-180), on its
+            // reply alone.
+            let line = "\n" + QuoteBars.attributionCSS(in: "#bm", palette: QuoteBars.inverted)
+            XCTAssertEqual(page.map { $0.contains(line) }, page.map { _ in i == letters.count - 1 }, "letter \(i)")
+            XCTAssertEqual(page.map { Array($0.replacingOccurrences(of: added, with: "")
+                                              .replacingOccurrences(of: line, with: "")
+                                              .replacingOccurrences(of: " bm-attribution", with: "").utf8) },
                            previousPage(m).map { Array($0.utf8) }, "letter \(i)")
         }
     }
@@ -173,7 +183,9 @@ final class PanePageTests: XCTestCase {
         for (i, m) in letters.enumerated() where i != Self.linked && i != Self.quoted {
             let body = PanePage.stackBody(m)
             let previous = previousStackBody(m)
-            XCTAssertEqual(Array(body.html.utf8), Array(previous.html.utf8), "letter \(i)")
+            // Gmail's "wrote:" line's one class more (B-180).
+            XCTAssertEqual(Array(body.html.replacingOccurrences(of: " bm-attribution", with: "").utf8),
+                           Array(previous.html.utf8), "letter \(i)")
             XCTAssertEqual(body.isHTML, previous.isHTML, "letter \(i)")
         }
     }
@@ -297,7 +309,9 @@ final class PanePageTests: XCTestCase {
     /// and Gmail's, one, two and three deep, in any mix of the two; 5 px
     /// from the words, no margin, a 1 px bar, the words in the bar's
     /// colour, violet, teal and green, every one important; and each under
-    /// `#bm`, the letter's own element on the page.
+    /// `#bm`, the letter's own element on the page. On a page the pane
+    /// inverts, in the colours the invert turns into Mail's dark ones
+    /// since B-180, and Gmail's "wrote:" line with the first level's.
     func testAnHTMLLettersPageHasMailsBarsBesideQuotedText() throws {
         let quote = ":is(blockquote[type=cite i], blockquote[class~=gmail_quote])"
         func rule(_ selector: String, _ colour: String) -> String {
@@ -310,19 +324,28 @@ final class PanePageTests: XCTestCase {
             rule("#bm \(quote) \(quote) \(quote)", "rgb(18, 192, 14)"),
         ]
         XCTAssertEqual(QuoteBars.css(in: "#bm"), rules.joined(separator: "\n"))
+        let inverted = [
+            rule("#bm \(quote)", "rgb(201, 100, 252)"),
+            rule("#bm \(quote) \(quote)", "rgb(0, 144, 230)"),
+            rule("#bm \(quote) \(quote) \(quote)", "rgb(0, 111, 25)"),
+        ]
+        XCTAssertEqual(QuoteBars.css(in: "#bm", palette: QuoteBars.inverted), inverted.joined(separator: "\n"))
+        let line = "#bm .bm-attribution { padding-left: 5px !important; "
+            + "border-left: 1px solid rgb(201, 100, 252) !important; color: rgb(201, 100, 252) !important; }"
 
-        for m in [letters[letters.count - 2], letters[letters.count - 1]] {
+        for (m, hasLine) in [(letters[letters.count - 2], false), (letters[letters.count - 1], true)] {
             let page = try XCTUnwrap(PanePage.letter(m, style: style))
             let sheet = try XCTUnwrap(page.components(separatedBy: "</style>").first)
             // After the invert, so the pictures' rule is untouched, with
             // no signature's sheet between them since B-146; every rule's
             // selector under #bm.
             XCTAssertTrue(sheet.hasSuffix("filter: invert(1) hue-rotate(180deg); }\n"
-                                          + rules.joined(separator: "\n") + "\n"), sheet)
+                                          + inverted.joined(separator: "\n") + "\n"
+                                          + (hasLine ? line + "\n" : "")), sheet)
             XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 + 4 + 6)
             XCTAssertEqual(sheet.components(separatedBy: "#bm :is(").count - 1, 3)
-            XCTAssertEqual(sheet.components(separatedBy: " !important;").count - 1, 12 + 1,
-                           "each rule's four, and the pictures' width")
+            XCTAssertEqual(sheet.components(separatedBy: " !important;").count - 1, 12 + 1 + (hasLine ? 3 : 0),
+                           "each rule's four, the pictures' width, and the line's three")
         }
         // A plain letter's quotes are Mail's blockquotes since B-147, its
         // rules the same in Mail's dark colours (`PlainQuoteBarsTests`).
@@ -333,10 +356,15 @@ final class PanePageTests: XCTestCase {
     /// Mail's reply and Gmail's keep their markup byte for byte, on the
     /// letter's page and in a conversation's stack: the bars are rules in
     /// the style, and the quotes are drawn as they came, Gmail's own grey
-    /// bar still written on its quote.
+    /// bar still written on its quote. Gmail's "wrote:" line has one class
+    /// more since B-180, as Mail draws it with the quote's bar; Mail's
+    /// reply has its line inside its quote, and is as it came.
     func testARepliesMarkupIsAsItCameForTheBars() throws {
+        let gmail = Self.gmailReply.replacingOccurrences(of: "class=\"gmail_attr\"",
+                                                         with: "class=\"gmail_attr bm-attribution\"")
+        XCTAssertNotEqual(gmail, Self.gmailReply)
         let replies = [(letters[letters.count - 2], Self.appleMailReplyBody),
-                       (letters[letters.count - 1], Self.gmailReply)]
+                       (letters[letters.count - 1], gmail)]
         for (m, body) in replies {
             let page = try XCTUnwrap(PanePage.letter(m, style: style))
             XCTAssertTrue(page.hasSuffix("<div id=\"bm\">\(body)</div></body></html>"), page)

@@ -207,7 +207,8 @@ final class ConversationDocumentTests: XCTestCase {
 
     /// The stack has Mail's rules for its letters' quotes, as a letter's own
     /// page has them (`PanePageTests`), each under `.bm-html`, a letter's
-    /// HTML, in Mail's light colours; and under `.bm-text`, a plain
+    /// HTML, in the colours the invert turns into Mail's dark ones, with
+    /// the "wrote:" line's (B-180); and under `.bm-text`, a plain
     /// letter's, in its dark ones (B-147); never the stack's own lines.
     /// After the rule for the HTML's pictures and the signature's grey
     /// sheet (B-146, B-173).
@@ -218,11 +219,13 @@ final class ConversationDocumentTests: XCTestCase {
                 + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
         }
         let rules = [
-            rule(".bm-html \(quote)", "rgb(88, 86, 214)"),
-            rule(".bm-html \(quote) \(quote)", "rgb(0, 175, 205)"),
-            rule(".bm-html \(quote) \(quote) \(quote)", "rgb(18, 192, 14)"),
+            rule(".bm-html \(quote)", "rgb(201, 100, 252)"),
+            rule(".bm-html \(quote) \(quote)", "rgb(0, 144, 230)"),
+            rule(".bm-html \(quote) \(quote) \(quote)", "rgb(0, 111, 25)"),
         ].joined(separator: "\n")
-        XCTAssertEqual(QuoteBars.css(in: ".bm-html"), rules)
+        XCTAssertEqual(QuoteBars.css(in: ".bm-html", palette: QuoteBars.inverted), rules)
+        let line = ".bm-html .bm-attribution { padding-left: 5px !important; "
+            + "border-left: 1px solid rgb(201, 100, 252) !important; color: rgb(201, 100, 252) !important; }"
 
         let html = document([entry("1/2", expanded: true, body: .init(html: "<p>x</p>", isHTML: true)),
                              entry("1/1", expanded: true, body: .init(html: "> words", isHTML: false))])
@@ -234,11 +237,15 @@ final class ConversationDocumentTests: XCTestCase {
              sheet, its logo showing on it, its white borders lost in it
              (SignatureSheet, B-173). */
           \(SignatureSheet.css(in: ".bm-html"))
-          /* Mail's bars beside quoted text (B-101): a letter's HTML in its
-             light colours, which the invert turns; a plain letter's quotes,
-             Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
-             as a plain letter is not inverted. */
+          /* Mail's bars beside quoted text (B-101): a letter's HTML in the
+             light colours the invert turns into Mail's dark ones, as Mail's
+             HTML letter has them in Dark Mode (QuoteBars.inverted, B-180),
+             and the line before a quote ending "wrote:" with the first
+             level's bar and colour; a plain letter's quotes, Mail's
+             blockquotes too (PlainQuotes, B-147), in its dark ones, as a
+             plain letter is not inverted. */
         \(rules)
+        \(line)
         \(QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark))
           .bm-body img, .bm-body table {
         """), sheet)

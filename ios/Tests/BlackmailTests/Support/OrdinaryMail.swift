@@ -379,7 +379,9 @@ enum OrdinaryMail {
     /// conversation's body is its markup alone, whatever its scheme.
     static func pageFingerprints() -> [String] {
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
-        let bars = "\n" + QuoteBars.css(in: "#bm")
+        // Drawn inverted, its bars in the colours the invert turns into
+        // Mail's dark ones since B-180, and taken out as before.
+        let bars = "\n" + QuoteBars.css(in: "#bm", palette: QuoteBars.inverted)
         let parts = pictures.enumerated().map { i, id in
             Attachment(id: "\(i + 2)", filename: "p\(i).png", mimeType: "image/png", size: 100,
                        contentID: id, isInline: true)

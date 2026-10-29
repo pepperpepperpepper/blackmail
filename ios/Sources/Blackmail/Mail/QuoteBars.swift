@@ -17,9 +17,10 @@ import Foundation
 /// The same rules here, in both of the pane's pages: the page of a letter
 /// on its own (`PanePage`), inside `#bm`, and a conversation's stack
 /// (`ConversationDocument`), inside `.bm-html`. Only rules are added: the
-/// letter's markup is not touched.
+/// letter's markup is not touched, but for one class on the line before a
+/// quote since B-180 (`attributed`).
 ///
-/// The colours for HTML are Mail's LIGHT ones, as they are, because an
+/// Until B-180 the colours for HTML were Mail's LIGHT ones, as they are: an
 /// HTML letter is drawn on white and then inverted with its hue turned back
 /// (`invert(1) hue-rotate(180deg)`): on the pane's black they come out
 /// about rgb(152, 150, 255), rgb(0, 150, 180) and rgb(0, 163, 0). The
@@ -46,6 +47,20 @@ import Foundation
 ///
 /// A sender's own important rule, written on the quote itself, still wins,
 /// as it does in Mail.
+///
+/// **Compared with Mail on 16.5.1, 2026-10-29 (B-180).** Mail's HTML
+/// letter in Dark Mode has its quotes in the SAME colours as its plain
+/// letter's, its dark ones, whatever its page's colour filter does to the
+/// rest; the light colours under the pane's invert came out about the
+/// rgb(152, 150, 255) above (round r6-n-compare, C-4b). By the owner's
+/// ruling of that day, copy Apple Mail: a letter the pane inverts has
+/// `inverted`, the light colours the invert turns into Mail's dark ones,
+/// the first exactly, the second and third as near as the invert can come
+/// (it clamps). And the line just before a quote, ending "wrote:", Mail
+/// draws with the quote's first level, bar and colour, as it draws a plain
+/// letter's (B-172): that line is given `attributionClass` as the page is
+/// built (`attributed`), and its rule (`attributionCSS`), in each page's
+/// palette. A letter with no such line is as it was.
 enum QuoteBars {
 
     /// Mail's colours for a quote one, two and three levels deep, and
@@ -55,6 +70,17 @@ enum QuoteBars {
     /// The same in Mail's Dark Mode, from the same asset catalog: for a
     /// page that is not inverted, a plain letter's on the pane's black.
     static let dark = ["rgb(191, 90, 242)", "rgb(0, 200, 250)", "rgb(87, 217, 119)"]
+
+    /// For a letter the pane inverts (`invert(1) hue-rotate(180deg)`,
+    /// `SignatureSheet.invert`): the light colours the invert turns into
+    /// `dark`, as Mail's HTML letter has them in Dark Mode (B-180). Solved
+    /// with the filter's matrices in sRGB, clamped at the end, which is how
+    /// the invert turned Mail's light violet into the measured rgb(152,
+    /// 150, 255). The first comes out `dark`'s within a unit; the invert
+    /// cannot reach the second and third, so they are the nearest it can:
+    /// about rgb(16, 160, 246) for rgb(0, 200, 250), and rgb(93, 204, 118)
+    /// for rgb(87, 217, 119).
+    static let inverted = ["rgb(201, 100, 252)", "rgb(0, 144, 230)", "rgb(0, 111, 25)"]
 
     /// One quote, as Mail's style sheet finds one: Mail's `type=cite`,
     /// matched whatever its case, and Gmail's class matched as a word, so
@@ -73,5 +99,43 @@ enum QuoteBars {
             return selector + " { padding-left: 5px !important; margin: 0 !important; "
                 + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
         }.joined(separator: "\n")
+    }
+
+    /// The class of the line just before a quote that Mail draws with the
+    /// quote's first level (B-180).
+    static let attributionClass = "bm-attribution"
+
+    /// Its rule under `scope`, in `palette`'s first colour: the quote's bar
+    /// and colour, its words 5 px from the bar as a quote's are, so they
+    /// stand where the quote's words do, as Mail's do. The 6 px its words
+    /// move are the bar's room, which the bar cannot be drawn without; its
+    /// margins are its own, as they were.
+    static func attributionCSS(in scope: String, palette: [String] = colours) -> String {
+        let colour = palette[0]
+        return "\(scope) .\(attributionClass) { padding-left: 5px !important; "
+            + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
+    }
+
+    /// `html` with `attributionClass` on each element directly before a
+    /// quote at the top level whose words end "wrote:", as Mail draws such
+    /// a line (B-180): Mail's `<p>On Monday, Carlo wrote:</p>`, Gmail's
+    /// `div.gmail_attr`, a `<p>` the quote closes. Only that line was
+    /// seen in Mail, as in a plain letter (`PlainQuotes.isAttribution`,
+    /// B-172): a line before a quote inside a quote, a line not ending
+    /// "wrote:", one with anything but spaces between it and the quote,
+    /// and words not in an element of their own are as they were. Its
+    /// existing classes are kept, the new one added after them. A letter
+    /// with no such line comes back as it came, byte for byte.
+    static func attributed(_ html: String) -> String {
+        guard html.contains("wrote:"), html.range(of: "blockquote", options: .caseInsensitive) != nil
+        else { return html }
+        let markup = LetterScheme.Markup(html)
+        let edits = markup.attributions().map { markup.classAdded(attributionClass, toTagAt: $0) }
+        guard !edits.isEmpty else { return html }
+        var bytes = Array(html.utf8)
+        for edit in edits.reversed() {
+            bytes.replaceSubrange(edit.range, with: Array(edit.text.utf8))
+        }
+        return String(decoding: bytes, as: UTF8.self)
     }
 }
