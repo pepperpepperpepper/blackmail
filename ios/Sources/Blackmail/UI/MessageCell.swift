@@ -73,21 +73,16 @@ final class MessageCell: UITableViewCell {
     private static let tickedGrey = UIColor(red: 235 / 255, green: 235 / 255, blue: 245 / 255,
                                             alpha: 0.6)
 
-    /// Whether the row draws its own tick (`placeTick`): from iOS 17,
-    /// whose UIKit draws the check white on a disc in the tint, so in the
-    /// white tint of a ticked row the check was lost, white on white, on
-    /// the iOS 17.5 and 18.6 simulators (B-174). On 16 UIKit draws a
-    /// plain white disc, no check, as round r6-m-fix saw on the test iPad
-    /// (KNOWN_ISSUES B-174, Corrected 2026-10-28), and the row draws
-    /// nothing of its own. Read by `ProcessInfo`, as
-    /// `#available` does not link with this toolchain.
-    private static let drawsOwnTick = ProcessInfo.processInfo.isOperatingSystemAtLeast(
-        OperatingSystemVersion(majorVersion: 17, minorVersion: 0, patchVersion: 0))
     /// The tick's colours, [check, disc]: the row's blue on white, as
     /// Mail's is.
     private static let tickPalette = UIImage.SymbolConfiguration(paletteColors: [Theme.tintBlue, .white])
-    /// The row's own tick, over UIKit's in UIKit's edit control; made the
-    /// first time it is asked for, so never on 16 (`drawsOwnTick`).
+    /// The row's own tick (`placeTick`), over UIKit's in UIKit's edit
+    /// control, on every iOS the app runs on. In the white tint of a
+    /// ticked row UIKit's own tick is lost: from 17 its white check on a
+    /// white disc, seen on the iOS 17.5 and 18.6 simulators, and on 16 a
+    /// plain white disc with no check, seen on the test iPad in round
+    /// r6-m-fix (KNOWN_ISSUES B-174), where Mail draws its blue check on
+    /// the white disc. Made the first time it is asked for.
     private lazy var tickMark: UIImageView = {
         let mark = UIImageView()
         mark.isUserInteractionEnabled = false
@@ -225,7 +220,7 @@ final class MessageCell: UITableViewCell {
     /// The second lines' grey: Mail's see-through one on a ticked row.
     private var grey: UIColor { ticked ? Self.tickedGrey : Theme.secondaryText }
 
-    /// The row's own tick shows (from 17, `placeTick`) whenever UIKit's
+    /// The row's own tick shows (`placeTick`) whenever UIKit's
     /// edit control draws its ticked image: on a ticked row, and while a
     /// finger is down on a row of Edit mode, which the control draws
     /// ticked as the row is highlighted. Seen white on white during a held
@@ -237,14 +232,11 @@ final class MessageCell: UITableViewCell {
         colour()
     }
 
-    /// From 17 the row's own tick follows a press as UIKit's does
-    /// (`showsTick`). On 16 UIKit's alone, as it always was.
+    /// The row's own tick follows a press as UIKit's does (`showsTick`).
     override func setHighlighted(_ highlighted: Bool, animated: Bool) {
         super.setHighlighted(highlighted, animated: animated)
-        if Self.drawsOwnTick {
-            tickMark.isHidden = !showsTick
-            setNeedsLayout()
-        }
+        tickMark.isHidden = !showsTick
+        setNeedsLayout()
     }
 
     /// The row's colours as it is ticked or not (`ticks`, B-174): the
@@ -255,17 +247,14 @@ final class MessageCell: UITableViewCell {
     /// flag keep theirs. Out of Edit mode as it always was.
     private func colour() {
         selectedGround.backgroundColor = ticks ? Theme.tintBlue : Theme.selection
-        // UIKit draws the tick in the cell's tint. On 16 that is a plain
-        // white disc, no check, as round r6-m-fix saw (KNOWN_ISSUES
-        // B-174, Corrected 2026-10-28). From 17 UIKit draws the check
-        // itself in white, and the row draws its own tick over UIKit's
-        // (`placeTick`). The circle of a row not ticked is UIKit's grey
-        // whatever the tint.
+        // UIKit draws the tick in the cell's tint: on 16 a plain white
+        // disc, no check, as round r6-m-fix saw (KNOWN_ISSUES B-174), and
+        // from 17 a white check on it. The row draws its own tick over
+        // UIKit's on both (`placeTick`). The circle of a row not ticked
+        // is UIKit's grey whatever the tint.
         tintColor = ticks ? .white : nil
-        if Self.drawsOwnTick {
-            tickMark.isHidden = !showsTick
-            setNeedsLayout()
-        }
+        tickMark.isHidden = !showsTick
+        setNeedsLayout()
         let grey = self.grey
         guard timestampLabel.textColor != grey else { return }
         timestampLabel.textColor = grey
@@ -318,7 +307,7 @@ final class MessageCell: UITableViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        if Self.drawsOwnTick { placeTick() }
+        placeTick()
         let w = contentView.bounds.width
         let left = Theme.messageTextLeft + indent
         let gutterX = Theme.unreadDotCenterX + indent
@@ -427,14 +416,18 @@ final class MessageCell: UITableViewCell {
     }
 
     /// The row's own tick on a ticked row and during a press on one of
-    /// Edit mode (`showsTick`), from iOS 17 (`drawsOwnTick`):
+    /// Edit mode (`showsTick`), on 16 as from 17 (`tickMark`):
     /// the check in the row's blue on a white disc (`tickPalette`), put
     /// inside UIKit's edit control over UIKit's own tick, at its frame and
     /// at its size at every text size, so it slides in and out with it and
     /// nothing moves. UIKit's edit control is the row's one control: the
     /// content view is none, and the row has no accessory or reorder
     /// control. Hidden otherwise, and wherever the control or its tick is
-    /// not found, which leaves UIKit's.
+    /// not found, which leaves UIKit's. The control, UIKit's
+    /// `UITableViewCellEditControl`, a `UIControl` that is the cell's own
+    /// subview with its tick the first image view in it, as read on the
+    /// 17.5 simulator through the debugger; the same class is in the
+    /// iOS 16.5 SDK, and a 16 where it differs shows UIKit's alone.
     private func placeTick() {
         guard showsTick, let control = subviews.first(where: { $0 is UIControl }),
               let drawn = control.subviews.first(where: { $0 is UIImageView && $0 !== tickMark })
