@@ -188,6 +188,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// was not in front: the letter is drawn at the new size once they are
     /// (`restyleOwed`, B-166).
     private var restyleOwed = false
+    /// The page given to WebKit last, for the iPad's Smart Invert
+    /// (`SmartInvert`, B-179): its rules for the switch, "" for a page the
+    /// switch does not change, whether it was built with the switch on,
+    /// and whether it has it on now, as built or as the script was told
+    /// since.
+    private var invertRules = ""
+    private var invertBuiltOn = false
+    private var invertShown = false
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -321,6 +329,33 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // account discards (B-167), with Settings still over the pane.
         NotificationCenter.default.addObserver(self, selector: #selector(drawDiscardButton),
                                                name: MailOptions.changed, object: nil)
+        // The letter as Mail's comes out under the iPad's Smart Invert,
+        // again when it goes on or off while the pane is open, and when the
+        // app comes back to the front, in case iOS told the page nothing
+        // while it was away (B-179).
+        for name in [UIAccessibility.invertColorsStatusDidChangeNotification,
+                     UIApplication.didBecomeActiveNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(followSmartInvert),
+                                                   name: name, object: nil)
+        }
+    }
+
+    /// The iPad's Smart Invert, or Classic Invert, gone on or off, or the
+    /// app back in front, or a page loaded (`SmartInvert`, B-179): the page
+    /// shown is told by script, its class put on or taken off, and its
+    /// rules put in if it was built without them, when it has rules and
+    /// does not have the switch as iOS has it now. Nothing is drawn again
+    /// and nothing scrolls; a plain letter, a letter in its own colours
+    /// and a notice are told nothing, as the switch changes none of them.
+    /// A page built after this is built for the switch as it is then
+    /// (`pageStyle`).
+    @objc private func followSmartInvert() {
+        let on = UIAccessibility.isInvertColorsEnabled
+        guard !invertRules.isEmpty, on != invertShown else { return }
+        invertShown = on
+        let toggle = SmartInvert.Toggle(on: on, rules: invertRules)
+        webView.callAsyncJavaScript(SmartInvert.Toggle.script, arguments: toggle.arguments,
+                                    in: nil, in: .defaultClient)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -957,7 +992,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// thread, which cannot read `Theme` there.
     private var pageStyle: PanePage.Style {
         .init(inset: Int(Theme.detailContentInsetLeft), bodyPointSize: Int(Theme.scaled(17)),
-              lineHeight: Theme.detailBodyLineHeight)
+              lineHeight: Theme.detailBodyLineHeight,
+              smartInvert: UIAccessibility.isInvertColorsEnabled)
     }
 
     /// The stack itself, drawn at the tap as the stand-in, on the main
@@ -970,13 +1006,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         load(ConversationDocument.html(entries: entries, inset: style.inset,
                                        bodyPointSize: style.bodyPointSize,
                                        lineHeight: style.lineHeight,
-                                       stacked: Theme.textSize.stacksRowDate),
+                                       stacked: Theme.textSize.stacksRowDate,
+                                       smartInvert: style.smartInvert),
              as: .conversation(entries))
     }
 
     /// Gives the web view a document, and `document` what it holds; and,
     /// while the cover is up, the cover the document to wait for.
     private func load(_ html: String, as content: PaneDocument.Content) {
+        // What the page is for Smart Invert (B-179), read off its head,
+        // for `followSmartInvert` once it has loaded and at a change.
+        invertRules = SmartInvert.rules(ofPage: html)
+        invertBuiltOn = SmartInvert.isOn(inPage: html)
+        invertShown = invertBuiltOn
         let navigation = webView.loadHTMLString(html, baseURL: nil)
         document.loaded(content, navigation: navigation.map(ObjectIdentifier.init))
         paneCover.loaded(navigation.map(ObjectIdentifier.init))
@@ -1581,6 +1623,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// `PaneDocument`. And the cover lifts, if it waits for this one and
     /// WebKit tells nothing of its paint (`PaneCover.finished`, B-149).
     func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
+        // A page built before the iPad's Smart Invert changed, a kept one
+        // drawn again among them, or told of a change while it loaded: as
+        // the switch is now, before its bodies go in (B-179). WebKit
+        // finishes no page but the last one given, which a new one stops.
+        invertShown = invertBuiltOn
+        followSmartInvert()
         guard let navigation else { return }
         if paneCover.finished(ObjectIdentifier(navigation), painting: painting) { cover.isHidden = true }
         let finished = document.didFinish(ObjectIdentifier(navigation))

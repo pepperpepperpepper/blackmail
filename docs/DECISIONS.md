@@ -443,6 +443,7 @@ precisely what Smart Invert itself does, and why a photograph still looks like
 a photograph.
 
 **Smart Invert must now be OFF**, and the app CANNOT defend itself. See B-006.
+*No longer so since 2026-10-29: see that day's paragraph below.*
 
 **2026-10-22:** a printed letter is light, black on white with the sender's
 own colours and its header as the pane shows it, the date written out in
@@ -453,6 +454,18 @@ full, as Mail prints; the dark pane is never printed (B-110).
 decision, drew the system's launch screen white for about 130 ms at every
 cold launch; it is Dark (B-124). Everything after the launch screen was
 already pinned by the window.
+
+**2026-10-29:** under the iPad's Smart Invert Blackmail is light, its
+tint orange, as Apple Mail 16.5.1 is under it (the comparison of that
+day on the test iPad, r6-n-compare, C-1a to C-1j): Mail is not kept
+dark under Smart Invert either, so by the owner's ruling of that day,
+"for the app -- all should copy apple mail which we have access to",
+"Smart Invert must now be OFF" is no longer so, and nothing is turned
+off for Blackmail alone. A letter's pictures and a light letter's page
+come out under it as Mail's do (B-179). The pane's own black under it,
+white where Mail's card is a light grey, is this decision's look and
+stays. Whether his iPad has Smart Invert on is his, read on the day
+("His iPad's own settings" in TODO).
 
 ---
 

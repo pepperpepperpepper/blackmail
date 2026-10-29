@@ -11231,6 +11231,54 @@ checks below is left as not needed, not open, and none is worth a round.*
       on the host; a letter of his from Sent Mail in a stack: no step has
       one. Every step of the check is now seen. Nothing was sent.*
 
+- [ ] **B-179, a letter under Smart Invert as Mail's.** On the test
+      iPad, the test account only, from a build of the `bm-fix-j1`
+      worktree (branch `fix-j1`) or of the int it is merged into.
+      Nothing is composed, sent, saved, moved or deleted in the app. The
+      letters are round r6-n-compare's, "R6 B-SI photos", "R6 B-SI
+      light" and "R6 B-SI pdf", and a plain letter, or made again as
+      that round made them: the host makes each from another address,
+      with a new Message-ID of its own, and APPENDs it, read (`\Seen`),
+      to the label "Notes", never the Inbox, noting each UID from its
+      APPENDUID; it stops if one has none. Dark Mode, three panes;
+      full-size screenshots, colours sampled from them as the round
+      sampled them; Mail beside Blackmail at each step.
+      1. *Smart Invert on*, as the round turned it on (Settings >
+         Accessibility > Display & Text Size > Smart Invert).
+      2. *The photos letter* opened in both: Mail's photos as in C-1d.
+         Blackmail's at the round's points, (677, 552) and (549, 338):
+         about 255 less their OFF colours, rgb(120, 92, 38) and
+         rgb(128, 135, 128), as Mail's photos are; or as before,
+         rgb(187, 158, 105) and rgb(117, 124, 117), hue-turned, which
+         is written down, not failed: the next step, WebKit's colour
+         filter, is decided then (KNOWN_ISSUES B-179). The page round
+         the photos as before. Screenshots.
+      3. *The light letter* opened in both: Blackmail's page at
+         (900, 200) white, as Mail's, its words black, its link about
+         rgb(0, 122, 255); the web picture's cube about rgb(84, 116,
+         148) as Mail's, or tan, natural, written down which; the pane
+         round the white sheet white, where Mail's is light grey (not
+         copied). Screenshots. Then Blackmail's Settings, Block All
+         Remote Content on, the letter again: Mail's line over it black
+         words on white, as the pane round it, its button the tint,
+         orange; Block All Remote Content off again, as from the
+         factory.
+      4. *A plain letter and the PDF letter*: each as in the round, the
+         plain letter's page the inversion, as Mail's; the PDF's tile
+         light, as before. Screenshots.
+      5. *The switch while a letter is open:* the light letter open in
+         Blackmail, scrolled a little down; Smart Invert turned off in
+         Settings and the app brought back: the letter's white sheet in
+         its column on the black, as with the switch off, at the place
+         it was scrolled to, no "Loading…" and nothing drawn again;
+         Smart Invert on again and back: the page white as in 3, at the
+         same place. Screenshots.
+      6. *Put back:* Smart Invert off, as it was before the check.
+         "Notes" left, the Inbox at its top. The host moves the UIDs it
+         noted, and only them, from "Notes" to the Trash, and deletes
+         in the Trash only the UIDs that move answered (`COPYUID`).
+         Nothing was sent, and nothing else was written to the account.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -11435,9 +11483,15 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       when Blackmail is next opened (the default, for shares with no
       files), or as today.
       *Ruled 2026-10-26: copy Apple Mail. Built as B-153.*
-- [ ] **Smart Invert for Blackmail alone**: if he uses it, off for Blackmail
+- [x] **Smart Invert for Blackmail alone**: if he uses it, off for Blackmail
       in Per-App Settings so his other apps keep it (the default), rather
       than off for the whole iPad.
+      *Ruled 2026-10-29: copy Apple Mail. With the iPad's Smart Invert
+      on, Mail 16.5.1 is light with its tint orange, as Blackmail is
+      (r6-n-compare C-1a to C-1j), so nothing is turned off for
+      Blackmail alone; a letter's pictures and a light letter's page are
+      as Mail's, B-179. Whether his iPad has it on stays with "His iPad's
+      own settings".*
 - [x] **His own circle at the top of the share sheet**: if he shares by
       tapping it, Blackmail would need to donate its sends to get one (not
       built, the default; with Apple Mail kept on, Mail's circle works).

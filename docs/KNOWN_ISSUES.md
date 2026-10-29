@@ -37215,6 +37215,15 @@ Mail's white a sheet inset in its dark card, about 37 px of dark
 margin round it, from under the header to the letter's foot; copied by
 B-173. The other letters not put before Mail.
 
+**Compared with Mail on 16.5.1, 2026-10-29** (round r6-n-compare, C-1d
+and C-1e, the iPad's Smart Invert on): DIFFERENT, a letter the pane
+inverts had its photos hue-turned, where Mail's come out the system's
+plain inversion with the rest of its page; and a light letter's page
+was black with white words, where Mail's is white with black words, as
+on paper. Copied by B-179, by the owner's ruling of 2026-10-29: under
+the switch alone, which letters are inverted, light or in their own
+colours unchanged.
+
 ## B-170 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen in part there 2026-10-27/28. A letter's files were a list of rows in the header, a photo attached to a letter among them; every file is drawn in the letter's body where it sits, as Mail draws it, a photo at its size and any other file as Mail's tile, and the header lists none
 
 **Found** in the copy-Mail research of 2026-10-26, "New gaps found on the
@@ -37706,6 +37715,14 @@ HEIC drawn as a photo, copied by B-176 (E1); a large letter's files
 fetched as it opens, each tile with a ring and "Downloading", copied by
 B-176 (E6); "Markup and Reply" on a held PDF, copied by B-176 (E4), its
 preview not built (the plan's Q4) and "Open in New Window" not built (Q2).
+
+**Compared with Mail on 16.5.1, 2026-10-29** (round r6-n-compare, C-1f,
+the iPad's Smart Invert on; the round's words, a black tile, corrected
+by its second run and its shots): Blackmail's tile came out light and
+Mail's PDF page black, each the system's plain inversion of what it
+draws with the switch off. The difference is this entry's NOT
+COMPARABLE, a PDF drawn as its page, not Smart Invert's: nothing
+changed for it (B-179).
 
 ## B-171 — FIXED 2026-10-27, fixed again 2026-10-27 after the test iPad, seen there 2026-10-27/28, a marked-up HEIC's row named as Quick Look's JPEG copy is. A finger held on a photo in a letter gave Mail's menu without its Markup and Reply; it has it, second, and it opens the photo in iOS's own Markup, and what he draws goes in a Reply to the letter, under his words
 
@@ -40570,3 +40587,187 @@ again, seen in r6-l-fix; Reply All, a row's More Reply, a
 conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
+
+## B-179 — FIXED 2026-10-29. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+
+The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
+on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
+C-1j, C-1d and C-1e DIFFERENT), its shots read over its words where they
+disagree, as the round's second run found for C-1e and C-1f; and the
+plan made from it (area 1). The owner's ruling of 2026-10-29: "for the
+app -- all should copy apple mail which we have access to", Mail 16.5.1
+on the test iPad the reference; for what Mail does not decide, the
+layout rule of 2026-10-27 (D-025). A colour of what is already on the
+pane; nothing moved, appeared, stacked or went away.
+
+**What Mail does.** With Smart Invert on, colours as the captures show
+them, which the round's probe found are what the eye sees ("ON"; "OFF"
+the same screen with Smart Invert off):
+
+1. *A letter Mail turns to the dark* (C-1d, "R6 B-SI photos"): every
+   pixel the system's plain inversion of OFF, 255 less each channel, the
+   photos too: in the photos' box a mean difference of 0.3 from the
+   inversion, every pixel nearer it; a photo point OFF
+   rgb(88, 120, 167), ON rgb(167, 135, 88).
+2. *A light letter* (C-1e, "R6 B-SI light", a picture from the web in
+   it): its page white, rgb(255, 255, 255), its words black, its link
+   blue (its fullest pixels rgb(19, 136, 255)), as on paper. Its
+   pictures inverted: the web picture, set beside its original, comes
+   out its inverse (the cube rgb(84, 116, 148), the original's tan
+   rgb(185, 156, 119)), and the inline photo's stripes orange on top
+   where OFF has blue. The round's "natural-looking" and its second
+   run's "looks the same in both" were right only in that both apps
+   invert it.
+3. *The rest* (C-1a to C-1c, C-1g to C-1j): a plain letter, the lists,
+   the Mailboxes, the composer, Quick Look, Settings and Edit mode SAME,
+   both apps the system's inversion, the tint orange. Mail is not kept
+   dark under Smart Invert. The PDF (C-1f): Blackmail's tile light,
+   Mail's page black, both the inversion; the difference is B-170's.
+
+**What Blackmail did.**
+
+1. The photos letter's page the inversion of OFF, as Mail's; its photos
+   not: (677, 552) OFF rgb(135, 163, 217), ON rgb(187, 158, 105), and
+   (549, 338) OFF rgb(127, 120, 127), ON rgb(117, 124, 117): the half
+   turn of the hue alone, `hue-rotate(180deg)`, which by CSS's matrix
+   gives rgb(187, 159, 105) and rgb(117, 124, 117). The system's
+   inversion of the pane's invert, `invert(1) hue-rotate(180deg)`, is
+   that half turn: under Smart Invert the photos were drawn with one of
+   the two inverts the page means for them, the page's and their own,
+   which cancel with the switch off. Which of the two was lost is not
+   known.
+2. The light letter's page black, rgb(0, 0, 0), its words white, its
+   link orange, rgb(252, 135, 0), 255 less `#007AFF`: the light page
+   inverted by the system with nothing to undo it. Its pictures inverted
+   as Mail's: the cube rgb(82, 115, 150) against Mail's rgb(84, 116,
+   148). So the light letter differed in its page alone (C-1e's words
+   corrected on its pictures by the round's second run).
+
+**What changed** (`SmartInvert`, new; `PanePage.letter` and its
+`Style`; `ConversationDocument.html` and its script;
+`MessageDetailViewController`).
+
+1. *The switch.* The pane reads iOS's own,
+   `UIAccessibility.isInvertColorsEnabled` (Smart Invert or Classic
+   Invert; iOS 11's, no check of the version), for every page it builds,
+   and follows `invertColorsStatusDidChangeNotification` while it is
+   open. Not WebKit's `@media (inverted-colors)`: WebKit's own style
+   sheet has had a rule under it since 2018 that inverts every picture a
+   second time, which would draw a picture natural; the light letter's
+   pictures, with no filter of the app's, came out inverted, so that
+   rule does not take in the pane's web view.
+2. *A letter the pane inverts* (`LetterScheme.inverted`). The page keeps
+   its invert; its pictures, `img`, `video`, `svg`, `picture` and an
+   element with a `background-image` in its style, have `filter: none`,
+   over the pane's rule that inverted them a second time. If a picture
+   under Smart Invert escapes the page's invert and keeps its own, the
+   photos come out the plain inversion, Mail's; if it keeps the page's
+   and loses its own, they come out hue-turned as before. No worse
+   either way; the device check tells which.
+3. *A light letter* (`LetterScheme.light`). The element with its markup
+   and its white, `#bm` on its page and `.bm-light` in a stack, has
+   `filter: invert(1)`, no half turn, which the system's inversion
+   undoes exactly: the page white, the words black and the link
+   `#007AFF`, as Mail's. Its pictures have no filter of the pane's:
+   inverted, Mail's, if they escape the page's invert, natural if not.
+   The page is copied either way. Mail's line over a letter whose
+   pictures from the web are held back (B-168) is inside `#bm` and
+   cannot be taken out of it without moving it; it stays there and is
+   inverted back, `filter: invert(1)` on the line, so it is the pane's
+   colour under the system's inversion, as before.
+4. *How a page has it.* Under the switch, a page with rules for it has
+   the class `bm-si` on its `<html>` and the rules, each under
+   `html.bm-si`, in a sheet of their own after the page's,
+   `<style id="bm-si">` in its head, so they weigh over its rules for
+   pictures. A plain letter, one in its own colours
+   (`LetterScheme.own`) and a notice have neither. With the switch off
+   every page is as it was. When the switch changes while a page is
+   shown, or the app comes back to the front, the pane tells the page by
+   script, `bmSmartInvert` in the app's content world: the class put on
+   or taken off, and going on, the rules put in a sheet in the head
+   where it has none, a page built with the switch off. A class and a
+   sheet: nothing is drawn again and nothing scrolls. A page that has
+   loaded, built before a change, a kept page drawn again after WebKit
+   lost it, or told of a change while it loaded, is told as the switch
+   is then, before its bodies go in. A page's rules are read off its
+   head, the app's alone, in its first 64 K characters
+   (`SmartInvert.rules(ofPage:)`), as it is given to WebKit.
+5. *Comments.* AppDelegate's note that the app cannot defend itself
+   against Smart Invert, and Theme's "Smart Invert must now be turned
+   off": Mail is not kept dark under it either, so it is no longer a
+   thing to turn off for Blackmail. D-010 has a paragraph.
+
+**What he sees.** With Smart Invert off, nothing new. With it on, the
+app light with its tint orange, as before and as Mail is; a letter with
+photos with its photos as Mail's, if the check finds them so; a letter
+with a picture from the web white, its words black and its link blue,
+as on paper, as Mail's. Plain letters, letters in their own colours,
+PDFs, Quick Look and the printed page as before.
+
+**Not copied.** The pane's ground under Smart Invert: Mail's light grey,
+rgb(227, 227, 225), round the light letter, Blackmail's white. Mail's
+card is rgb(28, 28, 30) in Dark and Blackmail's pane black, D-010's
+look, the owner's own (B-173 recorded it so). It is the largest colour
+difference left, for the owner to ask for by name.
+
+**Tests.** `SmartInvertLikeMailTests`, new, eight: an inverted letter's
+page under the switch, its root's class, its sheet byte for byte after
+the page's own rule for pictures, the page's invert kept, and the page
+less the class and the sheet the page with the switch off, to the byte;
+a light letter's, held back and not, its sheet's plain invert and the
+line's, no half turn, nothing for its pictures, and the same; a plain
+letter, one in its own colours and a plain letter whose words are the
+invert's rule, held back and not, the same pages with the switch on and
+off; every page with the switch off as one built by a style that does
+not name it, no class, no sheet, and the stack's; the stack under the
+switch, the rules for `.bm-html` and `.bm-light` and none for
+`.bm-own` or `.bm-text`, after its own, and the stack less them the
+stack with the switch off; each page's rules read off its head, with
+the switch on and off, a notice's none; the pane's wiring, read from
+the source: the switch in the page's style, the two notifications, the
+script told only for a page with rules that has the switch otherwise,
+the rules read at `load`, and the page's end; and the script's
+`bmSmartInvert`. Changed: `TextSizeWiringTests`' pin of the stack's
+build, which names the switch.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the pictures' `filter: none` taken out, 4 failures in 3 tests;
+the light sheet's invert taken out, 3 failures in 2 tests; a letter in
+its own colours given an inverted letter's rules, failures in
+`testPlainAndOwnLettersAreAsTheyWereUnderSmartInvert`; the class put on
+the root with the switch off, failures in 5 tests,
+`testWithTheSwitchOffEveryPageIsAsItWas` among them; the stack not read
+off its head, 1 failure; the page's end not followed, 2 failures in
+`testThePaneFollowsTheSwitch`; the script's sheet not put in the head,
+1 failure in `testTheScriptFollowsTheSwitch`. Each failure an
+assertion's. The pages of an inverted letter, a light one, one in its
+own colours and a plain one, held back and not, and a stack of the
+four, built with the switch off, were compared with the same pages
+built at 65e32ab: the same to the byte. The full suite: 3,168 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
+
+**Not covered.**
+
+- Which way a picture goes under Smart Invert (2): if the check finds
+  the photos still hue-turned, the next step is not another filter but
+  WebKit's colour filter, `-apple-color-filter:
+  apple-invert-lightness()`, Mail's own way, which leaves pictures
+  alone, behind WebKit's private `colorFilterEnabled` preference, set
+  only where the web view answers to it; or the photos left hue-turned.
+  Decided after the check, not built.
+- A light letter's picture behind its words, its body's `background`
+  (B-169), is `#bm`'s own and so inverted with it: as the sender drew it
+  under the system's inversion, where Mail's pictures come out inverted.
+  Mail's not seen.
+- A light letter's file tiles and its "only the beginning" line are in
+  its white and come out as on paper, as its words do; Mail's not seen.
+- A letter in its own colours under Smart Invert: not seen in Mail; as
+  it was.
+- Classic Invert: the same switch of iOS's and the same rules; not seen.
+- Mail on 18 under Smart Invert: the comparison was on 16.5.1, his iPad
+  is on 18.
+- The rules' weight is CSS's: a sender's own important filter on a
+  picture weighs over them, as over the pane's invert now.
+- The switch changed while a letter is open: by the script, which the
+  host's tests read but cannot run; not seen.

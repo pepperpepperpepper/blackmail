@@ -269,8 +269,12 @@ enum ConversationDocument {
     ///     read, so this file stays free of UIKit.
     ///   - stacked: at the accessibility sizes, each part of a letter's
     ///     line on a line of its own (`stackedLines`, B-166).
+    ///   - smartInvert: the iPad's Smart Invert on, as the pane read it:
+    ///     the class on the root and the stack's rules for it in a sheet
+    ///     of their own (`SmartInvert`, B-179). Off, the stack is as it
+    ///     always was, byte for byte.
     static func html(entries: [Entry], inset: Int, bodyPointSize: Int,
-                     lineHeight: Double, stacked: Bool = false) -> String {
+                     lineHeight: Double, stacked: Bool = false, smartInvert: Bool = false) -> String {
         var sections = ""
         for entry in entries {
             sections += section(entry)
@@ -278,9 +282,11 @@ enum ConversationDocument {
         // Where the pane opens (`opensAt`), for `script` to read as the
         // document ends: in the head, which no letter's markup reaches.
         let opens = opensAt(entries).map { "\n<meta name=\"bm-opens\" content=\"\($0)\">" } ?? ""
+        let root = SmartInvert.root(on: smartInvert, rules: SmartInvert.stack)
+        let sheet = SmartInvert.sheet(on: smartInvert, rules: SmartInvert.stack)
 
         return """
-        <!DOCTYPE html><html><head><meta charset="utf-8">
+        <!DOCTYPE html>\(root)<head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">\(opens)
         <style>
           /* No anchoring of WebKit's own: the stack's script keeps his
@@ -345,7 +351,7 @@ enum ConversationDocument {
              mixes plain and HTML replies and the plain ones must not be
              inverted twice. The invert a letter on its own has too, the one
              string (SignatureSheet.invert). */
-          .bm-html { filter: \(SignatureSheet.invert); background: #fff;
+          \(invertedRule)
                      color: #000; }
           .bm-html img, .bm-html video, .bm-html svg, .bm-html picture,
           .bm-html [style*="background-image"] {
@@ -400,11 +406,15 @@ enum ConversationDocument {
           /* A file's tile at the pane's text size, as Mail's grows with it
              (B-166, B-170); nothing at Large or below. */
           \(BodyFiles.sizeRule(bodyPointSize: bodyPointSize))\(stacked ? stackedLines : "")
-        </style></head><body>
+        </style>\(sheet)</head><body>
         \(sections)
         </body></html>
         """
     }
+
+    /// The start of the rule that inverts an HTML letter's body in the
+    /// stack (`html`), by which `SmartInvert` knows a stack (B-179).
+    static let invertedRule = ".bm-html { filter: \(SignatureSheet.invert); background: #fff;"
 
     /// A letter's line at the accessibility sizes (B-166): the name, whole,
     /// on as many lines as it takes; the date on the line under it, at its
@@ -630,6 +640,15 @@ enum ConversationDocument {
     /// this script had run, as the page's words went in, was kept in
     /// `bmFilesWaiting` (`BodyFiles.Landed.script`), and is told as the
     /// script ends, in the order it came.
+    ///
+    /// **Smart Invert** (B-179). `bmSmartInvert`, which `SmartInvert.Toggle`
+    /// calls, on any page, puts the class `SmartInvert.className` on the
+    /// page's root or takes it off as the iPad's Smart Invert goes on or
+    /// off, and first, going on, puts the page's rules for it in its head,
+    /// in a sheet of their own, where the head has none: a page built with
+    /// the switch off has none. A sheet in the head is the app's, as no
+    /// letter's markup goes there. A class and a sheet: nothing is drawn
+    /// again and nothing scrolls.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -649,6 +668,16 @@ enum ConversationDocument {
       body.className = 'bm-body ' + (isHTML ? bmScheme(scheme) : 'bm-text');
       body.innerHTML = html;
       bmWirePictures(body);
+    }
+    function bmSmartInvert(on, rules) {
+      var root = document.documentElement;
+      if (on && rules && document.head && !document.head.querySelector('style#bm-si')) {
+        var sheet = document.createElement('style');
+        sheet.id = 'bm-si';
+        sheet.textContent = rules;
+        document.head.appendChild(sheet);
+      }
+      if (on) root.classList.add('bm-si'); else root.classList.remove('bm-si');
     }
     function bmScheme(scheme) {
       return scheme === 'bm-light' || scheme === 'bm-own' ? scheme : 'bm-html';

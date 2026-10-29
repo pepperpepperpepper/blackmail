@@ -78,12 +78,15 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // round). At Large it changes nothing.
         window.minimumContentSizeCategory = .large
         window.maximumContentSizeCategory = .large
-        // NOTE: the app cannot defend itself against Smart Invert. Setting
+        // NOTE: the app cannot keep its own look under Smart Invert. Setting
         // `accessibilityIgnoresInvertColors` was tried here AND on the root
         // view controller's view, deployed and photographed both times, and
         // the app still came out white with an orange tint. That property only
-        // ever governed images. Smart Invert must be OFF on the device — see
-        // docs/KNOWN_ISSUES.md B-006.
+        // ever governed images. Nor is Mail kept dark: with the iPad's Smart
+        // Invert on, Mail 16.5.1 comes out light with its tint orange just as
+        // Blackmail does (the comparison of 2026-10-29), so Blackmail follows
+        // it as Mail does, and its letters come out as Mail's under it
+        // (`SmartInvert`, B-179). See docs/KNOWN_ISSUES.md B-006, D-010.
         window.rootViewController = Self.makeRoot()
         window.makeKeyAndVisible()
         self.window = window

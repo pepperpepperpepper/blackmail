@@ -27,7 +27,18 @@ enum PanePage {
         let inset: Int
         let bodyPointSize: Int
         let lineHeight: Double
+        /// The iPad's Smart Invert on, as the pane read it (`SmartInvert`,
+        /// B-179): a letter inverted or light is drawn for it, as Mail's
+        /// comes out under it. Off, the page is as it always was.
+        var smartInvert: Bool = false
     }
+
+    /// The rule that inverts a letter's page, the first of its head's
+    /// rules for a letter Mail turns to the dark (`letter`); and the one
+    /// that draws a light letter on its white. By them `SmartInvert` knows
+    /// a page it is to follow the switch on (B-179).
+    static let invertedRule = "#bm { filter: \(SignatureSheet.invert); background: #fff; }"
+    static let lightRule = "#bm { background: #fff; background-clip: content-box; color-scheme: light only; }"
 
     /// The `Content-ID`s the letter has parts for. Only these are pointed
     /// at the loader (`InlineImageRewriter`); they are also what
@@ -202,13 +213,13 @@ enum PanePage {
         switch drawn {
         case .inverted?:
             smartInvert = """
-              #bm { filter: \(SignatureSheet.invert); background: #fff; }
+              \(invertedRule)
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: \(SignatureSheet.invert); }
               """ + "\n" + QuoteBars.css(in: "#bm")
                 + (content.contains(SignatureSheet.className) ? "\n" + SignatureSheet.css(in: "#bm") : "")
         case .light?:
-            smartInvert = "#bm { background: #fff; background-clip: content-box; color-scheme: light only; }\n"
+            smartInvert = lightRule + "\n"
                 + QuoteBars.css(in: "#bm")
         case .own?:
             smartInvert = "#bm { color-scheme: light dark; }\n"
@@ -229,8 +240,17 @@ enum PanePage {
         let heldSize = held.isEmpty
             ? "" : "\n  " + RemoteContent.sizeRule(in: "#bm", pointSize: style.bodyPointSize)
                 + "\n  " + RemoteContent.colourRule(in: "#bm", inverted: drawn == .inverted)
+        // Under the iPad's Smart Invert, a letter inverted or light as
+        // Mail's comes out under it (`SmartInvert`, B-179): the class on
+        // the page's root and the rules in a sheet of their own after the
+        // page's, so they weigh over its rules for pictures; with the
+        // switch off, or for a plain letter or one in its own colours, the
+        // page is as it was, byte for byte.
+        let inverts = SmartInvert.rules(for: drawn)
+        let root = SmartInvert.root(on: style.smartInvert, rules: inverts)
+        let sheet = SmartInvert.sheet(on: style.smartInvert, rules: inverts)
         return """
-        <!DOCTYPE html><html><head><meta charset="utf-8">
+        <!DOCTYPE html>\(root)<head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           html { -webkit-text-size-adjust: 100%; }
@@ -243,7 +263,7 @@ enum PanePage {
           img, table { max-width: 100% !important; height: auto; }
           a { color: \(darkWords ? "#0A84FF" : "#007AFF"); }
           \(smartInvert)\(heldSize)\(tiles)
-        </style></head><body><div id="bm">\(held)\(shortened(m))\(content)</div></body></html>
+        </style>\(sheet)</head><body><div id="bm">\(held)\(shortened(m))\(content)</div></body></html>
         """
     }
 

@@ -491,8 +491,11 @@ extension Theme {
     // 255-x inversion of the light value it replaces, which is what that
     // filter was doing to them.
     //
-    // ⚠️ SMART INVERT MUST NOW BE TURNED OFF on any device running this
-    // build, or it inverts these back and the app returns to white.
+    // With Smart Invert on, iOS inverts these back and the app is light,
+    // its tint orange, as Apple Mail 16.5.1 is under it (the comparison of
+    // 2026-10-29): Mail is not kept dark either, so it is no longer a thing
+    // to turn off for Blackmail, and its letters come out as Mail's under
+    // it (`SmartInvert`, B-179).
     //
     // Three colours are deliberately NOT inverted — see `tintBlue` below.
 
