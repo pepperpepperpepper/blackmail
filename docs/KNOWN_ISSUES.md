@@ -41999,15 +41999,96 @@ complete".
 
 - Not seen on the iPad yet (TODO B-185).
 - A PDF of more than 20 pages prints its first 20: a limit for memory
-  on a 2 GB iPad, not Mail's, whose own was not seen.
+  on a 2 GB iPad, not Mail's, whose own was not seen. Corrected
+  2026-10-30, below: 20 pages in all.
 - A PDF that cannot be fetched, a letter printed offline with its PDF
   not kept: the words alone, as before. Mail's print offline not seen.
 - Fetching a large PDF from the server takes from the print's ten
-  seconds; past them the letter prints in words (B-110).
+  seconds; past them the letter prints in words (B-110). Corrected
+  2026-10-30, below.
 - Mail's blank lower half of the PDF's page is the page's own blank,
   and prints so here; a page drawn smaller than Mail's, or a sheet more
   or less, was not measured.
 - Mail on 18: its print not seen.
+
+**Corrected 2026-10-30, before the next check.** Three faults in the
+change above, found by reading it and WebKit's source; none seen on
+the iPad.
+
+1. *A slow PDF took the print's ten seconds.* The PDFs were fetched
+   before the page was made, inside the time limit that starts at the
+   tap. A letter over 5 MB comes without its files, so its PDF was
+   fetched at the print; a busy connection, or a dead one (30 s before
+   it gives up), did the same. When the limit came before the page was
+   made, the print drew the whole letter as plain words; before this
+   change the same letter printed its page at once. Now each PDF has
+   what is left of 4 seconds from the tap
+   (`PrintSteps.pdfFetchLimit`), raced as the transport races a read
+   (`TransportDeadline.race`); one not come by then is left off, the
+   log saying `PRINT pdf late part=`, and the page is made without it.
+   A fetch still on the wire then finishes there, its answer dropped.
+2. *Pages drawn after the page loaded, and the cap each PDF's.* The
+   loader drew each page as WebKit asked for it, one at a time, after
+   the page was loaded, so a time limit coming first drew whatever had
+   come, and pages not yet drawn were missing from the paper with
+   nothing said. And the 20 pages were each PDF's, so a letter of
+   several scans put hundreds of MB into the print's one WebKit process
+   (about 6 MB a Letter page, decoded at once), on a 2 GB iPad. Now the
+   pages are drawn before the page is made, away from the main thread,
+   one after another, until 7 seconds from the tap
+   (`PrintSteps.pdfDrawLimit`), the rest of the ten the page's to load;
+   a page not drawn by then is left off with the pages after it, the
+   log saying `PRINT pdf late part= pages= of=`, and the page is made
+   with the pages drawn, so the paper never has a hole. And 20 pages in
+   all, the first PDF the letter lists first
+   (`PrintPage.pdfPagesPrinted`). The drawn pages are held by the job
+   until the drawing is done: a text page's strips about 100 to 300 KB,
+   a scanned one's up to a few MB.
+3. *A page as one picture would not have run on.* WebKit's print layout
+   does not split a picture shorter than a sheet; one that does not fit
+   under what comes before moves whole to the next sheet
+   (`RenderBlockFlow::adjustForUnsplittableChild`; a picture is
+   unsplittable, `RenderBox::isUnsplittableForPagination`). A Letter
+   page drawn 540 points wide is about 699 points tall and the column
+   720, so the first sheet would have had the header and the words with
+   blank under them and the PDF's page on the second, where Mail's
+   started right under the words. Inferred from WebKit's source, not
+   seen. Now each page is printed as strips 180 pixels tall, 90 points
+   on paper, one `<img>` each, one under the other with no seam
+   (`PrintPage.pdfStrips`, `pdfPageImages`): a strip that does not fit
+   moves alone, so the page starts under the words and runs on, as
+   Mail's. Each strip's address names the letter, the part, the page
+   and the strip (`pdfPageID`); the loader answers that address alone,
+   with the strip drawn for it, and asks nothing of the repository.
+
+**Tests.** `PrintPageTests`, one new: a page cut into strips of 180
+pixels, the last what is left. Changed: a page's strips in order under
+the words, a page that could not be drawn printing nothing; the limit
+of 20 pages in all, in the letter's order whatever order the counts
+came in (three PDFs of nine pages: nine, nine and two); each strip's
+address back through the loader's reading as the address it is kept
+under. `PrintWiringTests`: the fetch raced against what is left of its
+limit, the page made with the pages drawn by the second limit, the
+loader's strips first, the three late lines in the log. `PrintStepsTests`:
+the two limits, 4 and 7 seconds, under the ten.
+
+Each undone by hand, the class run, each failure read by its line,
+then put back: the cap each PDF's again, 6 failures in 1 test; a page
+one strip, 3 in 1; only a page's first strip printed, 6 in 3; the
+fetch not raced, 2 in 1; no limit on the drawing, 2 in 1. Each failure
+an assertion's.
+
+**Not covered** (this correction):
+
+- The strips are inferred from WebKit's source; the print preview has
+  not shown them yet (TODO B-185). A strip moved to the next sheet
+  leaves up to 90 points blank at a sheet's foot, where Mail's page
+  ran to the foot. The cut between two sheets falls at a strip's edge,
+  which may run through a line of the PDF's words, as Mail's cut may.
+- The bytes of a PDF already on the iPad, in the letter's kept copy,
+  are fetched again rather than read there.
+- A slow iPad draws fewer pages in its 3 seconds than a fast one; the
+  pages left off are said in the log, not on the paper.
 
 ## B-186 — FIXED 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

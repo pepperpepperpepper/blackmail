@@ -65,10 +65,11 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// The letter in words, made with its page, for a page that cannot be
     /// drawn.
     private var words: String?
-    /// The letter's PDFs as they came, by their parts, from their fetching
-    /// until the page is loaded; from then the loader's alone, which draws
-    /// their pages (B-185, fixed again).
-    private var pdfs: [String: Data] = [:]
+    /// The strips of the letter's PDFs' pages, drawn before the page was
+    /// made, by the address each has in it (`PrintPage.pdfPageID`), from
+    /// their drawing until the page is loaded; from then the loader's
+    /// alone, which answers WebKit with them (B-185, fixed again).
+    private var strips: [String: Data] = [:]
     private var timeLimit: DispatchWorkItem?
     private var nextLook: DispatchWorkItem?
     private var observing = false
@@ -96,9 +97,11 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// Builds the page and its words away from the main thread; what is
     /// done once they are made is the steps' (`built`). The time limit runs
     /// from now, and the pane is looked at every `coverRetry` from now.
-    /// The letter's PDFs are fetched first, and their pages counted, so the
-    /// page has a picture for each page (`PrintPage.pdfPageImages`); the
-    /// time they take is the time limit's too.
+    /// The letter's PDFs are fetched first, until `PrintSteps.pdfFetchLimit`
+    /// from now, and their pages drawn, until `PrintSteps.pdfDrawLimit`, so
+    /// the page has its strips for each page drawn in time
+    /// (`PrintPage.pdfPageImages`) and the rest of the time limit is the
+    /// page's to load.
     func start() {
         NotificationCenter.default.addObserver(self, selector: #selector(wentAway),
                                                name: UIApplication.didEnterBackgroundNotification,
@@ -109,12 +112,12 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + PrintSteps.timeLimit, execute: limit)
         lookAgain()
 
-        let m = letter, style = style, heldBack = heldBack
+        let m = letter, style = style, heldBack = heldBack, drawnBy = tapped + PrintSteps.pdfDrawLimit
         building = Task { @MainActor [weak self] in
             let pdfs = await self?.fetchedPDFs() ?? [:]
-            let made = await Self.made(m, style: style, heldBack: heldBack, pdfs: pdfs)
+            let made = await Self.made(m, style: style, heldBack: heldBack, pdfs: pdfs, drawnBy: drawnBy)
             guard let self else { return }
-            self.pdfs = pdfs
+            self.strips = made.strips
             self.page = made.page
             self.words = made.words
             self.take(.built)
@@ -124,36 +127,78 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// The page and the words, made on the cooperative pool rather than the
     /// main actor: an async function isolated to no actor runs away from its
     /// caller (SE-0338), as `PaneLoads.prepared` does. Each PDF in `pdfs`
-    /// has its pages counted there; one that cannot be read, or has none,
-    /// prints nothing, and says so in the log.
+    /// has its pages counted there, `PrintPage.pdfPageLimit` of them in all
+    /// (`PrintPage.pdfPagesPrinted`), and drawn there one after another, in
+    /// the order the letter lists them, as strips (`stripsOfPage`), until
+    /// `drawnBy`; one that cannot be read, or has none, prints nothing, and
+    /// a page not drawn by then is left off with the rest of the pages
+    /// after it; each says so in the log.
     private nonisolated static func made(_ m: Message, style: PrintPage.Style, heldBack: Bool,
-                                         pdfs: [String: Data]) async
-        -> (page: String, words: String) {
+                                         pdfs: [String: Data], drawnBy: TimeInterval) async
+        -> (page: String, words: String, strips: [String: Data]) {
         let size: (Int64) -> String = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-        var pages: [String: Int] = [:]
+        var documents: [String: CGPDFDocument] = [:]
+        var counts: [String: Int] = [:]
         for (section, data) in pdfs {
-            let count = pageCount(data)
-            if count > 0 {
-                pages[section] = count
+            if let pdf = document(data), pdf.numberOfPages > 0 {
+                documents[section] = pdf
+                counts[section] = pdf.numberOfPages
             } else {
                 Diagnostics.log(.note, "PRINT pdf unread part=\(section)")
             }
         }
-        return PrintPage.made(m, style: style, size: size, heldBack: heldBack, pdfPages: pages)
+        var pages: [String: [Int]] = [:]
+        var strips: [String: Data] = [:]
+        var late = false
+        let printed = PrintPage.pdfPagesPrinted(m, counts: counts)
+        for file in PrintPage.pdfs(of: m) {
+            guard let count = printed[file.id], let pdf = documents[file.id] else { continue }
+            var drawn: [Int] = []
+            for number in 1...count {
+                if late || Task.isCancelled || ProcessInfo.processInfo.systemUptime >= drawnBy {
+                    late = true
+                    break
+                }
+                let pieces = stripsOfPage(number, of: pdf)
+                for (index, piece) in pieces.enumerated() {
+                    strips[PrintPage.pdfPageID(file.id, page: number, strip: index + 1, of: m.id)] = piece
+                }
+                drawn.append(pieces.count)
+            }
+            if drawn.count < count {
+                Diagnostics.log(.note, "PRINT pdf late part=\(file.id) pages=\(drawn.count) of=\(count)")
+            }
+            if !drawn.isEmpty { pages[file.id] = drawn }
+        }
+        let made = PrintPage.made(m, style: style, size: size, heldBack: heldBack, pdfPages: pages)
+        return (made.page, made.words, strips)
     }
 
     /// Each PDF of the letter (`PrintPage.pdfs`) as it came, by its part,
     /// asked of the repository one after another, as the pane's loader asks
-    /// for pictures; none once the pane has moved on. One that cannot be
-    /// fetched, offline, is left out, and prints nothing: the words alone,
-    /// as before. Read on the main actor, as the loader reads.
+    /// for pictures; none once the pane has moved on, and none after
+    /// `PrintSteps.pdfFetchLimit` from the tap, a fetch still waiting then
+    /// let go of (`TransportDeadline.race`), so a large letter's PDF, a
+    /// busy connection or a dead one never keeps the page from being made
+    /// in time. One that cannot be fetched, offline, or in time, is left
+    /// out, and prints nothing: the words alone, as before; each says so in
+    /// the log. Read on the main actor, as the loader reads.
     private func fetchedPDFs() async -> [String: Data] {
         var fetched: [String: Data] = [:]
+        let repository = self.repository, letter = self.letter
         for file in PrintPage.pdfs(of: letter) {
             guard stillShown(), !Task.isCancelled else { break }
+            let left = tapped + PrintSteps.pdfFetchLimit - ProcessInfo.processInfo.systemUptime
+            guard left > 0 else {
+                Diagnostics.log(.note, "PRINT pdf late part=\(file.id)")
+                continue
+            }
             do {
-                fetched[file.id] = try await repository.fetchAttachmentData(file.id, of: letter.id,
-                                                                            mailboxID: letter.mailboxID)
+                fetched[file.id] = try await TransportDeadline.race(within: left, onExpiry: {}) {
+                    try await repository.fetchAttachmentData(file.id, of: letter.id, mailboxID: letter.mailboxID)
+                }
+            } catch MailTransportError.timedOut {
+                Diagnostics.log(.note, "PRINT pdf late part=\(file.id)")
             } catch {
                 Diagnostics.log(.note, "PRINT pdf not-fetched part=\(file.id)")
             }
@@ -161,43 +206,26 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         return fetched
     }
 
-    /// How many pages the PDF in `data` has; 0 for one that cannot be read,
-    /// or is locked with a password.
-    private nonisolated static func pageCount(_ data: Data) -> Int {
+    /// The PDF in `data`, if it can be read and is not locked with a
+    /// password.
+    private nonisolated static func document(_ data: Data) -> CGPDFDocument? {
         guard let provider = CGDataProvider(data: data as CFData), let pdf = CGPDFDocument(provider),
-              pdf.isUnlocked else { return 0 }
-        return pdf.numberOfPages
+              pdf.isUnlocked else { return nil }
+        return pdf
     }
 
-    /// The loader's turns at drawing a PDF's page, one at a time: each is a
-    /// picture of up to `PrintPage.pdfPageWidth` by `pdfPageHeightLimit`
-    /// pixels, and WebKit asks for every page at once.
-    private nonisolated static let pageTurns = HEICPicture.Turns(limit: 1)
-
-    /// Page `number`, from 1, of the PDF in `data` as a PNG, drawn away from
-    /// the main thread, one at a time (`pageTurns`); nil for a page that
-    /// cannot be drawn, or a request WebKit stopped while it waited.
-    private nonisolated static func pagePicture(_ number: Int, of data: Data) async -> Data? {
-        await pageTurns.take()
-        var made: Data?
-        if !Task.isCancelled {
-            made = await Task.detached(priority: .userInitiated) { Self.png(of: number, in: data) }.value
-        }
-        await pageTurns.give()
-        return made
-    }
-
-    /// Page `number` of the PDF in `data` drawn as Quick Look shows it, its
-    /// crop box turned as the page says, on white, `PrintPage.pdfPageWidth`
-    /// pixels wide, or less tall than `pdfPageHeightLimit`; as a PNG, which
-    /// keeps its words sharp. ImageIO and Core Graphics, no UIKit.
-    private nonisolated static func png(of number: Int, in data: Data) -> Data? {
-        guard let provider = CGDataProvider(data: data as CFData), let pdf = CGPDFDocument(provider),
-              pdf.isUnlocked, let page = pdf.page(at: number) else { return nil }
+    /// Page `number` of `pdf` drawn as Quick Look shows it, its crop box
+    /// turned as the page says, on white, `PrintPage.pdfPageWidth` pixels
+    /// wide, or less tall than `pdfPageHeightLimit`; cut into strips
+    /// (`PrintPage.pdfStrips`), each a PNG, which keeps its words sharp,
+    /// top to bottom. None for a page that cannot be drawn. ImageIO and
+    /// Core Graphics, no UIKit; one page's pixels at a time.
+    private nonisolated static func stripsOfPage(_ number: Int, of pdf: CGPDFDocument) -> [Data] {
+        guard let page = pdf.page(at: number) else { return [] }
         let box = page.getBoxRect(.cropBox)
         let turned = abs(page.rotationAngle) % 180 == 90
         let shape = turned ? CGSize(width: box.height, height: box.width) : box.size
-        guard shape.width >= 1, shape.height >= 1 else { return nil }
+        guard shape.width >= 1, shape.height >= 1 else { return [] }
         let scale = min(CGFloat(PrintPage.pdfPageWidth) / shape.width,
                         CGFloat(PrintPage.pdfPageHeightLimit) / shape.height)
         let width = max(1, Int((shape.width * scale).rounded()))
@@ -205,7 +233,7 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
                                       bytesPerRow: 0, space: space,
-                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return [] }
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         context.interpolationQuality = .high
@@ -217,13 +245,23 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         context.concatenate(page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: shape),
                                                      rotate: 0, preserveAspectRatio: true))
         context.drawPDFPage(page)
-        guard let image = context.makeImage() else { return nil }
-        let out = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil)
-        else { return nil }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return out as Data
+        guard let image = context.makeImage() else { return [] }
+        // A picture's rows count down from its top, as the strips go.
+        var top = 0
+        var pieces: [Data] = []
+        for tall in PrintPage.pdfStrips(height: height) {
+            defer { top += tall }
+            guard let strip = image.cropping(to: CGRect(x: 0, y: top, width: width, height: tall)) else {
+                return []
+            }
+            let out = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil)
+            else { return [] }
+            CGImageDestinationAddImage(destination, strip, nil)
+            guard CGImageDestinationFinalize(destination) else { return [] }
+            pieces.append(out as Data)
+        }
+        return pieces
     }
 
     /// The page in a web view of its own, locked down as the pane's is, and
@@ -275,18 +313,15 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         // The letter's own pictures, and nothing else of the repository's;
         // none once the pane has moved on, so the letter he has gone to
         // never waits behind them on the one connection. The loader makes a
-        // throw an empty answer. A PDF's page is drawn from the PDF fetched
+        // throw an empty answer. A strip of a PDF's page is the one drawn
         // before the page was made, with nothing asked of the repository.
         let pictures = PanePage.pictures(of: [letter])
         let repository = self.repository, stillShown = self.stillShown
-        let letter = self.letter, pdfs = self.pdfs
-        self.pdfs = [:]
+        let strips = self.strips
+        self.strips = [:]
         loader.fetch = { @MainActor contentID in
-            if let shown = PrintPage.pdfPage(contentID, of: letter) {
-                guard stillShown(), let data = pdfs[shown.section],
-                      let png = await Self.pagePicture(shown.page, of: data) else {
-                    throw MailError.attachmentFailed
-                }
+            if let png = strips[contentID] {
+                guard stillShown() else { throw MailError.attachmentFailed }
                 return (png, "image/png")
             }
             guard stillShown(), let part = pictures[contentID] else { throw MailError.attachmentFailed }
@@ -517,7 +552,7 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         nextLook = nil
         stopObserving()
         pdf = nil
-        pdfs = [:]
+        strips = [:]
         ended(self)
     }
 

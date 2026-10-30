@@ -260,16 +260,24 @@ final class PrintWiringTests: XCTestCase {
 
     /// The job's two calls on the repository are reads of the letter's own
     /// parts: its pictures, and its PDFs before the page is made (B-185,
-    /// fixed again); nothing is written, to the disk or anywhere else.
+    /// fixed again), each PDF raced against what is left of
+    /// `PrintSteps.pdfFetchLimit` from the tap, a late one let go of and
+    /// said in the log; nothing is written, to the disk or anywhere else.
     func testTheJobOnlyReadsTheLettersPictures() throws {
         let job = try self.job
         let calls = job.components(separatedBy: "repository.").dropFirst()
             .map { $0.prefix(while: { $0.isLetter }) }
         XCTAssertEqual(calls, ["fetchAttachmentData", "fetchAttachmentData"])
         XCTAssertNotNil(place(of: "for file in PrintPage.pdfs(of: letter) { guard stillShown(), "
-                                  + "!Task.isCancelled else { break } do { fetched[file.id] = "
-                                  + "try await repository.fetchAttachmentData(file.id, of: letter.id, "
-                                  + "mailboxID: letter.mailboxID) } catch { Diagnostics.log(.note, "
+                                  + "!Task.isCancelled else { break } "
+                                  + "let left = tapped + PrintSteps.pdfFetchLimit - "
+                                  + "ProcessInfo.processInfo.systemUptime guard left > 0 else { "
+                                  + "Diagnostics.log(.note, \"PRINT pdf late part=\\(file.id)\") continue } "
+                                  + "do { fetched[file.id] = try await TransportDeadline.race(within: left, "
+                                  + "onExpiry: {}) { try await repository.fetchAttachmentData(file.id, "
+                                  + "of: letter.id, mailboxID: letter.mailboxID) } } "
+                                  + "catch MailTransportError.timedOut { Diagnostics.log(.note, "
+                                  + "\"PRINT pdf late part=\\(file.id)\") } catch { Diagnostics.log(.note, "
                                   + "\"PRINT pdf not-fetched part=\\(file.id)\") } }", in: job))
         for never in ["FileManager", "write(to:", "AttachmentStore", "MailShelf", "LocalDrafts",
                       "UserDefaults", "]?."] {
@@ -352,10 +360,13 @@ final class PrintWiringTests: XCTestCase {
     /// with nothing to come, Print greyed until the app is started again.
     func testThePageIsLoadedOnlyOnceItAndItsWordsAreMade() throws {
         let job = try self.job
-        XCTAssertNotNil(place(of: "building = Task { @MainActor [weak self] in "
+        XCTAssertNotNil(place(of: "let m = letter, style = style, heldBack = heldBack, "
+                                  + "drawnBy = tapped + PrintSteps.pdfDrawLimit "
+                                  + "building = Task { @MainActor [weak self] in "
                                   + "let pdfs = await self?.fetchedPDFs() ?? [:] "
-                                  + "let made = await Self.made(m, style: style, heldBack: heldBack, pdfs: pdfs) "
-                                  + "guard let self else { return } self.pdfs = pdfs "
+                                  + "let made = await Self.made(m, style: style, heldBack: heldBack, pdfs: pdfs, "
+                                  + "drawnBy: drawnBy) "
+                                  + "guard let self else { return } self.strips = made.strips "
                                   + "self.page = made.page self.words = made.words self.take(.built) }", in: job))
         XCTAssertEqual(count("take(.built)", in: job), 1)
         XCTAssertNotNil(place(of: "private func load() { guard let page, let pane, "
@@ -386,19 +397,18 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertEqual(count("nextLook = again", in: job), 1)
 
         let fetch = try part(of: job, from: "loader.fetch = {", to: "paneView.insertSubview(")
-        // A PDF's page first (B-185, fixed again), drawn from the PDF
-        // fetched before the page was made, asking nothing of the
-        // repository, and none once the pane has moved on.
+        // A strip of a PDF's page first (B-185, fixed again), drawn before
+        // the page was made, asking nothing of the repository, and none
+        // once the pane has moved on.
         XCTAssertTrue(fetch.hasPrefix("loader.fetch = { @MainActor contentID in "
-                                      + "if let shown = PrintPage.pdfPage(contentID, of: letter) { "
-                                      + "guard stillShown(), let data = pdfs[shown.section], "
-                                      + "let png = await Self.pagePicture(shown.page, of: data) else { "
-                                      + "throw MailError.attachmentFailed } return (png, \"image/png\") } "
+                                      + "if let png = strips[contentID] { "
+                                      + "guard stillShown() else { throw MailError.attachmentFailed } "
+                                      + "return (png, \"image/png\") } "
                                       + "guard stillShown(), "
                                       + "let part = pictures[contentID] else { throw MailError.attachmentFailed } "
                                       + "let data = try await repository.fetchAttachmentData("), fetch)
-        XCTAssertNotNil(place(of: "let letter = self.letter, pdfs = self.pdfs self.pdfs = [:] loader.fetch =",
-                              in: job))
+        XCTAssertNotNil(place(of: "let strips = self.strips self.strips = [:] "
+                                  + "loader.fetch =", in: job))
         XCTAssertNotNil(place(of: "let repository = self.repository, stillShown = self.stillShown", in: job))
     }
 
@@ -453,7 +463,7 @@ final class PrintWiringTests: XCTestCase {
                                   + "{ return } finished = true steps.end() if let why { Diagnostics.log(.note, "
                                   + "\"PRINT ended why=\\(why.rawValue)\") } teardown() building?.cancel() "
                                   + "building = nil timeLimit?.cancel() timeLimit = nil nextLook?.cancel() "
-                                  + "nextLook = nil stopObserving() pdf = nil pdfs = [:] ended(self) }", in: job))
+                                  + "nextLook = nil stopObserving() pdf = nil strips = [:] ended(self) }", in: job))
         XCTAssertNotNil(place(of: "case .end(let why): end(why)", in: job))
         XCTAssertNotNil(place(of: "self?.end(nil)", in: job), "the panel closed")
         XCTAssertEqual(count("steps.end()", in: job), 1)
@@ -498,14 +508,18 @@ final class PrintWiringTests: XCTestCase {
     }
 
     /// Every way a print ends is logged, counts only: no name, no
-    /// subject, no address; and a PDF that prints no page by its part
-    /// (B-185, fixed again).
+    /// subject, no address; and a PDF that prints no page by its part,
+    /// or fewer than it has, too late, with the pages drawn of those to
+    /// be (B-185, fixed again).
     func testTheLogSaysCountsOnly() throws {
         let job = try self.job
         let lines = job.components(separatedBy: "Diagnostics.log(.note, ").dropFirst()
             .map { $0.components(separatedBy: "\")")[0] }
-        XCTAssertEqual(lines.count, 7)
+        XCTAssertEqual(lines.count, 10)
+        XCTAssertEqual(lines.filter { $0 == "\"PRINT pdf late part=\\(file.id)" }.count, 2,
+                       "past the limit before a fetch, and raced past it")
         for line in ["\"PRINT pdf not-fetched part=\\(file.id)",
+                     "\"PRINT pdf late part=\\(file.id) pages=\\(drawn.count) of=\\(count)",
                      "\"PRINT pdf unread part=\\(section)",
                      "\"PRINT ready pages=\\(pages) bytes=\\(made.count) \" + \"ms=\\(Int((now - tapped) * 1_000))",
                      "\"PRINT words why=\\(why.rawValue)",

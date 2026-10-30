@@ -11518,18 +11518,46 @@ checks below is left as not needed, not open, and none is worth a round.*
       B-182's check, from a build of the `bm-fix-j1` worktree (branch
       `fix-j1`) or of the int it is merged into, a PDF's pages on paper
       in it (KNOWN_ISSUES B-185, "Fixed again 2026-10-30, after the
-      test iPad (r6-p-copy)"); the same two picture letters and round
-      r6-p-copy's letter of words and a PDF, or made again as that
-      round made them: the host APPENDs each, read, to "Notes", noting
+      test iPad (r6-p-copy)" and "Corrected 2026-10-30"); the same two
+      picture letters and round r6-p-copy's letter of words and a PDF,
+      or made again as that round made them; and four more made the
+      same way: "R6 B-185 three", words and a PDF of three pages;
+      "R6 B-185 broken", words and a file "broken.pdf" of kind
+      `application/pdf` whose bytes are not a PDF; "R6 B-185 large",
+      words, a PDF and a photo making it over 5 MB; and a letter with
+      no subject. The host APPENDs each, read, to "Notes", noting
       each UID from its APPENDUID; it stops if one has none. Print
       preview only: Cancel each time, nothing printed, nothing sent.
       Mail beside Blackmail.
       1. *The letter with words and a PDF:* Reply, Print: the header,
          the words, then the PDF's page right under them, about as wide
          as the words' column, running on to a second sheet, "Page 1
-         of 2", as Mail's preview. Screenshots of both previews. The
-         log: `PRINT ready pages=` as the preview counts, and no `PRINT
-         pdf` line.
+         of 2", as Mail's preview; at the first sheet's foot up to
+         about 90 points may be left blank where Mail's page runs to
+         the foot (the page is printed in strips): written down. If
+         instead the first sheet ends under the words and the PDF's
+         page starts the second: written down, a fault. Screenshots of
+         both previews. The log: `PRINT ready pages=` as the preview
+         counts, and no `PRINT pdf` line.
+      1a. *"R6 B-185 three":* its three pages one under the other from
+         under the words, running on from sheet to sheet with no blank
+         sheet between, no seam across a page; the count of sheets
+         beside Mail's, written down. Screenshots.
+      1b. *"R6 B-185 broken":* the words alone, and `PRINT pdf unread
+         part=` in the log; Mail's preview beside it, written down.
+      1c. *"R6 B-185 large":* the preview within about ten seconds of
+         the tap, the header and the words, the PDF's page under them
+         if it came within four seconds, or else none and `PRINT pdf
+         late part=` in the log; never the whole letter in plain words
+         (`PRINT words why=`). Written down which.
+      1d. *Offline:* Airplane Mode on (put back off after), the letter
+         of words and a PDF again, its PDF not opened in this launch:
+         the words alone, `PRINT pdf not-fetched part=` or `PRINT pdf
+         late part=` in the log, the preview within about ten seconds.
+         Mail's offline preview beside it, written down.
+      1e. *The letter with no subject:* the paper's Subject line,
+         Blackmail's "(no subject)" beside Mail's word on its paper,
+         written down.
       2. *The two picture letters:* as before, no picture file
          printed. The attached picture letter its header alone, one
          page; the `cid:` picture letter its header and the picture,

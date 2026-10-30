@@ -55,10 +55,13 @@ enum PrintPage {
     static let paperHeight: Double = 792
     static let margin: Double = 36
 
-    /// The most pages of one PDF printed under the words (B-185): a page
-    /// is a picture of up to 1080 by 4320 pixels in the print's web view,
-    /// and his iPad has 2 GB. Mail's own limit, if it has one, was not
-    /// seen.
+    /// The most pages of a letter's PDFs printed under the words, all of
+    /// them together, in the order the letter lists them (B-185): a page
+    /// is up to 1080 by 4320 pixels, decoded at once in the print's web
+    /// view, about 6 MB for a Letter page, and his iPad has 2 GB. Until
+    /// 2026-10-30 the limit was each PDF's, so a letter of several scans
+    /// could put hundreds of MB into one process. Mail's own limit, if it
+    /// has one, was not seen.
     static let pdfPageLimit = 20
     /// The width of a PDF's page as a picture, in pixels: twice the
     /// column's, 540 points between the margins, so it prints sharp.
@@ -67,6 +70,16 @@ enum PrintPage {
     /// taller than that, a long receipt's, is drawn smaller, still the
     /// column's width on paper.
     static let pdfPageHeightLimit = 4 * pdfPageWidth
+    /// The height of one strip of a PDF's page, in pixels: 90 points on
+    /// paper. A page is printed as strips one under the other
+    /// (`pdfStrips`), so it starts under the words and runs on to the
+    /// next sheet as Mail's did: WebKit's print layout never splits a
+    /// picture shorter than a sheet, and moves one that does not fit to
+    /// the next sheet whole (`adjustForUnsplittableChild`), so a whole
+    /// page as one picture would have left the first sheet blank under
+    /// the words. A strip that does not fit moves alone, at most 90
+    /// points left blank at a sheet's foot.
+    static let pdfStripHeight = 180
 
     /// The header's lines, as Mail prints them (B-172): "From:",
     /// "Subject:", "Date:" and "To:", in that order, each label grey and
@@ -89,13 +102,14 @@ enum PrintPage {
     /// a line, each a name and its address, a comma between; a person with
     /// no name, the address alone in black; a letter with nobody in To, no
     /// "To:" line, where the paper had "To: me". "(no subject)" for a
-    /// letter with none, as the pane says. The date is Mail's
-    /// (`MailFormat.printedTimestamp`), never "Today" or "Yesterday": the
-    /// paper is read on another day. It is when the letter arrived, its
-    /// Date where that is not known (`Message.headerDate`), as Mail 16.5.1
-    /// prints it: seen on the test iPad on 2026-10-28 (round r6-l-fix,
-    /// B-178), "Date: Oct 28, 2026 at 2:15:14 PM" on a letter dated 1
-    /// March 2024 that arrived then.
+    /// letter with none, the pane's word until B-182 (its header now says
+    /// Mail's "No Subject"); Mail's word on paper was not seen. The date
+    /// is Mail's (`MailFormat.printedTimestamp`), never "Today" or
+    /// "Yesterday": the paper is read on another day. It is when the
+    /// letter arrived, its Date where that is not known
+    /// (`Message.headerDate`), as Mail 16.5.1 prints it: seen on the test
+    /// iPad on 2026-10-28 (round r6-l-fix, B-178), "Date: Oct 28, 2026 at
+    /// 2:15:14 PM" on a letter dated 1 March 2024 that arrived then.
     struct Head: Equatable {
         /// One person of a line: the name, and the address after it, nil
         /// when the entry is an address alone.
@@ -190,14 +204,15 @@ enum PrintPage {
     /// WebKit's list on the print's web view (`LetterPrint`). No line over
     /// it: the paper has no button.
     ///
-    /// `pdfPages`, the number of pages of each PDF of the letter that
-    /// `LetterPrint` fetched and read, by its part: each page under the
-    /// words as a picture the column's width (`pdfPageImages`), as Mail
-    /// 16.5.1 prints a letter of words and a PDF (B-185, fixed again).
-    /// None for a PDF not in it, which could not be fetched or read.
+    /// `pdfPages`, the pages of each PDF of the letter that `LetterPrint`
+    /// fetched, read and drew in time, by its part, each page the number
+    /// of its strips: each page under the words as strips the column's
+    /// width (`pdfPageImages`), as Mail 16.5.1 prints a letter of words
+    /// and a PDF (B-185, fixed again). None for a PDF not in it, which
+    /// could not be fetched, read or drawn in time.
     static func letter(_ m: Message, style: Style, size: (Int64) -> String,
                        locale: Locale = .current, timeZone: TimeZone = .current,
-                       heldBack: Bool = false, pdfPages: [String: Int] = [:]) -> String {
+                       heldBack: Bool = false, pdfPages: [String: [Int]] = [:]) -> String {
         letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone,
                heldBack: heldBack, pdfPages: pdfPages)
     }
@@ -210,7 +225,7 @@ enum PrintPage {
     /// print's time limit (`PrintSteps.timeLimit`).
     static func made(_ m: Message, style: Style, size: (Int64) -> String,
                      locale: Locale = .current, timeZone: TimeZone = .current,
-                     heldBack: Bool = false, pdfPages: [String: Int] = [:])
+                     heldBack: Bool = false, pdfPages: [String: [Int]] = [:])
         -> (page: String, words: String) {
         let isEmpty = PanePage.isEmpty(m)
         return (letter(m, isEmpty: isEmpty, style: style, size: size, locale: locale, timeZone: timeZone,
@@ -221,7 +236,7 @@ enum PrintPage {
     /// The page, given the pane's answer to `PanePage.isEmpty` for `m`.
     private static func letter(_ m: Message, isEmpty: Bool, style: Style, size: (Int64) -> String,
                                locale: Locale, timeZone: TimeZone, heldBack: Bool,
-                               pdfPages: [String: Int]) -> String {
+                               pdfPages: [String: [Int]]) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
         let (body, isHTML) = Self.body(m, isEmpty: isEmpty, heldBack: heldBack, pdfPages: pdfPages)
         func span(_ kind: String, _ text: String) -> String {
@@ -313,12 +328,12 @@ enum PrintPage {
     /// Its pictures decoded as they are drawn (`decodedAtOnce`); a plain
     /// letter's words have none, every `<` in them written `&lt;`.
     static func body(_ m: Message, heldBack: Bool = false,
-                     pdfPages: [String: Int] = [:]) -> (html: String, isHTML: Bool) {
+                     pdfPages: [String: [Int]] = [:]) -> (html: String, isHTML: Bool) {
         body(m, isEmpty: PanePage.isEmpty(m), heldBack: heldBack, pdfPages: pdfPages)
     }
 
     private static func body(_ m: Message, isEmpty: Bool, heldBack: Bool,
-                             pdfPages: [String: Int]) -> (html: String, isHTML: Bool) {
+                             pdfPages: [String: [Int]]) -> (html: String, isHTML: Bool) {
         guard !isEmpty else {
             return (empty, false)
         }
@@ -363,54 +378,77 @@ enum PrintPage {
         m.listedAttachments.filter(isPDF)
     }
 
-    /// The address the print's loader is asked for page `page`, from 1,
-    /// of the PDF at `section` of the letter `letter` by: no `Content-ID`
-    /// a letter can have, as a picture file's is not (`BodyFiles.pictureID`),
-    /// and the letter's in it. Read back by `pdfPage(_:of:)`.
-    static func pdfPageID(_ section: String, page: Int, of letter: String) -> String {
+    /// How many pages of each PDF of `m` are printed, by its part, of the
+    /// pages in `counts`, its count of each: `pdfPageLimit` in all, the
+    /// first PDF the letter lists first. A count for a part that is no
+    /// PDF of the letter, or of none, prints nothing.
+    static func pdfPagesPrinted(_ m: Message, counts: [String: Int]) -> [String: Int] {
+        var left = pdfPageLimit
+        var printed: [String: Int] = [:]
+        for file in pdfs(of: m) where printed[file.id] == nil {
+            let count = min(max(counts[file.id] ?? 0, 0), left)
+            guard count > 0 else { continue }
+            printed[file.id] = count
+            left -= count
+        }
+        return printed
+    }
+
+    /// The heights, top to bottom, of the strips a PDF's page `height`
+    /// pixels tall is printed in: `pdfStripHeight` each, the last what is
+    /// left. None for a page with no height.
+    static func pdfStrips(height: Int) -> [Int] {
+        guard height > 0 else { return [] }
+        let whole = height / pdfStripHeight, rest = height % pdfStripHeight
+        return Array(repeating: pdfStripHeight, count: whole) + (rest > 0 ? [rest] : [])
+    }
+
+    /// The address the print's loader is asked for strip `strip`, from 1,
+    /// of page `page`, from 1, of the PDF at `section` of the letter
+    /// `letter` by: no `Content-ID` a letter can have, as a picture file's
+    /// is not (`BodyFiles.pictureID`), and the letter's in it. The job
+    /// keeps each strip under it, and the loader answers that address
+    /// alone with it (`LetterPrint`).
+    static func pdfPageID(_ section: String, page: Int, strip: Int, of letter: String) -> String {
         "bmpdf-" + ConversationDocument.sectionID(for: letter) + "-" + section + "-" + String(page)
+            + "-" + String(strip)
     }
 
-    /// The part and the page, from 1, that the address `contentID` names
-    /// of a PDF of `m` printed (`pdfPageID`); nil for any other address,
-    /// a page past `pdfPageLimit`, or a part of `m` that is no such PDF.
-    static func pdfPage(_ contentID: String, of m: Message) -> (section: String, page: Int)? {
-        let prefix = "bmpdf-" + ConversationDocument.sectionID(for: m.id) + "-"
-        guard contentID.hasPrefix(prefix) else { return nil }
-        let rest = contentID.dropFirst(prefix.count)
-        guard let dash = rest.lastIndex(of: "-"), let page = Int(rest[rest.index(after: dash)...]),
-              (1...pdfPageLimit).contains(page) else { return nil }
-        let section = String(rest[..<dash])
-        guard pdfs(of: m).contains(where: { $0.id == section }) else { return nil }
-        return (section, page)
-    }
-
-    /// The pages of the PDFs of `m` in `pages`, its count of each by its
-    /// part, as Mail 16.5.1 prints them under a letter's words (round
-    /// r6-p-copy, 29 October 2026): each a picture of its own the column's
-    /// width, one under the other, with no frame and no break of its own,
-    /// so the first starts right under the words and runs on to the next
-    /// sheet as Mail's did. At most `pdfPageLimit` of each. Decoded as it
-    /// is drawn, as the letter's own pictures are (`decodedAtOnce`). None
-    /// for a picture or any other file, as Mail prints none.
-    static func pdfPageImages(_ m: Message, pages: [String: Int]) -> String {
+    /// The pages of the PDFs of `m` in `pages`, by its part, each page the
+    /// number of its strips (`pdfStrips`), as Mail 16.5.1 prints them
+    /// under a letter's words (round r6-p-copy, 29 October 2026): each
+    /// strip a picture of its own the column's width, one under the other,
+    /// with no frame and no break of its own, so the first page starts
+    /// right under the words and runs on to the next sheet as Mail's did.
+    /// At most `pdfPageLimit` pages in all, in the order the letter lists
+    /// its PDFs; a page of no strips, one that could not be drawn, prints
+    /// nothing and counts. Decoded as it is drawn, as the letter's own
+    /// pictures are (`decodedAtOnce`). None for a picture or any other
+    /// file, as Mail prints none.
+    static func pdfPageImages(_ m: Message, pages: [String: [Int]]) -> String {
         guard !pages.isEmpty else { return "" }
-        return pdfs(of: m).map { file -> String in
-            let count = min(max(pages[file.id] ?? 0, 0), pdfPageLimit)
-            guard count > 0 else { return "" }
-            return (1...count).map { page in
-                "<img decoding=sync class=\"" + pdfPageClass + "\" src=\"" + InlineImageRewriter.scheme + "://"
-                    + InlineImageRewriter.escapedHost(pdfPageID(file.id, page: page, of: m.id))
-                    + "\" alt=\"\" style=\"" + pdfPageStyle + "\">"
-            }.joined()
-        }.joined()
+        let printed = pdfPagesPrinted(m, counts: pages.mapValues(\.count))
+        var out = ""
+        for file in pdfs(of: m) {
+            guard let count = printed[file.id], let strips = pages[file.id] else { continue }
+            for (index, pieces) in strips.prefix(count).enumerated() where pieces > 0 {
+                for strip in 1...pieces {
+                    let id = pdfPageID(file.id, page: index + 1, strip: strip, of: m.id)
+                    out += "<img decoding=sync class=\"" + pdfPageClass + "\" src=\""
+                    out += InlineImageRewriter.scheme + "://" + InlineImageRewriter.escapedHost(id)
+                    out += "\" alt=\"\" style=\"" + pdfPageStyle + "\">"
+                }
+            }
+        }
+        return out
     }
 
     /// The class of a PDF's page on paper.
     static let pdfPageClass = "bm-pdf-page"
 
-    /// A PDF's page on paper: a block the column's width, its height its
-    /// own, with no margin and no border. Each `!important` and inline, so
+    /// A strip of a PDF's page on paper: a block the column's width, its
+    /// height its own, with no margin and no border, so the strips of a
+    /// page meet with no seam. Each `!important` and inline, so
     /// no rule of the sender's for every `img` reaches it.
     static let pdfPageStyle = "display: block !important; width: 100% !important; height: auto !important; "
         + "max-width: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important;"
@@ -549,7 +587,7 @@ enum PrintPage {
     }
 
     /// The print job's name, which the printer's queue shows: the subject,
-    /// or "(no subject)", as the header has it.
+    /// or "(no subject)", as the paper's header has it (`Head`).
     static func jobName(_ m: Message) -> String {
         m.subject.isEmpty ? "(no subject)" : m.subject
     }

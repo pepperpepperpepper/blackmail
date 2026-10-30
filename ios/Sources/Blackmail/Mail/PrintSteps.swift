@@ -70,6 +70,11 @@ struct PrintSteps {
     /// How long the page has to load, from the tap: then it is drawn with
     /// what has come, or in words if nothing of it has.
     static let timeLimit: TimeInterval = 10
+    /// How long a letter's PDFs have to come, from the tap, and how long
+    /// their pages to be drawn, before the page is made without what has
+    /// not (B-185): the rest of `timeLimit` is the page's to load.
+    static let pdfFetchLimit: TimeInterval = 4
+    static let pdfDrawLimit: TimeInterval = 7
     /// How often the pane is looked at again while something is over it.
     static let coverRetry: TimeInterval = 0.5
     /// How long, from the PDF made, the panel waits for the pane to be

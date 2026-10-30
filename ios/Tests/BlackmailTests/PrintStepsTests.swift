@@ -292,6 +292,12 @@ final class PrintStepsTests: XCTestCase {
 
     func testTheTimes() {
         XCTAssertEqual(Steps.timeLimit, 10)
+        // A letter's PDFs have 4 s to come and their pages 7 s to be
+        // drawn, from the tap, so the page has the rest to load (B-185).
+        XCTAssertEqual(Steps.pdfFetchLimit, 4)
+        XCTAssertEqual(Steps.pdfDrawLimit, 7)
+        XCTAssertLessThan(Steps.pdfFetchLimit, Steps.pdfDrawLimit)
+        XCTAssertLessThan(Steps.pdfDrawLimit, Steps.timeLimit)
         XCTAssertEqual(Steps.coverRetry, 0.5)
         XCTAssertEqual(Steps.coverLimit, 10)
     }
