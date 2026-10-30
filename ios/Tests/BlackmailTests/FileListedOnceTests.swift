@@ -81,6 +81,7 @@ final class FileListedOnceTests: XCTestCase {
                         textBody: decoded.text, htmlBody: decoded.html,
                         attachments: decoded.attachments, messageID: "<programme@example.com>")
         m.isShortened = decoded.isShortened
+        m.textParts = decoded.textParts
         return m
     }
 
@@ -586,7 +587,10 @@ final class FileListedOnceTests: XCTestCase {
     /// the words stays the comment it came as, and a picture the HTML
     /// shows by `cid:` prints there, decoded as it is drawn. The pane
     /// draws every one, as before. From B-170 to B-185 the paper drew
-    /// them as the pane does.
+    /// them as the pane does. Since round r6-u-pdf a plain letter's
+    /// attached picture prints as its photo after the words, as Mail's H
+    /// did (`testAPlainLettersAttachedPhotoPrintsAsAnInlineOne`); an HTML
+    /// letter's, and one attached to a letter with no words, still not.
     func testAPrintedLetterHasNoneOfItsFilesAsMailsHasNone() throws {
         let print = PrintPage.Style(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 17,
                                     bodyPointSize: 17, lineHeight: 1.41)
@@ -620,8 +624,13 @@ final class FileListedOnceTests: XCTestCase {
             order(["Our garden.", drawn("2", of: m), drawn("3", of: m)], in: pane, "\(kind), the pane")
             let printed = try body(page(m))
             XCTAssertTrue(printed.contains("Our garden."), kind)
-            for file in [drawn("2", of: m), drawn("3", of: m), "bmcid://", "<img", BodyFiles.tileClass,
-                         "plan.pdf", "photo.jpg", "Tap to Download"] {
+            // The plain letter's picture is its photo (round r6-u-pdf).
+            let photo = kind == "plain"
+            XCTAssertEqual(count("<img ", in: printed), photo ? 1 : 0, kind)
+            XCTAssertEqual(count("class=\"" + PrintPage.photoClass + "\" src=\"" + drawn("2", of: m) + "\"",
+                                 in: printed), photo ? 1 : 0, kind)
+            for file in (photo ? [] : [drawn("2", of: m), "bmcid://", "<img"])
+                + [drawn("3", of: m), BodyFiles.tileClass, "plan.pdf", "photo.jpg", "Tap to Download"] {
                 XCTAssertFalse(printed.contains(file), "\(kind): \(file)")
             }
             XCTAssertFalse(page(m).contains("zoom:"), "\(kind): no tile's rule")
@@ -665,8 +674,8 @@ final class FileListedOnceTests: XCTestCase {
     /// none, from the address the print's loader serves; after a PDF's
     /// pages; two photos, in the letter's order; a letter of a photo
     /// alone; a letter shown in part, above its words, and none with a
-    /// `Content-ID`. Not a picture attached, nor one WebKit cannot draw,
-    /// nor an HTML letter's. The pane's page as before.
+    /// `Content-ID`. Not one WebKit cannot draw, nor an HTML letter's.
+    /// The pane's page as before.
     func testAPlainLettersInlinePhotoPrintsAfterTheWords() throws {
         func photo(_ section: String, of m: Message) -> String {
             "<img decoding=sync class=\"" + PrintPage.photoClass + "\" src=\""
@@ -737,10 +746,10 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertEqual(PrintPage.body(cut).html, PrintPage.shortened + together + photo("2", of: cut) + "</div>"
                        + words)
 
-        // Not printed: a picture attached, a TIFF, and an HTML letter's
-        // photo that its markup does not name.
+        // Not printed: a TIFF, and an HTML letter's photo that its markup
+        // does not name. A picture attached prints since round r6-u-pdf
+        // (`testAPlainLettersAttachedPhotoPrintsAsAnInlineOne`).
         for (label, raw) in [
-            ("attached", Self.letter(Self.mixed([Self.plain(words), Self.jpeg("IMG_0185.jpg")]))),
             ("a TIFF", Self.letter(Self.mixed([Self.plain(words), Self.tiff("scan.tif")]))),
             ("HTML", Self.letter(Self.mixed([Self.html(words), Self.jpeg("IMG_0185.jpg", disposition: "inline")]))),
         ] {
@@ -751,6 +760,156 @@ final class FileListedOnceTests: XCTestCase {
             XCTAssertFalse(printed.contains(PrintPage.photoClass), label)
             XCTAssertFalse(printed.contains("break-before"), label)
             XCTAssertFalse(printed.contains("<img"), label)
+        }
+    }
+
+    // MARK: - On paper, as Mail's PDFs
+
+    /// The address and style a plain letter's photo prints with.
+    private func photo(_ section: String, of m: Message) -> String {
+        "<img decoding=sync class=\"" + PrintPage.photoClass + "\" src=\""
+            + address(BodyFiles.pictureID(section, of: m.id)) + "\" alt=\"\" style=\""
+            + PrintPage.photoStyle + "\">"
+    }
+
+    private let together = "<div style=\"margin: 0; padding: 0; white-space: normal;\">"
+
+    /// A plain letter's words on paper, as the page sets them.
+    private func words(_ text: String, of m: Message) -> String {
+        PrintPage.decodedAtOnce(PanePage.content(text: text, html: nil, known: PanePage.contentIDs(of: m),
+                                                 flowed: m.textIsFlowed))
+    }
+
+    /// The round's words, as its letters have them (r6-u-pdf).
+    private static func roundWords(_ kind: String, _ tail: String, _ name: String) -> String {
+        "R6 B-185 \(kind): the first paragraph, a few plain words before the photo.\n\n"
+            + "The second paragraph; \(tail)\n\n\(name)\n"
+    }
+
+    /// A plain letter's picture sent as an attachment prints after its
+    /// words exactly as an inline one does (B-185; round r6-u-pdf, 30
+    /// October 2026, letter H: Mail 16.5.1 printed its photo on sheet 2
+    /// as it printed letter A's inline one, where Blackmail printed the
+    /// words alone). The page is the inline letter's, byte for byte, and
+    /// a picture sent with no disposition the same; shown only in part,
+    /// above the words, as an inline one. An HTML letter's, and one
+    /// attached to a letter with no words, not (round r6-n-compare). The
+    /// pane draws it after the words, as before, and no photo of paper.
+    func testAPlainLettersAttachedPhotoPrintsAsAnInlineOne() throws {
+        let words = Self.roundWords("attached photo", "the photo is attached after it, as a file.", "Hal")
+        func letter(_ disposition: String?) -> Message {
+            Self.message(Self.letter(Self.mixed([Self.plain(words),
+                                                 Self.jpeg("IMG_0185.jpg", disposition: disposition)])))
+        }
+        let attached = letter("attachment"), inline = letter("inline"), bare = letter(nil)
+        XCTAssertEqual(attached.attachments.map(\.isInline), [false])
+        XCTAssertEqual(PrintPage.photos(of: attached, cut: false).map(\.id), ["2"])
+        XCTAssertEqual(PrintPage.body(attached).html,
+                       self.words(words, of: attached) + together + photo("2", of: attached) + "</div>")
+        let page = PrintPage.letter(attached, style: Self.print, size: { "\($0) bytes" })
+        XCTAssertEqual(page, PrintPage.letter(inline, style: Self.print, size: { "\($0) bytes" }), "as an inline one")
+        XCTAssertEqual(PrintPage.letter(bare, style: Self.print, size: { "\($0) bytes" }), page, "no disposition")
+        order(["Hal", photo("2", of: attached)], in: page, "after the words")
+        XCTAssertEqual(count("<img ", in: page), 1)
+        XCTAssertNotNil(PanePage.pictures(of: [attached])[BodyFiles.pictureID("2", of: attached.id)],
+                        "the print's loader has it")
+
+        // Shown only in part: above the words, under the line.
+        var cut = attached
+        cut.isShortened = true
+        XCTAssertEqual(PrintPage.body(cut).html, PrintPage.shortened + together + photo("2", of: cut) + "</div>"
+                       + self.words(words, of: cut))
+
+        // The pane as before: the picture after the words, no photo of paper.
+        let pane = try XCTUnwrap(PanePage.letter(attached, style: style))
+        order(["Hal", drawn("2", of: attached)], in: pane, "the pane")
+        XCTAssertFalse(pane.contains(PrintPage.photoClass))
+
+        // Not printed: an HTML letter's, and one attached alone.
+        for (label, m) in [
+            ("HTML", Self.message(Self.letter(Self.mixed([Self.html("Our garden."), Self.jpeg("IMG_0185.jpg")])))),
+            ("alone", Self.message(Self.letter(Self.mixed([Self.jpeg("IMG_0185.jpg")])))),
+        ] {
+            XCTAssertEqual(PrintPage.photos(of: m, cut: false), [], label)
+            XCTAssertFalse(PrintPage.body(m).html.contains("<img"), label)
+        }
+    }
+
+    /// A plain letter's parts print in the letter's order (B-185; round
+    /// r6-u-pdf, 30 October 2026, letter G: Mail 16.5.1 printed the
+    /// words, the photo, and "Sent from my iPhone", the text part after
+    /// it, under the photo; Blackmail printed that line above the photo,
+    /// the two text parts joined). Each part's words set as the words
+    /// are, the photo between them. The pane as before, the parts
+    /// joined and the photo after them. Shown only in part, as before;
+    /// two parts with no photo between them, or a photo before all their
+    /// words, as before.
+    func testAPlainLettersPartsPrintInTheLettersOrder() throws {
+        let words = Self.roundWords("photo then words",
+                                    "the photo comes after it, and a line of words after the photo.", "Gus")
+        let tail = "Sent from my iPhone\n"
+        let m = Self.message(Self.letter(Self.mixed([
+            Self.plain(words), Self.jpeg("IMG_1220.jpeg", disposition: "inline"), Self.plain(tail)])))
+        let joined = try XCTUnwrap(m.textBody)
+        XCTAssertEqual(m.attachments.map(\.id), ["2"])
+        XCTAssertEqual(m.textParts.map(\.section), ["1", "3"])
+        XCTAssertEqual(m.textParts.map(\.start), [0, words.utf8.count])
+        XCTAssertEqual(joined, words + tail)
+
+        // On paper: the words, the photo, the line.
+        let printed = PrintPage.body(m).html
+        XCTAssertEqual(printed, self.words(words, of: m) + together + photo("2", of: m) + "</div>"
+                       + self.words(tail, of: m))
+        let page = PrintPage.letter(m, style: Self.print, size: { "\($0) bytes" })
+        order(["Gus", photo("2", of: m), "Sent from my iPhone"], in: page, "the letter's order")
+        XCTAssertEqual(count("Sent from my iPhone", in: page), 1)
+        XCTAssertEqual(count("<img ", in: page), 1)
+
+        // The pane as before: the parts joined, the photo after them.
+        let pane = try XCTUnwrap(PanePage.letter(m, style: style))
+        order(["Gus", "Sent from my iPhone", drawn("2", of: m)], in: pane, "the pane")
+        XCTAssertFalse(pane.contains(PrintPage.photoClass))
+
+        // Shown only in part: the words joined, as before.
+        var cut = m
+        cut.isShortened = true
+        XCTAssertEqual(PrintPage.body(cut).html, PrintPage.shortened + together + photo("2", of: cut) + "</div>"
+                       + self.words(joined, of: cut))
+
+        // Two parts, the photo after both, or before both: as before.
+        for (label, parts) in [
+            ("after", [Self.plain(words), Self.plain(tail), Self.jpeg("IMG_1220.jpeg", disposition: "inline")]),
+            ("before", [Self.jpeg("IMG_1220.jpeg", disposition: "inline"), Self.plain(words), Self.plain(tail)]),
+        ] {
+            let two = Self.message(Self.letter(Self.mixed(parts)))
+            XCTAssertEqual(two.textParts.count, 2, label)
+            let file = try XCTUnwrap(two.attachments.first?.id, label)
+            XCTAssertEqual(PrintPage.body(two).html, self.words(try XCTUnwrap(two.textBody), of: two) + together
+                           + photo(file, of: two) + "</div>", label)
+        }
+    }
+
+    /// The round's letters of one text part, or none, print as before,
+    /// byte for byte: the words, then the photos (B-185; round r6-u-pdf,
+    /// letters A to F). None has a part's place.
+    func testTheRoundsLettersOfOnePartPrintAsBefore() throws {
+        let tail = "the photo comes after it, and no markup names it."
+        let shapes: [(String, String?, [String])] = [
+            ("A", Self.roundWords("words and photo", tail, "Wren"), ["IMG_0185.jpg"]),
+            ("B", Self.roundWords("portrait photo", tail, "Bea"), ["IMG_1220.jpeg"]),
+            ("C", Self.roundWords("turned photo", tail, "Cy"), ["IMG_1226.jpeg"]),
+            ("D", Self.roundWords("small photo", tail, "Dot"), ["IMG_0322.jpg"]),
+            ("E", Self.roundWords("two photos", tail, "Eli"), ["IMG_0185.jpg", "IMG_1220.jpeg"]),
+            ("F", nil, ["IMG_1220.jpeg"]),
+        ]
+        for (label, text, names) in shapes {
+            let m = Self.message(Self.letter(Self.mixed((text.map { [Self.plain($0)] } ?? [])
+                + names.map { Self.jpeg($0, disposition: "inline") })))
+            XCTAssertEqual(m.textParts, [], label)
+            let ids = m.attachments.map(\.id)
+            XCTAssertEqual(ids.count, names.count, label)
+            XCTAssertEqual(PrintPage.body(m).html, (text.map { words($0, of: m) } ?? "") + together
+                           + ids.map { photo($0, of: m) }.joined() + "</div>", label)
         }
     }
 

@@ -11662,7 +11662,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       letter's inline photo on paper (KNOWN_ISSUES B-185, "Fixed again
       2026-10-30, after the test iPad (r6-q-copy)", "Corrected again
       2026-10-30" and "Fixed again 2026-10-30, after the test iPad
-      (r6-r-copy)", its width now in points); the same two
+      (r6-r-copy)", its width now in points), and a plain letter's
+      attached photo and its parts in the letter's order on paper
+      (KNOWN_ISSUES B-185, "Fixed again 2026-10-30, after the PDFs
+      (r6-u-pdf)"); the same two
       picture letters and round r6-p-copy's letter of words and a PDF,
       or made again as that round made them; and four more made the
       same way: "R6 B-185 three", words and a PDF of three pages;
@@ -11677,7 +11680,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       photo offline", another like the first, opened in neither app
       before 3b;
       and "R6 B-185 photo alone", a portrait phone photo of 3024 by
-      4032 and nothing else. The host APPENDs each, read, to "Notes",
+      4032 and nothing else; and round r6-u-pdf's H, "R6 B-185
+      attached photo", and G, "R6 B-185 photo then words", made again
+      as that round made them. The host APPENDs each, read, to "Notes",
       noting each UID from its APPENDUID; it stops if one has none. Print
       preview only: Cancel each time, nothing printed, nothing sent.
       Mail beside Blackmail.
@@ -11739,6 +11744,24 @@ checks below is left as not needed, not open, and none is worth a round.*
          first sheet and the photo on the second, as WebKit moves it
          whole. Mail's preview beside it: written down how many
          sheets, and where its photo starts. Screenshots.
+      3d. *H, "R6 B-185 attached photo"*, A's words and photo, the
+         photo sent as an attachment: in both apps printed to PDF as
+         round r6-u-pdf did (the print panel's Share, Save to Files,
+         On My iPad, Save; nothing printed), each PDF taken off the
+         iPad and measured. Blackmail's photo under the words on
+         sheet 1, at 36, 216, 496 by 372 points, whole, as its A's;
+         Mail's alone on sheet 2, as round r6-u-pdf saw. No photo, or
+         a photo other than A's in place or size: a FAIL. Screenshots
+         of both previews.
+      3e. *G, "R6 B-185 photo then words"*, words, a portrait photo
+         inline, then a text part "Sent from my iPhone": printed to
+         PDF and measured the same way. Blackmail's words on sheet 1,
+         the photo whole at the top of sheet 2, 496 by 661.6 points,
+         and "Sent from my iPhone" under the photo on sheet 2, in the
+         words' font and size; Mail's line under its photo's last
+         piece, on sheet 4. The line above the photo, or twice: a
+         FAIL. On screen the pane as before, the line between "Gus"
+         and the photo. Screenshots of both previews.
       4. *The pane:* each letter's files drawn in it as before.
       5. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move

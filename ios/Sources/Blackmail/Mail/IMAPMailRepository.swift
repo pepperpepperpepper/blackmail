@@ -2181,6 +2181,9 @@ actor IMAPMailRepository: MailRepository {
                                  refused: fetched.refused)
             decoded.text = text.text
             decoded.html = html.text
+            // No part's place: the paper prints a letter fetched in part
+            // with its words joined, as before (B-185).
+            decoded.textParts = []
             // By the body the pane shows, which is the HTML whenever there
             // is any (`PanePage`): a text alternative cut short under HTML
             // that came whole is not what he reads.
@@ -2306,7 +2309,8 @@ actor IMAPMailRepository: MailRepository {
                 .trimmingCharacters(in: .whitespaces),
             gmailMessageID: named,
             isShortened: shortened,
-            textIsFlowed: decoded.textIsFlowed)
+            textIsFlowed: decoded.textIsFlowed,
+            textParts: decoded.textParts)
     }
 
     private static let rfc2822: DateFormatter = {

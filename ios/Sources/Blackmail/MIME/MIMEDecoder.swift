@@ -1134,14 +1134,18 @@ enum MIMEDecoder {
             forwardedFields(of: letter,
                             header: bodyFor(letter).map { decodeTransfer($0, encoding: letter.encoding) })
         }
+        // Where each plain part begins, for the paper alone (B-185).
+        var textParts: [Message.TextPart] = []
         var body = DecodedBody(text: joined(plan.text, asHTML: false, goesOn: plan.textGoesOn,
-                                            words: words, fields: fields),
+                                            words: words, fields: fields,
+                                            partStarts: { textParts.append(.init(section: $0, start: $1)) }),
                                html: joined(plan.html, asHTML: true, goesOn: plan.htmlGoesOn,
                                             words: words, fields: fields),
                                attachments: [])
         // By the body the pane shows, the HTML whenever there is any.
         body.isShortened = body.html != nil ? plan.htmlGoesOn : plan.textGoesOn
         body.textIsFlowed = plan.textIsFlowed
+        if body.text != nil, textParts.count > 1 { body.textParts = textParts }
         var attachments: [Attachment] = []
         collectAttachments(part, skipping: plan.sections, depth: 0, into: &attachments)
         body.attachments = attachments
@@ -1601,9 +1605,16 @@ enum MIMEDecoder {
     /// for the words after them, and go with them; at the end of a body
     /// that came whole, the lines of a letter that forwards no words go in
     /// all the same.
+    ///
+    /// `partStarts` is told each part of words that goes in, by its
+    /// section, and the byte of the body's UTF-8 its words begin at, the
+    /// line and any forwarded letter's header lines before them with them;
+    /// not for a body of one part, which is that part (`Message.textParts`,
+    /// B-185).
     static func joined(_ pieces: [BodyPiece], asHTML: Bool, goesOn: Bool = false,
                        words: (MIMEPart) -> (text: String, cut: Bool)?,
-                       fields: (MIMEPart) -> ForwardedFields?) -> String? {
+                       fields: (MIMEPart) -> ForwardedFields?,
+                       partStarts: ((_ section: String, _ start: Int) -> Void)? = nil) -> String? {
         let drawn = drawnPieces(pieces, asHTML: asHTML)
         guard drawn.contains(where: asHTML ? isHTML : isPlain) else { return nil }
         if drawn.count == 1, let only = drawn[0].words { return words(only)?.text }
@@ -1638,6 +1649,7 @@ enum MIMEDecoder {
                     whole = false
                     break walk
                 }
+                partStarts?(part.section, out.utf8.count)
                 any = true
                 putWaiting()
                 let isHTMLPart = part.subtype == "html"

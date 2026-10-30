@@ -42587,7 +42587,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's crop of it (read as a stretch until r6-u-pdf), not copied; seen again on PDFs 2026-10-30 (r6-u-pdf): Mail prints an attached photo after the words too, and a text part after a photo after it, to copy
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's crop of it (read as a stretch until r6-u-pdf), not copied; seen again on PDFs 2026-10-30 (r6-u-pdf): Mail prints an attached photo after the words too, and a text part after a photo after it, to copy; fixed again after them, both copied on paper
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -43326,6 +43326,81 @@ sight, was not seen. The pane is not changed by this work (D-025).
 - TODO B-185 1a to 1e and 3b; a photo in a quote, a HEIC one, an HTML
   letter's photo, a letter over 5 MB: not in the round. Mail on 18:
   not seen.
+
+**Fixed again 2026-10-30, after the PDFs (r6-u-pdf).** The two to
+copy above, on paper alone.
+
+**What changed.**
+
+1. *An attached photo* (`PrintPage.photos(of:cut:)`). A plain letter
+   with words prints each picture it sends as an attachment, or with
+   no disposition, that the pane draws as a picture
+   (`BodyFiles.isPicture`), exactly as an inline one: after the
+   words, in the same style, by the same order rules, and above the
+   words under the grey line for a letter cut or shown only in part.
+   H's page is now the page of A's twin with the photo inline, byte
+   for byte. Not for an HTML letter (not measured), nor for a letter
+   of an attached picture and no words, which round r6-n-compare saw
+   Mail print as its header alone (not reconciled with H).
+2. *The parts in the letter's order* (`PrintPage.partsInOrder`). The
+   decoder notes where each part of a plain body of more than one
+   part begins in the joined words (`MIMEDecoder.joined`, its
+   `partStarts`; `Message.textParts`), for the paper alone; a letter
+   fetched in part notes none. On paper a photo that comes between
+   two text parts, by their sections, prints between them, each
+   part's words set as the words are (`PanePage.content`: the same
+   fonts, wrapping and quote handling): G's words, the photo, then
+   "Sent from my iPhone". A photo before all the words or after all
+   of them prints after the words, as before.
+3. *Unchanged.* The pane, which draws the parts joined and every
+   photo after them; an HTML letter; a letter of one text part, or
+   of none: the round's A to F printed the same page, byte for byte,
+   at 7f60fff and after the change; a letter cut or shown only in
+   part, its words joined, as before; the letter in words
+   (`PrintPage.words`).
+
+**What he sees.** A plain letter with a photo attached prints the
+photo after its words, as an inline one; a letter signed "Sent from
+my iPhone" after its photo prints that line under the photo, as Mail
+prints it.
+
+**Tests.** `FileListedOnceTests`, three new: H's letter, its page the
+inline twin's to the byte and one with no disposition the same, the
+photo after the words, above them for a letter shown in part, none
+for an HTML letter's or one attached alone, the pane as before; G's
+letter, its parts' places, its printed body the words, the photo and
+the line to the byte, the pane as before, the words joined for a
+letter shown in part, and as before with the photo after or before
+both parts; the round's A to F, no part's place, each body as before
+to the byte. Changed: the plain letter with words and an attached
+picture in `testAPrintedLetterHasNoneOfItsFilesAsMailsHasNone`, now
+printed with its photo, and the attached picture left out of the
+list of those not printed in
+`testAPlainLettersInlinePhotoPrintsAfterTheWords`; in
+`PrintPageTests.testOnlyAPDFsPagesArePrinted` the picture file prints
+as its photo, never as a page.
+
+Each undone by hand, the class run, each failure read by its line,
+then put back: an attached photo left out, 8 failures in 2 tests; the
+parts in order left out, 2 in 1; the decoder's places left out, 6 in
+1; a space after a one-part letter's words, 6 in 1, the test of A to
+F. Each failure an assertion's. The full suite: 3,257 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
+
+**The pane against Mail's.** As round r6-u-pdf saw (above): Mail's
+pane has G's photo right under "Gus", Blackmail's the line between
+them. Not changed (D-025).
+
+**Not covered** (this change):
+
+- On paper, or saved as PDF: not seen (TODO B-185, 3d and 3e).
+- A letter fetched in part, too large to fetch whole: its words
+  joined on paper and its photos after them, as before.
+- A photo before all the words of a letter of several text parts:
+  after the words, as before; Mail's print not seen.
+- Two photos between two parts, a photo in a forwarded letter: by the
+  rule, not seen.
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

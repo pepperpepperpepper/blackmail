@@ -338,6 +338,20 @@ struct Message: Identifiable {
     /// where the row does not say, a letter kept on the iPad with none,
     /// and on a letter as the server reads it until its row gives it.
     var arrived: Date? = nil
+    /// Where each part of `textBody` begins in it, in the letter's order,
+    /// for a plain body joined from more than one part
+    /// (`MIMEDecoder.joined`); empty for one of one part, and for a letter
+    /// fetched in part. Only the paper reads it: a photo between two text
+    /// parts prints between them, as Mail 16.5.1 prints one (`PrintPage`,
+    /// B-185). The pane draws the parts joined, as before.
+    var textParts: [TextPart] = []
+
+    /// A part of `textBody`: its section, and the byte of the body's
+    /// UTF-8 where its words begin.
+    struct TextPart: Equatable, Sendable {
+        let section: String
+        let start: Int
+    }
 }
 
 extension Message {

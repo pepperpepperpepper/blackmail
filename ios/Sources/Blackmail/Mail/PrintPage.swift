@@ -4,7 +4,8 @@ import Foundation
 /// white, its header as Mail prints it (B-172), then its body as the pane
 /// shows it, in the sender's own colours, with the pictures its markup
 /// draws, none of its files, the pages of its PDFs under the words, and
-/// a plain letter's inline photos after them (B-185).
+/// a plain letter's photos after them, or between its text parts where
+/// they come (B-185).
 ///
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
@@ -187,8 +188,9 @@ enum PrintPage {
     /// `cid:` prints there; none of its files is printed as a file,
     /// neither where the pane draws one nor after the words, and the
     /// header lists none (B-185); a PDF's pages print after the words
-    /// (`pdfPages`), and a plain letter's inline photos after them
-    /// (`photoImages`). Mail 16.5.1 prints a letter
+    /// (`pdfPages`), and a plain letter's photos after them
+    /// (`photoImages`), or between its text parts where they come
+    /// (`partsInOrder`). Mail 16.5.1 prints a letter
     /// whose only content is an attached picture as its header alone, and
     /// one whose HTML shows its picture by `cid:` with the picture (round
     /// r6-n-compare, C-3b, 29 October 2026); from B-170 to B-185 the paper
@@ -322,11 +324,14 @@ enum PrintPage {
     /// among the words (`BodyFiles.mark`) is left the comment it came as,
     /// which nothing draws; a picture the HTML shows by `cid:` is the
     /// HTML's own, and prints. After the words, the pages of its PDFs in
-    /// `pdfPages` (`pdfPageImages`), and then a plain letter's inline
-    /// photos (`photoImages`); above them, under the grey line, for a
-    /// letter cut or shown only in part, whose markup ends wherever the
-    /// cut fell and would take in anything after it, as the pane puts its
-    /// files there (`BodyFiles.drawn`). Whether it is the letter's HTML.
+    /// `pdfPages` (`pdfPageImages`), and then a plain letter's photos
+    /// (`photoImages`), each photo that comes between two of its text
+    /// parts printed between them instead, the words of each part set
+    /// as the words are (`partsInOrder`); above them, under the grey
+    /// line, for a letter cut or shown only in part, whose markup ends
+    /// wherever the cut fell and would take in anything after it, as the
+    /// pane puts its files there (`BodyFiles.drawn`), its words joined.
+    /// Whether it is the letter's HTML.
     /// Its pictures decoded as they are drawn (`decodedAtOnce`); a plain
     /// letter's words have none, every `<` in them written `&lt;`.
     static func body(_ m: Message, heldBack: Bool = false,
@@ -358,9 +363,14 @@ enum PrintPage {
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
         let shown = cut != nil || m.isShortened
-        return (placed(shown, decodedAtOnce(PanePage.content(text: cut ?? text, html: nil, known: known,
-                                                             flowed: m.textIsFlowed)),
-                       photos: photoImages(m, cut: shown)), false)
+        func words(_ text: String) -> String {
+            decodedAtOnce(PanePage.content(text: text, html: nil, known: known, flowed: m.textIsFlowed))
+        }
+        if !shown, let order = partsInOrder(m, photos: photos(of: m, cut: false)) {
+            let between = order.parts.map { words($0.words) + photoImages($0.photos, of: m) }.joined()
+            return (placed(false, between, photos: photoImages(order.after, of: m)), false)
+        }
+        return (placed(shown, words(cut ?? text), photos: photoImages(m, cut: shown)), false)
     }
 
     // MARK: - A plain letter's photos
@@ -368,14 +378,62 @@ enum PrintPage {
     /// The pictures of a plain letter printed after its words (B-185,
     /// fixed again): every picture it sends inline (`isInline`) that is
     /// drawn as one (`BodyFiles.isPicture`), with a `Content-ID` or none,
-    /// as no markup names them; of a letter cut or shown only in part,
-    /// those the pane draws above its words, none with a `Content-ID`
-    /// (`BodyFiles.drawn`). In the letter's order. None for an HTML
-    /// letter, or a picture sent as an attachment, as Mail 16.5.1 prints
-    /// none (round r6-n-compare, C-3b).
+    /// as no markup names them; of a letter with words, every picture it
+    /// sends as an attachment too, as Mail 16.5.1 prints one exactly as
+    /// an inline one (round r6-u-pdf, 30 October 2026, letter H); of a
+    /// letter cut or shown only in part, those the pane draws above its
+    /// words, none with a `Content-ID` (`BodyFiles.drawn`). In the
+    /// letter's order. None for an HTML letter, as Mail prints none
+    /// (round r6-n-compare, C-3b), nor a picture attached to a letter
+    /// with no words, whose header alone Mail printed in that round,
+    /// not reconciled with H's.
     static func photos(of m: Message, cut: Bool) -> [Attachment] {
         guard m.htmlBody == nil else { return [] }
-        return (cut ? m.listedAttachments : m.attachments).filter { $0.isInline && BodyFiles.isPicture($0) }
+        let hasWords = m.textBody?.contains { !$0.isWhitespace } ?? false
+        return (cut ? m.listedAttachments : m.attachments).filter {
+            BodyFiles.isPicture($0) && ($0.isInline || hasWords)
+        }
+    }
+
+    /// A plain letter's text parts (`Message.textParts`) and `photos`, its
+    /// photos, in the letter's order, as Mail 16.5.1 prints them (B-185;
+    /// round r6-u-pdf, 30 October 2026, letter G: the words, the photo,
+    /// then "Sent from my iPhone", a text part after it): each part's
+    /// words, and the photos that come after it and before the next part,
+    /// by their sections; `after`, those before all its words or after
+    /// all of them, printed after the words as before. Nil when no photo
+    /// comes between two parts, and for a body of one part, or one whose
+    /// places do not fit it, which print as before, the words joined. The
+    /// pane draws the words joined and every photo after them, as before.
+    static func partsInOrder(_ m: Message, photos: [Attachment])
+        -> (parts: [(words: String, photos: [Attachment])], after: [Attachment])? {
+        let parts = m.textParts
+        guard parts.count > 1, !photos.isEmpty, let text = m.textBody else { return nil }
+        let bytes = Array(text.utf8)
+        let starts = parts.map(\.start)
+        guard starts.first == 0, zip(starts, starts.dropFirst()).allSatisfy({ $0 <= $1 }),
+              let last = starts.last, last <= bytes.count else { return nil }
+        // How many parts come before each photo.
+        let before = photos.map { photo in parts.filter { comesBefore($0.section, photo.id) }.count }
+        guard before.contains(where: { $0 > 0 && $0 < parts.count }) else { return nil }
+        var out: [(words: String, photos: [Attachment])] = []
+        for (i, start) in starts.enumerated() {
+            let end = i + 1 < starts.count ? starts[i + 1] : bytes.count
+            let next = zip(photos, before).filter { $0.1 == i + 1 && i + 1 < parts.count }.map(\.0)
+            out.append((String(decoding: bytes[start..<end], as: UTF8.self), next))
+        }
+        let after = zip(photos, before).filter { $0.1 == 0 || $0.1 == parts.count }.map(\.0)
+        return (out, after)
+    }
+
+    /// Whether the part at `section` comes before the one at `other` in
+    /// the letter, its sections' numbers compared one by one, "2" before
+    /// "2.1" before "3".
+    static func comesBefore(_ section: String, _ other: String) -> Bool {
+        let a = section.split(separator: ".").map { Int($0) ?? 0 }
+        let b = other.split(separator: ".").map { Int($0) ?? 0 }
+        for (x, y) in zip(a, b) where x != y { return x < y }
+        return a.count < b.count
     }
 
     /// WebKit's print lays a page out this many times wider than the
@@ -426,7 +484,12 @@ enum PrintPage {
     /// the pane draws it by (`BodyFiles.pictureID`), so the pane's page
     /// is not touched. "" for a letter with none.
     static func photoImages(_ m: Message, cut: Bool) -> String {
-        let photos = photos(of: m, cut: cut)
+        photoImages(photos(of: m, cut: cut), of: m)
+    }
+
+    /// `photos`, photos of `m`, as `photoImages(_:cut:)` prints them; ""
+    /// for none.
+    static func photoImages(_ photos: [Attachment], of m: Message) -> String {
         guard !photos.isEmpty else { return "" }
         let pictures = photos.map { file in
             "<img decoding=sync class=\"" + photoClass + "\" src=\"" + InlineImageRewriter.scheme + "://"

@@ -743,9 +743,11 @@ final class PrintPageTests: XCTestCase {
     }
 
     /// Only a PDF's pages print: a picture file, a text file or a PDF with
-    /// nothing handed in print nothing, as Mail prints none (B-185 as
+    /// nothing handed in print no page, as Mail prints none (B-185 as
     /// seen); pages for a part that is no PDF of the letter, or of none,
     /// draw nothing. A PDF sent with no kind of its own is one by its name.
+    /// The picture file of this plain letter prints as its photo since
+    /// round r6-u-pdf (`photos(of:cut:)`), never as a page.
     func testOnlyAPDFsPagesArePrinted() throws {
         let photo = Attachment(id: "2", filename: "IMG_0182.jpg", mimeType: "image/jpeg", size: 9)
         let notes = Attachment(id: "3", filename: "notes.txt", mimeType: "text/plain", size: 9)
@@ -753,9 +755,12 @@ final class PrintPageTests: XCTestCase {
         let bare = Attachment(id: "5", filename: "Scan.PDF", mimeType: "application/octet-stream", size: 9)
         let m = letter(text: "Our garden.", attachments: [photo, notes, plan, bare])
         XCTAssertEqual(PrintPage.pdfs(of: m).map(\.id), ["4", "5"])
-        XCTAssertEqual(try body(page(m, pdfPages: ["2": [1], "3": [1], "9": [1]])), "Our garden.")
+        let none = try body(page(m, pdfPages: ["2": [1], "3": [1], "9": [1]]))
+        XCTAssertTrue(none.hasPrefix("Our garden."), none)
+        XCTAssertFalse(none.contains("bmpdf-"), none)
+        XCTAssertEqual(none, try body(page(m)), "no page")
         let printed = try body(page(m, pdfPages: ["2": [1], "3": [1], "5": [1]]))
-        XCTAssertEqual(printed.components(separatedBy: "<img ").count - 1, 1)
+        XCTAssertEqual(printed.components(separatedBy: PrintPage.pdfPageClass).count - 1, 1)
         XCTAssertTrue(printed.contains(pdfPage("5", 1, of: m)))
         XCTAssertFalse(printed.contains("bmpdf-m7_3-2-"), "no picture file")
         XCTAssertFalse(printed.contains("bmpdf-m7_3-4-"), "nothing handed in, no page")
