@@ -11464,7 +11464,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       words rgb(99, 239, 255), 16.5.1's shade); the top line as before. In
       5 the Gmail reply's nested line light teal with two bars, one page,
       as Mail's preview, then Cancel, nothing printed. In 6 the letters
-      put in the Trash, nothing erased. Not run: 3's two panes and stack.
+      put in the Trash, nothing erased. Not run: 3's two panes and stack,
+      and 5's HTML letter (seen on 7803dbb, its rule unchanged since).
       Nothing was sent.*
 
 - [ ] **B-181, the open letter's row blue as Mail's.** On the test
