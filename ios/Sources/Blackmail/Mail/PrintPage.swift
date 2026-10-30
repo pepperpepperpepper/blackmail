@@ -386,8 +386,10 @@ enum PrintPage {
     /// CSS pixel prints as 0.8 points (measured on the test iPad,
     /// 2026-10-30, round r6-r-copy: a cap of 496px printed 399 points
     /// wide, and a picture of `width=320` 257). A page wider still
-    /// shrinks more, up to twice; a plain letter's words wrap, so its
-    /// page is never wider than that.
+    /// shrinks more, up to twice. A plain letter's body wraps; only a
+    /// long unbroken value in its head, which WebKit does not break in
+    /// the head's table, can widen its page, and then a photo's most
+    /// height prints smaller (never cut), its width still `photoWidth`.
     static let printLayoutFactor = 1.25
 
     /// The most width of such a photo on paper, in points: about 81% of

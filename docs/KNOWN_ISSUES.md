@@ -42878,8 +42878,9 @@ failing. The release build for the iPad: "Build complete".
 - Not seen on the iPad (TODO B-185, 3).
 - A page laid out wider than 675 CSS pixels shrinks more, up to twice:
   the photo's width, a share, still 496 points, and its most height less
-  than 720. A plain letter's words wrap, so its page is never that wide.
-  Not seen.
+  than 720, never cut. A plain letter's body wraps; only a long unbroken
+  value in its head (Subject, From, To) widens its page, as WebKit does
+  not break it in the head's table. Not seen.
 - A small photo prints 0.8 points to its pixel, one of 300 by 200 at 240
   by 160 points; Mail's not seen (TODO B-185, 3a).
 
