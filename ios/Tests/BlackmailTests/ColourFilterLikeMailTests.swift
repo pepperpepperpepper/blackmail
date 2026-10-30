@@ -319,7 +319,7 @@ final class ColourFilterLikeMailTests: XCTestCase {
                                       + "filters.id = '\(SmartInvert.colourFilterSheetID)'; "
                                       + "filters.textContent = colourFilter; document.head.appendChild(filters); }"))
         XCTAssertTrue(script.contains("if (filter) root.classList.add('\(SmartInvert.colourFilterClass)'); "
-                                      + "else root.classList.remove('\(SmartInvert.colourFilterClass)'); }"))
+                                      + "else root.classList.remove('\(SmartInvert.colourFilterClass)');"))
         let toggle = SmartInvert.Toggle(on: true, rules: SmartInvert.stack, colourFilter: SmartInvert.stackColourFilter)
         XCTAssertEqual(toggle.arguments["colourFilter"] as? String, SmartInvert.stackColourFilter)
         XCTAssertEqual(SmartInvert.Toggle(on: true, rules: "").colourFilter, "")

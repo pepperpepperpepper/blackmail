@@ -659,14 +659,38 @@ enum ConversationDocument {
     /// off, and first, going on, puts the page's rules for it in its head,
     /// in a sheet of their own, where the head has none: a page built with
     /// the switch off has none. A sheet in the head is the app's, as no
-    /// letter's markup goes there. A class and a sheet: nothing is drawn
-    /// again and nothing scrolls. Given the colour filter's rules too, it
+    /// letter's markup goes there. A class and a sheet: the page is not
+    /// loaded again and nothing scrolls. Given the colour filter's rules too, it
     /// asks the page whether its CSS takes the colour filter
     /// (`ColourFilter.test`), and only if it does puts them in a sheet of
     /// their own, in place of any the head has, as WebKit read that one
     /// with the setting as it was then, and the second class,
     /// `SmartInvert.colourFilterClass`, on the root; that class goes with
     /// the first, and whenever it is not given them (B-179).
+    ///
+    /// Going off, it has WebKit draw anew each picture, `img` and `video`,
+    /// that has a filter of its own once the classes are off (r6-q-copy,
+    /// 2026-10-30): one drawn while the switch was on went on being drawn
+    /// without it, the photos of a letter inverted left hue-turned until
+    /// the letter was opened again. `bmRepaintPictures` changes each one's
+    /// `display` to one that draws it the same, a picture inline drawn
+    /// inline-block and a block one `flow-root`, has WebKit lay the page
+    /// out, which makes the picture anew, and puts its `style` attribute
+    /// back as it was, to the byte; the page is put back where it was if
+    /// it moved. A page with no such picture is not touched.
+    ///
+    /// And a light letter's pictures, inside a scope the switch's sheet
+    /// has `SmartInvert.wrapper(in:)` for, are each put in an element of
+    /// `SmartInvert.wrapperTag`, whose invert draws where the picture's
+    /// own does not (r6-q-copy), while the switch is on: by
+    /// `bmWrapPictures` as the page ends, a page built under the switch,
+    /// as a body or a letter goes into the stack, and as the switch goes
+    /// on; taken off, the page's markup as it was, as it goes off. The
+    /// element is inline, or a block round a picture drawn as a block; a
+    /// picture that floats, is placed on its own or drawn any other way,
+    /// or a video playing, is left as it is. Where the picture or what
+    /// holds it is not where it was, at the same size, once the element
+    /// is round it, the element is taken off again.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -686,6 +710,7 @@ enum ConversationDocument {
       body.className = 'bm-body ' + (isHTML ? bmScheme(scheme) : 'bm-text');
       body.innerHTML = html;
       bmWirePictures(body);
+      bmWrapPictures(body);
     }
     function bmSmartInvert(on, rules, colourFilter) {
       var root = document.documentElement;
@@ -707,6 +732,107 @@ enum ConversationDocument {
       }
       if (on) root.classList.add('bm-si'); else root.classList.remove('bm-si');
       if (filter) root.classList.add('bm-cf'); else root.classList.remove('bm-cf');
+      if (on) {
+        bmWrapPictures(document.body);
+      } else {
+        bmUnwrapPictures();
+        bmRepaintPictures();
+      }
+    }
+    function bmWrapScopes() {
+      var sheet = document.head ? document.head.querySelector('style#bm-si') : null;
+      var rules = sheet ? String(sheet.textContent || '') : '';
+      return ['#bm', '.bm-light'].filter(function (scope) {
+        return rules.indexOf('html.bm-si ' + scope + ' bm-si-picture {') >= 0;
+      });
+    }
+    function bmSamePlace(a, b) {
+      return a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height;
+    }
+    function bmWrapPictures(root) {
+      try {
+        if (!root || !document.documentElement.classList.contains('bm-si')) return;
+        var scopes = bmWrapScopes();
+        if (!scopes.length) return;
+        var pictures = root.querySelectorAll(scopes.map(function (scope) {
+          return 'html.bm-si ' + scope + ' img, html.bm-si ' + scope + ' video';
+        }).join(', '));
+        var wraps = [];
+        for (var i = 0; i < pictures.length; i++) {
+          var picture = pictures[i];
+          if (String(picture.parentNode && picture.parentNode.tagName || '').toLowerCase() === 'picture') {
+            picture = picture.parentNode;
+          }
+          var holder = picture.parentNode;
+          if (!holder || holder.bmWrapper) continue;
+          if (String(picture.tagName || '').toLowerCase() === 'video' && !picture.paused) continue;
+          var shown = window.getComputedStyle(picture);
+          var display = shown.getPropertyValue('display');
+          var position = shown.getPropertyValue('position');
+          var floats = shown.getPropertyValue('float') !== 'none';
+          if (floats || (position !== 'static' && position !== 'relative')) continue;
+          if (display !== 'inline' && display !== 'inline-block' && display !== 'block') continue;
+          wraps.push({ picture: picture, holder: holder, block: display === 'block',
+                       was: picture.getBoundingClientRect(), held: holder.getBoundingClientRect() });
+        }
+        for (var j = 0; j < wraps.length; j++) {
+          var wrapper = document.createElement('bm-si-picture');
+          wrapper.bmWrapper = true;
+          if (wraps[j].block) wrapper.style.setProperty('display', 'block');
+          wraps[j].holder.insertBefore(wrapper, wraps[j].picture);
+          wrapper.appendChild(wraps[j].picture);
+          wraps[j].wrapper = wrapper;
+        }
+        for (var k = 0; k < wraps.length; k++) {
+          if (bmSamePlace(wraps[k].was, wraps[k].picture.getBoundingClientRect())
+              && bmSamePlace(wraps[k].held, wraps[k].holder.getBoundingClientRect())) continue;
+          bmUnwrap(wraps[k].wrapper);
+        }
+      } catch (e) {}
+    }
+    function bmUnwrap(wrapper) {
+      var holder = wrapper.parentNode;
+      if (!holder) return;
+      while (wrapper.firstChild) holder.insertBefore(wrapper.firstChild, wrapper);
+      holder.removeChild(wrapper);
+    }
+    function bmUnwrapPictures() {
+      try {
+        var wrappers = document.querySelectorAll('bm-si-picture');
+        for (var i = 0; i < wrappers.length; i++) if (wrappers[i].bmWrapper) bmUnwrap(wrappers[i]);
+      } catch (e) {}
+    }
+    function bmRepaintPictures() {
+      try {
+        var pictures = document.querySelectorAll('img, video');
+        var drawn = [];
+        for (var i = 0; i < pictures.length; i++) {
+          var shown = window.getComputedStyle(pictures[i]);
+          var display = shown.getPropertyValue('display');
+          if (shown.getPropertyValue('filter') === 'none' || display === 'none') continue;
+          drawn.push({ picture: pictures[i], style: pictures[i].getAttribute('style'),
+                       display: bmOtherDisplay(display) });
+        }
+        if (!drawn.length) return;
+        var x = window.pageXOffset, y = window.pageYOffset;
+        for (var j = 0; j < drawn.length; j++) {
+          drawn[j].picture.style.setProperty('display', drawn[j].display, 'important');
+        }
+        void document.documentElement.offsetHeight;
+        for (var k = 0; k < drawn.length; k++) {
+          if (drawn[k].style === null) drawn[k].picture.removeAttribute('style');
+          else drawn[k].picture.setAttribute('style', drawn[k].style);
+        }
+        void document.documentElement.offsetHeight;
+        if (window.pageXOffset !== x || window.pageYOffset !== y) window.scrollTo(x, y);
+      } catch (e) {}
+    }
+    function bmOtherDisplay(display) {
+      if (display === 'inline') return 'inline-block';
+      if (display === 'inline-block') return 'inline';
+      if (display === 'block') return 'flow-root';
+      if (display === 'flow-root') return 'block';
+      return 'none';
     }
     function bmScheme(scheme) {
       return scheme === 'bm-light' || scheme === 'bm-own' ? scheme : 'bm-html';
@@ -868,6 +994,7 @@ enum ConversationDocument {
         var section = document.body.appendChild(holder.firstElementChild);
         var head = section.querySelector('.bm-head');
         if (head) bmWire(head);
+        bmWrapPictures(section);
       }
     }
     function bmInsert(html, beforeID) {
@@ -888,6 +1015,7 @@ enum ConversationDocument {
         last = document.body.insertBefore(holder.firstElementChild, at);
         var head = last.querySelector('.bm-head');
         if (head) bmWire(head);
+        bmWrapPictures(last);
       }
       if (still !== null && last) {
         if (bmOpening) {
@@ -1089,6 +1217,7 @@ enum ConversationDocument {
     }
     (function () {
       if (document.body) bmWirePictures(document.body);
+      if (document.body) bmWrapPictures(document.body);
       window.addEventListener('scroll', bmScroll, { passive: true });
       window.addEventListener('touchstart', bmPictureDown, { capture: true, passive: true });
       window.addEventListener('touchmove', bmPictureMove, { capture: true, passive: true });

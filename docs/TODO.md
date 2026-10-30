@@ -11237,8 +11237,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       the test account only, from a build of the `bm-fix-j1` worktree
       (branch `fix-j1`) or of the int it is merged into, the colour
       filter's change in it (KNOWN_ISSUES B-179, "Fixed again 2026-10-29,
-      after the test iPad (r6-p-copy)" and "Corrected 2026-10-30").
-      Nothing is composed, sent, moved
+      after the test iPad (r6-p-copy)" and "Corrected 2026-10-30"), and
+      its pictures' (KNOWN_ISSUES B-179, "Fixed again 2026-10-30, after
+      the test iPad (r6-q-copy)"). Nothing is composed, sent, moved
       or deleted in the app, nothing printed (where a print panel comes in,
       its preview only, then Cancel), and nothing saved in it but step 3's
       one setting, put back as from the factory. The letters are round
@@ -11275,9 +11276,13 @@ checks below is left as not needed, not open, and none is worth a round.*
          Screenshots.
       3. *The light letter* opened in both: Blackmail's page at (900, 200)
          white, as Mail's, its words black, its link about rgb(0, 122,
-         255). The web picture's cube: about rgb(128, 159, 189), 255 less
-         OFF, if the photos' try took, as Mail's; about rgb(127, 96, 66),
-         natural, if not: written down which, not failed. Screenshots. Then
+         255). Its pictures inverted, as Mail's, by the element round each:
+         the web picture's cube about rgb(128, 159, 189), 255 less OFF,
+         and the inline photo's stripes 255 less OFF; about rgb(127, 96,
+         66), natural, is a FAIL. Each picture's box at the same place
+         and size as in a shot of the same session with the switch off,
+         and every line of words too, by pxcmp of the words' clusters:
+         nothing moved. Screenshots. Then
          Blackmail's Settings, Block All Remote Content on, the letter
          again: Mail's line over it black words on white, as the pane round
          it, its button the tint, orange; Block All Remote Content off
@@ -11295,12 +11300,20 @@ checks below is left as not needed, not open, and none is worth a round.*
          the bar Mail's colours. Colours sampled beside Mail's.
          Screenshots.
       5. *The switch while a letter is open:* the photos letter open in
-         Blackmail, scrolled a little down; Smart Invert turned off in
-         Settings and the app brought back: the page as with the switch
-         off, at the place it was scrolled to, no "Loading…" and nothing
-         drawn again (the script takes both classes off); Smart Invert on
-         again and back: the photos as in 2, at the same place, the class
-         put back by the script. The same with the light letter.
+         Blackmail, scrolled down to its second photo, a shot taken with
+         the switch off first; Smart Invert turned on in Settings and the
+         app brought back: the photos as in 2, at the same place; Smart
+         Invert off again and back: the page as with the switch off, at
+         the place it was scrolled to, no "Loading…", and its photos
+         natural at once, never hue-turned (the sky about rgb(126, 184,
+         245), never rgb(29, 87, 148)): by pxcmp against the shot taken
+         before, no cluster but the label's words resampled; still so
+         after 20 s and after a scroll to the top. Smart Invert on again
+         and back: as in 2, at the same place. The same with the light
+         letter: on, its pictures inverted as in 3 and nothing moved;
+         off, the page the same as its shot before, its pictures natural.
+         And in a conversation's stack, an HTML letter with a photo open,
+         across the same turns: its photo natural at once as it goes off.
          Screenshots.
       5a. *Off at the tap, on after:* Settings > Accessibility >
          Accessibility Shortcut set to Smart Invert (put back as from the

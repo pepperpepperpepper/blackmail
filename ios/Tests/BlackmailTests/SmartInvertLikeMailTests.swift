@@ -95,7 +95,8 @@ final class SmartInvertLikeMailTests: XCTestCase {
     func testOnlyThePhotosLoseTheFilterUnderSmartInvert() throws {
         let page = try XCTUnwrap(PanePage.letter(photos, style: on))
         let stacked = stack([photos, light], smartInvert: true)
-        for rules in [try sheet(of: page), try sheet(of: stacked)] {
+        for sheet in [try sheet(of: page), try sheet(of: stacked)] {
+            let rules = sheet.replacingOccurrences(of: SmartInvert.wrapperTag, with: "")
             for kept in ["svg", "picture", "background-image"] {
                 XCTAssertFalse(rules.contains(kept), "\(kept): \(rules)")
             }
@@ -120,8 +121,10 @@ final class SmartInvertLikeMailTests: XCTestCase {
     /// words and an orange link. Its pictures have no filter of the
     /// pane's; Mail's line over it, held back, is inverted back, so it is
     /// the pane's colour under the system's inversion, as before. Its
-    /// photos are inverted once more by a filter of their own, a try for
-    /// Mail's inverted pictures (r6-p-copy).
+    /// pictures are inverted once more by the element the pane's script
+    /// puts round each (`SmartInvert.wrapperTag`), whose filter draws where
+    /// a picture's own did not (r6-q-copy), with nothing of its own but
+    /// the invert; no rule names a picture itself.
     func testALightLettersSheetIsInvertedPlainlyUnderSmartInvert() throws {
         let m = light
         XCTAssertEqual(LetterScheme.of(html: m.htmlBody!), .light)
@@ -131,9 +134,9 @@ final class SmartInvertLikeMailTests: XCTestCase {
             let rules = try sheet(of: page)
             XCTAssertEqual(rules, "\nhtml.bm-si #bm { filter: invert(1); }\n"
                             + "html.bm-si #bm .bm-unloaded { filter: invert(1); }\n"
-                            + "html.bm-si #bm img, html.bm-si #bm video { filter: invert(1); }\n")
+                            + "html.bm-si #bm bm-si-picture { all: unset; filter: invert(1); }\n")
             XCTAssertFalse(rules.contains("hue-rotate"), rules)
-            XCTAssertFalse(rules.contains("svg") || rules.contains("picture"), rules)
+            XCTAssertFalse(rules.contains("svg") || rules.contains("img") || rules.contains("video"), rules)
             XCTAssertTrue(page.contains(PanePage.lightRule))
             XCTAssertEqual(page.contains("class=\"\(RemoteContent.lineClass)\""), held)
             XCTAssertEqual(withoutTheSwitch(page, rules: SmartInvert.rules(for: .light)),
@@ -191,7 +194,7 @@ final class SmartInvertLikeMailTests: XCTestCase {
         XCTAssertEqual(rules, "\nhtml.bm-si .bm-html img, html.bm-si .bm-html video { filter: none; }\n"
                         + "html.bm-si .bm-light { filter: invert(1); }\n"
                         + "html.bm-si .bm-light .bm-unloaded { filter: invert(1); }\n"
-                        + "html.bm-si .bm-light img, html.bm-si .bm-light video { filter: invert(1); }\n")
+                        + "html.bm-si .bm-light bm-si-picture { all: unset; filter: invert(1); }\n")
         XCTAssertFalse(rules.contains(".bm-own") || rules.contains(".bm-text"), rules)
         let own = try XCTUnwrap(page.range(of: ".bm-html img, .bm-html video"))
         XCTAssertLessThan(own.lowerBound, try XCTUnwrap(page.range(of: "<style id=\"bm-si\">")).lowerBound)
@@ -294,5 +297,38 @@ final class SmartInvertLikeMailTests: XCTestCase {
         XCTAssertEqual(toggle.arguments["on"] as? Bool, true)
         XCTAssertEqual(toggle.arguments["rules"] as? String, SmartInvert.stack)
         XCTAssertEqual(toggle.arguments["colourFilter"] as? String, "")
+    }
+
+    /// The script, read: going on, it puts a light letter's pictures in
+    /// the element of `SmartInvert.wrapperTag`, inside a scope whose rule
+    /// for it the switch's sheet has; going off, it takes every such
+    /// element off and has WebKit draw anew the pictures left with a
+    /// filter of their own (r6-q-copy, 2026-10-30). And it puts them in as
+    /// the page ends, as `bmFill` puts a body in and as a letter goes into
+    /// the stack. What it does is run in node in
+    /// `SmartInvertPicturesTests`; this holds it where there is no node.
+    func testTheScriptDrawsPicturesAnewAndWrapsALightLetters() {
+        let script = ConversationDocument.script.split(whereSeparator: { $0 == " " || $0 == "\n" })
+            .joined(separator: " ")
+        XCTAssertTrue(script.contains("if (filter) root.classList.add('\(SmartInvert.colourFilterClass)'); "
+                                      + "else root.classList.remove('\(SmartInvert.colourFilterClass)'); "
+                                      + "if (on) { bmWrapPictures(document.body); } "
+                                      + "else { bmUnwrapPictures(); bmRepaintPictures(); } }"), script)
+        XCTAssertTrue(script.contains("return rules.indexOf('html.\(SmartInvert.className) ' + scope + ' "
+                                      + "\(SmartInvert.wrapperTag) {') >= 0;"))
+        XCTAssertTrue(SmartInvert.wrapper(in: "#bm").hasPrefix("html.\(SmartInvert.className) #bm "
+                                                               + "\(SmartInvert.wrapperTag) {"))
+        XCTAssertTrue(SmartInvert.wrapper(in: ".bm-light").hasPrefix("html.\(SmartInvert.className) .bm-light "
+                                                                     + "\(SmartInvert.wrapperTag) {"))
+        XCTAssertTrue(script.contains("return ['#bm', '.bm-light'].filter("))
+        XCTAssertTrue(script.contains("var wrapper = document.createElement('\(SmartInvert.wrapperTag)');"))
+        XCTAssertTrue(script.contains("var wrappers = document.querySelectorAll('\(SmartInvert.wrapperTag)');"))
+        XCTAssertTrue(script.contains("body.innerHTML = html; bmWirePictures(body); bmWrapPictures(body); }"))
+        XCTAssertTrue(script.contains("if (head) bmWire(head); bmWrapPictures(section); }"))
+        XCTAssertTrue(script.contains("if (head) bmWire(head); bmWrapPictures(last); }"))
+        XCTAssertTrue(script.contains("if (document.body) bmWirePictures(document.body); "
+                                      + "if (document.body) bmWrapPictures(document.body);"))
+        XCTAssertTrue(script.contains("if (shown.getPropertyValue('filter') === 'none' || display === 'none') continue;"))
+        XCTAssertTrue(script.contains("if (!drawn.length) return;"))
     }
 }

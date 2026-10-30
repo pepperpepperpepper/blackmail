@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41282,6 +41282,124 @@ picture's ancestors does, put there only while Smart Invert is on, so
 nothing moves and nothing changes with it off. The link the sender's
 rgb(0, 122, 255), Mail's rgb(10, 132, 255): not a difference to fix, as
 before.
+
+**Found on the test iPad, 2026-10-30 (r6-q-copy).** Two things, both
+read with the four cases in the table under "Not covered" above. 1, a
+picture drawn while the switch was on went on being drawn without its
+own filter once the script took the classes off: the photos letter's
+photos, which have the pane's second invert with the switch off, stayed
+hue-turned until the letter was opened again, while a picture first
+drawn after the switch went off, in a stack, came out right. 2, a light
+letter's pictures stayed natural under the switch, where Mail's are
+inverted: the try, `filter: invert(1)` on its `img` and `video`, did
+not draw, an `<img>`'s own filter not drawing under the switch, where
+the page's filter on a picture's ancestors does.
+
+**Fixed again 2026-10-30, after the test iPad (r6-q-copy).** By the
+owner's ruling of 2026-10-29, Mail copied; "carry it through", the
+owner, 2026-10-30.
+
+**What changed** (`SmartInvert`; `ConversationDocument.script`).
+
+1. *The switch going off.* The script's `bmSmartInvert`, once it has
+   taken the classes off, has WebKit draw anew each picture, `img` and
+   `video`, that has a filter of its own then and is drawn
+   (`bmRepaintPictures`): its `display` changed to one that draws it
+   the same, an inline picture `inline-block`, a block one `flow-root`
+   (`none` for any other way, the page put back where it was if that
+   moved it), the page laid out, which makes the picture anew, then its
+   `style` attribute put back as it was, to the byte, and none where it
+   had none, and the page laid out again. All in one turn of the
+   script, so nothing is shown between. A page with no such picture, a
+   letter with words alone, a light letter, a plain one in a stack, is
+   not touched: no layout asked of WebKit. Not the page loaded again,
+   the second run's fallback.
+2. *A light letter's pictures.* Under the switch each picture of a
+   light letter, `img` and `video`, is put in an element of its own,
+   `<bm-si-picture>`, a tag no letter uses, whose `filter: invert(1)`
+   draws as the page's does: the picture, inverted by it, by the
+   letter's white's invert and by the system's, comes out inverted, as
+   Mail's. The rule, under `html.bm-si`, in the switch's sheet, in place
+   of the try's (`SmartInvert.wrapper(in:)`): `all: unset; filter:
+   invert(1);`, so the element takes every property from its parent and
+   has no box of its own to draw. It is inline, or a block round a
+   picture drawn as a block; percentages of the picture's size are
+   taken from the block that holds it, as before. A picture that
+   floats, is placed on its own (`absolute`, `fixed`, `sticky`), or is
+   drawn any other way, and a video playing, are left as they are; a
+   `<picture>`'s image is put in by its `<picture>`, so its sources stay
+   with it. The script reads the place and size of each picture and of
+   what holds it before and after, and takes the element off any whose
+   either changed. The script puts the elements in where the switch's
+   sheet has the rule for them (`#bm` on a light letter's page,
+   `.bm-light` in a stack): as the page ends, for a page built under
+   the switch; as `bmFill` puts a body in and as a letter goes into the
+   stack; and as the switch goes on, with the class. As it goes off it
+   takes every one of them off, the letter's markup as it was. With the
+   switch off nothing of it is in the page, built or shown.
+3. *Unchanged.* With the switch off, every page built as at c72b3af,
+   byte for byte. A letter inverted, a plain one, one in its own
+   colours, the printed page and Quick Look as before.
+
+**What he sees**, if it takes: under Smart Invert a light letter's
+pictures inverted, as Mail's, its page white and its words black as
+before; Smart Invert turned off with a letter open, its photos as with
+the switch off at once, at the place it was scrolled to.
+
+**Tests.** `SmartInvertPicturesTests`, new, seven: the pane's script
+run in node on a stand-in for WebKit's page, its head the pane's own
+page's, where a picture's filter is the pane's for it, a picture is
+made anew when its `display` changed between two layouts or it was
+moved, and a layout with a picture not drawn pulls the page up. Going
+off under a letter inverted, scrolled: each photo made anew, its
+`style` attribute as it was, the page where it was, the body's markup
+as before; in a stack, the inverted letter's photo alone; a page with
+no such picture, no layout asked. A light letter's page built under the
+switch: the inline, block, `<picture>` and still video's elements, the
+floating, placed, playing and moved ones none; the switch off and on
+again on it and on a page built with it off, the body's markup the
+same as built off, to the byte, and the same on; a letter inverted,
+none; a stack's light body put in by `bmFill` and a light letter by
+`bmAppend`, theirs. In `SmartInvertLikeMailTests` one new, the script's
+wiring read from its source. Changed: the light letter's sheet, in a
+letter and in the stack, the element's rule in place of the try's; the
+test that only the photos lose the filter, reading the sheets without
+the element's tag; four pins of the script's lines
+(`CompleteThreadsTests`, `ConversationOrderTests`, `PictureHoldTests`,
+`PictureTapTests`) and one of `ColourFilterLikeMailTests`, which now
+end in the new calls.
+
+Each undone by hand, the class run, each failure read by its line,
+then put back: the drawing anew left out of the switch's off, 4
+failures in 3 tests; its test of the filter left out, 2; its return on
+a page with no such picture, 2; the `style` attribute not put back, 2;
+the page not put back where it was, 1; the elements not put in as the
+page ends, 2; not taken off as the switch goes off, 5; put in for every
+scope, 4 in 3 tests; not put in by `bmFill`, 2; nor by `bmAppend`, 2;
+the place not read again, 2; a floating or placed picture not left, 2;
+the element's rule left out of the sheet, the try's back, 10 in 5
+tests. Each failure an assertion's. The full suite: 3,230 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
+
+**Not covered** (this change):
+
+- Whether the element's invert draws round a picture on the iPad, and
+  whether WebKit makes a picture anew for a change of its `display`
+  alone: worked out from WebKit's source and the four cases, not seen.
+  If the photos are still hue-turned after the switch goes off, the
+  next step is the page drawn again from what the pane holds, at the
+  place it was scrolled to.
+- A sender's rule that names a picture by its parent (`td > img`) or
+  its place among its siblings no longer matches it under the switch.
+  Where that changes its size or place, the script takes the element
+  off and the picture stays natural; any other change of its look under
+  the switch is not caught.
+- A picture that floats, is placed on its own or is drawn as a table's
+  part or a flex item: natural, as before, where Mail's are inverted.
+  A video playing as the switch goes on: the same, as moving it would
+  stop it.
+- A picture in a light letter's background (B-169), as before.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 

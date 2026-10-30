@@ -407,7 +407,8 @@ final class ConversationOrderTests: XCTestCase {
                 + "var holder = document.createElement('div'); holder.innerHTML = html; "
                 + "while (holder.firstElementChild) { "
                 + "var section = document.body.appendChild(holder.firstElementChild); "
-                + "var head = section.querySelector('.bm-head'); if (head) bmWire(head); } }"), script)
+                + "var head = section.querySelector('.bm-head'); if (head) bmWire(head); "
+                + "bmWrapPictures(section); } }"), script)
     }
 
     // MARK: - The wiring, read from the source

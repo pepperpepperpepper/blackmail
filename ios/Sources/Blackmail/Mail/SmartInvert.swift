@@ -52,12 +52,23 @@ import Foundation
 /// photos are inverted by a filter of their own under the switch, a try:
 /// if that filter does not draw either, they stay natural, as before.
 ///
+/// **Found on the test iPad, 2026-10-30 (r6-q-copy).** The colour filter
+/// took, the photos inverted as Mail's. The try did not: a light letter's
+/// pictures stayed natural, so they are inverted by an element put round
+/// each while the switch is on (`wrapperTag`). And with the switch turned
+/// off under an open letter its photos stayed hue-turned until it was
+/// opened again: a picture drawn while the switch was on goes on being
+/// drawn without its own filter after the class comes off, so the script
+/// has WebKit draw each such picture anew as the switch goes off
+/// (`ConversationDocument.script`'s `bmRepaintPictures`), nothing moved.
+///
 /// Off, every page is byte for byte as it was. On, a page is built with
 /// the class on its `<html>` and its rules in a sheet of their own in its
 /// head (`root`, `sheet`); a change of the switch while a page is shown
 /// puts the class on or takes it off by the pane's script, the sheet put
-/// in if the page has none (`Toggle`), so nothing is drawn again and
-/// nothing scrolls.
+/// in if the page has none (`Toggle`), so nothing scrolls; going off, the
+/// pictures the class took a filter off are drawn anew, and the elements
+/// round a light letter's pictures go and come with the class.
 ///
 /// Pure, so the suite on Linux tests it.
 enum SmartInvert {
@@ -92,15 +103,40 @@ enum SmartInvert {
     /// The rules for a light letter, `scope` the element that holds its
     /// markup and its white, `#bm` on its page or `.bm-light` in a stack:
     /// inverted plainly, and Mail's line in it (`RemoteContent.line`)
-    /// inverted back, so it is the pane's colour as before. Its photos,
-    /// `img` and `video`, inverted once more (r6-p-copy, 2026-10-29), so
-    /// that with the system's inversion they come out inverted as Mail's,
-    /// if a photo's own filter draws under the switch; if it does not, as
-    /// for the photos of a letter inverted, they are natural as before.
+    /// inverted back, so it is the pane's colour as before. Its pictures,
+    /// `img` and `video`, inverted once more by the element the pane's
+    /// script puts round each while the switch is on (`wrapper(in:)`), so
+    /// that with the system's inversion they come out inverted, as Mail's.
     static func light(in scope: String) -> String {
         "html.\(className) \(scope) { filter: invert(1); }\n"
             + "html.\(className) \(scope) .\(RemoteContent.lineClass) { filter: invert(1); }\n"
-            + pictures(in: scope) + " { filter: invert(1); }"
+            + wrapper(in: scope)
+    }
+
+    /// The element the pane's script puts round each picture of a light
+    /// letter while the switch is on, and takes off as it goes off
+    /// (`ConversationDocument.script`'s `bmWrapPictures`).
+    ///
+    /// **Found on the test iPad, 2026-10-30 (r6-q-copy).** A light
+    /// letter's pictures stayed natural under the switch with a filter of
+    /// their own, `invert(1)` on `img` and `video`, where Mail's come out
+    /// inverted: a picture's own filter does not draw under it, while the
+    /// page's filter on a picture's ancestors does. So the invert is on
+    /// an element round the picture: inline, or a block round a picture
+    /// drawn as a block, as the picture is; every property its parent's
+    /// or as from the factory (`all: unset`), so it has no box of its own
+    /// to draw and the picture keeps its size, its place and its
+    /// baseline; and the script puts a picture back where anything of it
+    /// or what holds it moved. A tag no letter uses, so no sender's rule
+    /// names it.
+    static let wrapperTag = "bm-si-picture"
+
+    /// The rule for the element round a light letter's picture inside
+    /// `scope`, under the class: its own properties its parent's, and the
+    /// invert. The script puts the element round a picture only where the
+    /// page's sheet for the switch has this rule.
+    static func wrapper(in scope: String) -> String {
+        "html.\(className) \(scope) \(wrapperTag) { all: unset; filter: invert(1); }"
     }
 
     /// The second class the page's `<html>` has, with `className`, while
@@ -297,6 +333,10 @@ enum SmartInvert {
     /// of any the head has, so WebKit reads them with the setting as it is
     /// now, and puts the colour filter's class on only if it answers yes;
     /// it takes the class off with the switch, or when not given them.
+    ///
+    /// With the class it puts the element round a light letter's pictures
+    /// (`wrapperTag`), and takes it off; and going off, it has WebKit draw
+    /// anew each picture left with a filter of its own (r6-q-copy).
     struct Toggle: Equatable {
         let on: Bool
         let rules: String

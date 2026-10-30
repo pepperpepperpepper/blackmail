@@ -380,7 +380,7 @@ final class CompleteThreadsTests: XCTestCase {
                 + "var holder = document.createElement('div'); holder.innerHTML = html; "
                 + "var last = null; while (holder.firstElementChild) { "
                 + "last = document.body.insertBefore(holder.firstElementChild, at); "
-                + "var head = last.querySelector('.bm-head'); if (head) bmWire(head); } "
+                + "var head = last.querySelector('.bm-head'); if (head) bmWire(head); bmWrapPictures(last); } "
                 + "if (still !== null && last) { if (bmOpening) { bmOpening = last; } else { "
                 + "var moved = at.getBoundingClientRect().top - still; "
                 + "if (moved !== 0) window.scrollBy(0, moved); bmTake(); } } "

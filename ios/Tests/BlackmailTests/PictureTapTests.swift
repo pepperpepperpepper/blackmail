@@ -390,7 +390,7 @@ final class PictureTapTests: XCTestCase {
                 + "for (var i = 0; i < pictures.length; i++) { if (!bmOwnPicture(pictures[i])) continue; "
                 + "pictures[i].addEventListener('click', bmPictureTapped);",
             "} } catch (e) {} }",
-            "body.innerHTML = html; bmWirePictures(body); }",
+            "body.innerHTML = html; bmWirePictures(body); bmWrapPictures(body); }",
             "(function () { if (document.body) bmWirePictures(document.body);",
             "window.addEventListener('touchcancel', bmPictureLetGo, { capture: true, passive: true }); })(); "
                 + "(function () { if (document.getElementById('bm')) return;",

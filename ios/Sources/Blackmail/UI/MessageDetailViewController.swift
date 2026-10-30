@@ -373,7 +373,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// log when it changed, and the page
     /// shown is told by script, its class put on or taken off, and its
     /// rules put in if it was built without them, when it has rules and
-    /// does not have the switch as iOS has it now. Nothing is drawn again
+    /// does not have the switch as iOS has it now. Nothing is loaded again
     /// and nothing scrolls; a plain letter, a letter in its own colours
     /// and a notice are told nothing, as the switch changes none of them.
     /// A page built after this is built for the switch as it is then

@@ -354,6 +354,7 @@ final class PictureHoldTests: XCTestCase {
             "drawnWidth: drawn.width, drawnHeight: drawn.height, hold: true,",
             "window.addEventListener('touchend', bmPictureUp, { capture: true, passive: false });",
             "(function () { if (document.body) bmWirePictures(document.body); "
+                + "if (document.body) bmWrapPictures(document.body); "
                 + "window.addEventListener('scroll', bmScroll, { passive: true }); "
                 + "window.addEventListener('touchstart', bmPictureDown, { capture: true, passive: true });",
         ] {
