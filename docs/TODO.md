@@ -11424,6 +11424,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       Smart Invert off and the letters put in the Trash, nothing erased.
       Not run: 3's Block All Remote Content line, 4a, 5's second turn on
       and the light letter's turn, and 5a. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (3671253), round
+      r6-s-copy, Mail cited from round r6-p-copy: 0 but the plain and PDF
+      letters and the stack, 1, 2, 3 but its Block All Remote Content line,
+      5's first turn on and its turn off, 6 but the plain and PDF letters,
+      and 7. In 1 "true, changed" and "colour filter supported true", once.
+      In 2 the photos inverted as Mail's. In 3 the page white and its words
+      black, its pictures inverted as Mail's, the cube rgb(128, 160, 190),
+      nothing moved. In 5 on, followed, as a fresh open; off, the log's
+      "Smart Invert off, 2 pictures drawn anew" 14 ms after the off's line,
+      no page built and nothing moved, but the photos left hue-turned, the
+      sky rgb(29, 87, 148), to the same numbers as at 6457f0f, at 2 s,
+      21 s, about 100 s and at the top, the first photo too: FAIL
+      (KNOWN_ISSUES B-179, "Failed again, step 5"); a second run the same,
+      and the photos natural once the letter's page was built anew. In 6
+      the photos and light letters as at 6457f0f. In 7 Smart Invert off and
+      the letters put in the Trash, nothing erased. Not run: 3's Block All
+      Remote Content line, 4, 4a, 5's second turn on, the light letter's
+      turn and the stack's, 5a and 5b. Nothing was sent.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11743,6 +11761,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       taller than wide: not copied. In 4 each letter's files in the pane as
       before. In 5 the letters put in the Trash, nothing erased. Not run:
       1a to 1e, 3a to 3c. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (3671253), round
+      r6-s-copy: 1, 2, 3 on its plain letter of words and the photo, and 5,
+      print preview only, Cancel each time, nothing printed (the log's
+      `PRINT closed done=false` four times). In 1 both sheets the same to
+      the pixel as at 6457f0f, `PRINT ready pages=2`. In 2 both as before,
+      the `cid:` picture 68.0 view px wide, one page each. In 3 the words
+      as at 6457f0f and the photo right under them on the same sheet, 131.6
+      of the sheet's 162 view px, 496 points, 81%, Mail's width, 99.2 tall,
+      its 4:3 shape kept, "Page 1 of 1", `PRINT ready pages=1`; Mail's
+      photo, stretched on its second sheet, cited from round r6-q-copy: not
+      copied, as recorded (KNOWN_ISSUES B-185). Step 3 is now seen whole.
+      In 5 the letters put in the Trash, nothing erased. Not run: 1a to 1e,
+      3a to 3c, and 4. Nothing was sent.*
 
 - [ ] **B-186, the Connection log opens at its newest line.** On the
       test iPad, from a build of the `bm-fix-j1` worktree (branch

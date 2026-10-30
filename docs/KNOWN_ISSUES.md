@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy). Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy), seen again there 2026-10-30 (r6-s-copy), the third fix running and the fault with the switch turned off still not fixed. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41671,7 +41671,8 @@ complete".
 - Whether a picture out for one painted frame draws natural when put
   back after the switch's off, rather than after its letter closed and
   opened again: seen only that way (the second run's stack), not after
-  this change.
+  this change. Seen 2026-10-30 (round r6-s-copy, below): it does not,
+  the photos hue-turned as before.
 - A picture drawn under a transform reads its size as drawn, so its box
   is that size; a sender's rule by its place among its siblings
   (`:first-child`, `img + img`) can match another way while the box is
@@ -41682,6 +41683,82 @@ complete".
   screen over it is read from its source, not seen; if it did not and
   drew no frame, the timer would put the pictures back after a second,
   not drawn anew.
+
+**Seen on the test iPad, 2026-10-30, on 3671253**, int21 with the third
+fix, round r6-s-copy, Mail 16.5.1 cited from round r6-p-copy, not opened
+again, Dark Mode, three panes; the round's other letters B-185's. Every
+item passed but step 5's off, and a slip of the round's own in its
+letters' subjects, harmless; each borne out by its shots. In the check's
+steps: 1, the switch fired, "pane: isInvertColorsEnabled true, changed"
+at 05:24:06.379 as the app came back, and "pane: colour filter supported
+true" once, 48 ms after it. 2, the photos letter's photos inverted, as
+Mail's and as at 6457f0f, the first photo a mean of 2.4 from the
+inversion. 3, the light letter's pictures inverted, as Mail's, by the
+element round each: the cube rgb(127, 96, 66) off and rgb(128, 160, 190)
+on, the inline photo's stripe rgb(1, 120, 255) and rgb(254, 135, 0),
+Mail's the same; the web picture a mean of 12.5 from the inversion, the
+inline photo 0.1, as at 6457f0f. The page white, its words black and its
+link the sender's rgb(0, 122, 255); every line and each picture's box
+where it was with the switch off, and the page a mean of 0.000 against
+6457f0f's, the pictures left out: nothing moved. 5, its first turn on:
+the photos letter open, scrolled to its second photo, drawn as a fresh
+open under the switch, at the same place (a mean of 0.284 against a
+fresh open, iOS's home bar alone). 6, with the switch off the photos and
+light letters the same to the pixel as at 6457f0f, the JPEGs' insides
+left out; no colour filter line after the off. 7, Smart Invert off
+again, its settings key for key as before the check, and the letters in
+the Trash, nothing erased. Not copied, as before: the pane round a light
+letter white, Mail's rgb(227, 227, 225) (D-010); the link the sender's,
+Mail's rgb(10, 132, 255). Not run: 0's plain and PDF letters and stack,
+3's Block All Remote Content line, 4, 4a, 5's second turn on and its
+turns with the light letter and in the stack, 5a, 5b, and 6's plain and
+PDF letters. Nothing was sent.
+
+**Failed again, step 5.** Smart Invert turned off with the photos letter
+open, scrolled to its second photo. The third fix ran: the log's "pane:
+isInvertColorsEnabled false, changed" at 05:27:18.273, then, 14 ms after
+it, "pane: Smart Invert off, 2 pictures drawn anew", and no page built
+after it; nothing moved, the second photo at the same place and every
+line in the same band, and no picture's place left empty. But the photos
+stayed hue-turned, to r6-r-copy's very numbers: the label black with its
+words rgb(255, 151, 151), the sky rgb(29, 87, 148), the hill rgb(125,
+128, 85), where with the switch off the label is white and the sky about
+rgb(126, 185, 246); a mean of 15.795 against the shot taken before the
+switch, one cluster, the photo's box; the same 21 s later and about
+100 s later, and the first photo too, out of sight at the off, after a
+scroll to the top (15.773, every cluster in the photos' boxes). A second
+run, from a fresh launch with the letters made again: the same at 2 s,
+30 s and about 110 s, 15.710, and at the top 15.712, r6-r-copy's to the
+thousandth; the log's two lines 13 ms apart. The photos letter opened
+again 4 minutes later, its page built anew: natural, a mean of 0.000.
+
+**Why, as now read**, in the source with what the iPad showed. Not a
+stale drawing of the photos, so more frames will not cure it. An
+inverted letter's page carries the pane's invert on `#bm` (`PanePage`,
+`invertedRule`) and each photo its second invert (`#bm img`); under the
+colour filter both are `none`, and at the off both come back. The
+pictures were picked, 2 by their computed filter, so each photo's own
+invert is back in its style; yet what is drawn is to the pixel what
+6457f0f drew with no redraw at all, one lightness inversion, each
+photo's second invert alone, and the first photo, first painted at the
+scroll to the top, the same. So in the live page the page's own invert
+on `#bm` does not reach the photos after it comes back at the off; its
+words and ground look right either way. Every way that drew natural
+rebuilt that filtered ancestor: a page built anew (this round 0.000,
+r6-r-copy 0.000) and a stack letter's body closed and opened (r6-r-copy
+0.000). The third fix's redraw of the pictures alone, in the page, is
+therefore not enough. Which part of WebKit holds it is not proven. To be
+fixed next by building the shown page anew at the off
+(`MessageDetailViewController.followSmartInvert`, by `restyleIfOwed`),
+its scroll kept: put back once it has loaded, only while the pane's size
+is the off's.
+
+**Not covered.**
+
+- A page built anew is seen natural only minutes after the off (about
+  4 minutes this round, about 95 s in r6-r-copy), not at once.
+- The stack, the light letter and a photo shown full screen across the
+  off: not run this round.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
@@ -42360,7 +42437,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's stretching it, not copied
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's stretching it, not copied
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -42934,6 +43011,38 @@ failing. The release build for the iPad: "Build complete".
   not break it in the head's table. Not seen.
 - A small photo prints 0.8 points to its pixel, one of 300 by 200 at 240
   by 160 points; Mail's not seen (TODO B-185, 3a).
+
+**Seen on the test iPad, 2026-10-30, on 3671253**, round r6-s-copy,
+Print's preview only, Cancel each time, nothing printed (the log's
+`PRINT ready`, `PRINT panel over=true` and `PRINT closed done=false`
+four times each, no `PRINT pdf`, `PRINT words` or `PRINT ended` line,
+the same as at 6457f0f); Mail cited from rounds r6-n-compare and
+r6-q-copy, not opened again. 3, on the round's plain letter of words and
+an inline photo with no `Content-ID`: the words the same to the pixel as
+at 6457f0f, then the photo right under them on sheet 1, at the words'
+left, 131.6 view px of the sheet's 162 wide, 496 points, 81%, Mail's
+width, where at 6457f0f it was 105.6, and 99.2 tall, its 4:3 shape kept,
+not stretched, turned or cut, "Page 1 of 1", `PRINT ready pages=1`, as
+"Fixed again 2026-10-30, after the test iPad (r6-r-copy)" above intends.
+Mail's preview, the photo stretched on a sheet of its own, "Page 2 of
+2", and 16.2 view px in from the sheet's left, its margins wider
+(B-110): not copied, as recorded ("Differing from Mail, not copied",
+above). 1: the letter of words and a PDF, "Page 1 of 2" and "Page 2 of
+2", both sheets the same to the pixel as at 6457f0f, `PRINT ready
+pages=2`. 2: the attached picture's letter its header alone, its four
+lines where they were, "Page 1 of 1"; the `cid:` picture letter its
+picture once, 68.0 view px wide, unchanged, the same to the pixel as at
+6457f0f, "Page 1 of 1". 5: the letters in the Trash, nothing erased. Not
+run: 1a to 1e, 3a to 3c, and 4's files in the pane not compared. Nothing
+was sent.
+
+**Not covered.**
+
+- Mail's preview was not shot again; its stretching is read from round
+  r6-q-copy's crop alone. Mail on 18: not seen.
+- A portrait photo, a small one, one offline and a photo alone (TODO
+  B-185, 3a to 3c): not made this round.
+- The preview stands in for paper: nothing was printed.
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 
