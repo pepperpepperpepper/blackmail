@@ -3,8 +3,8 @@ import Foundation
 /// A letter made into the page that is printed (B-110): light, black on
 /// white, its header as Mail prints it (B-172), then its body as the pane
 /// shows it, in the sender's own colours, with the pictures its markup
-/// draws, none of its files, and the pages of its PDFs under the words
-/// (B-185).
+/// draws, none of its files, the pages of its PDFs under the words, and
+/// a plain letter's inline photos on a sheet after them (B-185).
 ///
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
@@ -187,12 +187,13 @@ enum PrintPage {
     /// `cid:` prints there; none of its files is printed as a file,
     /// neither where the pane draws one nor after the words, and the
     /// header lists none (B-185); a PDF's pages print after the words
-    /// (`pdfPages`). Mail 16.5.1 prints a letter whose only content is an
-    /// attached picture as its header alone, and one whose HTML shows its
-    /// picture by `cid:` with the picture (round r6-n-compare, C-3b, 29
-    /// October 2026); from B-170 to B-185 the paper drew a letter's files
-    /// as the pane does, each picture at its size and every other file as
-    /// its tile. A signature's white sheet prints as written, its words black
+    /// (`pdfPages`), and a plain letter's inline photos after them, from
+    /// a sheet of their own (`photoImages`). Mail 16.5.1 prints a letter
+    /// whose only content is an attached picture as its header alone, and
+    /// one whose HTML shows its picture by `cid:` with the picture (round
+    /// r6-n-compare, C-3b, 29 October 2026); from B-170 to B-185 the paper
+    /// drew a letter's files as the pane does, each picture at its size
+    /// and every other file as its tile. A signature's white sheet prints as written, its words black
     /// on the paper's white, its logo as drawn;
     /// the pane, which had rules of its own for the sheet until B-146, now
     /// inverts it with the rest. Every value of the header is escaped, and
@@ -321,10 +322,12 @@ enum PrintPage {
     /// among the words (`BodyFiles.mark`) is left the comment it came as,
     /// which nothing draws; a picture the HTML shows by `cid:` is the
     /// HTML's own, and prints. After the words, the pages of its PDFs in
-    /// `pdfPages` (`pdfPageImages`); above them, under the grey line, for
-    /// a letter cut or shown only in part, whose markup ends wherever the
-    /// cut fell and would take in anything after it, as the pane puts its
-    /// files there (`BodyFiles.drawn`). Whether it is the letter's HTML.
+    /// `pdfPages` (`pdfPageImages`), and then a plain letter's inline
+    /// photos, from the top of the next sheet (`photoImages`); above them,
+    /// under the grey line, for a letter cut or shown only in part, whose
+    /// markup ends wherever the cut fell and would take in anything after
+    /// it, as the pane puts its files there (`BodyFiles.drawn`), the
+    /// photos with no break before them. Whether it is the letter's HTML.
     /// Its pictures decoded as they are drawn (`decodedAtOnce`); a plain
     /// letter's words have none, every `<` in them written `&lt;`.
     static func body(_ m: Message, heldBack: Bool = false,
@@ -339,8 +342,8 @@ enum PrintPage {
         }
         let known = PanePage.contentIDs(of: m)
         let pages = pdfPageImages(m, pages: pdfPages)
-        func placed(_ shown: Bool, _ words: String) -> String {
-            notice(shown) + (shown ? pages + words : words + pages)
+        func placed(_ shown: Bool, _ words: String, photos: String = "") -> String {
+            notice(shown) + (shown ? pages + photos + words : words + pages + photos)
         }
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
@@ -356,9 +359,74 @@ enum PrintPage {
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
         let shown = cut != nil || m.isShortened
+        // Its photos after the words and the PDFs' pages, from the top of
+        // a sheet of their own when anything is printed before them.
+        let before = !shown && (!pages.isEmpty || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         return (placed(shown, decodedAtOnce(PanePage.content(text: cut ?? text, html: nil, known: known,
-                                                             flowed: m.textIsFlowed))), false)
+                                                             flowed: m.textIsFlowed)),
+                       photos: photoImages(m, cut: shown, newSheet: before)), false)
     }
+
+    // MARK: - A plain letter's photos
+
+    /// The pictures of a plain letter printed after its words (B-185,
+    /// fixed again): every picture it sends inline (`isInline`) that is
+    /// drawn as one (`BodyFiles.isPicture`), with a `Content-ID` or none,
+    /// as no markup names them; of a letter cut or shown only in part,
+    /// those the pane draws above its words, none with a `Content-ID`
+    /// (`BodyFiles.drawn`). In the letter's order. None for an HTML
+    /// letter, or a picture sent as an attachment, as Mail 16.5.1 prints
+    /// none (round r6-n-compare, C-3b).
+    static func photos(of m: Message, cut: Bool) -> [Attachment] {
+        guard m.htmlBody == nil else { return [] }
+        return (cut ? m.listedAttachments : m.attachments).filter { $0.isInline && BodyFiles.isPicture($0) }
+    }
+
+    /// The most width of such a photo on paper, in points: about 81% of
+    /// the sheet's 612, as Mail 16.5.1 prints one, a little narrower than
+    /// the column's 540.
+    static let photoWidth = 496
+    /// Its most height: the column's on a sheet, 720 points, so a photo
+    /// taller than a sheet is drawn smaller and never cut across two.
+    static let photoHeight = Int(paperHeight - 2 * margin)
+
+    /// The photos of `m` (`photos(of:cut:)`) as Mail 16.5.1 prints a plain
+    /// letter's inline photo that no markup names (round r6-q-copy, 30
+    /// October 2026): after the words, on a sheet of its own ("Page 2 of
+    /// 2"), about 81% of the sheet's width. With `newSheet`, a break
+    /// before the first, so it starts the next sheet; each a block at its
+    /// own size, no wider than `photoWidth` and no taller than
+    /// `photoHeight`, its shape kept, at the column's left, with no
+    /// margin, border or break of its own, each value inline and
+    /// `!important`, decoded as it is drawn. From the print's loader by
+    /// the address the pane draws it by (`BodyFiles.pictureID`), so the
+    /// pane's page is not touched. "" for a letter with none.
+    static func photoImages(_ m: Message, cut: Bool, newSheet: Bool) -> String {
+        let photos = photos(of: m, cut: cut)
+        guard !photos.isEmpty else { return "" }
+        let pictures = photos.map { file in
+            "<img decoding=sync class=\"" + photoClass + "\" src=\"" + InlineImageRewriter.scheme + "://"
+                + InlineImageRewriter.escapedHost(BodyFiles.pictureID(file.id, of: m.id))
+                + "\" alt=\"\" style=\"" + photoStyle + "\">"
+        }
+        return "<div style=\"margin: 0; padding: 0; white-space: normal;" + (newSheet ? " " + photoBreak : "")
+            + "\">" + pictures.joined() + "</div>"
+    }
+
+    /// The class of a plain letter's photo on paper.
+    static let photoClass = "bm-photo"
+
+    /// A photo on paper: a block at its own size within `photoWidth` and
+    /// `photoHeight`, which keep its shape, as no width or height is set.
+    /// Each `!important` and inline, so neither the page's own rule for
+    /// every `img`, no wider than the column, nor a sender's reaches it.
+    static let photoStyle = "display: block !important; width: auto !important; height: auto !important; "
+        + "max-width: \(photoWidth)px !important; max-height: \(photoHeight)px !important; "
+        + "margin: 0 !important; padding: 0 !important; border: 0 !important;"
+
+    /// The break before the photos: the next sheet, in the property's two
+    /// names, WebKit reading either.
+    static let photoBreak = "break-before: page; page-break-before: always;"
 
     // MARK: - A PDF's pages
 

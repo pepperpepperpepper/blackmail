@@ -42078,7 +42078,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words on a sheet of its own, and a letter that is only an attached picture as its header alone, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -42159,7 +42159,8 @@ build for the iPad: "Build complete".
   printed it until B-185 and prints it no more, and Mail's print of
   one was not seen (the check prints one to the preview). Seen
   2026-10-30 (round r6-q-copy): Mail prints it after the words, on a
-  sheet of its own; to copy (below).
+  sheet of its own; for a plain letter copied, "Fixed again
+  2026-10-30, after the test iPad (r6-q-copy)", below.
 - A letter with words and an attached picture: Mail's print not seen;
   by the rule, its words alone.
 - The words, printed only when the page cannot be drawn, still list
@@ -42376,6 +42377,81 @@ width. Blackmail's printed the words alone, "Page 1 of 1", the photo
 drawn in the pane after the words. B-185's inference for such a photo
 was wrong: the paper prints a PDF's pages and no other file
 (`PrintPage.body`, `pdfs(of:)`).
+
+**Fixed again 2026-10-30, after the test iPad (r6-q-copy).** By the
+owner's ruling of 2026-10-29, Mail copied; "carry it through", the
+owner, 2026-10-30.
+
+**What changed** (`PrintPage`).
+
+1. *A plain letter's photos.* The printed page of a plain letter has
+   each picture it sends inline (`Content-Disposition: inline`), with
+   a `Content-ID` or none, that the pane draws as a picture
+   (`BodyFiles.isPicture`), after its words and any PDF's pages
+   (`PrintPage.photos(of:cut:)`, `photoImages`): an `<img>` each, in
+   the letter's order, from the address the pane draws it by
+   (`BodyFiles.pictureID`), which the print's loader already served.
+2. *A sheet of their own.* A break before the first (`break-before:
+   page`, and `page-break-before: always` as well), so the photos
+   start the next sheet, as Mail's did, when anything is printed
+   before them. A letter of a photo alone has it under the header,
+   with no break, so the header has no sheet to itself.
+3. *Mail's width.* Each a block at its own size, no wider than 496
+   points, about 81% of the sheet's 612, as Mail's (`photoWidth`), and
+   no taller than the column's 720 (`photoHeight`), its shape kept; at
+   the column's left, with no margin, border or break of its own, each
+   value inline and `!important`, decoded as it is drawn.
+4. A letter cut or shown only in part has them above its words, under
+   the grey line, with no break, as the pane draws them there; one
+   with a `Content-ID` not at all, as the pane does not draw it there.
+5. *Unchanged.* An HTML letter's pictures; a picture attached, or sent
+   with no word that it is inline; a picture the pane draws as a tile,
+   a TIFF; the pane's page; the letter in words (`PrintPage.words`).
+   A letter with no inline photo prints as before, byte for byte.
+
+**What he sees.** A plain letter with a photo after its words prints
+its words, then the photo from the top of the next sheet, as Mail
+prints it.
+
+**Tests.** `FileListedOnceTests`, one new: the round's letter, words
+and a photo inline with no `Content-ID`, and the same with one, its
+printed body the words, the break, the photo, to the byte, the loader
+having its address, the pane as before; two photos after one break,
+in the letter's order, after a PDF's page; a photo alone with no
+break; a PDF alone and a photo, the break after the PDF's page; a
+letter shown in part, the photo above the words with no break, one
+with a `Content-ID` none; none for a picture attached, a TIFF or an
+HTML letter's photo; the photo's style and break, its width 81% of the
+sheet. Changed: the picture sent to be shown that the body does not
+show, printed now after a plain letter's words and alone, not HTML's.
+
+Each undone by hand, the class run, each failure read by its line,
+then put back: the break left out, 5 failures in 1 test; the photos
+left out, 14 in 2; an HTML letter's let in, 1 in 1; a picture attached
+let in, 9 in 2; a cut letter's photo with a `Content-ID` let in, 2 in
+1; the photos before the PDF's pages, 2 in 1; a break in a letter
+shown in part, 1 in 1; a break before a photo alone, 2 in 1. Each
+failure an assertion's. The full suite: 3,231 tests, 6 skipped, none
+failing. The release build for the iPad: "Build complete".
+
+**Not covered** (this change):
+
+- Whether WebKit's print keeps the break before the photos, and the
+  photo's width and place on paper: from the CSS, not seen on the
+  iPad (TODO B-185).
+- Mail's photo on a sheet of its own may be WebKit moving a picture
+  taller than what is left of the first sheet whole to the next
+  (`adjustForUnsplittableChild`), and not a break: a small photo after
+  a few words may print under them in Mail, where here it starts the
+  next sheet. Not seen.
+- A photo the print's loader cannot fetch, offline and not kept on the
+  iPad: a blank where it would be, perhaps a blank sheet. Not seen.
+- An HTML letter's inline photo that its markup does not name prints
+  nothing, as before; Mail's print of one not seen.
+- Mail's wider margins (B-110): Mail's photo is its column's width,
+  here 496 points of a column of 540.
+- Two photos, or a tall one: Mail's print not seen.
+- Mail on 18: its print not seen.
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

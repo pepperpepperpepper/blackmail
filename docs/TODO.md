@@ -11577,7 +11577,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       B-182's check, from a build of the `bm-fix-j1` worktree (branch
       `fix-j1`) or of the int it is merged into, a PDF's pages on paper
       in it (KNOWN_ISSUES B-185, "Fixed again 2026-10-30, after the
-      test iPad (r6-p-copy)" and "Corrected 2026-10-30"); the same two
+      test iPad (r6-p-copy)" and "Corrected 2026-10-30"), and a plain
+      letter's inline photo on paper (KNOWN_ISSUES B-185, "Fixed again
+      2026-10-30, after the test iPad (r6-q-copy)"); the same two
       picture letters and round r6-p-copy's letter of words and a PDF,
       or made again as that round made them; and four more made the
       same way: "R6 B-185 three", words and a PDF of three pages;
@@ -11622,11 +11624,20 @@ checks below is left as not needed, not open, and none is worth a round.*
          page; the `cid:` picture letter its header and the picture,
          one page (Mail's blank second page not copied).
       3. *A plain letter of words with an inline photo after them*
-         (`Content-Disposition: inline`, no markup naming it), still
-         to run: the host APPENDs it, read, to "Notes" in the same way.
-         Blackmail's its words alone, no photo (inferred, KNOWN_ISSUES
-         B-185); Mail's preview beside it, written down, the photo
-         printed or not. Screenshots.
+         (`Content-Disposition: inline`, no markup naming it), as round
+         r6-q-copy made it: the words on the first sheet, the photo
+         from the top of the second, "Page 1 of 2" and "Page 2 of 2",
+         about 81% of the sheet's width, its shape kept, as Mail's
+         preview; the words the same to the pixel as at c72b3af. The
+         photo under the words on the first sheet, a blank sheet, or
+         no photo: a FAIL. Screenshots of both previews.
+      3a. *A small photo:* the same with a photo about 300 by 200
+         pixels, made by the host: Mail's preview beside Blackmail's,
+         written down whether Mail puts it under the words or on a
+         sheet of its own (KNOWN_ISSUES B-185, "Not covered").
+      3b. *Offline:* Airplane Mode on (put back off after), the letter
+         of 3 not opened in this launch: what the paper has where the
+         photo would be, Mail's beside it, written down.
       4. *The pane:* each letter's files drawn in it as before.
       5. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move

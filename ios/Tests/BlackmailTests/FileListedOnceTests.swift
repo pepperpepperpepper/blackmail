@@ -50,6 +50,14 @@ final class FileListedOnceTests: XCTestCase {
             + "\n/9j/4AAQSkZJRgABAQ==\n"
     }
 
+    private static func tiff(_ name: String) -> String {
+        "Content-Transfer-Encoding: base64\nContent-Type: image/tiff; name=\"\(name)\"\n"
+            + "Content-Disposition: inline; filename=\"\(name)\"\n\nSUkqAA==\n"
+    }
+
+    private static let print = PrintPage.Style(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 17,
+                                               bodyPointSize: 17, lineHeight: 1.41)
+
     private static func html(_ words: String) -> String {
         "Content-Type: text/html; charset=\"utf-8\"\n\n<div dir=\"ltr\">\(words)</div>"
     }
@@ -198,7 +206,8 @@ final class FileListedOnceTests: XCTestCase {
     /// name: after a plain letter's words, after the words of HTML that
     /// never names it, and alone for a letter of nothing else, which is not
     /// said to have no text; once, at its size, from the loader, opened as
-    /// a file is, and not printed since B-185. Not for a letter
+    /// a file is; on paper after a plain letter's words or alone, and not
+    /// HTML's (B-185, fixed again). Not for a letter
     /// shown only in part, whose HTML names it in what did not come, as
     /// often as not, while its files are drawn above the words; and the
     /// HTML that names one draws it itself, the pane not again.
@@ -225,8 +234,11 @@ final class FileListedOnceTests: XCTestCase {
                 XCTAssertFalse(body.contains(MailText.emptyBodyNotice), label)
                 XCTAssertFalse(body.contains("<!--bm-file:"), label)
             }
-            // Not on paper, where the HTML does not draw it (B-185).
-            XCTAssertFalse(PrintPage.body(m).html.contains("bmcid://bmfile-"), shape.name)
+            // On paper a plain letter's, after its words or alone, as Mail
+            // 16.5.1 prints one (B-185, fixed again); not HTML's, whose
+            // own markup does not draw it (B-185).
+            XCTAssertEqual(count(drawn(section, of: m), in: PrintPage.body(m).html),
+                           shape.name == "HTML that never names it" ? 0 : 1, shape.name)
             let address = BodyFiles.pictureID(section, of: m.id)
             XCTAssertEqual(PanePage.pictures(of: [m])[address],
                            PanePage.Picture(messageID: "7/3", mailboxID: "INBOX", section: section,
@@ -641,6 +653,103 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertFalse(shown.contains("bmcid://bmfile-"))
         XCTAssertNotNil(PanePage.pictures(of: [named])["photo@example.com"],
                         "the print's loader has it")
+    }
+
+    /// A plain letter's photo sent inline, which no markup names, prints
+    /// after its words from the top of a sheet of its own, about 81% of
+    /// the sheet's width, as Mail 16.5.1 prints one (B-185, fixed again;
+    /// round r6-q-copy, 30 October 2026: "Page 1 of 2", "Page 2 of 2"),
+    /// with a `Content-ID` or none, from the address the print's loader
+    /// serves; after a PDF's pages; two photos after one break, in the
+    /// letter's order; a letter of a photo alone, no break; a letter shown
+    /// in part, above its words with no break, and none with a
+    /// `Content-ID`. Not a picture attached, nor one WebKit cannot draw,
+    /// nor an HTML letter's. The pane's page as before.
+    func testAPlainLettersInlinePhotoPrintsAfterTheWordsOnASheetOfItsOwn() throws {
+        func photo(_ section: String, of m: Message) -> String {
+            "<img decoding=sync class=\"" + PrintPage.photoClass + "\" src=\""
+                + address(BodyFiles.pictureID(section, of: m.id)) + "\" alt=\"\" style=\""
+                + PrintPage.photoStyle + "\">"
+        }
+        let sheet = "<div style=\"margin: 0; padding: 0; white-space: normal; " + PrintPage.photoBreak + "\">"
+        let together = "<div style=\"margin: 0; padding: 0; white-space: normal;\">"
+        XCTAssertEqual(PrintPage.photoStyle, "display: block !important; width: auto !important;"
+                       + " height: auto !important; max-width: 496px !important; max-height: 720px !important;"
+                       + " margin: 0 !important; padding: 0 !important; border: 0 !important;")
+        XCTAssertEqual(PrintPage.photoBreak, "break-before: page; page-break-before: always;")
+        XCTAssertEqual(Double(PrintPage.photoWidth) / PrintPage.paperWidth, 0.81, accuracy: 0.005, "Mail's")
+        XCTAssertEqual(Double(PrintPage.photoHeight), PrintPage.paperHeight - 2 * PrintPage.margin)
+
+        // The round's letter: words, then a photo inline with no
+        // `Content-ID`; and the same with one.
+        let words = "The second paragraph; the photo comes after it."
+        for contentID in [nil, "photo@example.com"] {
+            let label = contentID ?? "no Content-ID"
+            let m = Self.message(Self.letter(Self.mixed([
+                Self.plain(words), Self.jpeg("IMG_0185.jpg", contentID: contentID, disposition: "inline")])))
+            XCTAssertNil(m.htmlBody, label)
+            XCTAssertEqual(m.attachments.map(\.id), ["2"], label)
+            XCTAssertEqual(PrintPage.photos(of: m, cut: false).map(\.id), ["2"], label)
+            XCTAssertEqual(PrintPage.body(m).html, words + sheet + photo("2", of: m) + "</div>", label)
+            let page = PrintPage.letter(m, style: Self.print, size: { "\($0) bytes" })
+            XCTAssertEqual(count("<img ", in: page), 1, label)
+            XCTAssertNotNil(PanePage.pictures(of: [m])[BodyFiles.pictureID("2", of: m.id)],
+                            "\(label): the print's loader has it")
+            let pane = try XCTUnwrap(PanePage.letter(m, style: style), label)
+            order([words, drawn("2", of: m)], in: pane, "\(label), the pane")
+            XCTAssertFalse(pane.contains(PrintPage.photoClass), label)
+            XCTAssertFalse(pane.contains("break-before"), label)
+        }
+
+        // After a PDF's pages, which run on under the words; two photos
+        // after one break, in the letter's order.
+        let two = Self.message(Self.letter(Self.mixed([
+            Self.plain(words), Self.jpeg("a.jpg", disposition: "inline"), Self.pdf("plan.pdf"),
+            Self.jpeg("b.jpg", disposition: "inline")])))
+        XCTAssertEqual(two.attachments.map(\.id), ["2", "3", "4"])
+        let strip = PrintPage.pdfPageImages(two, pages: ["3": [1]])
+        XCTAssertFalse(strip.isEmpty)
+        XCTAssertEqual(PrintPage.body(two, pdfPages: ["3": [1]]).html,
+                       words + strip + sheet + photo("2", of: two) + photo("4", of: two) + "</div>")
+        XCTAssertEqual(PrintPage.body(two).html,
+                       words + sheet + photo("2", of: two) + photo("4", of: two) + "</div>")
+
+        // A photo alone, a letter of nothing else: under the header, no
+        // break, so the header has no sheet to itself.
+        let alone = Self.message(Self.letter(Self.mixed([Self.jpeg("IMG_0185.jpg", disposition: "inline")])))
+        XCTAssertEqual(PrintPage.body(alone).html, together + photo("1", of: alone) + "</div>")
+        // And under a PDF's pages alone, from a sheet of its own.
+        let paged = Self.message(Self.letter(Self.mixed([
+            Self.pdf("plan.pdf"), Self.jpeg("IMG_0185.jpg", disposition: "inline")])))
+        let pagedStrip = PrintPage.pdfPageImages(paged, pages: ["1": [1]])
+        XCTAssertEqual(PrintPage.body(paged, pdfPages: ["1": [1]]).html,
+                       pagedStrip + sheet + photo("2", of: paged) + "</div>")
+
+        // Shown only in part: above the words, under the line, no break,
+        // as the pane draws it; one with a `Content-ID` not at all.
+        var cut = Self.message(Self.letter(Self.mixed([
+            Self.plain(words), Self.jpeg("a.jpg", disposition: "inline"),
+            Self.jpeg("b.jpg", contentID: "b@example.com", disposition: "inline")])))
+        cut.isShortened = true
+        XCTAssertEqual(PrintPage.photos(of: cut, cut: true).map(\.id), ["2"])
+        XCTAssertEqual(PrintPage.body(cut).html, PrintPage.shortened + together + photo("2", of: cut) + "</div>"
+                       + words)
+
+        // Not printed: a picture attached, a TIFF, and an HTML letter's
+        // photo that its markup does not name.
+        for (label, raw) in [
+            ("attached", Self.letter(Self.mixed([Self.plain(words), Self.jpeg("IMG_0185.jpg")]))),
+            ("a TIFF", Self.letter(Self.mixed([Self.plain(words), Self.tiff("scan.tif")]))),
+            ("HTML", Self.letter(Self.mixed([Self.html(words), Self.jpeg("IMG_0185.jpg", disposition: "inline")]))),
+        ] {
+            let m = Self.message(raw)
+            XCTAssertEqual(m.attachments.count, 1, label)
+            XCTAssertEqual(PrintPage.photos(of: m, cut: false), [], label)
+            let printed = PrintPage.body(m).html
+            XCTAssertFalse(printed.contains(PrintPage.photoClass), label)
+            XCTAssertFalse(printed.contains("break-before"), label)
+            XCTAssertFalse(printed.contains("<img"), label)
+        }
     }
 
     // MARK: - Its tile shows it coming
