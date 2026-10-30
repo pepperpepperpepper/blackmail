@@ -42587,7 +42587,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's stretching it, not copied
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's crop of it (read as a stretch until r6-u-pdf), not copied; seen again on PDFs 2026-10-30 (r6-u-pdf): Mail prints an attached photo after the words too, and a text part after a photo after it, to copy
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -42628,7 +42628,8 @@ Not copied:
   its paging that wastes a sheet.
 - Mail's plain letter's landscape photo stretched taller than wide,
   and the second sheet that takes: Blackmail keeps a photo's shape
-  (round r6-r-copy, below).
+  (round r6-r-copy, below). Corrected 2026-10-30 (round r6-u-pdf,
+  below): a crop at Mail's column's right edge, not a stretch.
 - Mail's wider margins and larger header (C-2b, in passing): the
   paper's layout, said in B-110.
 
@@ -42674,7 +42675,8 @@ build for the iPad: "Build complete".
   sheet of its own; for a plain letter copied, "Fixed again
   2026-10-30, after the test iPad (r6-q-copy)", below.
 - A letter with words and an attached picture: Mail's print not seen;
-  by the rule, its words alone.
+  by the rule, its words alone. Seen 2026-10-30 (round r6-u-pdf,
+  below): Mail prints the photo after the words, as an inline one.
 - The words, printed only when the page cannot be drawn, still list
   the letter's files after its text (B-170): Mail has no such words to
   copy, and no page failed in the round.
@@ -43072,7 +43074,8 @@ picture distorted, as it keeps one sheet for the `cid:` picture letter
 where Mail adds a blank one, and its own margins where Mail's are wider
 (B-110). At Mail's width, 496 by 372 points, this photo fits under the
 words, so "Page 1 of 1" where Mail's has two is the expected difference,
-not copied.
+not copied. Corrected 2026-10-30 (round r6-u-pdf, below), measured on
+Mail's PDF: a crop at its column's right edge, not a stretch.
 
 **Not covered.**
 
@@ -43193,6 +43196,136 @@ was sent.
 - A portrait photo, a small one, one offline and a photo alone (TODO
   B-185, 3a to 3c): not made this round.
 - The preview stands in for paper: nothing was printed.
+
+**Seen on the test iPad, 2026-10-30, Mail's and Blackmail's prints as
+PDF, on 3671253**, round r6-u-pdf, the build of round r6-s-copy. The
+owner, 2026-10-30: the next fixes are printing photos, "use pdfs as
+reference". Eight plain letters of photos, made for the round, each a
+text part and then its photos with no `Content-ID` and no HTML: A
+words and a landscape photo of 1600 by 1200; B words and a portrait
+phone photo of 3024 by 4032; C the same with a photo stored landscape,
+EXIF orientation 6; D words and a photo of 320 by 240; E words, A's
+photo and B's; F B's photo alone; G B's letter with a second text
+part after the photo, "Sent from my iPhone"; H A's words and photo,
+the photo sent as an attachment (`Content-Disposition: attachment`).
+
+**The method.** Each letter printed in Mail 16.5.1 first, then in
+Blackmail: the print panel opened as in the rounds before, its
+preview shot, then the panel's Share button, Save to Files, On My
+iPad, Save. Nothing printed (no tap on Print; the log's `PRINT closed
+done=true` eight times, each as the save closed the panel), nothing
+sent. Each PDF taken off the iPad, the same bytes at both ends, and
+measured: its sheets, every photo's box and placement in points, its
+turn, crop and cut by a sheet, where the words end. Every sheet
+Letter, 612 by 792 points, in both apps; each preview's "Page 1 of N"
+the PDF's count. Points from the sheet's top left.
+
+**Per letter, Mail, then Blackmail.**
+
+- A: Mail 2 sheets, its words ending at 170.0 on sheet 1, the photo
+  alone on sheet 2 at 56.5, 67.0, 507.5 by 600.5 seen of a placement
+  800.8 by 600.6, cut off at the right at x 564. Blackmail 1 sheet,
+  the words ending at 214.1, the photo under them at 36, 216, 496 by
+  372, whole.
+- B: Mail 4 sheets, the words ending at 197.6, sheets 2 to 4 blank,
+  no photo drawn (its PDF 36 KB, its preview blank too). Blackmail 2
+  sheets, the photo at the top of sheet 2 at 36, 36, 496 by 661.6,
+  whole.
+- C: Mail 4 sheets, the photo turned upright as its EXIF says, a
+  placement 1,513.5 by 2,018 from 1.95 under the words on sheet 1,
+  cut off at x 564 and cut across the four sheets, 572, 638, 638 and
+  172.5 seen. Blackmail 2 sheets, as B's, upright, the same picture
+  as B's.
+- D: Mail 1 sheet, the photo 256 by 192 at 66.8, 238.8, 3.1 under the
+  words. Blackmail 1 sheet, 256 by 192 at 36, 216, 1.9 under them.
+  The same size, 0.8 points to a pixel.
+- E: Mail 6 sheets, A's photo alone on sheet 2 as A's, B's from under
+  it at 690.5, cut across sheets 2 to 6 and cut off at the right.
+  Blackmail 2 sheets, A's photo under the words on sheet 1, 496 by
+  372, B's at the top of sheet 2, 496 by 661.6.
+- F: Mail 4 sheets, the photo from under the header at 107 on sheet
+  1, cut across the four and cut off at the right. Blackmail 2
+  sheets, the header alone on sheet 1, the photo at the top of sheet
+  2, 496 by 661.6.
+- G: Mail 4 sheets, the words ending at 197.6, the photo a placement
+  1,512 by 2,016 from 199.5, cut off at x 558 and cut across the
+  four, then "Sent from my iPhone" on sheet 4 at 365.4, under the
+  photo's last piece. Blackmail 2 sheets, "Sent from my iPhone" on
+  sheet 1 under the words, ending at 232.5, the photo at the top of
+  sheet 2, 496 by 661.6.
+- H: Mail 2 sheets, the words on sheet 1 ending at 192.1, the
+  attached photo alone on sheet 2 at 56.5, 89.0, 507.5 by 600.5 seen,
+  as A's. Blackmail 1 sheet, the words alone, no picture.
+
+**Blackmail as its own source says, all eight.** Each photo at most
+496 points wide, its shape kept, at the column's left; one that fits
+under the words printed there, one that does not moved whole to the
+next sheet; C upright; D 0.8 points to a pixel; H no picture; G's
+line above the photo, its two text parts joined (`MIMEDecoder`,
+`joined`); no blank sheet. Each Blackmail PDF 111 to 173 bytes over
+its `PRINT ready bytes=`, the title and creator the share adds; its
+pages the same.
+
+**Mail's words.** In every letter but D, Mail's words printed at 8.5
+points, where D's, and Blackmail's in all eight, printed at 13.6. Mail
+draws a photo in its body one CSS pixel to its pixel, so the page is
+laid out as wide as WebKit's print lets it, twice the column, and
+shrunk by 2 (`printingMaximumShrinkFactor`): a CSS pixel prints as
+0.5 points, the photo past the column is cut off, and the words, 17
+pixels, print at 8.5. Inferred from the numbers and WebKit's source;
+D's page is no wider than the usual 1.25 lays out. Mail's header was
+drawn as pictures of its lines, with no text in the PDF, and its
+margins were wider (B-110).
+
+**Corrected by it.**
+
+1. *Mail's "stretched" photo was a crop.* Mail draws A's photo at 0.5
+   points to a pixel, 800.8 by 600.6, its shape kept, and its column
+   cuts it off at the right edge, x 564: 507.5 by 600.5 seen, width
+   over height 0.85 here, the 0.78 read on round r6-q-copy's preview
+   as a box stretched 1.7 times. Its second sheet: the placement,
+   600.6 tall, does not fit under the words and is moved whole, as
+   WebKit moves a picture it does not cut. "Mail's width", 496 points,
+   copied after round r6-r-copy, was the width of Mail's column, not
+   of its photo; Blackmail's photo keeps it.
+2. *Mail cuts a photo taller than a sheet across sheets:* C, F and G
+   over four, E over six, each piece the same picture drawn again.
+3. *Mail printed B's photo not at all:* three blank sheets.
+4. *Mail prints an attached photo.* H's, after the words, exactly as
+   A's inline one. This reverses round r6-n-compare's inference, the
+   rule above that an attached picture is left off the paper. That
+   round's letter of an attached picture alone printed its header
+   alone in Mail's preview: not reconciled with H.
+5. *Mail prints the parts in the letter's order:* G's trailing text
+   part after the photo, where Blackmail joins the text parts and
+   prints the line above it.
+
+**To copy next, on paper alone.** A plain letter's attached photo
+printed as an inline one, after the words (H); the parts printed in
+the letter's order, a text part after a photo after it (G).
+
+**Not copied.** The crop at 0.5 points to a pixel, the cut across
+sheets, the blank sheets, and the words at 8.5 points that come with
+that shrink: Blackmail keeps each photo whole, fitted to the column,
+at most 496 by 720 points, moved whole to the next sheet when it does
+not fit under what comes before. Put to the owner.
+
+**The pane, not changed.** On the round's shots of G on screen,
+Mail's pane has the photo right under "Gus", nothing between;
+Blackmail's has "Sent from my iPhone" between "Gus" and the photo, the
+two text parts joined. Where Mail's pane puts the line, under the photo out of
+sight, was not seen. The pane is not changed by this work (D-025).
+
+**Not covered.**
+
+- A PDF from the print panel's Share stands in for paper: nothing was
+  printed.
+- Mail's blank sheets for B: one run; whether Mail always drops such
+  a photo, not seen.
+- A letter of an attached picture alone, printed to PDF: not made.
+- TODO B-185 1a to 1e and 3b; a photo in a quote, a HEIC one, an HTML
+  letter's photo, a letter over 5 MB: not in the round. Mail on 18:
+  not seen.
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

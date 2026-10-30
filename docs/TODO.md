@@ -11720,10 +11720,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          photo right under them on the same sheet, at the words' left, 496
          by 372 points, about 81% of the sheet's width (about 131 of the
          preview's 162 view px), its shape kept, "Page 1 of 1". Mail's
-         preview has it stretched taller than wide on a second sheet of its
-         own, "Page 2 of 2": the difference, not copied (KNOWN_ISSUES
-         B-185). The photo narrower, cut across two sheets, stretched, a
-         blank sheet, or no photo: a FAIL. Screenshots of both previews.
+         preview has it on a second sheet of its own, "Page 2 of 2", cut
+         off at its column's right edge (read as stretched until round
+         r6-u-pdf): the difference, not copied (KNOWN_ISSUES B-185).
+         The photo narrower, cut across two sheets, stretched, a blank
+         sheet, or no photo: a FAIL. Screenshots of both previews.
       3a. *"R6 B-185 small photo":* Blackmail's photo under the words
          on the first sheet, 0.8 points to its pixel, about 240 by 160
          points (about 64 by 42 view px). Mail's preview beside it:
@@ -11792,6 +11793,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       copied, as recorded (KNOWN_ISSUES B-185). Step 3 is now seen whole.
       In 5 the letters put in the Trash, nothing erased. Not run: 1a to 1e,
       3a to 3c, and 4. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (3671253), round
+      r6-u-pdf: Mail's and Blackmail's prints of eight photo letters
+      saved as PDF from the print panel's Share (Save to Files) and
+      measured, nothing printed, nothing sent, the letters put in the
+      Trash. Blackmail as its source says in all eight. In 3a's place
+      a photo of 320 by 240: 256 by 192 points under the words in both
+      apps, 0.8 points to a pixel. In 3c's: Blackmail's header alone on
+      sheet 1, the photo whole on sheet 2; Mail's photo from under the
+      header on sheet 1, cut across four sheets. Mail's photo in 3 was
+      cut off at its column's right edge, 0.5 points to a pixel, not
+      stretched; Mail cut tall photos across sheets, printed a
+      portrait one not at all, printed an attached photo after the
+      words, and a text part after a photo after it: the last two to
+      copy, the rest not copied (KNOWN_ISSUES B-185, "Seen on the test
+      iPad, 2026-10-30, Mail's and Blackmail's prints as PDF"). 3a and
+      3c are now seen whole. Not run: 1a to 1e, 3b, and 4.*
 
 - [ ] **B-186, the Connection log opens at its newest line.** On the
       test iPad, from a build of the `bm-fix-j1` worktree (branch
