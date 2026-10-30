@@ -41502,13 +41502,13 @@ c72b3af, the JPEGs' insides left out; the light letter opened after the
 switch went off the same as before it, no element left in it; no colour
 filter line after the off. 7, Smart Invert off again, its settings key
 for key as before the check, and the letters in the Trash, nothing
-erased. Not compared with Mail, as before: the pane round a light letter
-white, Mail's rgb(227, 227, 225) (D-010), and the link. Not run: 0's PDF
-letter and stack, 3's Block All Remote Content line, 4's PDF letter, 4a,
-5's second turn on and its turns with the light letter, and 5a. Nothing
-was sent.
+erased. Not copied, as before: the pane round a light letter white,
+Mail's rgb(227, 227, 225) (D-010); the link not compared with Mail's.
+Not run: 0's PDF letter and stack, 3's Block All Remote Content line,
+4's PDF letter, 6's PDF letter, 4a, 5's second turn on and its turns
+with the light letter, and 5a. Nothing was sent.
 
-**Failed, steps 5 and 6.** Smart Invert turned off with the photos
+**Failed, step 5.** Smart Invert turned off with the photos
 letter open, scrolled to its second photo: as at c72b3af, to the same
 numbers. No reload and no scroll, the words white on black again, but
 the photos hue-turned: the label black with its words rgb(255, 151,
@@ -41516,8 +41516,8 @@ the photos hue-turned: the label black with its words rgb(255, 151,
 the switch off they are white, rgb(164, 60, 60), rgb(126, 184, 245) and
 rgb(131, 134, 92); a mean of 15.710 against the shot taken before the
 switch, one cluster, the photo's box; the same 30 s later, and the first
-photo too after a scroll to the top (step 6's part, 15.712, every
-cluster in the photos' boxes). The log one "pane: isInvertColorsEnabled
+photo too after a scroll to the top (15.712, every cluster in the
+photos' boxes). The log one "pane: isInvertColorsEnabled
 false, changed", written as Blackmail came back to the front, which is
 when the switch's off runs, and no page built after it. So the drawing
 anew of "Fixed again 2026-10-30, after the test iPad (r6-q-copy)", point
@@ -41561,10 +41561,14 @@ is loaded again.
    touched: no layout asked, nothing scrolled.
 2. *A box in each one's place.* Before any is taken out, the script
    reads each picture's size as drawn (`getBoundingClientRect`), its
-   margins, `vertical-align` and float, and makes an element of a tag
-   no letter uses, `<bm-si-place>` (`SmartInvert.placeTag`): that width
-   and height with `box-sizing: border-box`, no padding, no border, the
-   same margins, `vertical-align` and float, `inline-block` for a
+   margins, `vertical-align`, float, `clear`, `order` and grid lines
+   (`grid-row-start`, `grid-row-end`, `grid-column-start`,
+   `grid-column-end`), and makes an element of a tag no letter uses,
+   `<bm-si-place>` (`SmartInvert.placeTag`): that width and height with
+   `box-sizing: border-box`, no padding, no border, the same margins,
+   `vertical-align`, float, `clear`, `order` and grid lines (so a
+   second picture floated under the first, a flex item put first and a
+   grid item placed by its lines keep their places), `inline-block` for a
    picture drawn inline or inline-block and a block for any other, all
    `!important`, so no sender's rule changes it. It goes in just before
    the picture, so each line keeps its height and every other box stays
@@ -41575,9 +41579,18 @@ is loaded again.
    (`requestAnimationFrame` twice), so WebKit paints at least one frame
    without it; then its `style` attribute is put back to the byte, or
    taken off where it had none, and its box taken out, in the same turn.
-   The page is put back where it was, at each step, only if it moved.
-4. *Never left out.* A timer puts everything back after a second if the
-   frames do not come, the page not shown. The switch going on, or off
+   Where it had none it is set empty first: WebKit writes the attribute
+   of a `style.setProperty` only when it is next read, and taking off
+   one not yet written leaves `style=""` once it is. The page is put
+   back where it was as the switch went off, at each step, only if it
+   moved.
+4. *Never left out.* While the page is hidden (`document.hidden`), as
+   under a photo shown full screen, whose view covers the pane's,
+   WebKit draws no frame, so nothing is put back: the boxes hold the
+   place, and nobody sees it. Once it is shown (`visibilitychange`),
+   two frames again. A timer puts everything back a second after the
+   off, or after the page is shown, if on a page shown the frames do
+   not come. The switch going on, or off
    again, first puts back what is out; so does the wrapping of a light
    letter's pictures (`bmWrapPictures`), so a picture out is never
    wrapped and a box is never read as its neighbour. A frame or a timer
@@ -41619,6 +41632,24 @@ on, 3 in 2; a log line for none, 1. Each failure an assertion's. The
 full suite: 3,240 tests, 6 skipped, none failing. The release build for
 the iPad: "Build complete".
 
+Then, the change read again: the timer put the pictures back with no
+frame on a page hidden, the place read at the put-back and not at the
+off, no `clear`, `order` or grid line in the box, and `style=""` left
+where a picture had none. The stand-in now writes a `style.setProperty`
+to the attribute only when it is read, as WebKit does, and can hide the
+page. Changed: the boxes kept out, the page put back at 500 as the
+picture comes back (it ended at 100). Two new: a page hidden as the
+switch goes off, the picture out through 5 s and put back once shown
+and a frame drawn, the markup as before; shown with no frame, put back
+a second after. One new: a box keeps `clear`, `order` and grid lines.
+Each undone by hand, the class run, each failure read by its line, then
+put back: the timer blind while hidden, 2 failures in 1 test; no timer
+again when shown, 2 in 1; the new names out of the box, 1; no empty
+attribute first, 3 in 2; the place read at the put-back, 1; no scroll
+in `bmStayAt`, 1. Each failure an assertion's. The full suite: 3,243
+tests, 6 skipped, none failing. The release build for the iPad: "Build
+complete".
+
 **Not covered** (this change):
 
 - Whether a picture out for one painted frame draws natural when put
@@ -41631,6 +41662,10 @@ the iPad: "Build complete".
   in, for the frame or two it is there.
 - A video playing as the switch goes off is taken out for those frames
   too, as before it was changed and put back.
+- That WebKit counts the pane's page hidden while a photo is shown full
+  screen over it is read from its source, not seen; if it did not and
+  drew no frame, the timer would put the pictures back after a second,
+  not drawn anew.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 

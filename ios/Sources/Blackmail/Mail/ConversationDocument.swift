@@ -679,17 +679,22 @@ enum ConversationDocument {
     /// one whose `display` was changed and put back in one turn did not
     /// (r6-r-copy). In its place meanwhile an element of
     /// `SmartInvert.placeTag`, a box of its size, its margins, its
-    /// `vertical-align` and its float, inline-block for a picture drawn
-    /// inline and a block otherwise, so no line and no other box moves; a
-    /// picture placed on its own has none, as taking it out moves nothing.
-    /// Put back, its `style` attribute is as it was, to the byte, and none
-    /// where it had none, and the box goes. If the frames do not come, the
-    /// page not shown, all is put back after a second; the switch going
+    /// `vertical-align`, its float and `clear`, its `order` and its grid
+    /// lines, inline-block for a picture drawn inline and a block
+    /// otherwise, so no line and no other box moves; a picture placed on
+    /// its own has none, as taking it out moves nothing. Put back, its
+    /// `style` attribute is as it was, to the byte, and none where it had
+    /// none (set empty first, as WebKit writes the attribute of a
+    /// `style.setProperty` only when it is next read), and the box goes.
+    /// While the page is hidden (`document.hidden`), as under a picture
+    /// shown full screen, WebKit draws no frame, and nothing is put back
+    /// till it is shown: then two frames again. If the frames do not come
+    /// on a page shown, all is put back after a second; the switch going
     /// on, or off again, first puts back what is out, and so does a light
     /// letter's pictures being put in their elements. The page is put back
-    /// where it was if it moved. It answers how many it took out, for the
-    /// pane's log (`SmartInvert.redrawn`). A page with no such picture is
-    /// not touched.
+    /// where it was at the switch's going off if it moved. It answers how
+    /// many it took out, for the pane's log (`SmartInvert.redrawn`). A
+    /// page with no such picture is not touched.
     ///
     /// And a light letter's pictures, inside a scope the switch's sheet
     /// has `SmartInvert.wrapper(in:)` for, are each put in an element of
@@ -867,8 +872,7 @@ enum ConversationDocument {
                        place: bmPlaceFor(pictures[i], shown, display) });
         }
         if (!drawn.length) return 0;
-        var run = { drawn: drawn, timer: null };
-        var x = window.pageXOffset, y = window.pageYOffset;
+        var run = { drawn: drawn, timer: null, x: window.pageXOffset, y: window.pageYOffset };
         bmRepaint = run;
         for (var j = 0; j < drawn.length; j++) {
           try {
@@ -877,24 +881,32 @@ enum ConversationDocument {
           } catch (e) {}
           drawn[j].picture.style.setProperty('display', 'none', 'important');
         }
-        bmStayAt(x, y);
-        run.timer = setTimeout(function () { bmPutPicturesBack(run); }, 1000);
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () { bmPutPicturesBack(run); });
-        });
+        bmStayAt(run.x, run.y);
+        bmPutBackAfterAFrame(run);
         return drawn.length;
       } catch (e) {
         bmPutPicturesBack();
         return 0;
       }
     }
-    var bmPlaceLooks = ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'vertical-align', 'float'];
+    function bmPutBackAfterAFrame(run) {
+      try { clearTimeout(run.timer); } catch (e) {}
+      run.timer = setTimeout(function () { if (!document.hidden) bmPutPicturesBack(run); }, 1000);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { bmPutPicturesBack(run); });
+      });
+    }
+    function bmShown() {
+      if (bmRepaint && !document.hidden) bmPutBackAfterAFrame(bmRepaint);
+    }
+    window.addEventListener('visibilitychange', bmShown);
+    var bmPlaceLooks = ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'vertical-align', 'float',
+                        'clear', 'order', 'grid-row-start', 'grid-row-end', 'grid-column-start', 'grid-column-end'];
     function bmPlaceFor(picture, shown, display) {
       var position = shown.getPropertyValue('position');
       if (position === 'absolute' || position === 'fixed') return null;
       var box = picture.getBoundingClientRect();
       var place = document.createElement('bm-si-place');
-      place.bmPlace = true;
       var look = [['display', display.indexOf('inline') === 0 ? 'inline-block' : 'block'],
                   ['box-sizing', 'border-box'], ['width', box.width + 'px'], ['height', box.height + 'px'],
                   ['min-width', '0'], ['min-height', '0'], ['max-width', 'none'], ['max-height', 'none'],
@@ -908,16 +920,17 @@ enum ConversationDocument {
       if (!now || (run && run !== now)) return;
       bmRepaint = null;
       try { clearTimeout(now.timer); } catch (e) {}
-      var x = window.pageXOffset, y = window.pageYOffset;
       for (var i = 0; i < now.drawn.length; i++) {
         var d = now.drawn[i];
         try {
-          if (d.style === null) d.picture.removeAttribute('style');
-          else d.picture.setAttribute('style', d.style);
+          if (d.style === null) {
+            d.picture.setAttribute('style', '');
+            d.picture.removeAttribute('style');
+          } else d.picture.setAttribute('style', d.style);
         } catch (e) {}
         try { if (d.place && d.place.parentNode) d.place.parentNode.removeChild(d.place); } catch (e) {}
       }
-      try { bmStayAt(x, y); } catch (e) {}
+      try { bmStayAt(now.x, now.y); } catch (e) {}
     }
     function bmStayAt(x, y) {
       void document.documentElement.offsetHeight;

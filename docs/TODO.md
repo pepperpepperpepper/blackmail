@@ -11345,6 +11345,12 @@ checks below is left as not needed, not open, and none is worth a round.*
          page. If WebKit's process can be made to end (other apps opened
          till the pane draws again), the same: Smart Invert off, the
          pane drawn again, then on. Written down if it cannot be done.
+      5b. *Off under a photo shown full screen:* Smart Invert on, the
+         photos letter open, its first photo tapped so it fills the
+         screen; Smart Invert turned off in Settings, Blackmail brought
+         back and left 5 s, then the photo closed: the letter's photos
+         natural at once, no line moved, the log's "drawn anew" line
+         once. Screenshots.
       6. *With Smart Invert off:* the photos, light, plain and PDF letters
          opened in Blackmail, each compared with round r6-p-copy's OFF
          shots of 7803dbb by pxcmp: mean 0. The inside of a large JPEG,

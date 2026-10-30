@@ -337,7 +337,9 @@ final class SmartInvertLikeMailTests: XCTestCase {
         XCTAssertTrue(script.contains("var place = document.createElement('\(SmartInvert.placeTag)');"))
         XCTAssertTrue(script.contains("requestAnimationFrame(function () { "
                                       + "requestAnimationFrame(function () { bmPutPicturesBack(run); }); });"))
-        XCTAssertTrue(script.contains("run.timer = setTimeout(function () { bmPutPicturesBack(run); }, 1000);"))
+        XCTAssertTrue(script.contains("run.timer = setTimeout(function () { "
+                                      + "if (!document.hidden) bmPutPicturesBack(run); }, 1000);"))
+        XCTAssertTrue(script.contains("window.addEventListener('visibilitychange', bmShown);"))
         XCTAssertTrue(script.contains("function bmSmartInvert(on, rules, colourFilter) { bmPutPicturesBack();"))
     }
 

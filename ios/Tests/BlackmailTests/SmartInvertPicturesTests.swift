@@ -30,8 +30,13 @@ import XCTest
 /// page is laid out once as it loads and once at the run's end, as WebKit
 /// draws it; a frame drawn runs the animation frame callbacks asked for
 /// before it and lays the page out, and the timers run only as time is
-/// let pass, as on a page not shown. Moving a node before one its parent
-/// does not hold throws, as the DOM's does.
+/// let pass. The page can be hidden and shown again, `document.hidden`
+/// and `visibilitychange` as WebKit's. A `style.setProperty` writes the
+/// `style` attribute only when it is next read or the page is written
+/// out, and a `removeAttribute("style")` that finds none empties the
+/// declarations, which then write an empty attribute, as WebKit's and
+/// Blink's do. Moving a node before one its parent does not hold throws,
+/// as the DOM's does.
 ///
 /// Run only where node is; elsewhere these tests skip, and the script's
 /// pins in `SmartInvertLikeMailTests` still hold it.
@@ -74,7 +79,8 @@ final class SmartInvertPicturesTests: XCTestCase {
     /// it is made anew, drawn with the filter it has again (r6-r-copy);
     /// still out after the first frame. In its place meanwhile a box of
     /// its size, its margins, its `vertical-align` and its float, inline-
-    /// block for a picture drawn inline and a block otherwise, so the page
+    /// block for a picture drawn inline and a block otherwise (its `clear`,
+    /// `order` and grid lines where it has them), so the page
     /// does not pull up, and none for a picture placed on its own. Put
     /// back, its `style` attribute as it was, to the byte, and none where
     /// it had none, the boxes gone, the page where it was with no scroll
@@ -122,7 +128,8 @@ final class SmartInvertPicturesTests: XCTestCase {
     }
 
     /// The same page with the boxes kept out of it: the page pulled up
-    /// while the picture is out. Shows the stand-in pulls such a page up, so
+    /// while the picture is out, and put back where it was at the off as
+    /// the picture comes back. Shows the stand-in pulls such a page up, so
     /// the test above, where it does not, means something.
     func testTheModelPullsAPageUpForAPictureOutWithNoBox() throws {
         let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
@@ -132,12 +139,29 @@ final class SmartInvertPicturesTests: XCTestCase {
                             script: ConversationDocument.script.replacingOccurrences(
                                 of: "if (drawn[j].place && holder)", with: "if (false)"))
         XCTAssertEqual(run.pulledUp, true, run.log)
+        XCTAssertEqual(run.scrollY, 500, run.log)
         XCTAssertEqual(run.places, 0)
     }
 
-    /// With no frame drawn, as on a page not shown, the pictures put back
-    /// after a second, not before, the boxes gone; the frames that come
-    /// later change nothing.
+    /// A box keeps a picture's `clear`, `order` and grid lines too, so a
+    /// second picture floated under the first, a flex item put first, or
+    /// a grid item placed by its lines, holds its place.
+    func testABoxKeepsAPicturesClearOrderAndGridLines() throws {
+        let body = "<p>The roses.</p><img id=\"f\" src=\"cid:f@example.com\" style=\"float: left; clear: left; "
+            + "order: -1; grid-row-start: 2; grid-row-end: 3; grid-column-start: 1; grid-column-end: span 2\">"
+        let html = try page(inverted, style: on, body: body)
+        let run = try model(html, [.toggle(on: false, rules: SmartInvert.rules(for: .inverted)),
+                                   .snapshot("out"), .frame, .frame])
+        XCTAssertTrue(try XCTUnwrap(run.snapshots["out"]).contains(
+            "float: left !important; clear: left !important; order: -1 !important; "
+                + "grid-row-start: 2 !important; grid-row-end: 3 !important; grid-column-start: 1 !important; "
+                + "grid-column-end: span 2 !important;\"></bm-si-place><img id=\"f\""), run.log)
+        XCTAssertEqual(run.places, 0)
+    }
+
+    /// With no frame drawn on a page shown, the pictures put back after a
+    /// second, not before, the boxes gone; the frames that come later
+    /// change nothing.
     func testGoingOffPutsThePicturesBackAfterASecondWithNoFrame() throws {
         let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
         let html = try page(inverted, style: on, body: body)
@@ -149,6 +173,34 @@ final class SmartInvertPicturesTests: XCTestCase {
         XCTAssertEqual(run.snapshots["later"], run.snapshots["on"], run.log)
         XCTAssertEqual(run.hiddenFrames, ["a": 0], run.log)
         XCTAssertEqual(run.places, 0)
+    }
+
+    /// Smart Invert turned off while the page is hidden, as under a photo
+    /// shown full screen: no frame drawn, so the pictures stay out however
+    /// long it is hidden, the timer putting nothing back, and come back
+    /// once it is shown and a frame has been drawn without them; the page
+    /// and the picture's markup as before, no `style` attribute where it
+    /// had none, the page where it was. Shown with no frame drawn, they
+    /// come back a second after it is shown, not before.
+    func testGoingOffOnAHiddenPageWaitsTillItIsShownAndAFrameDrawn() throws {
+        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
+        let rules = SmartInvert.rules(for: .inverted)
+        let html = try page(inverted, style: on, body: body)
+        let run = try model(html, [.scroll(500), .snapshot("on"), .hide, .toggle(on: false, rules: rules),
+                                   .wait(5000), .show, .frame, .frame, .wait(2000), .snapshot("off")])
+        XCTAssertEqual(run.hiddenFrames, ["a": 1], run.log)
+        XCTAssertEqual(run.made, ["a": 2], run.log)
+        XCTAssertEqual(run.snapshots["off"], run.snapshots["on"], run.log)
+        XCTAssertEqual(run.answers, [1])
+        XCTAssertEqual(run.places, 0)
+        XCTAssertEqual(run.scrollY, 500)
+        XCTAssertEqual(run.scrolledTo, 0)
+
+        let slow = try model(html, [.snapshot("on"), .hide, .toggle(on: false, rules: rules), .wait(5000),
+                                    .show, .wait(999), .snapshot("waited"), .wait(1), .snapshot("off")])
+        XCTAssertTrue(try XCTUnwrap(slow.snapshots["waited"]).contains("</bm-si-place><img id=\"a\""), slow.log)
+        XCTAssertEqual(slow.snapshots["off"], slow.snapshots["on"], slow.log)
+        XCTAssertEqual(slow.places, 0)
     }
 
     /// Off, on and off again before a frame is drawn: the switch going on
@@ -419,6 +471,11 @@ final class SmartInvertPicturesTests: XCTestCase {
         /// `ms` milliseconds pass with no frame drawn, as on a page not
         /// shown: the timers due run.
         static func wait(_ ms: Int) -> Step { Step(action: "wait", y: ms) }
+        /// The page hidden, as WebKit hides one whose view is out of its
+        /// window: `document.hidden` true and `visibilitychange` fired.
+        /// No frame is drawn till it is shown.
+        static let hide = Step(action: "hide")
+        static let show = Step(action: "show")
         static func fill(id: String, html: String, scheme: String) -> Step {
             Step(action: "fill", id: id, html: html, scheme: scheme)
         }
@@ -485,12 +542,8 @@ final class SmartInvertPicturesTests: XCTestCase {
     }
     class Style {
       constructor(el) { this.el = el; }
-      get list() { return parseStyle(this.el.getAttribute('style')); }
-      write(list) {
-        this.el.setAttribute('style', list.map(function (p) {
-          return p[0] + ': ' + p[1] + (p[2] ? ' !important' : '') + ';';
-        }).join(' '));
-      }
+      get list() { return this.el.dirty || parseStyle(this.el.rawAttribute('style')); }
+      write(list) { this.el.dirty = list; }
       getPropertyValue(n) { const p = this.list.find(function (p) { return p[0] === n; }); return p ? p[1] : ''; }
       getPropertyPriority(n) { const p = this.list.find(function (p) { return p[0] === n; }); return p ? p[2] : ''; }
       setProperty(n, v, priority) {
@@ -504,13 +557,27 @@ final class SmartInvertPicturesTests: XCTestCase {
       constructor(tag) {
         this.nodeType = 1; this.tagName = tag.toUpperCase(); this.attrs = []; this.children = [];
         this.parentNode = null; this.raw = ''; this.made = 0; this.drawnAs = undefined; this.drawnIn = undefined;
+        this.dirty = null;
       }
-      getAttribute(n) { const a = this.attrs.find(function (a) { return a[0] === n; }); return a ? a[1] : null; }
+      rawAttribute(n) { const a = this.attrs.find(function (a) { return a[0] === n; }); return a ? a[1] : null; }
+      sync() {
+        if (!this.dirty) return;
+        const list = this.dirty;
+        this.setAttribute('style', list.map(function (p) {
+          return p[0] + ': ' + p[1] + (p[2] ? ' !important' : '') + ';';
+        }).join(' '));
+      }
+      getAttribute(n) { if (n === 'style') this.sync(); return this.rawAttribute(n); }
       setAttribute(n, v) {
+        if (n === 'style') this.dirty = null;
         const a = this.attrs.find(function (a) { return a[0] === n; });
         if (a) a[1] = String(v); else this.attrs.push([n, String(v)]);
       }
-      removeAttribute(n) { this.attrs = this.attrs.filter(function (a) { return a[0] !== n; }); }
+      removeAttribute(n) {
+        if (n === 'style' && this.rawAttribute(n) === null) { if (this.dirty) this.dirty = []; return; }
+        if (n === 'style') this.dirty = null;
+        this.attrs = this.attrs.filter(function (a) { return a[0] !== n; });
+      }
       get id() { return this.getAttribute('id') || ''; }
       set id(v) { this.setAttribute('id', v); }
       get className() { return this.getAttribute('class') || ''; }
@@ -707,19 +774,24 @@ final class SmartInvertPicturesTests: XCTestCase {
         const before = el.previousElementSibling;
         const kept = (before && before.tagName === 'BM-SI-PLACE')
           || ['absolute', 'fixed'].indexOf(el.getAttribute('data-position')) >= 0;
-        if (display === 'none' && el.getAttribute('style') !== 'display: none' && !kept) hidden = true;
+        if (display === 'none' && el.rawAttribute('style') !== 'display: none' && !kept) hidden = true;
       }
       if (hidden && scrollY > 100) { scrollY = 100; pulledUp = true; }
     }
-    function serialize(node) {
+    function serialize(node, peek) {
       if (node.nodeType === 3) return node.text;
+      if (!peek) node.sync();
       const name = node.tagName.toLowerCase();
       const attrs = node.attrs.map(function (a) { return ' ' + a[0] + '="' + a[1] + '"'; }).join('');
       if (VOID.indexOf(name) >= 0) return '<' + name + attrs + '>';
-      return '<' + name + attrs + '>' + node.raw + node.children.map(serialize).join('') + '</' + name + '>';
+      return '<' + name + attrs + '>' + node.raw
+        + node.children.map(function (c) { return serialize(c, peek); }).join('') + '</' + name + '>';
     }
+    let pageHidden = false;
+    const shownListeners = [];
     global.document = {
       documentElement: documentElement, head: head, body: body,
+      get hidden() { return pageHidden; },
       createElement: function (tag) { return new Element(tag); },
       getElementById: function (id) { return documentElement.descendants().find(function (el) { return el.id === id; }) || null; },
       querySelectorAll: function (s) { return documentElement.querySelectorAll(s); },
@@ -730,7 +802,7 @@ final class SmartInvertPicturesTests: XCTestCase {
       innerHeight: 700,
       scrollTo: function (x, y) { scrollX = x; scrollY = y; scrolledTo++; },
       scrollBy: function (x, y) { scrollX += x; scrollY += y; scrolledTo++; },
-      addEventListener: function () {},
+      addEventListener: function (type, f) { if (type === 'visibilitychange') shownListeners.push(f); },
       getComputedStyle: computed,
       CSS: { supports: function () { return false; } },
     };
@@ -775,11 +847,15 @@ final class SmartInvertPicturesTests: XCTestCase {
       if (step.action === 'toggle') answers.push(bmSmartInvert(step.on, step.rules, ''));
       if (step.action === 'frame') frame();
       if (step.action === 'wait') wait(step.y);
+      if (step.action === 'hide' || step.action === 'show') {
+        pageHidden = step.action === 'hide';
+        for (const f of shownListeners) f();
+      }
       if (step.action === 'scroll') scrollY = step.y;
       if (step.action === 'snapshot') snapshots[step.name] = serialize(body);
       if (step.action === 'fill') bmFill(step.id, step.html, true, step.scheme);
       if (step.action === 'append') bmAppend(step.html);
-      log.push(step.action + ': ' + serialize(body));
+      log.push(step.action + ': ' + serialize(body, true));
     }
     layout(false);
     const made = {}, displays = {}, wrapped = {};
