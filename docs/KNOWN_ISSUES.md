@@ -43314,7 +43314,9 @@ the letter's order, a text part after a photo after it (G).
 sheets, the blank sheets, and the words at 8.5 points that come with
 that shrink: Blackmail keeps each photo whole, fitted to the column,
 at most 496 by 720 points, moved whole to the next sheet when it does
-not fit under what comes before. Put to the owner.
+not fit under what comes before. Ruled by the owner, 2026-10-30:
+"Keep whole photos as you recommend — don't copy Mail's cutting and
+splitting."
 
 **The pane, not changed.** On the round's shots of G on screen,
 Mail's pane has the photo right under "Gus", nothing between;
