@@ -124,7 +124,9 @@ enum SmartInvert {
     ///   system's inversion inverts them, as Mail's;
     /// - Mail's quote bars and the line before a quote: Mail's dark
     ///   colours as they are, out of the colour filter, which cannot reach
-    ///   them, as Mail's are in its Dark Mode;
+    ///   them, as Mail's are in its Dark Mode; and inside them, whatever
+    ///   carries a colour of its own, back in the colour filter
+    ///   (`quotedOwnColours`);
     /// - Mail's line over held-back pictures: Mail's own colours, out of
     ///   the colour filter;
     /// - his signature's sheet: its white as written, which the colour
@@ -140,9 +142,33 @@ enum SmartInvert {
             QuoteBars.attributionCSS(in: s, palette: QuoteBars.dark),
             "\(s) \(QuoteBars.quote), \(s) .\(QuoteBars.attributionClass), "
                 + "\(s) .\(RemoteContent.lineClass) { \(ColourFilter.property): none; }",
+            quotedOwnColours(in: s),
             RemoteContent.colourRule(in: s, inverted: false),
             SignatureSheet.css(in: s, colour: SignatureSheet.white),
         ].joined(separator: "\n")
+    }
+
+    /// What carries a colour of its own inside a quote or a "wrote:"
+    /// line: a style that names a colour, a ground or a border's among
+    /// them, a `<font color>`, a `bgcolor`, and a link.
+    static let ownColours = ":is([style*=\"color\" i], font[color], [bgcolor], a)"
+
+    /// The colour filter put back, under `s`, on what carries a colour of
+    /// its own (`ownColours`) inside a quote or a "wrote:" line, but never
+    /// on a quote, such a line or Mail's line itself. WebKit's
+    /// `-apple-color-filter` is inherited (its `CSSProperties.json`), so the
+    /// quote's `none` reaches everything in it: a sender's own black in a
+    /// quote, Apple Mail's forwarded labels or Outlook's `color:black`,
+    /// was drawn as written on the pane's black, and so white on white on
+    /// screen. With this it is turned as out of a quote, as before at
+    /// 7803dbb: light in the render, dark on screen. A quote inside one is
+    /// `none` again by its own rule, so its bar and colour stay Mail's.
+    static func quotedOwnColours(in s: String) -> String {
+        let quoted = ":is(\(QuoteBars.quote), .\(QuoteBars.attributionClass))"
+        let notMails = ":not(\(QuoteBars.quote)):not(.\(QuoteBars.attributionClass))"
+            + ":not(.\(RemoteContent.lineClass))"
+        return "\(s) \(quoted) \(ownColours)\(notMails) "
+            + "{ \(ColourFilter.property): \(ColourFilter.value); }"
     }
 
     /// The colour filter's rules for a letter's own page drawn `scheme`:
@@ -210,14 +236,25 @@ enum SmartInvert {
     /// Whether `page` was built with the colour filter's class on.
     static func hasColourFilter(inPage page: String) -> Bool { page.hasPrefix(onStartColourFilter) }
 
-    /// `page` with the colour filter's class taken off its root, its sheet
-    /// left, which then matches nothing: for a page built with it that the
-    /// pane gives WebKit when the setting no longer reads on, so its
-    /// letter is never drawn with its white taken off and no colour filter
-    /// to make its words light.
+    /// `page` with the colour filter's class taken off its root and its
+    /// sheet out of its head: for a page built with it that the pane gives
+    /// WebKit when the setting no longer reads on, so its letter is never
+    /// drawn with its white taken off and no colour filter to make its
+    /// words light. The sheet goes too: WebKit, reading it with the setting
+    /// off, would keep its `filter: none` and `background: transparent`
+    /// and drop every colour filter of it, and the script, finding a sheet
+    /// there when the switch came back on, would put the class on over
+    /// that, the letter's black words on the pane's black (B-179). The
+    /// page is then the page built without the filter, byte for byte.
     static func withoutColourFilter(_ page: String) -> String {
         guard hasColourFilter(inPage: page) else { return page }
-        return onStart + page.dropFirst(onStartColourFilter.count)
+        let rest = page.dropFirst(onStartColourFilter.count)
+        let start = rest.prefix(65_536)
+        let head = start.range(of: "</head>").map { start[..<$0.lowerBound] } ?? start
+        guard let open = head.range(of: "<style id=\"\(colourFilterSheetID)\">"),
+              let close = head.range(of: "</style>", range: open.upperBound..<head.endIndex)
+        else { return onStart + rest }
+        return onStart + rest[..<open.lowerBound] + rest[close.upperBound...]
     }
 
     /// The rules for `page`, a page the pane built, read off its head,
@@ -256,10 +293,10 @@ enum SmartInvert {
     /// `colourFilter` is the page's colour filter rules, given only while
     /// the switch is on and the page has said it takes the filter, ""
     /// otherwise: the script asks the page again
-    /// (`ColourFilter.test`), puts them in a sheet of their own where the
-    /// head has none, and puts the colour filter's class on only if it
-    /// answers yes; it takes the class off with the switch, or when not
-    /// given them.
+    /// (`ColourFilter.test`), puts them in a sheet of their own, in place
+    /// of any the head has, so WebKit reads them with the setting as it is
+    /// now, and puts the colour filter's class on only if it answers yes;
+    /// it takes the class off with the switch, or when not given them.
     struct Toggle: Equatable {
         let on: Bool
         let rules: String

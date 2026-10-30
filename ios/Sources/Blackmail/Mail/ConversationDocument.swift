@@ -663,7 +663,8 @@ enum ConversationDocument {
     /// again and nothing scrolls. Given the colour filter's rules too, it
     /// asks the page whether its CSS takes the colour filter
     /// (`ColourFilter.test`), and only if it does puts them in a sheet of
-    /// their own where the head has none and the second class,
+    /// their own, in place of any the head has, as WebKit read that one
+    /// with the setting as it was then, and the second class,
     /// `SmartInvert.colourFilterClass`, on the root; that class goes with
     /// the first, and whenever it is not given them (B-179).
     static let script = """
@@ -696,7 +697,9 @@ enum ConversationDocument {
       }
       var filter = !!(on && rules && colourFilter && window.CSS && CSS.supports
                       && CSS.supports('-apple-color-filter', 'apple-invert-lightness()'));
-      if (filter && document.head && !document.head.querySelector('style#bm-cf')) {
+      if (filter && document.head) {
+        var old = document.head.querySelector('style#bm-cf');
+        if (old) old.parentNode.removeChild(old);
         var filters = document.createElement('style');
         filters.id = 'bm-cf';
         filters.textContent = colourFilter;

@@ -248,7 +248,7 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                     + "let filterOn = colourFilterFollows(on) "
                                     + "if on != invertNoted { invertNoted = on "
                                     + "Diagnostics.log(.note, SmartInvert.note(on: on, built: false)) } "
-                                    + "if on && !invertRules.isEmpty { askColourFilter(filterOn) } "
+                                    + "if on { askColourFilter(filterOn) } "
                                     + "let filtered = on && filterOn && colourFilterTaken == true "
                                     + "&& !invertColourFilter.isEmpty "
                                     + "guard !invertRules.isEmpty, on != invertShown || filtered != colourFilterShown "

@@ -41001,8 +41001,9 @@ script; `SignatureSheet.css`; `MessageDetailViewController`).
    sheet. With the switch off a letter's own colour filter is not read.
 
 2. *The page's answer.* Once the setting reads back on and a page with
-   rules for the switch has been given, the pane asks the page, once for
-   its web view, in the app's content world:
+   rules for the switch has been given (any page since the correction
+   below), the pane asks the page, once for its web view, in the app's
+   content world:
    `CSS.supports('-apple-color-filter', 'apple-invert-lightness()')`. It
    writes "pane: colour filter supported true" in the Connection log, or
    "false", or "absent" where there was no setting to set. The colour
@@ -41041,7 +41042,8 @@ script; `SignatureSheet.css`; `MessageDetailViewController`).
    both sheets; one built before is given the class and the sheet by the
    script when the answer comes, nothing drawn again and nothing
    scrolled. A page built with the class and given to WebKit after the
-   setting went off is given without the class
+   setting went off is given without the class, and since the
+   correction below without its sheet too
    (`SmartInvert.withoutColourFilter`).
 
 4. *A light letter's photos, a try.* Its `img` and `video` under
@@ -41067,8 +41069,10 @@ page with the filter, both classes, its sheet after the switch's and
 every selector of it under both classes, the letter's rule, `filter:
 none` on the five kinds of picture; the quotes, the "wrote:" line and
 Mail's line out of the colour filter, in Mail's dark colours and its
-own, the signature's white; without the page's answer, and with the
-switch off, every page as before, byte for byte; only an inverted letter
+own, the signature's white; the colour filter's flag changing nothing
+without the page's yes (that every page is as at 7803dbb is the whole
+suite's, `SmartInvertLikeMailTests` among it, not this test's); only an
+inverted letter
 taking the filter, a light, plain and own-colours letter as without it,
 and the page less the class and the sheet the page without them; the
 stack's; the page read for the switch with either root, its colour
@@ -41104,7 +41108,8 @@ complete".
 - A sender's own white inside a quote is out of the colour filter with
   the quote: white in the render, black on screen under Smart Invert,
   where out of a quote it is light grey, as Mail's would be. Mail's not
-  seen.
+  seen. Corrected 2026-10-30, below, with the sender's other colours in
+  a quote.
 - The PDF tile's ground under Smart Invert is rgb(204, 204, 204) on
   screen, where it was white; Mail draws the PDF's page there (B-170),
   not comparable. Its sheet icon about rgb(117) or rgb(109), as WebKit
@@ -41112,6 +41117,77 @@ complete".
   not seen.
 - Whether the colour filter takes in the iPad's WebKit at all, and on
   18: the log's line says so, and the check reads it first.
+
+**Corrected 2026-10-30, before the next check.** Three faults in the
+change above, found by reading it and WebKit's source; none seen on
+the iPad.
+
+1. *A sender's colours inside a quote.* WebKit's `-apple-color-filter`
+   is inherited (`CSSProperties.json`: `"inherited": true`), so the
+   quotes' and the "wrote:" line's `none` turned the colour filter off
+   for everything in them, not only the bar. A colour the sender wrote
+   inside a quote was drawn as written on the pane's black: Apple
+   Mail's forwarded labels in `color: rgba(0, 0, 0, 1.0)` inside
+   `blockquote type=cite`, its `color: rgb(0, 0, 0)` divs, Gmail's
+   `color: rgb(34, 34, 34)`, Outlook's `color: black` and `<font
+   color>`. Black on black in the render is white on white on screen
+   under Smart Invert: those words could not be read, where at 7803dbb
+   they were black on white. Now, under both classes, whatever inside a
+   quote or a "wrote:" line carries a colour of its own (a style naming
+   a colour, a `<font color>`, a `bgcolor`, a link) has the colour
+   filter back (`SmartInvert.quotedOwnColours`), as outside a quote; a
+   quote, such a line and Mail's line over held-back pictures never do,
+   so the bars and Mail's colours stay as they were, and a quote inside
+   one is `none` again by its own rule. A sender's white inside a quote
+   is the colour filter's grey with it.
+2. *A page given without the filter kept its sheet.* When the setting
+   no longer read on, `load()` took the class off a page built with it
+   and left `<style id="bm-cf">` in the head. WebKit reads a sheet with
+   the setting as it is then, and with it off drops every colour filter
+   of it and keeps `filter: none; background: transparent`. When Smart
+   Invert came back on, the script found a sheet there, did not put its
+   own in, and put the class on: the letter's black words on the pane's
+   black, nothing on screen. The ways in: the page drawn again from
+   what the pane held after WebKit's process ended (`drawAgain`), or
+   Smart Invert turned off while a letter was fetched, its page built
+   with the switch as it was at the tap. Now `withoutColourFilter`
+   takes the sheet out with the class, so the page is the page built
+   without the filter, byte for byte; and the script, turning the
+   filter on, puts a fresh sheet in place of any the head has, read
+   with the setting as it is then.
+3. *The first letter inverted.* The page was asked whether it takes
+   the filter only after a page with rules had loaded, so the first
+   letter the pane inverted under Smart Invert, in a web view, was
+   built with the pane's invert, its photos hue-turned, and changed to
+   the colour filter a moment later. Now the page is asked once the
+   setting reads on, at whatever page has loaded, the start's notice
+   or a blank one among them, so the first letter inverted is built
+   with the answer.
+
+**Tests.** `ColourFilterLikeMailTests`, one new: the quoted own
+colours' rule, word for word, after the quotes' `none`, in a letter's
+page and in the stack. Changed: the page given without the filter is
+the page built without it, byte for byte, a letter's and a stack's,
+none of its sheet left; the script removes a sheet it finds before it
+puts its own in; a plain and an own-colours letter under the switch
+the same as with it off, in the test whose doc and write-up now say
+what it proves. `SmartInvertLikeMailTests`' pin of the pane's question
+at any page.
+
+Each undone by hand, the test run, each failure read by its line, then
+put back: the quoted own colours' rule taken out, 1 failure; the sheet
+left in the page, 3; the script keeping the sheet it finds, 1; the
+question asked only with rules, 1. Each failure an assertion's.
+
+**Not covered** (this correction):
+
+- A sender's colour set by a class in the letter's own `<style>` (an
+  Outlook `.MsoNormal { color: black }`), not by a `style` or `color`
+  attribute, inside a quote: still out of the colour filter with the
+  quote, so white on white on screen. Not found by an attribute;
+  Mail's not seen.
+- The start's notice may be gone before its answer comes; the page is
+  then asked again at the next, as before.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 

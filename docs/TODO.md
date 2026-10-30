@@ -11237,12 +11237,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       the test account only, from a build of the `bm-fix-j1` worktree
       (branch `fix-j1`) or of the int it is merged into, the colour
       filter's change in it (KNOWN_ISSUES B-179, "Fixed again 2026-10-29,
-      after the test iPad (r6-p-copy)"). Nothing is composed, sent, moved
+      after the test iPad (r6-p-copy)" and "Corrected 2026-10-30").
+      Nothing is composed, sent, moved
       or deleted in the app, nothing printed (where a print panel comes in,
       its preview only, then Cancel), and nothing saved in it but step 3's
       one setting, put back as from the factory. The letters are round
       r6-n-compare's, "R6 B-SI photos", "R6 B-SI light" and "R6 B-SI pdf",
-      and a plain letter, or made again as that round made them: the host
+      and a plain letter, or made again as that round made them; and two
+      quoted letters, "R6 B-SI forward", an Apple Mail forward (its
+      labels "From:" and "Subject:" in `color: rgba(0, 0, 0, 1.0)` spans
+      inside `blockquote type=cite`), and "R6 B-SI gmail", a Gmail reply
+      whose quote has words in `color: rgb(34, 34, 34)`. The host
       makes each from another address, with a new Message-ID of its own,
       and APPENDs it, read (`\Seen`), to the label "Notes", never the
       Inbox, noting each UID from its APPENDUID; it stops if one has none.
@@ -11251,9 +11256,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       beside them; Mail beside Blackmail at each step.
       1. *Smart Invert on*, as the round turned it on (Settings >
          Accessibility > Display & Text Size > Smart Invert). Then, before
-         any colour is read, the Connection log: "pane:
-         isInvertColorsEnabled true, page built" as a letter with rules
-         opens, and once, "pane: colour filter supported true". Written
+         any colour is read, the Connection log: once, as the first page
+         loads under the switch, the start's notice will do, "pane:
+         colour filter supported true"; and "pane: isInvertColorsEnabled
+         true, page built" as a letter with rules opens. Written
          down whichever it says. "false" or "absent": the setting is a
          no-op on this iOS, and 2 is read as 7803dbb's (photos hue-turned),
          not as a wrong rule.
@@ -11281,6 +11287,13 @@ checks below is left as not needed, not open, and none is worth a round.*
          letter's tile now light grey, about rgb(204, 204, 204), where it
          was white, and its sheet icon dark on it, about rgb(117) or
          rgb(109): written down. Screenshots.
+      4a. *The quoted letters*, given the log said "supported true",
+         opened in both: in "R6 B-SI forward" the labels "From:" and
+         "Subject:" in the quote dark on screen, as the words round
+         them, never white on white, and its bar Mail's; in "R6 B-SI
+         gmail" the quoted words dark on screen, the "wrote:" line and
+         the bar Mail's colours. Colours sampled beside Mail's.
+         Screenshots.
       5. *The switch while a letter is open:* the photos letter open in
          Blackmail, scrolled a little down; Smart Invert turned off in
          Settings and the app brought back: the page as with the switch
@@ -11289,11 +11302,22 @@ checks below is left as not needed, not open, and none is worth a round.*
          again and back: the photos as in 2, at the same place, the class
          put back by the script. The same with the light letter.
          Screenshots.
+      5a. *Off at the tap, on after:* Settings > Accessibility >
+         Accessibility Shortcut set to Smart Invert (put back as from the
+         factory in 7). With Smart Invert on, a letter not kept on the
+         iPad, "R6 B-SI photos" once its kept copy is gone or another
+         like it, tapped and the shortcut triple-clicked at once, before
+         its words show; then triple-clicked again with it open: its
+         words dark on screen and its photos as in 2, never a blank
+         page. If WebKit's process can be made to end (other apps opened
+         till the pane draws again), the same: Smart Invert off, the
+         pane drawn again, then on. Written down if it cannot be done.
       6. *With Smart Invert off:* the photos, light, plain and PDF letters
          opened in Blackmail, each compared with round r6-p-copy's OFF
          shots of 7803dbb by pxcmp: mean 0. No new colour filter line in
          the log.
-      7. *Put back:* Smart Invert off, as it was before the check. "Notes"
+      7. *Put back:* Smart Invert off, as it was before the check, and
+         the Accessibility Shortcut as from the factory. "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
          only them, from "Notes" to the Trash, and deletes in the Trash
          only the UIDs that move answered (`COPYUID`). Nothing was sent,

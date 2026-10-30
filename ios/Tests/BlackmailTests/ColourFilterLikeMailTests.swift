@@ -164,10 +164,18 @@ final class ColourFilterLikeMailTests: XCTestCase {
         }
     }
 
-    /// Without the page's yes, and with the switch off, every page is as
-    /// before, byte for byte: the colour filter's class, sheet and property
-    /// nowhere in it.
+    /// Without the page's yes the colour filter's flag changes nothing:
+    /// its class, sheet and property nowhere in the page, and with the
+    /// switch off the page with the flag is the page without it. A plain
+    /// letter and one in its own colours are under the switch as with it
+    /// off, as `SmartInvertLikeMailTests` pins them too.
     func testWithoutTheFiltersAnswerEveryPageIsAsBefore() throws {
+        for m in [own, plain] {
+            for held in [false, true] {
+                XCTAssertEqual(PanePage.letter(m, style: on, heldBack: held),
+                               PanePage.letter(m, style: off, heldBack: held), m.id)
+            }
+        }
         for m in [photos, light, own, plain] {
             for held in [false, true] {
                 let before = try XCTUnwrap(PanePage.letter(m, style: on, heldBack: held))
@@ -187,6 +195,29 @@ final class ColourFilterLikeMailTests: XCTestCase {
             inset: 26, bodyPointSize: 17, lineHeight: 1.41, smartInvert: true))
         XCTAssertEqual(stack([photos, light], smartInvert: false, colourFilter: true),
                        stack([photos, light], smartInvert: false, colourFilter: false))
+    }
+
+    /// Inside a quote or a "wrote:" line, whatever carries a colour of its
+    /// own is back in the colour filter, as `-apple-color-filter` is
+    /// inherited and the quote's `none` would reach it: a sender's black
+    /// there, Apple Mail's forwarded labels, Gmail's `rgb(34,34,34)`,
+    /// Outlook's `<font color>`, would be drawn as written on the pane's
+    /// black. Never a quote, such a line or Mail's line itself, which stay
+    /// out of it in Mail's colours; a quote inside one is `none` again.
+    func testOwnColoursInAQuoteAreBackInTheColourFilter() throws {
+        let s = "html.bm-si.bm-cf #bm"
+        let rule = "\(s) :is(\(QuoteBars.quote), .bm-attribution) "
+            + ":is([style*=\"color\" i], font[color], [bgcolor], a)"
+            + ":not(\(QuoteBars.quote)):not(.bm-attribution):not(.bm-unloaded) "
+            + "{ -apple-color-filter: apple-invert-lightness(); }"
+        let page = try XCTUnwrap(PanePage.letter(photos, style: filtered))
+        let rules = try sheet("bm-cf", of: page)
+        let none = try XCTUnwrap(rules.range(of: "\(s) \(QuoteBars.quote), \(s) .bm-attribution, "
+                                              + "\(s) .bm-unloaded { -apple-color-filter: none; }"))
+        let back = try XCTUnwrap(rules.range(of: rule), rules)
+        XCTAssertLessThan(none.lowerBound, back.lowerBound)
+        let stacked = try sheet("bm-cf", of: stack([photos], smartInvert: true, colourFilter: true))
+        XCTAssertTrue(stacked.contains(rule.replacingOccurrences(of: "#bm", with: ".bm-html")), stacked)
     }
 
     /// Only a letter the pane inverts is made dark by the colour filter: a
@@ -237,7 +268,9 @@ final class ColourFilterLikeMailTests: XCTestCase {
     /// The page says what it is with the colour filter's class too: on,
     /// with the filter, its rules and the filter's; and a page built with
     /// it, given when the setting no longer reads on, loses the class and
-    /// keeps the rest.
+    /// the sheet, which WebKit would read with the setting off and keep
+    /// without its colour filter: the page built without them, byte for
+    /// byte, a letter's and a stack's.
     func testThePageSaysWhatItIsWithTheColourFilter() throws {
         let page = try XCTUnwrap(PanePage.letter(photos, style: filtered))
         let plainOn = try XCTUnwrap(PanePage.letter(photos, style: on))
@@ -261,20 +294,27 @@ final class ColourFilterLikeMailTests: XCTestCase {
         XCTAssertTrue(given.hasPrefix(SmartInvert.onStart + "<head>"), given)
         XCTAssertFalse(SmartInvert.hasColourFilter(inPage: given))
         XCTAssertTrue(SmartInvert.isOn(inPage: given))
-        XCTAssertEqual(given.count, page.count - " bm-cf".count)
+        XCTAssertFalse(given.contains("<style id=\"bm-cf\">"), given)
+        XCTAssertEqual(given, plainOn)
+        XCTAssertEqual(SmartInvert.withoutColourFilter(stacked),
+                       stack([photos, plain], smartInvert: true, colourFilter: false))
+        XCTAssertEqual(SmartInvert.withoutColourFilter(given), given)
     }
 
     /// The script follows the switch with the colour filter: it asks the
     /// page itself whether its CSS takes it, puts its rules in a sheet of
-    /// their own where the head has none, and puts its class on only on
-    /// that yes; the class goes with the switch's, and when not given.
+    /// their own in place of any the head has, read again with the setting
+    /// as it is now, and puts its class on only on that yes; the class
+    /// goes with the switch's, and when not given.
     func testTheScriptAsksThePageForTheColourFilter() {
         let script = ConversationDocument.script.split(whereSeparator: { $0 == " " || $0 == "\n" })
             .joined(separator: " ")
         XCTAssertTrue(script.contains("var filter = !!(on && rules && colourFilter && window.CSS && CSS.supports "
                                       + "&& \(ColourFilter.test));"), script)
-        XCTAssertTrue(script.contains("if (filter && document.head && "
-                                      + "!document.head.querySelector('style#\(SmartInvert.colourFilterSheetID)')) { "
+        XCTAssertTrue(script.contains("if (filter && document.head) { "
+                                      + "var old = document.head.querySelector("
+                                      + "'style#\(SmartInvert.colourFilterSheetID)'); "
+                                      + "if (old) old.parentNode.removeChild(old); "
                                       + "var filters = document.createElement('style'); "
                                       + "filters.id = '\(SmartInvert.colourFilterSheetID)'; "
                                       + "filters.textContent = colourFilter; document.head.appendChild(filters); }"))

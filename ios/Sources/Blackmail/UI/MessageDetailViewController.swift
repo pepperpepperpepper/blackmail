@@ -381,8 +381,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     ///
     /// WebKit's colour filter follows the switch first, before the script
     /// puts any sheet in, as WebKit reads the setting when it reads a
-    /// sheet. Under the switch, with a page of rules given, the page is
-    /// asked once whether it takes the filter (`askColourFilter`); and on
+    /// sheet. Under the switch the page is asked once whether it takes
+    /// the filter (`askColourFilter`), whatever page it is, a notice or a
+    /// blank one among them, so the first letter inverted is built with
+    /// the answer rather than drawn with the pane's invert and changed a
+    /// moment after; and on
     /// its yes, a letter inverted is made dark by it as Mail's is, its
     /// class and its rules put in by the same script, which asks the page
     /// again (`ColourFilter`, B-179).
@@ -393,7 +396,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             invertNoted = on
             Diagnostics.log(.note, SmartInvert.note(on: on, built: false))
         }
-        if on && !invertRules.isEmpty { askColourFilter(filterOn) }
+        if on { askColourFilter(filterOn) }
         let filtered = on && filterOn && colourFilterTaken == true && !invertColourFilter.isEmpty
         guard !invertRules.isEmpty, on != invertShown || filtered != colourFilterShown else { return }
         invertShown = on
