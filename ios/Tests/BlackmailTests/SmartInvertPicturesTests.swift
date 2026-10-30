@@ -31,7 +31,8 @@ import XCTest
 /// draws it; a frame drawn runs the animation frame callbacks asked for
 /// before it and lays the page out, and the timers run only as time is
 /// let pass. The page can be hidden and shown again, `document.hidden`
-/// and `visibilitychange` as WebKit's. A `style.setProperty` writes the
+/// and `visibilitychange` as WebKit's, and laid out anew at another size,
+/// `innerWidth` and `innerHeight` its. A `style.setProperty` writes the
 /// `style` attribute only when it is next read or the page is written
 /// out, and a `removeAttribute("style")` that finds none empties the
 /// declarations, which then write an empty attribute, as WebKit's and
@@ -201,6 +202,36 @@ final class SmartInvertPicturesTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(slow.snapshots["waited"]).contains("</bm-si-place><img id=\"a\""), slow.log)
         XCTAssertEqual(slow.snapshots["off"], slow.snapshots["on"], slow.log)
         XCTAssertEqual(slow.places, 0)
+    }
+
+    /// Smart Invert turned off on a hidden page scrolled to 500, and the
+    /// pane laid out anew before it is shown (the iPad turned, or the
+    /// picture shown full screen closed), WebKit and the pane's keeping
+    /// putting the page at 320 for the new layout: the pictures put back
+    /// once it is shown and a frame drawn, the page left at 320, no
+    /// scroll asked, as the place of the off was measured in the old
+    /// layout. The pane's size unchanged, the page moved meanwhile: put
+    /// back where it was at the off, 500.
+    func testAHiddenPageLaidOutAnewKeepsItsNewPlace() throws {
+        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
+        let rules = SmartInvert.rules(for: .inverted)
+        let html = try page(inverted, style: on, body: body)
+        let turned = try model(html, [.scroll(500), .snapshot("on"), .hide, .toggle(on: false, rules: rules),
+                                      .resize(width: 1024, height: 520, y: 320), .wait(5000), .show,
+                                      .frame, .frame, .wait(2000), .snapshot("off")])
+        XCTAssertEqual(turned.hiddenFrames, ["a": 1], turned.log)
+        XCTAssertEqual(turned.snapshots["off"], turned.snapshots["on"], turned.log)
+        XCTAssertEqual(turned.places, 0)
+        XCTAssertEqual(turned.scrollY, 320, "no scroll back to the off's place")
+        XCTAssertEqual(turned.scrolledTo, 0)
+
+        let same = try model(html, [.scroll(500), .hide, .toggle(on: false, rules: rules),
+                                    .resize(width: 768, height: 700, y: 320), .wait(5000), .show,
+                                    .frame, .frame, .wait(2000)])
+        XCTAssertEqual(same.hiddenFrames, ["a": 1], same.log)
+        XCTAssertEqual(same.places, 0)
+        XCTAssertEqual(same.scrollY, 500, "back at the off's place")
+        XCTAssertEqual(same.scrolledTo, 1)
     }
 
     /// Off, on and off again before a frame is drawn: the switch going on
@@ -461,6 +492,8 @@ final class SmartInvertPicturesTests: XCTestCase {
         var id: String? = nil
         var html: String? = nil
         var scheme: String? = nil
+        var width: Int? = nil
+        var height: Int? = nil
 
         static func toggle(on: Bool, rules: String) -> Step { Step(action: "toggle", on: on, rules: rules) }
         static func scroll(_ y: Int) -> Step { Step(action: "scroll", y: y) }
@@ -476,6 +509,14 @@ final class SmartInvertPicturesTests: XCTestCase {
         /// No frame is drawn till it is shown.
         static let hide = Step(action: "hide")
         static let show = Step(action: "show")
+        /// The pane laid out anew at `width` by `height` (the iPad turned,
+        /// or a picture shown full screen over it and closed): the page's
+        /// viewport that size, and the page where WebKit and the pane's
+        /// own keeping put it for the new layout, `y`, with no scroll
+        /// asked of the script.
+        static func resize(width: Int, height: Int, y: Int) -> Step {
+            Step(action: "resize", y: y, width: width, height: height)
+        }
         static func fill(id: String, html: String, scheme: String) -> Step {
             Step(action: "fill", id: id, html: html, scheme: scheme)
         }
@@ -787,7 +828,7 @@ final class SmartInvertPicturesTests: XCTestCase {
       return '<' + name + attrs + '>' + node.raw
         + node.children.map(function (c) { return serialize(c, peek); }).join('') + '</' + name + '>';
     }
-    let pageHidden = false;
+    let pageHidden = false, innerWidth = 768, innerHeight = 700;
     const shownListeners = [];
     global.document = {
       documentElement: documentElement, head: head, body: body,
@@ -799,7 +840,7 @@ final class SmartInvertPicturesTests: XCTestCase {
     };
     global.window = {
       get pageXOffset() { return scrollX; }, get pageYOffset() { return scrollY; },
-      innerHeight: 700,
+      get innerWidth() { return innerWidth; }, get innerHeight() { return innerHeight; },
       scrollTo: function (x, y) { scrollX = x; scrollY = y; scrolledTo++; },
       scrollBy: function (x, y) { scrollX += x; scrollY += y; scrolledTo++; },
       addEventListener: function (type, f) { if (type === 'visibilitychange') shownListeners.push(f); },
@@ -852,6 +893,7 @@ final class SmartInvertPicturesTests: XCTestCase {
         for (const f of shownListeners) f();
       }
       if (step.action === 'scroll') scrollY = step.y;
+      if (step.action === 'resize') { innerWidth = step.width; innerHeight = step.height; scrollY = step.y; }
       if (step.action === 'snapshot') snapshots[step.name] = serialize(body);
       if (step.action === 'fill') bmFill(step.id, step.html, true, step.scheme);
       if (step.action === 'append') bmAppend(step.html);

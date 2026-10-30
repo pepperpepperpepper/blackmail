@@ -41583,7 +41583,8 @@ is loaded again.
    of a `style.setProperty` only when it is next read, and taking off
    one not yet written leaves `style=""` once it is. The page is put
    back where it was as the switch went off, at each step, only if it
-   moved.
+   moved, and only while the pane's size (`innerWidth`, `innerHeight`)
+   is the one read at the off.
 4. *Never left out.* While the page is hidden (`document.hidden`), as
    under a photo shown full screen, whose view covers the pane's,
    WebKit draws no frame, so nothing is put back: the boxes hold the
@@ -41594,7 +41595,12 @@ is loaded again.
    again, first puts back what is out; so does the wrapping of a light
    letter's pictures (`bmWrapPictures`), so a picture out is never
    wrapped and a box is never read as its neighbour. A frame or a timer
-   of an earlier off, once that is put back, changes nothing.
+   of an earlier off, once that is put back, changes nothing. A page
+   hidden for minutes can be laid out anew meanwhile (the iPad turned,
+   Smart Invert turned off in Settings, the photo closed); its pictures
+   then come back where WebKit and `bmKeep` put it for the new layout,
+   not scrolled to the off's place, measured in the old one: the boxes
+   held the layout.
 5. *The log.* The script answers how many pictures it took out, and the
    pane writes "pane: Smart Invert off, N pictures drawn anew" for more
    than none (`SmartInvert.redrawn`), so a check can see it ran. There
@@ -41648,6 +41654,16 @@ again when shown, 2 in 1; the new names out of the box, 1; no empty
 attribute first, 3 in 2; the place read at the put-back, 1; no scroll
 in `bmStayAt`, 1. Each failure an assertion's. The full suite: 3,243
 tests, 6 skipped, none failing. The release build for the iPad: "Build
+complete".
+
+Then, the put-back on a page hidden: it scrolled to the off's place
+even when the pane had been laid out anew while it was hidden. The
+stand-in now has a viewport size and can lay the pane out anew. One
+new: hidden at 500, off, laid out anew at 320 and shown, the page left
+at 320 with no scroll; at the same size, put back at 500. The size
+check undone by hand, 2 failures in it; the put-back never scrolling,
+3 in 2. Each failure an assertion's. The full suite: 3,244 tests, 6
+skipped, none failing. The release build for the iPad: "Build
 complete".
 
 **Not covered** (this change):

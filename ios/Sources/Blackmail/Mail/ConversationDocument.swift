@@ -692,9 +692,12 @@ enum ConversationDocument {
     /// on a page shown, all is put back after a second; the switch going
     /// on, or off again, first puts back what is out, and so does a light
     /// letter's pictures being put in their elements. The page is put back
-    /// where it was at the switch's going off if it moved. It answers how
-    /// many it took out, for the pane's log (`SmartInvert.redrawn`). A
-    /// page with no such picture is not touched.
+    /// where it was at the switch's going off if it moved, only while the
+    /// pane's size is the off's: a pane laid out anew meanwhile (turned,
+    /// or a picture shown full screen over it and closed) keeps the place
+    /// WebKit and `bmKeep` gave it, as the boxes held its layout. It
+    /// answers how many it took out, for the pane's log
+    /// (`SmartInvert.redrawn`). A page with no such picture is not touched.
     ///
     /// And a light letter's pictures, inside a scope the switch's sheet
     /// has `SmartInvert.wrapper(in:)` for, are each put in an element of
@@ -872,7 +875,8 @@ enum ConversationDocument {
                        place: bmPlaceFor(pictures[i], shown, display) });
         }
         if (!drawn.length) return 0;
-        var run = { drawn: drawn, timer: null, x: window.pageXOffset, y: window.pageYOffset };
+        var run = { drawn: drawn, timer: null, x: window.pageXOffset, y: window.pageYOffset,
+                    w: window.innerWidth, h: window.innerHeight };
         bmRepaint = run;
         for (var j = 0; j < drawn.length; j++) {
           try {
@@ -930,7 +934,9 @@ enum ConversationDocument {
         } catch (e) {}
         try { if (d.place && d.place.parentNode) d.place.parentNode.removeChild(d.place); } catch (e) {}
       }
-      try { bmStayAt(now.x, now.y); } catch (e) {}
+      try {
+        if (window.innerWidth === now.w && window.innerHeight === now.h) bmStayAt(now.x, now.y);
+      } catch (e) {}
     }
     function bmStayAt(x, y) {
       void document.documentElement.offsetHeight;
