@@ -670,17 +670,19 @@ enum ConversationDocument {
     ///
     /// Going off, it draws nothing anew (r6-s-copy, 2026-10-30: pictures
     /// taken out for two frames and put back stayed hue-turned): it reads
-    /// where the page is, its scroll and its viewport, before it changes
-    /// anything, and answers that with how many pictures carry a filter of
-    /// their own once the classes are off, `img` and `video` by their
-    /// computed `filter`, and those of a light letter whose elements it
-    /// took off, each once (`SmartInvert.Off`); the pane builds such a page
-    /// anew. Going on, it answers 0. `bmPutPlace`, which
+    /// where the page is, its scroll and its layout viewport, the root's
+    /// client size, which a pinch does not change, as `innerWidth` does,
+    /// before it changes anything, and answers that with how many
+    /// pictures carry a filter of their own once the classes are off,
+    /// `img` and `video` by their computed `filter`, and those of a light
+    /// letter whose elements it took off, each once (`SmartInvert.Off`);
+    /// the pane builds such a page anew. Going on, it answers 0. `bmPutPlace`, which
     /// `SmartInvert.Place` calls on the page built anew, waits for the
-    /// page's pictures to load, a second at most, then scrolls it to the
-    /// off's place only while its viewport is the off's size, letting go
-    /// first of a stack's hold on the letter it opens at, and answers
-    /// whether it did after two frames more.
+    /// page's pictures that have not loaded yet to load, a second at
+    /// most, then scrolls it to the off's place only while its layout
+    /// viewport is the off's size, letting go first of a stack's hold on
+    /// the letter it opens at, and answers whether it did after two
+    /// frames more, or half a second if they do not come.
     ///
     /// And a light letter's pictures, inside a scope the switch's sheet
     /// has `SmartInvert.wrapper(in:)` for, are each put in an element of
@@ -725,9 +727,9 @@ enum ConversationDocument {
       bmWrapPictures(body);
     }
     function bmSmartInvert(on, rules, colourFilter) {
-      var place = { x: window.pageXOffset, y: window.pageYOffset,
-                    width: window.innerWidth, height: window.innerHeight };
       var root = document.documentElement;
+      var place = { x: window.pageXOffset, y: window.pageYOffset,
+                    width: root.clientWidth, height: root.clientHeight };
       if (on && rules && document.head && !document.head.querySelector('style#bm-si')) {
         var sheet = document.createElement('style');
         sheet.id = 'bm-si';
@@ -870,7 +872,8 @@ enum ConversationDocument {
           ended = true;
           var placed = false;
           try {
-            if (window.innerWidth === width && window.innerHeight === height) {
+            var root = document.documentElement;
+            if (root.clientWidth === width && root.clientHeight === height) {
               bmOpening = null;
               void document.documentElement.offsetHeight;
               if (window.pageXOffset !== x || window.pageYOffset !== y) window.scrollTo(x, y);

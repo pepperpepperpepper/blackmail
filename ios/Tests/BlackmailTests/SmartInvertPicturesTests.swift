@@ -29,8 +29,10 @@ import XCTest
 /// as it loads and once at the run's end, as WebKit draws it; a frame
 /// drawn runs the animation frame callbacks asked for before it and lays
 /// the page out, and the timers run only as time is let pass. The page
-/// can be laid out anew at another size, `innerWidth` and `innerHeight`
-/// its. A `style.setProperty` writes the `style` attribute only when it
+/// can be laid out anew at another size, its layout viewport (the root's
+/// `clientWidth` and `clientHeight`) and its visual viewport (`innerWidth`
+/// and `innerHeight`) both that size, or pinched, its visual viewport alone
+/// made smaller, as WebKit's on the iPad. A `style.setProperty` writes the `style` attribute only when it
 /// is next read or the page is written out, as WebKit's and Blink's do.
 /// Moving a node before one its parent does not hold throws, as the DOM's
 /// does.
@@ -204,6 +206,59 @@ final class SmartInvertPicturesTests: XCTestCase {
         let late = try model(html, [.place(x: 0, y: 500, width: 768, height: 700), .wait(1000), .frame, .frame])
         XCTAssertEqual(late.scrollY, 500, late.log)
         XCTAssertEqual(late.placed, [true])
+    }
+
+    /// Pictures already loaded hold nothing: a page whose one picture has
+    /// loaded is put back at once and answers after two frames, with no
+    /// wait for a second. With one loaded and one still loading, the place
+    /// waits for the one loading alone, and goes as it loads.
+    func testPicturesAlreadyLoadedHoldNothing() throws {
+        let loaded = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\">"
+        let html = try page(inverted, style: off, body: loaded)
+        let run = try model(html, [.place(x: 0, y: 500, width: 768, height: 700), .frame, .frame])
+        XCTAssertEqual(run.scrollY, 500, run.log)
+        XCTAssertEqual(run.placed, [true], run.log)
+
+        let mixed = try page(inverted, style: off, body: loaded
+            + "<img id=\"b\" src=\"cid:b@example.com\" data-loading=\"\">")
+        let waiting = try model(mixed, [.place(x: 0, y: 500, width: 768, height: 700), .frame, .frame])
+        XCTAssertEqual(waiting.scrollY, 0, "the one loading holds the place")
+        XCTAssertEqual(waiting.placed, [])
+        let landed = try model(mixed, [.place(x: 0, y: 500, width: 768, height: 700), .load("b"),
+                                       .frame, .frame])
+        XCTAssertEqual(landed.scrollY, 500, landed.log)
+        XCTAssertEqual(landed.placed, [true], landed.log)
+    }
+
+    /// No frame drawn after the place is put back, as on a page WebKit
+    /// does not draw: answered at half a second all the same, not before,
+    /// so the pane's still does not wait out its limit.
+    func testWithNoFrameThePlaceIsAnsweredAtHalfASecond() throws {
+        let html = try page(inverted, style: off, body: "<p>The roses.</p>")
+        let early = try model(html, [.place(x: 0, y: 500, width: 768, height: 700), .wait(499)])
+        XCTAssertEqual(early.scrollY, 500, early.log)
+        XCTAssertEqual(early.placed, [], "not before half a second")
+        let run = try model(html, [.place(x: 0, y: 500, width: 768, height: 700), .wait(500)])
+        XCTAssertEqual(run.placed, [true], run.log)
+    }
+
+    /// A letter pinched as the switch goes off: the place answered with
+    /// the layout viewport, which the pinch does not change, so the page
+    /// built anew, at its scale, is put back there; not the pinched
+    /// visual viewport, which the page built anew would never match.
+    func testAPinchedLettersPlaceIsKept() throws {
+        let words = try page(inverted, style: on, body: "<p>The roses.</p>"
+            + "<img id=\"a\" src=\"cid:a@example.com\">")
+        let pinched = try model(words, [.pinch(2), .scroll(500),
+                                        .toggle(on: false, rules: SmartInvert.rules(for: .inverted))])
+        XCTAssertEqual(pinched.answers, [off(1, y: 500)], pinched.log)
+
+        let built = try page(inverted, style: off, body: "<p>The roses.</p>")
+        let run = try model(built, [.place(x: 0, y: 500, width: 768, height: 700), .frame, .frame])
+        XCTAssertEqual(run.scrollY, 500, run.log)
+        XCTAssertEqual(run.placed, [true])
+        let still = try model(built, [.pinch(2), .place(x: 0, y: 500, width: 768, height: 700), .frame, .frame])
+        XCTAssertEqual(still.placed, [true], "a pinch is no new layout")
     }
 
     /// The pane laid out anew since the off, the iPad turned: the page
@@ -426,6 +481,10 @@ final class SmartInvertPicturesTests: XCTestCase {
         static func resize(width: Int, height: Int, y: Int) -> Step {
             Step(action: "resize", y: y, width: width, height: height)
         }
+        /// The page pinched to `scale`: the visual viewport, `innerWidth`
+        /// and `innerHeight`, that much smaller, the layout viewport, the
+        /// root's `clientWidth` and `clientHeight`, as it was.
+        static func pinch(_ scale: Int) -> Step { Step(action: "pinch", y: scale) }
         static func fill(id: String, html: String, scheme: String) -> Step {
             Step(action: "fill", id: id, html: html, scheme: scheme)
         }
@@ -742,7 +801,9 @@ final class SmartInvertPicturesTests: XCTestCase {
       return '<' + name + attrs + '>' + node.raw
         + node.children.map(function (c) { return serialize(c, peek); }).join('') + '</' + name + '>';
     }
-    let innerWidth = 768, innerHeight = 700;
+    let clientWidth = 768, clientHeight = 700, innerWidth = 768, innerHeight = 700;
+    Object.defineProperty(documentElement, 'clientWidth', { get: function () { return clientWidth; } });
+    Object.defineProperty(documentElement, 'clientHeight', { get: function () { return clientHeight; } });
     global.document = {
       documentElement: documentElement, head: head, body: body,
       createElement: function (tag) { return new Element(tag); },
@@ -804,7 +865,10 @@ final class SmartInvertPicturesTests: XCTestCase {
       }
       if (step.action === 'keep') bmKeep();
       if (step.action === 'scroll') scrollY = step.y;
-      if (step.action === 'resize') { innerWidth = step.width; innerHeight = step.height; scrollY = step.y; }
+      if (step.action === 'resize') {
+        clientWidth = innerWidth = step.width; clientHeight = innerHeight = step.height; scrollY = step.y;
+      }
+      if (step.action === 'pinch') { innerWidth = clientWidth / step.y; innerHeight = clientHeight / step.y; }
       if (step.action === 'snapshot') snapshots[step.name] = serialize(body);
       if (step.action === 'fill') bmFill(step.id, step.html, true, step.scheme);
       if (step.action === 'append') bmAppend(step.html);

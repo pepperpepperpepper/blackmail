@@ -396,8 +396,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// text size has (`restyleIfOwed`), its place kept: after the off the
     /// page's own invert did not reach its photos on the test iPad, and
     /// only a page built anew drew them natural (r6-s-copy, B-179). Only
-    /// for the page the script was run on, while the switch is still off
-    /// (`SmartInvert.Anew`). A page with no such picture is not built anew.
+    /// for the page the script was run on, committed as it was sent, while
+    /// the switch is still off (`SmartInvert.Anew`); a page given and not
+    /// yet committed is told again as it ends. A page with no such
+    /// picture is not built anew.
     ///
     /// WebKit's colour filter follows the switch first, before the script
     /// puts any sheet in, as WebKit reads the setting when it reads a
@@ -424,12 +426,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         if on { builtAnew.switchedOn() }
         let toggle = SmartInvert.Toggle(on: on, rules: invertRules,
                                         colourFilter: filtered ? invertColourFilter : "")
-        let shown = builtAnew.shown
+        let shown = builtAnew.shown, committed = document.committed
         webView.callAsyncJavaScript(SmartInvert.Toggle.script, arguments: toggle.arguments,
                                     in: nil, in: .defaultClient) { [weak self] result in
             guard let self, !on, case .success(let answer) = result,
                   self.builtAnew.switchedOff(SmartInvert.Off(answer: answer), shown: shown,
-                                             stillOff: !self.invertShown) else { return }
+                                             committed: committed, stillOff: !self.invertShown)
+            else { return }
             self.restyleIfOwed()
         }
     }
@@ -572,6 +575,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let held = stills
         DispatchQueue.main.asyncAfter(deadline: .now() + SmartInvert.Anew.stillLimit) { [weak self] in
             guard let self, self.stills == held else { return }
+            Diagnostics.log(.note, SmartInvert.Anew.stillLifted)
             self.liftStill()
         }
     }
@@ -584,11 +588,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// The page built anew scrolled back to the off's place, by script, in
     /// the app's content world, and the still lifted once it has answered
-    /// (`SmartInvert.Place`, B-179).
+    /// (`SmartInvert.Place`, B-179); the answer written in the log.
     private func putBack(_ place: SmartInvert.Place) {
         let held = stills
         webView.callAsyncJavaScript(SmartInvert.Place.script, arguments: place.arguments,
-                                    in: nil, in: .defaultClient) { [weak self] _ in
+                                    in: nil, in: .defaultClient) { [weak self] result in
+            var placed: Bool?
+            if case .success(let answer) = result { placed = answer as? Bool }
+            Diagnostics.log(.note, SmartInvert.Anew.putBack(placed))
             guard let self, self.stills == held else { return }
             self.liftStill()
         }
@@ -1871,6 +1878,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func drawAgain() {
         guard UIApplication.shared.applicationState == .active, viewIfLoaded?.window != nil,
               let redraw = document.redraw() else { return }
+        // A build anew owed at Smart Invert's off goes: the page drawn
+        // again is a new page, told of the switch as it ends, and owes
+        // one of its own then if it has to (B-179).
+        builtAnew.shownElse()
         switch redraw.content {
         case .nothing, .blank:
             break

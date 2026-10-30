@@ -57,11 +57,11 @@ final class SmartInvertAnewTests: XCTestCase {
     /// there; and no answer at all owes nothing.
     func testOnlyAPageWithSuchPicturesIsBuiltAnew() {
         var anew = SmartInvert.Anew()
-        XCTAssertFalse(anew.switchedOff(off(0), shown: 0, stillOff: true))
+        XCTAssertFalse(anew.switchedOff(off(0), shown: 0, committed: true, stillOff: true))
         XCTAssertNil(anew.owed)
-        XCTAssertFalse(anew.switchedOff(nil, shown: 0, stillOff: true))
+        XCTAssertFalse(anew.switchedOff(nil, shown: 0, committed: true, stillOff: true))
         XCTAssertNil(anew.owed)
-        XCTAssertTrue(anew.switchedOff(off(3), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(3), shown: 0, committed: true, stillOff: true))
         XCTAssertEqual(anew.owed, off(3))
     }
 
@@ -71,10 +71,25 @@ final class SmartInvertAnewTests: XCTestCase {
         var anew = SmartInvert.Anew()
         let shown = anew.shown
         anew.given(ObjectIdentifier(Navigation()), anew: false)
-        XCTAssertFalse(anew.switchedOff(off(2), shown: shown, stillOff: true))
-        XCTAssertFalse(anew.switchedOff(off(2), shown: anew.shown, stillOff: false))
+        XCTAssertFalse(anew.switchedOff(off(2), shown: shown, committed: true, stillOff: true))
+        XCTAssertFalse(anew.switchedOff(off(2), shown: anew.shown, committed: true, stillOff: false))
         XCTAssertNil(anew.owed)
-        XCTAssertTrue(anew.switchedOff(off(2), shown: anew.shown, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(2), shown: anew.shown, committed: true, stillOff: true))
+    }
+
+    /// The switch sent off to a page given and not yet committed by
+    /// WebKit: the script ran in the page before it, and its answer, with
+    /// that page's pictures and place, owes nothing, even with the count
+    /// of pages the same; the page's own end tells it again. Committed,
+    /// the same answer owes the build.
+    func testAnAnswerFromBeforeThePageWasCommittedOwesNothing() {
+        var anew = SmartInvert.Anew()
+        anew.given(ObjectIdentifier(Navigation()), anew: false)
+        XCTAssertFalse(anew.switchedOff(off(2), shown: anew.shown, committed: false, stillOff: true))
+        XCTAssertNil(anew.owed)
+        XCTAssertNil(anew.build(textSize: false))
+        XCTAssertTrue(anew.switchedOff(off(2), shown: anew.shown, committed: true, stillOff: true))
+        XCTAssertEqual(anew.owed, off(2))
     }
 
     /// Owed and not yet built: the switch on again, or the pane given
@@ -82,12 +97,12 @@ final class SmartInvertAnewTests: XCTestCase {
     /// need not be.
     func testOnAgainOrAnotherLetterLetsTheBuildGo() {
         var anew = SmartInvert.Anew()
-        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, committed: true, stillOff: true))
         anew.switchedOn()
         XCTAssertNil(anew.owed)
         XCTAssertNil(anew.build(textSize: false))
 
-        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, committed: true, stillOff: true))
         anew.shownElse()
         XCTAssertNil(anew.owed)
         XCTAssertNil(anew.build(textSize: false))
@@ -101,14 +116,14 @@ final class SmartInvertAnewTests: XCTestCase {
     /// and for no other navigation.
     func testThePlaceGoesWithThePageBuiltAnewAndComesBackOnce() {
         var anew = SmartInvert.Anew()
-        XCTAssertTrue(anew.switchedOff(off(2), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(2), shown: 0, committed: true, stillOff: true))
         XCTAssertEqual(anew.build(textSize: false), "pane: Smart Invert off, page built anew (2 pictures)")
         XCTAssertNil(anew.owed)
         XCTAssertEqual(anew.building, place)
         XCTAssertNil(anew.build(textSize: false), "built once")
         XCTAssertNil(anew.building)
 
-        XCTAssertTrue(anew.switchedOff(off(2), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(2), shown: 0, committed: true, stillOff: true))
         _ = anew.build(textSize: false)
         let built = Navigation(), other = Navigation()
         anew.given(ObjectIdentifier(built), anew: true)
@@ -123,7 +138,7 @@ final class SmartInvertAnewTests: XCTestCase {
     /// is scrolled to it.
     func testAnyOtherPageLetsThePlaceGo() {
         var anew = SmartInvert.Anew()
-        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, committed: true, stillOff: true))
         _ = anew.build(textSize: false)
         let loading = Navigation(), letter = Navigation()
         anew.given(ObjectIdentifier(loading), anew: false)
@@ -131,7 +146,7 @@ final class SmartInvertAnewTests: XCTestCase {
         XCTAssertNil(anew.finished(ObjectIdentifier(loading)))
         XCTAssertNil(anew.finished(ObjectIdentifier(letter)))
 
-        XCTAssertTrue(anew.switchedOff(off(1), shown: anew.shown, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(1), shown: anew.shown, committed: true, stillOff: true))
         _ = anew.build(textSize: false)
         let built = Navigation(), next = Navigation()
         anew.given(ObjectIdentifier(built), anew: true)
@@ -139,7 +154,7 @@ final class SmartInvertAnewTests: XCTestCase {
         XCTAssertNil(anew.finished(ObjectIdentifier(built)))
         XCTAssertNil(anew.finished(ObjectIdentifier(next)))
 
-        XCTAssertTrue(anew.switchedOff(off(1), shown: anew.shown, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(1), shown: anew.shown, committed: true, stillOff: true))
         _ = anew.build(textSize: false)
         let emptied = Navigation()
         anew.given(ObjectIdentifier(emptied), anew: true)
@@ -153,7 +168,7 @@ final class SmartInvertAnewTests: XCTestCase {
     /// no line.
     func testWithANewTextSizeThePlaceIsNotKept() {
         var anew = SmartInvert.Anew()
-        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, stillOff: true))
+        XCTAssertTrue(anew.switchedOff(off(1), shown: 0, committed: true, stillOff: true))
         XCTAssertEqual(anew.build(textSize: true), "pane: Smart Invert off, page built anew (1 picture)")
         XCTAssertNil(anew.building)
         let built = Navigation()
@@ -166,10 +181,15 @@ final class SmartInvertAnewTests: XCTestCase {
         XCTAssertNil(anew.finished(ObjectIdentifier(sized)))
     }
 
-    /// The log's line, one picture or more.
+    /// The log's line, one picture or more; the put-back's answer, true,
+    /// false or none; and the still lifted by its limit.
     func testTheLogNamesThePageBuiltAnew() {
         XCTAssertEqual(SmartInvert.Anew.line(1), "pane: Smart Invert off, page built anew (1 picture)")
         XCTAssertEqual(SmartInvert.Anew.line(4), "pane: Smart Invert off, page built anew (4 pictures)")
+        XCTAssertEqual(SmartInvert.Anew.putBack(true), "pane: page built anew put back (true)")
+        XCTAssertEqual(SmartInvert.Anew.putBack(false), "pane: page built anew put back (false)")
+        XCTAssertEqual(SmartInvert.Anew.putBack(nil), "pane: page built anew put back (no answer)")
+        XCTAssertEqual(SmartInvert.Anew.stillLifted, "pane: still lifted at its limit")
     }
 
     // MARK: - The pane
@@ -180,8 +200,9 @@ final class SmartInvertAnewTests: XCTestCase {
     /// given with `anew`; the still laid over the web view for the page
     /// built anew and lifted by any other page; the place put back once
     /// that page has finished, after its letters from Sent Mail, its
-    /// bodies and its dates; a new letter, a conversation and the pane
-    /// emptied letting it all go.
+    /// bodies and its dates, the answer written in the log, and the
+    /// still's limit too; a new letter, a conversation, the pane emptied
+    /// and the page drawn again after WebKit lost it letting it all go.
     func testThePaneBuildsThePageAnewAndPutsItBack() throws {
         let pane = try TextSizeTests.source("UI/MessageDetailViewController.swift")
         for wiring in [
@@ -200,12 +221,16 @@ final class SmartInvertAnewTests: XCTestCase {
                 + "if let dates = finished.dates { run(dates) } "
                 + "if let place = builtAnew.finished(ObjectIdentifier(navigation)) { putBack(place) }",
             "webView.callAsyncJavaScript(SmartInvert.Place.script, arguments: place.arguments, "
-                + "in: nil, in: .defaultClient) { [weak self] _ in "
+                + "in: nil, in: .defaultClient) { [weak self] result in var placed: Bool? "
+                + "if case .success(let answer) = result { placed = answer as? Bool } "
+                + "Diagnostics.log(.note, SmartInvert.Anew.putBack(placed)) "
                 + "guard let self, self.stills == held else { return } self.liftStill() }",
             "guard let shot = webView.snapshotView(afterScreenUpdates: false) else { return }",
             "view.insertSubview(shot, aboveSubview: webView)",
             "DispatchQueue.main.asyncAfter(deadline: .now() + SmartInvert.Anew.stillLimit) { [weak self] in "
-                + "guard let self, self.stills == held else { return } self.liftStill() }",
+                + "guard let self, self.stills == held else { return } "
+                + "Diagnostics.log(.note, SmartInvert.Anew.stillLifted) self.liftStill() }",
+            "let redraw = document.redraw() else { return } builtAnew.shownElse() switch redraw.content {",
             "func showEmpty() { loads.supersede() liftCover() holdBackTheWeb() builtAnew.shownElse() liftStill()",
             "webView.isHidden = false setActionsEnabled(true) builtAnew.shownElse() let repository",
             "webView.isHidden = false setActionsEnabled(true) builtAnew.shownElse() let besides",

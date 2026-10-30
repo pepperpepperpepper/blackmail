@@ -57,10 +57,10 @@ import Foundation
 /// pictures stayed natural, so they are inverted by an element put round
 /// each while the switch is on (`wrapperTag`). And with the switch turned
 /// off under an open letter its photos stayed hue-turned until it was
-/// opened again: a picture drawn while the switch was on goes on being
-/// drawn without its own filter after the class comes off, so the script
-/// has WebKit draw each such picture anew as the switch goes off
-/// (`ConversationDocument.script`'s `bmRepaintPictures`), nothing moved.
+/// opened again. Taken then for a picture drawn while the switch was on
+/// that went on being drawn without its own filter after the class came
+/// off, the script had WebKit draw each such picture anew as the switch
+/// went off, nothing moved; that redraw went at r6-s-copy.
 ///
 /// **Found on the test iPad, 2026-10-30 (r6-r-copy).** The photos stayed
 /// hue-turned with the switch off: the script chose them, but changed
@@ -375,20 +375,25 @@ enum SmartInvert {
     }
 
     /// Where the page was as the switch went off: its scroll, `x` and
-    /// `y`, and its viewport, `width` by `height`, in CSS pixels, as the
-    /// script read them before it changed anything (r6-s-copy).
+    /// `y`, and its layout viewport, `width` by `height`, the root's
+    /// `clientWidth` and `clientHeight`, which a pinch does not change, in
+    /// CSS pixels, as the script read them before it changed anything
+    /// (r6-s-copy).
     ///
     /// Put back on the page built anew (`ConversationDocument.script`'s
     /// `bmPutPlace`, run by `script` in the app's content world), once it
     /// has finished, the bodies of a stack in, and its pictures loaded or
-    /// a second gone by: scrolled to `x`, `y` only while its viewport is
-    /// still `width` by `height`, as 3671253's rule had it; a pane laid out
-    /// anew meanwhile, the iPad turned, keeps the place WebKit gives it,
-    /// as the place was measured in the old layout. A stack's hold on the
-    /// letter it opens at is let go first, and its keeping then holds the
-    /// letter at the top where it is (`bmKeep`). The script answers after
-    /// two frames more, so what the pane lays over the page while it is
-    /// built (the pane's still) lifts once the page is drawn there.
+    /// a second gone by: scrolled to `x`, `y` only while its layout
+    /// viewport is still `width` by `height`, as 3671253's rule had it; a
+    /// pane laid out anew meanwhile, the iPad turned, keeps the place
+    /// WebKit gives it, as the place was measured in the old layout. A
+    /// letter pinched at the off comes back at its place unzoomed: the
+    /// zoom is not kept. A stack's hold on the letter it opens at is let
+    /// go first, and its keeping then holds the letter at the top where it
+    /// is (`bmKeep`). The script answers after two frames more, or half a
+    /// second if they do not come, so what the pane lays over the page
+    /// while it is built (the pane's still) lifts once the page is drawn
+    /// there.
     struct Place: Equatable {
         let x: Double
         let y: Double
@@ -441,11 +446,16 @@ enum SmartInvert {
     /// filter of its own (`switchedOff`): only on a page with rules for
     /// the switch, as only such a page is told (a letter inverted, a
     /// light letter, a stack), and only while the pane still shows the
-    /// page the script was run on and the switch is still off. A page
-    /// with no such picture is not built anew: the class going is enough
-    /// there, as the rounds saw. The switch going on again before it is
-    /// built (`switchedOn`), or the pane given something else or emptied
-    /// (`shownElse`), lets it go. Built by the pane's rebuild for a new
+    /// page the script was run on, committed by WebKit as the script was
+    /// sent, and the switch is still off: sent before the commit, the
+    /// script ran in the page before it, and its answer, that page's
+    /// pictures and place, is not this page's; the page's own end tells it
+    /// of the switch again (`MessageDetailViewController`'s `didFinish`).
+    /// A page with no such picture is not built anew: the class going is
+    /// enough there, as the rounds saw. The switch going on again before
+    /// it is built (`switchedOn`), or the pane given something else,
+    /// emptied, or drawing again what WebKit lost (`shownElse`), lets it
+    /// go. Built by the pane's rebuild for a new
     /// text size (`MessageDetailViewController.restyleIfOwed`), which waits
     /// for the app in front and the pane on screen, so a page under Quick
     /// Look or with the app away is built as they come back, once.
@@ -468,10 +478,12 @@ enum SmartInvert {
         private(set) var shown = 0
 
         /// The script's answer as the switch went off on the page `shown`
-        /// counted, `off` nil for none; `stillOff` false when the switch
-        /// has been told on since. Whether the page is owed now.
-        mutating func switchedOff(_ off: Off?, shown: Int, stillOff: Bool) -> Bool {
-            guard let off, off.pictures > 0, shown == self.shown, stillOff else { return false }
+        /// counted, `off` nil for none; `committed` whether WebKit had
+        /// committed that page as the script was sent; `stillOff` false
+        /// when the switch has been told on since. Whether the page is
+        /// owed now.
+        mutating func switchedOff(_ off: Off?, shown: Int, committed: Bool, stillOff: Bool) -> Bool {
+            guard let off, off.pictures > 0, shown == self.shown, committed, stillOff else { return false }
             owed = off
             return true
         }
@@ -517,6 +529,17 @@ enum SmartInvert {
         static func line(_ pictures: Int) -> String {
             "pane: Smart Invert off, page built anew (\(pictures) picture\(pictures == 1 ? "" : "s"))"
         }
+
+        /// The pane's log line for the script's answer on the page built
+        /// anew (`Place`): whether it put the place back, `placed` nil for
+        /// no answer.
+        static func putBack(_ placed: Bool?) -> String {
+            "pane: page built anew put back (" + (placed.map { "\($0)" } ?? "no answer") + ")"
+        }
+
+        /// The pane's log line for the still lifted by its limit
+        /// (`stillLimit`), before the page built anew was put back.
+        static let stillLifted = "pane: still lifted at its limit"
 
         /// How long the pane's still of the page as it was can stay over
         /// the page built anew, in seconds, whatever WebKit does: then the

@@ -263,13 +263,13 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                     + "if on { builtAnew.switchedOn() } "
                                     + "let toggle = SmartInvert.Toggle(on: on, rules: invertRules, "
                                     + "colourFilter: filtered ? invertColourFilter : \"\") "
-                                    + "let shown = builtAnew.shown "
+                                    + "let shown = builtAnew.shown, committed = document.committed "
                                     + "webView.callAsyncJavaScript(SmartInvert.Toggle.script, "
                                     + "arguments: toggle.arguments, in: nil, in: .defaultClient) "
                                     + "{ [weak self] result in "
                                     + "guard let self, !on, case .success(let answer) = result, "
                                     + "self.builtAnew.switchedOff(SmartInvert.Off(answer: answer), shown: shown, "
-                                    + "stillOff: !self.invertShown) else { return } "
+                                    + "committed: committed, stillOff: !self.invertShown) else { return } "
                                     + "self.restyleIfOwed() } }"))
         XCTAssertTrue(pane.contains("private func load(_ page: String, as content: PaneDocument.Content, "
                                     + "anew: Bool = false) { "
@@ -328,8 +328,9 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                       + "return { pictures: bmFiltered(bmUnwrapPictures()), x: place.x, y: place.y, "
                                       + "width: place.width, height: place.height }; }"), script)
         XCTAssertTrue(script.contains("function bmSmartInvert(on, rules, colourFilter) { "
+                                      + "var root = document.documentElement; "
                                       + "var place = { x: window.pageXOffset, y: window.pageYOffset, "
-                                      + "width: window.innerWidth, height: window.innerHeight };"))
+                                      + "width: root.clientWidth, height: root.clientHeight };"))
         XCTAssertTrue(script.contains("return rules.indexOf('html.\(SmartInvert.className) ' + scope + ' "
                                       + "\(SmartInvert.wrapperTag) {') >= 0;"))
         XCTAssertTrue(SmartInvert.wrapper(in: "#bm").hasPrefix("html.\(SmartInvert.className) #bm "
@@ -346,8 +347,13 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                       + "if (document.body) bmWrapPictures(document.body);"))
         XCTAssertTrue(script.contains("if (shown.getPropertyValue('filter') === 'none' "
                                       + "|| shown.getPropertyValue('display') === 'none') continue;"))
-        XCTAssertTrue(script.contains("if (window.innerWidth === width && window.innerHeight === height) { "
+        XCTAssertTrue(script.contains("var root = document.documentElement; "
+                                      + "if (root.clientWidth === width && root.clientHeight === height) { "
                                       + "bmOpening = null;"))
+        XCTAssertTrue(script.contains("if (pictures[i]['complete']) continue;"))
+        XCTAssertTrue(script.contains("setTimeout(drawn, 500); "
+                                      + "requestAnimationFrame(function () { requestAnimationFrame(drawn); });"))
+        XCTAssertFalse(script.contains("innerWidth === width"), "a pinch changes innerWidth")
         XCTAssertEqual(SmartInvert.Place.script, "return bmPutPlace(x, y, width, height)")
         for gone in ["bmRepaint", "bmPutPicturesBack", "bmPutBackAfterAFrame", "bmShown", "visibilitychange",
                      "bm-si-place", "bmPlaceFor", "bmStayAt"] {

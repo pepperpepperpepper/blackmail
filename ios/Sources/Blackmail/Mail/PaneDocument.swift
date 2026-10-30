@@ -95,8 +95,9 @@ struct PaneDocument {
     /// written in the old one.
     private var waitingDates = false
     /// Whether WebKit has committed the document given last, so that a
-    /// script run now runs in it and not in the one before.
-    private var committed = true
+    /// script run now runs in it and not in the one before. Read by the
+    /// pane as it tells the page of a change of Smart Invert (B-179).
+    private(set) var committed = true
     /// A file's tile told by script that its file has come, or could not
     /// be, before the document had been committed (B-176), to be told as
     /// it is (`didCommit`).
