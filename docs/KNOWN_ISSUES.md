@@ -42309,7 +42309,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy). A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, but for the width of that photo, found narrower on the test iPad 2026-10-30 (r6-r-copy), and Mail's stretching it, not copied
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's stretching it, not copied
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -42775,10 +42775,12 @@ constant for WebKit's factor; then this photo 496 by 372 points, about
 
 **The round's photo was not a portrait one.** The photo of rounds
 r6-q-copy and r6-r-copy (`h-photo.jpg`, sent this round as
-`IMG_0185.jpg`) is 1600 by 1200, landscape, with no EXIF orientation. "Corrected again" above, the
-comment on `photoImages` in `PrintPage` and TODO B-185 called it a
-portrait phone photo, the entry one of 3024 by 4032: wrong. Corrected
-above and in TODO B-185; the comment still said so at 6457f0f.
+`IMG_0185.jpg`) is 1600 by 1200, landscape, with no EXIF orientation.
+"Corrected again" above, the comment on `photoImages` in `PrintPage` and
+TODO B-185 called it a portrait phone photo, the entry one of 3024 by
+4032: wrong. Corrected above and in TODO B-185; the comment still said
+so at 6457f0f, and no longer does ("Fixed again 2026-10-30, after the
+test iPad (r6-r-copy)", below).
 
 **Differing from Mail, not copied.** Measured on round r6-q-copy's crop
 of Mail's preview, its "Page 2 of 2": Mail 16.5.1 draws this landscape
@@ -42801,6 +42803,85 @@ not copied.
 - A portrait photo, a small one, one offline and a photo alone (TODO
   B-185, 3a to 3c): not made this round.
 - The preview stands in for paper: nothing was printed.
+
+**Fixed again 2026-10-30, after the test iPad (r6-r-copy).** Step 3's
+failure above, the photo's width. "Carry it through", the owner,
+2026-10-30.
+
+**What changed** (`PrintPage`).
+
+1. *Mail's width in points.* `printLayoutFactor`, new, 1.25: WebCore's
+   `printingMinimumShrinkFactor`, by which WebKit's print lays a page
+   out wider than the web view it prints, the column's 540 points, and
+   then shrinks it to the sheet, so one CSS pixel prints as 0.8 points,
+   as the round measured. The photo's most width is now a share of the
+   column, `max-width: 91.85%` (`photoWidthShare`, new: `photoWidth`'s
+   496 points of the column's 540), which the shrink leaves as it is;
+   its most height `max-height: 900px` (`photoHeightPixels`, new:
+   `photoHeight`'s 720 points times the factor). `photoWidth` and
+   `photoHeight` stay, in points.
+2. *Comments.* `photoImages`' comment names the round's photo as it is,
+   landscape, 1600 by 1200, stretched by Mail onto a second sheet and
+   printed here under the words with its shape kept; `photoStyle`'s says
+   why no size in points is given in CSS pixels. The portrait photo is
+   gone from the source.
+3. *Unchanged.* The rest of the paper: the header, the words, a PDF's
+   pages, the `cid:` picture, and a letter with no inline photo, byte
+   for byte.
+
+**What he sees.** The round's letter prints its words, then the photo
+right under them on the same sheet, 496 by 372 points, about 81% of the
+sheet's width, as wide as Mail's photo; "Page 1 of 1", where Mail's, its
+photo stretched, has two ("Differing from Mail, not copied", above).
+
+**Other sizes on paper in CSS pixels.** `PrintPage` and `LetterPrint`
+read for the same fault; none changed:
+
+- A PDF's strips (`pdfPageStyle`): `width: 100%` of the column, a share,
+  which the shrink does not reach; a strip 180 pixels tall of a page
+  1080 wide prints 90 points tall (`pdfStripHeight`), as its comment
+  says. Seen on the test iPad beside Mail's (round r6-q-copy), and the
+  same to the pixel in round r6-r-copy, step 1.
+- The page's rule for every `img` and `table`, `max-width: 100%`: a
+  share.
+- The header's and the body's type (`metaPointSize`, `bodyPointSize`,
+  given as `px`), the header's gaps (17, 6, 8 and 1 px) and its 0.5 px
+  rule: CSS pixels, so on paper 0.8 of the pane's sizes, 17 printing
+  about 13.6 points. Mail's print shrinks the same way: the `cid:`
+  picture of `width=320` printed 68 view px wide in Mail's preview and
+  in Blackmail's (round r6-n-compare, C-3b). Beside Mail's preview in
+  that round (C-2a to C-2c), Mail's header was set a little larger and
+  further right: the paper's layout, not copied by the layout rule
+  (B-110). Left as they are.
+- A sender's own sizes in an HTML letter: printed as Mail prints them,
+  the `cid:` picture the same width in both.
+- The letter in words (`LetterPrint.draw`, `UISimpleTextPrintFormatter`
+  at 17): UIKit's points, no CSS. Not compared with Mail, which has no
+  such letter.
+
+**Tests.** `FileListedOnceTests`. Changed:
+`testAPlainLettersInlinePhotoPrintsAfterTheWords`, the photo's style
+`max-width: 91.85%` and `max-height: 900px`, and no `496px` in it. New:
+`testAPlainLettersPhotoPrintsAtMailsWidthInPoints`, the factor 1.25, the
+share "91.85%" and 900 px emitted, and from them the printed width 496
+points, 81% of the sheet, the height 720, and the round's photo 496 by
+372 points.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the style's caps 496px and 720px again, 4 failures in 2 tests;
+the share taken of the sheet and the height not scaled, 10 in 2. Each
+failure an assertion's. The full suite: 3,241 tests, 6 skipped, none
+failing. The release build for the iPad: "Build complete".
+
+**Not covered.**
+
+- Not seen on the iPad (TODO B-185, 3).
+- A page laid out wider than 675 CSS pixels shrinks more, up to twice:
+  the photo's width, a share, still 496 points, and its most height less
+  than 720. A plain letter's words wrap, so its page is never that wide.
+  Not seen.
+- A small photo prints 0.8 points to its pixel, one of 300 by 200 at 240
+  by 160 points; Mail's not seen (TODO B-185, 3a).
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

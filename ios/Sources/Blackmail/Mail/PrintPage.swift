@@ -378,29 +378,51 @@ enum PrintPage {
         return (cut ? m.listedAttachments : m.attachments).filter { $0.isInline && BodyFiles.isPicture($0) }
     }
 
+    /// WebKit's print lays a page out this many times wider than the
+    /// view it prints, then shrinks it to the sheet: WebCore's
+    /// `printingMinimumShrinkFactor`, 1.25. The page prints through the
+    /// print formatter of a web view the column's width, 540 points
+    /// (`LetterPrint`), so it is laid out 675 CSS pixels wide, and one
+    /// CSS pixel prints as 0.8 points (measured on the test iPad,
+    /// 2026-10-30, round r6-r-copy: a cap of 496px printed 399 points
+    /// wide, and a picture of `width=320` 257). A page wider still
+    /// shrinks more, up to twice; a plain letter's words wrap, so its
+    /// page is never wider than that.
+    static let printLayoutFactor = 1.25
+
     /// The most width of such a photo on paper, in points: about 81% of
     /// the sheet's 612, as Mail 16.5.1 prints one, a little narrower than
     /// the column's 540.
     static let photoWidth = 496
-    /// Its most height: the column's on a sheet, 720 points, so a photo
-    /// taller than a sheet is drawn smaller and never cut across two. A
-    /// photo taller than what is left of a sheet starts the next, as
-    /// WebKit moves a picture it cannot cut whole to the next sheet.
+    /// The same as a share of the column, as CSS takes it (91.85%), so it
+    /// prints `photoWidth` points whatever WebKit shrinks the page by.
+    static let photoWidthShare = String(format: "%.2f%%", Double(photoWidth) / (paperWidth - 2 * margin) * 100)
+    /// Its most height, in points: the column's on a sheet, 720, so a
+    /// photo taller than a sheet is drawn smaller and never cut across
+    /// two. A photo taller than what is left of a sheet starts the next,
+    /// as WebKit moves a picture it cannot cut whole to the next sheet.
     static let photoHeight = Int(paperHeight - 2 * margin)
+    /// The same in the print layout's CSS pixels, 900: a height has no
+    /// share of a column to be given as, so it is `photoHeight` times
+    /// `printLayoutFactor`.
+    static let photoHeightPixels = Int((Double(photoHeight) * printLayoutFactor).rounded())
 
     /// The photos of `m` (`photos(of:cut:)`) as Mail 16.5.1 prints a plain
     /// letter's inline photo that no markup names (round r6-q-copy, 30
-    /// October 2026): after the words, about 81% of the sheet's width;
-    /// the round's, a portrait phone photo taller than what the words
-    /// left of the first sheet, on a second sheet of its own ("Page 2 of
-    /// 2"). No break before them: each a block at its own size, no wider
-    /// than `photoWidth` and no taller than `photoHeight`, its shape
-    /// kept, at the column's left, with no margin, border or break of its
-    /// own, each value inline and `!important`, decoded as it is drawn,
-    /// so a photo that fits under the words prints there and one that
-    /// does not starts the next sheet. From the print's loader by
-    /// the address the pane draws it by (`BodyFiles.pictureID`), so the
-    /// pane's page is not touched. "" for a letter with none.
+    /// October 2026): after the words, about 81% of the sheet's width.
+    /// The round's, a landscape photo of 1600 by 1200, Mail stretches
+    /// about 1.7 times in height, too tall then for what the words left
+    /// of the first sheet, so it printed on a second sheet of its own
+    /// ("Page 2 of 2"); here its shape is kept, by decision, and at 496
+    /// by 372 points it prints under the words (round r6-r-copy). No
+    /// break before them: each a block at its own size, no wider than
+    /// `photoWidth` and no taller than `photoHeight`, its shape kept, at
+    /// the column's left, with no margin, border or break of its own,
+    /// each value inline and `!important`, decoded as it is drawn, so a
+    /// photo that fits under the words prints there and one that does
+    /// not starts the next sheet. From the print's loader by the address
+    /// the pane draws it by (`BodyFiles.pictureID`), so the pane's page
+    /// is not touched. "" for a letter with none.
     static func photoImages(_ m: Message, cut: Bool) -> String {
         let photos = photos(of: m, cut: cut)
         guard !photos.isEmpty else { return "" }
@@ -416,11 +438,15 @@ enum PrintPage {
     static let photoClass = "bm-photo"
 
     /// A photo on paper: a block at its own size within `photoWidth` and
-    /// `photoHeight`, which keep its shape, as no width or height is set.
-    /// Each `!important` and inline, so neither the page's own rule for
-    /// every `img`, no wider than the column, nor a sender's reaches it.
+    /// `photoHeight`, which keep its shape, as no width or height is set;
+    /// the width as a share of the column (`photoWidthShare`) and the
+    /// height in the print layout's pixels (`photoHeightPixels`), never
+    /// points taken for CSS pixels, which print 0.8 times as large
+    /// (`printLayoutFactor`). Each `!important` and inline, so neither
+    /// the page's own rule for every `img`, no wider than the column, nor
+    /// a sender's reaches it.
     static let photoStyle = "display: block !important; width: auto !important; height: auto !important; "
-        + "max-width: \(photoWidth)px !important; max-height: \(photoHeight)px !important; "
+        + "max-width: \(photoWidthShare) !important; max-height: \(photoHeightPixels)px !important; "
         + "margin: 0 !important; padding: 0 !important; border: 0 !important;"
 
     // MARK: - A PDF's pages

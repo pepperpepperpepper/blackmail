@@ -674,10 +674,12 @@ final class FileListedOnceTests: XCTestCase {
         }
         let together = "<div style=\"margin: 0; padding: 0; white-space: normal;\">"
         XCTAssertEqual(PrintPage.photoStyle, "display: block !important; width: auto !important;"
-                       + " height: auto !important; max-width: 496px !important; max-height: 720px !important;"
+                       + " height: auto !important; max-width: 91.85% !important; max-height: 900px !important;"
                        + " margin: 0 !important; padding: 0 !important; border: 0 !important;")
         XCTAssertEqual(Double(PrintPage.photoWidth) / PrintPage.paperWidth, 0.81, accuracy: 0.005, "Mail's")
         XCTAssertEqual(Double(PrintPage.photoHeight), PrintPage.paperHeight - 2 * PrintPage.margin)
+        XCTAssertFalse(PrintPage.photoStyle.contains("\(PrintPage.photoWidth)px"),
+                       "points are no CSS pixels on paper (r6-r-copy: 496px printed 399 points)")
 
         // The round's letter: words, then a photo inline with no
         // `Content-ID`; and the same with one.
@@ -749,6 +751,43 @@ final class FileListedOnceTests: XCTestCase {
             XCTAssertFalse(printed.contains("break-before"), label)
             XCTAssertFalse(printed.contains("<img"), label)
         }
+    }
+
+    /// The photo's most sizes print as points on the sheet (B-185, fixed
+    /// again; round r6-r-copy, 30 October 2026): WebKit's print lays the
+    /// page out 1.25 times wider than the web view it prints, the
+    /// column's 540 points, and shrinks it to the sheet, so a CSS pixel
+    /// prints as 0.8 points. The width as a share of the column, which
+    /// the shrink leaves as it is: 496 of 540 points, Mail's 81% of the
+    /// sheet; the height in the layout's pixels: the column's 720 points
+    /// at 0.8, 900. The round's photo, 1600 by 1200, then prints 496 by
+    /// 372 points, within the column's height.
+    func testAPlainLettersPhotoPrintsAtMailsWidthInPoints() {
+        let column = PrintPage.paperWidth - 2 * PrintPage.margin
+        XCTAssertEqual(column, 540)
+        XCTAssertEqual(PrintPage.printLayoutFactor, 1.25, "WebCore's printingMinimumShrinkFactor")
+        XCTAssertEqual(PrintPage.photoWidth, 496)
+        XCTAssertEqual(PrintPage.photoWidthShare, "91.85%")
+        XCTAssertEqual(PrintPage.photoHeight, 720)
+        XCTAssertEqual(PrintPage.photoHeightPixels, 900)
+        XCTAssertTrue(PrintPage.photoStyle.contains("max-width: 91.85% !important;"))
+        XCTAssertTrue(PrintPage.photoStyle.contains("max-height: 900px !important;"))
+
+        // On paper: the layout is the column times the factor, CSS pixels
+        // wide, and each pixel prints 1 / factor points.
+        let layout = column * PrintPage.printLayoutFactor
+        XCTAssertEqual(layout, 675)
+        let share = Double(PrintPage.photoWidthShare.dropLast()) ?? 0
+        let printedWidth = layout * share / 100 / PrintPage.printLayoutFactor
+        XCTAssertEqual(printedWidth, 496, accuracy: 0.1, "Mail's width")
+        XCTAssertEqual(printedWidth / PrintPage.paperWidth, 0.81, accuracy: 0.005)
+        let printedHeight = Double(PrintPage.photoHeightPixels) / PrintPage.printLayoutFactor
+        XCTAssertEqual(printedHeight, 720, "the column's height")
+        // The round's photo, its shape kept.
+        let (width, height) = (1_600.0, 1_200.0)
+        let scale = min(printedWidth / width, printedHeight / height, 1 / PrintPage.printLayoutFactor)
+        XCTAssertEqual(width * scale, 496, accuracy: 0.1)
+        XCTAssertEqual(height * scale, 372, accuracy: 0.1)
     }
 
     // MARK: - Its tile shows it coming

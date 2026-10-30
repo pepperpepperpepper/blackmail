@@ -11618,8 +11618,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       in it (KNOWN_ISSUES B-185, "Fixed again 2026-10-30, after the
       test iPad (r6-p-copy)" and "Corrected 2026-10-30"), and a plain
       letter's inline photo on paper (KNOWN_ISSUES B-185, "Fixed again
-      2026-10-30, after the test iPad (r6-q-copy)" and "Corrected again
-      2026-10-30"); the same two
+      2026-10-30, after the test iPad (r6-q-copy)", "Corrected again
+      2026-10-30" and "Fixed again 2026-10-30, after the test iPad
+      (r6-r-copy)", its width now in points); the same two
       picture letters and round r6-p-copy's letter of words and a PDF,
       or made again as that round made them; and four more made the
       same way: "R6 B-185 three", words and a PDF of three pages;
@@ -11682,7 +11683,8 @@ checks below is left as not needed, not open, and none is worth a round.*
          B-185). The photo narrower, cut across two sheets, stretched, a
          blank sheet, or no photo: a FAIL. Screenshots of both previews.
       3a. *"R6 B-185 small photo":* Blackmail's photo under the words
-         on the first sheet, at its own size. Mail's preview beside it:
+         on the first sheet, 0.8 points to its pixel, about 240 by 160
+         points (about 64 by 42 view px). Mail's preview beside it:
          written down whether Mail puts it under the words or on a
          sheet of its own, and its printed width beside Blackmail's
          (KNOWN_ISSUES B-185, "Corrected again 2026-10-30", "Not
