@@ -11591,14 +11591,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       in it (KNOWN_ISSUES B-185, "Fixed again 2026-10-30, after the
       test iPad (r6-p-copy)" and "Corrected 2026-10-30"), and a plain
       letter's inline photo on paper (KNOWN_ISSUES B-185, "Fixed again
-      2026-10-30, after the test iPad (r6-q-copy)"); the same two
+      2026-10-30, after the test iPad (r6-q-copy)" and "Corrected again
+      2026-10-30"); the same two
       picture letters and round r6-p-copy's letter of words and a PDF,
       or made again as that round made them; and four more made the
       same way: "R6 B-185 three", words and a PDF of three pages;
       "R6 B-185 broken", words and a file "broken.pdf" of kind
       `application/pdf` whose bytes are not a PDF; "R6 B-185 large",
-      words, a PDF and a photo making it over 5 MB; and a letter with
-      no subject. The host APPENDs each, read, to "Notes", noting
+      words, a PDF and a photo making it over 5 MB; a letter with no
+      subject; and four plain letters, each photo sent inline with no
+      markup naming it: "R6 B-185 photo", words and a portrait phone
+      photo after them, as round r6-q-copy made it; "R6 B-185 small
+      photo", the same with a photo about 300 by 200 pixels; "R6 B-185
+      photo offline", another like the first, opened in neither app
+      before 3b;
+      and "R6 B-185 photo alone", a portrait phone photo and nothing
+      else. The host APPENDs each, read, to "Notes", noting
       each UID from its APPENDUID; it stops if one has none. Print
       preview only: Cancel each time, nothing printed, nothing sent.
       Mail beside Blackmail.
@@ -11635,21 +11643,27 @@ checks below is left as not needed, not open, and none is worth a round.*
          printed. The attached picture letter its header alone, one
          page; the `cid:` picture letter its header and the picture,
          one page (Mail's blank second page not copied).
-      3. *A plain letter of words with an inline photo after them*
-         (`Content-Disposition: inline`, no markup naming it), as round
-         r6-q-copy made it: the words on the first sheet, the photo
-         from the top of the second, "Page 1 of 2" and "Page 2 of 2",
-         about 81% of the sheet's width, its shape kept, as Mail's
-         preview; the words the same to the pixel as at c72b3af. The
-         photo under the words on the first sheet, a blank sheet, or
-         no photo: a FAIL. Screenshots of both previews.
-      3a. *A small photo:* the same with a photo about 300 by 200
-         pixels, made by the host: Mail's preview beside Blackmail's,
+      3. *"R6 B-185 photo"*, words with an inline photo after them
+         (`Content-Disposition: inline`, no markup naming it): the
+         words on the first sheet, the photo, taller than what they
+         leave of it, from the top of the second, "Page 1 of 2" and
+         "Page 2 of 2", about 81% of the sheet's width, its shape kept,
+         as Mail's preview; the words the same to the pixel as at
+         c72b3af. The photo cut across two sheets, a blank sheet, or no
+         photo: a FAIL. Screenshots of both previews.
+      3a. *"R6 B-185 small photo":* Blackmail's photo under the words
+         on the first sheet, at its own size. Mail's preview beside it:
          written down whether Mail puts it under the words or on a
-         sheet of its own (KNOWN_ISSUES B-185, "Not covered").
-      3b. *Offline:* Airplane Mode on (put back off after), the letter
-         of 3 not opened in this launch: what the paper has where the
+         sheet of its own, and its printed width beside Blackmail's
+         (KNOWN_ISSUES B-185, "Corrected again 2026-10-30", "Not
+         covered"). Screenshots.
+      3b. *Offline:* Airplane Mode on (put back off after), then
+         "R6 B-185 photo offline" printed: what the paper has where the
          photo would be, Mail's beside it, written down.
+      3c. *"R6 B-185 photo alone":* Blackmail's header alone on the
+         first sheet and the photo on the second, as WebKit moves it
+         whole. Mail's preview beside it: written down how many
+         sheets, and where its photo starts. Screenshots.
       4. *The pane:* each letter's files drawn in it as before.
       5. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move

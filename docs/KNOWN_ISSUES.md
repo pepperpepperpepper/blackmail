@@ -42523,6 +42523,46 @@ failing. The release build for the iPad: "Build complete".
 - Two photos, or a tall one: Mail's print not seen.
 - Mail on 18: its print not seen.
 
+**Corrected again 2026-10-30, before the next check.** The break
+before the photos was not needed for what the round saw, and cost
+paper. The
+round's photo, a portrait phone photo of 3024 by 4032, prints 496
+points wide and about 661 tall; the words left about 540 points of the
+first sheet, in Mail's as in Blackmail's (the words ending near 214 of
+756), and WebKit moves a picture it cannot cut whole to the next sheet,
+so the photo goes to the second with no break. Mail prints its body's
+web view, most likely with no break of its own. With the break, a
+short letter with a small or landscape photo, one of 1600 by 1200
+printing 496 by 372, took two sheets where one holds it, and a photo
+the print could not fetch left a blank sheet.
+
+**What changed** (`PrintPage`). The break and its rule gone
+(`photoBreak`, and `photoImages`' `newSheet`): each photo a block within
+its most sizes, as before, so one that fits under the words prints
+there, and one that does not starts the next sheet. Point 2 of the
+change above no longer holds.
+
+**Tests.** `FileListedOnceTests`' test of it, now
+`testAPlainLettersInlinePhotoPrintsAfterTheWords`: every printed body
+with no break, the round's letter with no `break-` in it. The break
+put back by hand, the class run, each failure read by its line, then
+taken out: 8 failures in 1 test, each an assertion's. The full suite:
+3,235 tests, 6 skipped, none failing. The release build for the iPad:
+"Build complete".
+
+**Not covered** (this correction):
+
+- A photo alone, in a letter of nothing else, taller than what the
+  header leaves of the first sheet: a portrait phone photo is about
+  661 points tall at 496 wide, and the header takes about 110 or more,
+  so WebKit moves the photo whole to the second sheet and the header
+  is alone on the first. Mail's print of one not seen (TODO B-185,
+  3c).
+- A small photo after a few words prints under them; whether Mail's
+  does, and at what width: not seen (TODO B-185, 3a).
+- A photo the print's loader cannot fetch: a blank where it would be,
+  now with no sheet of its own. Not seen (TODO B-185, 3b).
+
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 
 Not Mail's: Mail has no such screen. Seen in round r6-p-copy on the test

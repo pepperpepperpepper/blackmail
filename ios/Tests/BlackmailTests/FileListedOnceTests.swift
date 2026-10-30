@@ -656,27 +656,26 @@ final class FileListedOnceTests: XCTestCase {
     }
 
     /// A plain letter's photo sent inline, which no markup names, prints
-    /// after its words from the top of a sheet of its own, about 81% of
-    /// the sheet's width, as Mail 16.5.1 prints one (B-185, fixed again;
-    /// round r6-q-copy, 30 October 2026: "Page 1 of 2", "Page 2 of 2"),
-    /// with a `Content-ID` or none, from the address the print's loader
-    /// serves; after a PDF's pages; two photos after one break, in the
-    /// letter's order; a letter of a photo alone, no break; a letter shown
-    /// in part, above its words with no break, and none with a
+    /// after its words, about 81% of the sheet's width, as Mail 16.5.1
+    /// prints one (B-185, fixed again; round r6-q-copy, 30 October 2026:
+    /// "Page 1 of 2", "Page 2 of 2", the round's tall photo moved whole to
+    /// the second sheet), with no break before it, so WebKit moves it to
+    /// the next sheet only where it does not fit; with a `Content-ID` or
+    /// none, from the address the print's loader serves; after a PDF's
+    /// pages; two photos, in the letter's order; a letter of a photo
+    /// alone; a letter shown in part, above its words, and none with a
     /// `Content-ID`. Not a picture attached, nor one WebKit cannot draw,
     /// nor an HTML letter's. The pane's page as before.
-    func testAPlainLettersInlinePhotoPrintsAfterTheWordsOnASheetOfItsOwn() throws {
+    func testAPlainLettersInlinePhotoPrintsAfterTheWords() throws {
         func photo(_ section: String, of m: Message) -> String {
             "<img decoding=sync class=\"" + PrintPage.photoClass + "\" src=\""
                 + address(BodyFiles.pictureID(section, of: m.id)) + "\" alt=\"\" style=\""
                 + PrintPage.photoStyle + "\">"
         }
-        let sheet = "<div style=\"margin: 0; padding: 0; white-space: normal; " + PrintPage.photoBreak + "\">"
         let together = "<div style=\"margin: 0; padding: 0; white-space: normal;\">"
         XCTAssertEqual(PrintPage.photoStyle, "display: block !important; width: auto !important;"
                        + " height: auto !important; max-width: 496px !important; max-height: 720px !important;"
                        + " margin: 0 !important; padding: 0 !important; border: 0 !important;")
-        XCTAssertEqual(PrintPage.photoBreak, "break-before: page; page-break-before: always;")
         XCTAssertEqual(Double(PrintPage.photoWidth) / PrintPage.paperWidth, 0.81, accuracy: 0.005, "Mail's")
         XCTAssertEqual(Double(PrintPage.photoHeight), PrintPage.paperHeight - 2 * PrintPage.margin)
 
@@ -690,7 +689,8 @@ final class FileListedOnceTests: XCTestCase {
             XCTAssertNil(m.htmlBody, label)
             XCTAssertEqual(m.attachments.map(\.id), ["2"], label)
             XCTAssertEqual(PrintPage.photos(of: m, cut: false).map(\.id), ["2"], label)
-            XCTAssertEqual(PrintPage.body(m).html, words + sheet + photo("2", of: m) + "</div>", label)
+            XCTAssertEqual(PrintPage.body(m).html, words + together + photo("2", of: m) + "</div>", label)
+            XCTAssertFalse(PrintPage.body(m).html.contains("break-"), label)
             let page = PrintPage.letter(m, style: Self.print, size: { "\($0) bytes" })
             XCTAssertEqual(count("<img ", in: page), 1, label)
             XCTAssertNotNil(PanePage.pictures(of: [m])[BodyFiles.pictureID("2", of: m.id)],
@@ -701,8 +701,8 @@ final class FileListedOnceTests: XCTestCase {
             XCTAssertFalse(pane.contains("break-before"), label)
         }
 
-        // After a PDF's pages, which run on under the words; two photos
-        // after one break, in the letter's order.
+        // After a PDF's pages, which run on under the words; two photos,
+        // in the letter's order.
         let two = Self.message(Self.letter(Self.mixed([
             Self.plain(words), Self.jpeg("a.jpg", disposition: "inline"), Self.pdf("plan.pdf"),
             Self.jpeg("b.jpg", disposition: "inline")])))
@@ -710,23 +710,22 @@ final class FileListedOnceTests: XCTestCase {
         let strip = PrintPage.pdfPageImages(two, pages: ["3": [1]])
         XCTAssertFalse(strip.isEmpty)
         XCTAssertEqual(PrintPage.body(two, pdfPages: ["3": [1]]).html,
-                       words + strip + sheet + photo("2", of: two) + photo("4", of: two) + "</div>")
+                       words + strip + together + photo("2", of: two) + photo("4", of: two) + "</div>")
         XCTAssertEqual(PrintPage.body(two).html,
-                       words + sheet + photo("2", of: two) + photo("4", of: two) + "</div>")
+                       words + together + photo("2", of: two) + photo("4", of: two) + "</div>")
 
-        // A photo alone, a letter of nothing else: under the header, no
-        // break, so the header has no sheet to itself.
+        // A photo alone, a letter of nothing else: under the header.
         let alone = Self.message(Self.letter(Self.mixed([Self.jpeg("IMG_0185.jpg", disposition: "inline")])))
         XCTAssertEqual(PrintPage.body(alone).html, together + photo("1", of: alone) + "</div>")
-        // And under a PDF's pages alone, from a sheet of its own.
+        // And under a PDF's pages alone.
         let paged = Self.message(Self.letter(Self.mixed([
             Self.pdf("plan.pdf"), Self.jpeg("IMG_0185.jpg", disposition: "inline")])))
         let pagedStrip = PrintPage.pdfPageImages(paged, pages: ["1": [1]])
         XCTAssertEqual(PrintPage.body(paged, pdfPages: ["1": [1]]).html,
-                       pagedStrip + sheet + photo("2", of: paged) + "</div>")
+                       pagedStrip + together + photo("2", of: paged) + "</div>")
 
-        // Shown only in part: above the words, under the line, no break,
-        // as the pane draws it; one with a `Content-ID` not at all.
+        // Shown only in part: above the words, under the line, as the
+        // pane draws it; one with a `Content-ID` not at all.
         var cut = Self.message(Self.letter(Self.mixed([
             Self.plain(words), Self.jpeg("a.jpg", disposition: "inline"),
             Self.jpeg("b.jpg", contentID: "b@example.com", disposition: "inline")])))
