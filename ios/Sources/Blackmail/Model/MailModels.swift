@@ -340,14 +340,17 @@ struct Message: Identifiable {
     var arrived: Date? = nil
     /// Where each part of `textBody` begins in it, in the letter's order,
     /// for a plain body joined from more than one part
-    /// (`MIMEDecoder.joined`); empty for one of one part, and for a letter
-    /// fetched in part. Only the paper reads it: a photo between two text
-    /// parts prints between them, as Mail 16.5.1 prints one (`PrintPage`,
-    /// B-185). The pane draws the parts joined, as before.
+    /// (`MIMEDecoder.joined`), a forwarded letter's header lines one by
+    /// the letter's section; empty for one of one part, and for a letter
+    /// fetched in part whose words were cut short or refused. Only the
+    /// paper reads it: a photo between two text parts prints between
+    /// them, as Mail 16.5.1 prints one (`PrintPage`, B-185). The pane
+    /// draws the parts joined, as before.
     var textParts: [TextPart] = []
 
     /// A part of `textBody`: its section, and the byte of the body's
-    /// UTF-8 where its words begin.
+    /// UTF-8 where its words, or a forwarded letter's header lines,
+    /// begin.
     struct TextPart: Equatable, Sendable {
         let section: String
         let start: Int

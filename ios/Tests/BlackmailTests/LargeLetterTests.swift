@@ -1134,6 +1134,82 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertEqual(said.count, 2)
     }
 
+    /// Letter G of round r6-u-pdf: plain words, an iPhone photo inline,
+    /// then a text part of its own, "Sent from my iPhone" unless `tail`.
+    /// The photo's bytes stand for megabytes, as the suite's limits do.
+    private func letterG(_ words: String, tail: String = "Sent from my iPhone\r\n") -> Data {
+        Data((top + mime("mixed", "MIX", [
+            "Content-Type: text/plain; charset=utf-8\r\n\r\n" + words,
+            "Content-Type: image/jpeg; name=\"IMG_1220.jpeg\"\r\n"
+                + "Content-Disposition: inline; filename=\"IMG_1220.jpeg\"\r\n"
+                + "Content-Transfer-Encoding: base64\r\n\r\n"
+                + report.base64EncodedString(options: [.lineLength76Characters,
+                                                       .endLineWithCarriageReturn, .endLineWithLineFeed]),
+            "Content-Type: text/plain; charset=utf-8\r\n\r\n" + tail,
+        ])).utf8)
+    }
+
+    /// `m`'s photo at section 2, as the paper sets it.
+    private func photoAt(_ m: Message) -> String {
+        "<div style=\"margin: 0; padding: 0; white-space: normal;\"><img decoding=sync class=\""
+            + PrintPage.photoClass + "\" src=\"" + InlineImageRewriter.scheme + "://"
+            + InlineImageRewriter.escapedHost(BodyFiles.pictureID("2", of: m.id)) + "\" alt=\"\" style=\""
+            + PrintPage.photoStyle + "\"></div>"
+    }
+
+    /// Plain words of `m`, as the paper sets them: the first stretch of
+    /// a body, or one after a photo, which keeps its own blank lines.
+    private func plainWords(_ text: String, of m: Message, first: Bool = true) -> String {
+        PrintPage.decodedAtOnce(first
+            ? PanePage.content(text: text, html: nil, known: PanePage.contentIDs(of: m), flowed: false)
+            : PlainQuotes.html(text[...], flowed: false, escaping: .ampersandAndLessThan))
+    }
+
+    /// Letter G as the repository opens it, whole and in part: each
+    /// part's place comes through with the letter (`Message.textParts`),
+    /// and the paper prints the words, the photo, then the line, as Mail
+    /// 16.5.1 printed G (B-185).
+    func testAPlainLettersPartsComeThroughTheRepositoryWholeAndInPart() async throws {
+        let words = "Here is the garden.\r\n\r\nGus\r\n"
+        let raw = letterG(words)
+        XCTAssertGreaterThan(raw.count, Self.limit)
+        let row = try await delivered(raw, by: makeRepository())
+        let inPart = try await makeRepository().open(row)
+        let whole = try await makeRepository(appLimits: true).open(row)
+        XCTAssertTrue(inPart.filesLeftOnServer)
+        XCTAssertFalse(whole.filesLeftOnServer)
+        let lf = "Here is the garden.\n\nGus\n"
+        for (label, m) in [("in part", inPart), ("whole", whole)] {
+            XCTAssertEqual(m.textBody, lf + "Sent from my iPhone\n", label)
+            XCTAssertFalse(m.isShortened, label)
+            XCTAssertEqual(m.textParts.map(\.section), ["1", "3"], label)
+            XCTAssertEqual(m.textParts.map(\.start), [0, lf.utf8.count], label)
+            XCTAssertEqual(PrintPage.body(m).html, plainWords(lf, of: m) + photoAt(m)
+                           + plainWords("Sent from my iPhone\n", of: m, first: false), label)
+        }
+    }
+
+    /// Words fetched in part that were cut short, or a part of them the
+    /// server would not give, keep no part's place: the paper prints that
+    /// letter as before, said to be only the beginning, the photo above
+    /// the words joined (B-185).
+    func testALettersWordsCutOrRefusedInPartKeepNoPlaces() async throws {
+        // Its last part cut short, the first whole: both had a place.
+        let long = "Sent from my iPhone\r\n" + String(repeating: "The rest of a long letter.\r\n", count: 60)
+        let cutRow = try await delivered(letterG("Here is the garden.\r\n", tail: long), by: makeRepository())
+        let cut = try await makeRepository().open(cutRow)
+        let refusedRow = try await delivered(letterG("Here is the garden.\r\n"), refusing: ["3"],
+                                             by: makeRepository())
+        let refused = try await makeRepository().open(refusedRow)
+        for (label, m) in [("cut", cut), ("refused", refused)] {
+            XCTAssertTrue(m.isShortened, label)
+            XCTAssertEqual(m.textParts, [], label)
+            let text = try XCTUnwrap(m.textBody, label)
+            XCTAssertEqual(PrintPage.body(m).html, PrintPage.shortened + photoAt(m) + plainWords(text, of: m),
+                           label)
+        }
+    }
+
     /// A letter opened without its files says so of each: its tile says
     /// "Downloading" with Mail's ring, as Mail's says while it fetches a
     /// large letter's files as it opens (B-176), and the file comes by its

@@ -2173,17 +2173,23 @@ actor IMAPMailRepository: MailRepository {
             // letter's header lines from the envelope its structure carries
             // (B-114).
             let allowance = MIMEDecoder.Allowance(plan, limit: limit)
+            var textParts: [Message.TextPart] = []
             let text = Self.body(plan.text, asHTML: false, goesOn: plan.textGoesOn,
                                  allowance: allowance.text, fetched: fetched.sections,
-                                 refused: fetched.refused)
+                                 refused: fetched.refused,
+                                 partStarts: { textParts.append(.init(section: $0, start: $1)) })
             let html = Self.body(plan.html, asHTML: true, goesOn: plan.htmlGoesOn,
                                  allowance: allowance.html, fetched: fetched.sections,
                                  refused: fetched.refused)
             decoded.text = text.text
             decoded.html = html.text
-            // No part's place: the paper prints a letter fetched in part
-            // with its words joined, as before (B-185).
-            decoded.textParts = []
+            // Each part's place, for the paper, as a letter fetched whole
+            // has them (`MIMEDecoder.flatten`): only for plain words that
+            // came whole, none cut short or refused; the paper prints
+            // the rest with the words joined, as before (B-185).
+            if text.text != nil, !text.cut, !text.refused, textParts.count > 1 {
+                decoded.textParts = textParts
+            }
             // By the body the pane shows, which is the HTML whenever there
             // is any (`PanePage`): a text alternative cut short under HTML
             // that came whole is not what he reads.
@@ -2217,10 +2223,13 @@ actor IMAPMailRepository: MailRepository {
     /// as a part with no words would be: a note it would not give costs the
     /// note, and the forwarded letter's header lines and words after it
     /// still come. The body is then said to be only the beginning, with the
-    /// notice a body cut short has, and `refused` (B-114).
+    /// notice a body cut short has, and `refused` (B-114). `partStarts`
+    /// is told each part's place as `MIMEDecoder.joined` tells it.
     private static func body(_ pieces: [MIMEDecoder.BodyPiece], asHTML: Bool, goesOn: Bool,
                              allowance: [String: Int], fetched: [String: Data],
-                             refused: Set<String>) -> (text: String?, cut: Bool, refused: Bool) {
+                             refused: Set<String>,
+                             partStarts: ((_ section: String, _ start: Int) -> Void)? = nil)
+        -> (text: String?, cut: Bool, refused: Bool) {
         var cut = goesOn
         var left = false
         let text = MIMEDecoder.joined(pieces, asHTML: asHTML, goesOn: goesOn, words: { part in
@@ -2232,7 +2241,7 @@ actor IMAPMailRepository: MailRepository {
             let words = Self.text(of: part, fetched: fetched, limit: allowance[part.section] ?? 0)
             if words.cut { cut = true }
             return words.text.map { ($0, words.cut) }
-        }, fields: { MIMEDecoder.forwardedFields(of: $0, header: nil) })
+        }, fields: { MIMEDecoder.forwardedFields(of: $0, header: nil) }, partStarts: partStarts)
         return text == nil ? (nil, false, false) : (text, cut, left)
     }
 

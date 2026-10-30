@@ -1607,10 +1607,11 @@ enum MIMEDecoder {
     /// all the same.
     ///
     /// `partStarts` is told each part of words that goes in, by its
-    /// section, and the byte of the body's UTF-8 its words begin at, the
-    /// line and any forwarded letter's header lines before them with them;
-    /// not for a body of one part, which is that part (`Message.textParts`,
-    /// B-185).
+    /// section, and the byte of the body's UTF-8 its words begin at, and
+    /// each forwarded letter's header lines, by the letter's section, the
+    /// byte they begin at: the line and blank line before either go with
+    /// what comes before them; only in the plain words, and not for a
+    /// body of one part, which is that part (`Message.textParts`, B-185).
     static func joined(_ pieces: [BodyPiece], asHTML: Bool, goesOn: Bool = false,
                        words: (MIMEPart) -> (text: String, cut: Bool)?,
                        fields: (MIMEPart) -> ForwardedFields?,
@@ -1636,6 +1637,7 @@ enum MIMEDecoder {
                 } else {
                     startLine()
                     if !out.isEmpty { out += "\n" }
+                    partStarts?(section, out.utf8.count)
                     out += header.text
                 }
             }
@@ -1649,7 +1651,6 @@ enum MIMEDecoder {
                     whole = false
                     break walk
                 }
-                partStarts?(part.section, out.utf8.count)
                 any = true
                 putWaiting()
                 let isHTMLPart = part.subtype == "html"
@@ -1659,6 +1660,7 @@ enum MIMEDecoder {
                         : "<div style=\"white-space: pre-wrap;\">" + QuotedMarkup.escaped(got.text) + "</div>"
                 } else {
                     startLine()
+                    partStarts?(part.section, out.utf8.count)
                     out += isHTMLPart ? HTMLText.plainText(from: got.text) : got.text
                 }
                 if got.cut {

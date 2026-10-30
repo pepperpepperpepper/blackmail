@@ -326,8 +326,8 @@ enum PrintPage {
     /// HTML's own, and prints. After the words, the pages of its PDFs in
     /// `pdfPages` (`pdfPageImages`), and then a plain letter's photos
     /// (`photoImages`), each photo that comes between two of its text
-    /// parts printed between them instead, the words of each part set
-    /// as the words are (`partsInOrder`); above them, under the grey
+    /// parts printed between them instead, the words cut there and
+    /// nowhere else (`partsInOrder`); above them, under the grey
     /// line, for a letter cut or shown only in part, whose markup ends
     /// wherever the cut fell and would take in anything after it, as the
     /// pane puts its files there (`BodyFiles.drawn`), its words joined.
@@ -367,7 +367,15 @@ enum PrintPage {
             decodedAtOnce(PanePage.content(text: text, html: nil, known: known, flowed: m.textIsFlowed))
         }
         if !shown, let order = partsInOrder(m, photos: photos(of: m, cut: false)) {
-            let between = order.parts.map { words($0.words) + photoImages($0.photos, of: m) }.joined()
+            // The blank lines a later stretch opens with are the sender's,
+            // which the words joined keep: only the body's first are
+            // taken off, as `PanePage.content` takes them off the whole.
+            let between = order.parts.enumerated().map { i, part in
+                (i == 0 ? words(part.words)
+                        : decodedAtOnce(PlainQuotes.html(part.words[...], flowed: m.textIsFlowed,
+                                                         escaping: .ampersandAndLessThan)))
+                    + photoImages(part.photos, of: m)
+            }.joined()
             return (placed(false, between, photos: photoImages(order.after, of: m)), false)
         }
         return (placed(shown, words(cut ?? text), photos: photoImages(m, cut: shown)), false)
@@ -395,16 +403,21 @@ enum PrintPage {
         }
     }
 
-    /// A plain letter's text parts (`Message.textParts`) and `photos`, its
+    /// A plain letter's words (`Message.textParts`) and `photos`, its
     /// photos, in the letter's order, as Mail 16.5.1 prints them (B-185;
     /// round r6-u-pdf, 30 October 2026, letter G: the words, the photo,
-    /// then "Sent from my iPhone", a text part after it): each part's
-    /// words, and the photos that come after it and before the next part,
-    /// by their sections; `after`, those before all its words or after
-    /// all of them, printed after the words as before. Nil when no photo
-    /// comes between two parts, and for a body of one part, or one whose
-    /// places do not fit it, which print as before, the words joined. The
-    /// pane draws the words joined and every photo after them, as before.
+    /// then "Sent from my iPhone", a text part after it): the words cut
+    /// only where a photo comes between two parts, each stretch the words
+    /// joined from the parts in it, line breaks and all, as `textBody`
+    /// has them, then the photos that come after it and before the next
+    /// part, by their sections; `after`, those after all its words,
+    /// printed after the words as before. Nil when no photo comes between
+    /// two parts, when one comes before all its words (whose place before
+    /// them was never seen in Mail's print, a letter of one part printing
+    /// such a photo after its words), and for a body of one part, or one
+    /// whose places do not fit it, which print as before, the words
+    /// joined and every photo after them. The pane draws the words joined
+    /// and every photo after them, as before.
     static func partsInOrder(_ m: Message, photos: [Attachment])
         -> (parts: [(words: String, photos: [Attachment])], after: [Attachment])? {
         let parts = m.textParts
@@ -415,14 +428,17 @@ enum PrintPage {
               let last = starts.last, last <= bytes.count else { return nil }
         // How many parts come before each photo.
         let before = photos.map { photo in parts.filter { comesBefore($0.section, photo.id) }.count }
-        guard before.contains(where: { $0 > 0 && $0 < parts.count }) else { return nil }
+        guard !before.contains(0), before.contains(where: { $0 < parts.count }) else { return nil }
         var out: [(words: String, photos: [Attachment])] = []
-        for (i, start) in starts.enumerated() {
-            let end = i + 1 < starts.count ? starts[i + 1] : bytes.count
-            let next = zip(photos, before).filter { $0.1 == i + 1 && i + 1 < parts.count }.map(\.0)
-            out.append((String(decoding: bytes[start..<end], as: UTF8.self), next))
+        var from = 0
+        for i in 1..<parts.count {
+            let next = zip(photos, before).filter { $0.1 == i }.map(\.0)
+            guard !next.isEmpty else { continue }
+            out.append((String(decoding: bytes[from..<starts[i]], as: UTF8.self), next))
+            from = starts[i]
         }
-        let after = zip(photos, before).filter { $0.1 == 0 || $0.1 == parts.count }.map(\.0)
+        out.append((String(decoding: bytes[from...], as: UTF8.self), []))
+        let after = zip(photos, before).filter { $0.1 == parts.count }.map(\.0)
         return (out, after)
     }
 

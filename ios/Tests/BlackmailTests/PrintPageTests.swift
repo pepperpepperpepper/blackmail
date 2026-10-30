@@ -755,10 +755,17 @@ final class PrintPageTests: XCTestCase {
         let bare = Attachment(id: "5", filename: "Scan.PDF", mimeType: "application/octet-stream", size: 9)
         let m = letter(text: "Our garden.", attachments: [photo, notes, plan, bare])
         XCTAssertEqual(PrintPage.pdfs(of: m).map(\.id), ["4", "5"])
+        // The words, then the picture as its photo, once; nothing of the
+        // text file, and no page.
+        let asPhoto = "Our garden.<div style=\"margin: 0; padding: 0; white-space: normal;\">"
+            + "<img decoding=sync class=\"" + PrintPage.photoClass + "\" src=\"bmcid://"
+            + InlineImageRewriter.escapedHost(BodyFiles.pictureID("2", of: m.id)) + "\" alt=\"\" style=\""
+            + PrintPage.photoStyle + "\"></div>"
         let none = try body(page(m, pdfPages: ["2": [1], "3": [1], "9": [1]]))
-        XCTAssertTrue(none.hasPrefix("Our garden."), none)
+        XCTAssertEqual(none, asPhoto)
+        XCTAssertEqual(none.components(separatedBy: "<img ").count - 1, 1)
         XCTAssertFalse(none.contains("bmpdf-"), none)
-        XCTAssertEqual(none, try body(page(m)), "no page")
+        XCTAssertEqual(try body(page(m)), asPhoto, "no page")
         let printed = try body(page(m, pdfPages: ["2": [1], "3": [1], "5": [1]]))
         XCTAssertEqual(printed.components(separatedBy: PrintPage.pdfPageClass).count - 1, 1)
         XCTAssertTrue(printed.contains(pdfPage("5", 1, of: m)))

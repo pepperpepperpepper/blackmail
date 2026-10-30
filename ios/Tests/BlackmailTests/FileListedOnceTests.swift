@@ -889,6 +889,152 @@ final class FileListedOnceTests: XCTestCase {
         }
     }
 
+    /// Words after the first stretch on paper, as the page sets them: as
+    /// the words, their own blank lines kept.
+    private func later(_ text: String, of m: Message) -> String {
+        PrintPage.decodedAtOnce(PlainQuotes.html(text[...], flowed: m.textIsFlowed,
+                                                 escaping: .ampersandAndLessThan))
+    }
+
+    /// A letter Bob sent, forwarded inline, its parts `parts`.
+    private static func forwarded(_ parts: [String]) -> String {
+        "Content-Type: message/rfc822\nContent-Disposition: inline\n\n"
+            + "From: Bob <bob@example.com>\nSubject: Pics\nDate: Wed, 21 Oct 2026 09:00:00 +0000\n"
+            + "MIME-Version: 1.0\n" + mixed(parts, boundary: "IN")
+    }
+
+    /// The words on paper are cut only where a photo goes, every line
+    /// break where the words joined have it (B-185): parts that end with
+    /// no line break of their own each still begin a line, a list's
+    /// footer under the line before it, a note's last line above the
+    /// lines of the letter it forwards, and a part's own blank lines
+    /// kept; the line between two parts with the words before it.
+    func testThePartsOnPaperKeepTheLinesTheWordsJoinedHave() throws {
+        let photoAt = { (m: Message, section: String) in self.together + self.photo(section, of: m) + "</div>" }
+
+        // Words, a photo attached, a line, and a list's footer.
+        let list = Self.message(Self.letter(Self.mixed([
+            Self.plain("Hi all"), Self.jpeg("IMG_0185.jpg"), Self.plain("Sent from my iPhone"),
+            Self.plain("_______________\nGarden-club mailing list")])))
+        let tail = "Sent from my iPhone\n_______________\nGarden-club mailing list"
+        XCTAssertEqual(list.textBody, "Hi all\n" + tail)
+        XCTAssertEqual(list.textParts.map(\.section), ["1", "3", "4"])
+        XCTAssertEqual(list.textParts.map(\.start), [0, 7, 27])
+        XCTAssertEqual(PrintPage.body(list).html,
+                       words("Hi all\n", of: list) + photoAt(list, "2") + later(tail, of: list))
+        XCTAssertTrue(PrintPage.body(list).html.contains("Sent from my iPhone\n_______________"))
+
+        // Words, a photo, then two parts: one stretch after the photo.
+        let gus = Self.message(Self.letter(Self.mixed([
+            Self.plain("Hi Gus"), Self.jpeg("IMG_1220.jpeg", disposition: "inline"),
+            Self.plain("Line two"), Self.plain("Line three")])))
+        XCTAssertEqual(gus.textBody, "Hi Gus\nLine two\nLine three")
+        XCTAssertEqual(PrintPage.body(gus).html,
+                       words("Hi Gus\n", of: gus) + photoAt(gus, "2") + later("Line two\nLine three", of: gus))
+
+        // The sender's blank lines before the line after the photo.
+        let blank = Self.message(Self.letter(Self.mixed([
+            Self.plain("Our garden.\n"), Self.jpeg("IMG_1220.jpeg", disposition: "inline"),
+            Self.plain("\n\nSent from my iPhone\n")])))
+        XCTAssertEqual(blank.textParts.map(\.start), [0, "Our garden.\n".utf8.count])
+        XCTAssertEqual(PrintPage.body(blank).html, words("Our garden.\n", of: blank) + photoAt(blank, "2")
+                       + later("\n\nSent from my iPhone\n", of: blank))
+        XCTAssertTrue(PrintPage.body(blank).html.contains("\n\nSent from my iPhone"))
+
+        // A note, and a plain letter forwarded with a photo between its
+        // words: the note's line, a blank line, then the header lines.
+        let note = Self.message(Self.letter(Self.mixed([Self.plain("See below"), Self.forwarded([
+            Self.plain("Look"), Self.jpeg("IMG_1220.jpeg", disposition: "inline"),
+            Self.plain("Sent from my iPhone\n")])])))
+        let joined = try XCTUnwrap(note.textBody)
+        XCTAssertEqual(note.textParts.map(\.section), ["1", "2", "2.1", "2.3"])
+        XCTAssertTrue(joined.hasPrefix("See below\n\nBegin forwarded message:\n\n"), joined)
+        let cut = try XCTUnwrap(joined.range(of: "Sent from my iPhone"))
+        XCTAssertEqual(note.textParts.last?.start, joined[..<cut.lowerBound].utf8.count)
+        let printed = PrintPage.body(note).html
+        XCTAssertEqual(printed, words(String(joined[..<cut.lowerBound]), of: note) + photoAt(note, "2.2")
+                       + later(String(joined[cut.lowerBound...]), of: note))
+        XCTAssertFalse(printed.contains("See belowBegin"))
+        order(["See below\n\nBegin forwarded message:", "Subject: Pics", "Look", photo("2.2", of: note),
+               "Sent from my iPhone"], in: printed, "a note and a forward")
+    }
+
+    /// A photo that opens a forwarded letter prints under that letter's
+    /// header lines, as the words joined put the lines before the letter,
+    /// and a photo before the forwarded letter above them (B-185): the
+    /// header lines begin a place of their own, by the forwarded letter's
+    /// section, and its photos come after them.
+    func testAForwardedLettersPhotoPrintsUnderItsHeaderLines() throws {
+        let m = Self.message(Self.letter(Self.mixed([Self.plain("See below"), Self.forwarded([
+            Self.jpeg("IMG_1220.jpeg", disposition: "inline"), Self.plain("Sent from my iPhone\n")])])))
+        XCTAssertEqual(m.textParts.map(\.section), ["1", "2", "2.2"])
+        XCTAssertEqual(m.attachments.map(\.id), ["2.1"])
+        let joined = try XCTUnwrap(m.textBody)
+        let cut = try XCTUnwrap(joined.range(of: "Sent from my iPhone"))
+        let printed = PrintPage.body(m).html
+        XCTAssertEqual(printed, words(String(joined[..<cut.lowerBound]), of: m) + together + photo("2.1", of: m)
+                       + "</div>" + later(String(joined[cut.lowerBound...]), of: m))
+        order(["See below", "Begin forwarded message:", "Subject: Pics", photo("2.1", of: m),
+               "Sent from my iPhone"], in: printed, "the header lines, then the photo")
+
+        // A photo of the note's own, before the letter it forwards: above
+        // that letter's header lines.
+        let before = Self.message(Self.letter(Self.mixed([
+            Self.plain("See below"), Self.jpeg("IMG_0185.jpg", disposition: "inline"),
+            Self.forwarded([Self.plain("Sent from my iPhone\n")])])))
+        XCTAssertEqual(before.textParts.map(\.section), ["1", "3", "3.1"])
+        let all = try XCTUnwrap(before.textBody)
+        let header = try XCTUnwrap(all.range(of: "Begin forwarded message:"))
+        XCTAssertEqual(before.textParts[1].start, all[..<header.lowerBound].utf8.count)
+        let both = PrintPage.body(before).html
+        XCTAssertEqual(both, words(String(all[..<header.lowerBound]), of: before) + together
+                       + photo("2", of: before) + "</div>" + later(String(all[header.lowerBound...]), of: before))
+        order(["See below", photo("2", of: before), "Begin forwarded message:", "Sent from my iPhone"],
+              in: both, "the note's photo, then the letter it forwards")
+    }
+
+    /// A letter with a photo before all its words and another between two
+    /// parts prints as before, the words joined and both photos after
+    /// them, in the letter's order (B-185): no letter's photo before its
+    /// words was seen in Mail's print, and a letter of one part prints
+    /// one after its words, so neither photo comes out of the letter's
+    /// order.
+    func testAPhotoBeforeAllTheWordsKeepsTheLettersPhotosInOrder() throws {
+        let m = Self.message(Self.letter(Self.mixed([
+            Self.jpeg("first.jpg", disposition: "inline"), Self.plain("One"),
+            Self.jpeg("second.jpg", disposition: "inline"), Self.plain("Two")])))
+        XCTAssertEqual(m.textParts.map(\.section), ["2", "4"])
+        XCTAssertNil(PrintPage.partsInOrder(m, photos: PrintPage.photos(of: m, cut: false)))
+        XCTAssertEqual(PrintPage.body(m).html, words("One\nTwo", of: m) + together + photo("1", of: m)
+                       + photo("3", of: m) + "</div>")
+    }
+
+    /// G's shape with words not all ASCII, as an iPhone's apostrophe
+    /// is: each part's place is a byte of the body's UTF-8, never a
+    /// character, so the words after the photo are whole (B-185).
+    func testAPartsPlaceIsAByteOfItsUTF8() throws {
+        let words = "I\u{2019}m sending the caf\u{E9} photo.\n\nGus\n"
+        let tail = "Sent from my iPhone\n"
+        let m = Self.message(Self.letter(Self.mixed([
+            Self.plain(words), Self.jpeg("IMG_1220.jpeg", disposition: "inline"), Self.plain(tail)])))
+        XCTAssertEqual(m.textBody, words + tail)
+        XCTAssertEqual(m.textParts.map(\.start), [0, words.utf8.count])
+        XCTAssertNotEqual(words.utf8.count, words.count)
+        XCTAssertEqual(PrintPage.body(m).html, self.words(words, of: m) + together + photo("2", of: m) + "</div>"
+                       + later(tail, of: m))
+    }
+
+    /// A letter whose only words are a blank line prints no photo it
+    /// attaches, as a letter with no words prints none (B-185; round
+    /// r6-n-compare, Mail's header alone): whitespace is no words.
+    func testABlankTextPartIsNoWordsForAnAttachedPhoto() throws {
+        let m = Self.message(Self.letter(Self.mixed([Self.plain("\n"), Self.jpeg("IMG_0185.jpg")])))
+        XCTAssertEqual(m.textBody, "\n")
+        XCTAssertEqual(m.attachments.map(\.isInline), [false])
+        XCTAssertEqual(PrintPage.photos(of: m, cut: false), [])
+        XCTAssertFalse(PrintPage.body(m).html.contains("<img"))
+    }
+
     /// The round's letters of one text part, or none, print as before,
     /// byte for byte: the words, then the photos (B-185; round r6-u-pdf,
     /// letters A to F). None has a part's place.

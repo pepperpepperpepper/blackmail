@@ -438,8 +438,9 @@ struct DecodedBody {
     /// True when `text` is flowed text (`MIMEDecoder.BodyPlan.textIsFlowed`,
     /// `Message.textIsFlowed`).
     var textIsFlowed = false
-    /// Where each part of `text` begins in it, for a plain body of more
-    /// than one part (`MIMEDecoder.joined`, `Message.textParts`).
+    /// Where each part of `text` begins in it, and each forwarded
+    /// letter's header lines, for a plain body of more than one part
+    /// (`MIMEDecoder.joined`, `Message.textParts`).
     var textParts: [Message.TextPart] = []
 }
 
