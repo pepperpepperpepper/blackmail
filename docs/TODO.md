@@ -11241,7 +11241,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       its pictures' (KNOWN_ISSUES B-179, "Fixed again 2026-10-30, after
       the test iPad (r6-q-copy)" and "Corrected again 2026-10-30"), and
       the switch's off drawn anew (KNOWN_ISSUES B-179, "Fixed a third
-      time 2026-10-30, after the test iPad (r6-r-copy)").
+      time 2026-10-30, after the test iPad (r6-r-copy)"), and the page
+      built anew at the off (KNOWN_ISSUES B-179, "Fixed a fourth time
+      2026-10-30, after the test iPad (r6-s-copy)").
       Nothing is composed, sent, moved
       or deleted in the app, nothing printed (where a print panel comes in,
       its preview only, then Cancel), and nothing saved in it but step 3's
@@ -11316,24 +11318,30 @@ checks below is left as not needed, not open, and none is worth a round.*
          the switch off first, as in 0; Smart Invert turned on and the
          app brought back: the photos as in 2, at the same place; Smart
          Invert off again and back: the page as with the switch off, at
-         the place it was scrolled to, no "Loading…", and its photos
-         natural at once, never hue-turned (the sky about rgb(126, 184,
-         245), never rgb(29, 87, 148)): by pxcmp against the shot taken
-         before, no cluster but the label's words resampled; still so
-         after 20 s and after a scroll to the top. The lines of words
-         at the same place across the off, the same bands by pxcmp of
-         the words' clusters against the shot before the switch went
-         off, nothing moved while the photos were out. The log, after
-         the off's "pane: isInvertColorsEnabled false, changed": "pane:
-         Smart Invert off, N pictures drawn anew", N the photos the
-         page holds, never 0; no such line for the light letter's off.
-         Smart Invert on again
-         and back: as in 2, at the same place. The same with the light
-         letter: on, its pictures inverted as in 3 and nothing moved;
-         off, the page the same as its shot before, its pictures natural.
-         And in the stack's conversation, "R6 B-SI stack one" open,
-         across the same turns: its photo natural at once as it goes
-         off, the same as its shot of 0.
+         the place it was scrolled to, no "Loading…" and no blank pane,
+         and its photos natural at once, never hue-turned (the sky about
+         rgb(126, 184, 245), never rgb(29, 87, 148)): by pxcmp against
+         the shot taken before, no cluster but the label's words
+         resampled, at 2 s; still so after 20 s and after a scroll to
+         the top. The lines of words at the same place across the off,
+         the same bands by pxcmp of the words' clusters against the
+         shot before the switch went off. The log, right after the
+         off's "pane: isInvertColorsEnabled false, changed": "pane:
+         Smart Invert off, page built anew (N pictures)", N the photos
+         the page holds, never 0, then "pane: isInvertColorsEnabled
+         false, page built"; no "drawn anew" line. What shows between
+         the off and the page built anew, from a screen recording if
+         one can be made, written down: the page as it was, still, then
+         the new one in its place; never its top, never "Loading…".
+         Smart Invert on again and back: as in 2, at the same place, no
+         "page built anew" line. The same with the light letter: on,
+         its pictures inverted as in 3 and nothing moved; off, the page
+         the same as its shot before, its pictures natural, the line
+         with its pictures' count. And in the stack's conversation, "R6
+         B-SI stack one" open, across the same turns: its photo natural
+         at once as it goes off, the same as its shot of 0, its letters
+         open as before, no "Loading…". The plain letter's off: no
+         "page built anew" line.
          Screenshots.
       5a. *Off at the tap, on after:* Settings > Accessibility >
          Accessibility Shortcut set to Smart Invert (put back as from the
@@ -11349,8 +11357,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          photos letter open, its first photo tapped so it fills the
          screen; Smart Invert turned off in Settings, Blackmail brought
          back and left 5 s, then the photo closed: the letter's photos
-         natural at once, no line moved, the log's "drawn anew" line
-         once. Screenshots.
+         natural at once, at the place it was scrolled to, no line
+         moved, the log's "page built anew" line once, as the photo
+         closed. Screenshots.
       6. *With Smart Invert off:* the photos, light, plain and PDF letters
          opened in Blackmail, each compared with round r6-p-copy's OFF
          shots of 7803dbb by pxcmp: mean 0. The inside of a large JPEG,

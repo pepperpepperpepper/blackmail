@@ -533,10 +533,11 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertTrue(code.contains("let drawn = entries.compactMap { loaded[$0.id] } "
                                     + "prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter } "
                                     + "+ drawn.filter { $0.id == stackFocus.letter }, inStack: true) "
-                                    + "renderConversation(entries) for (id, body) in again.bodies { fill(id, body) }"))
+                                    + "renderConversation(entries, anew: true) for (id, body) in again.bodies "
+                                    + "{ fill(id, body) }"))
         XCTAssertEqual(count("inStack: true)", in: code), 5)
         XCTAssertTrue(code.contains(
-            "private func draw(_ m: Message, page: String?) { prepareInlineImages(for: [m]) guard"))
+            "private func draw(_ m: Message, page: String?, anew: Bool = false) { prepareInlineImages(for: [m]) guard"))
     }
 
     // MARK: - A cut

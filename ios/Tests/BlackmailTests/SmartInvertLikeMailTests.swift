@@ -236,8 +236,10 @@ final class SmartInvertLikeMailTests: XCTestCase {
     /// and at a change of the answer. WebKit's colour filter follows the
     /// switch before the script runs, the page is asked once whether it
     /// takes it, and on its yes the script is given its rules (B-179,
-    /// r6-p-copy); the pictures it took out to be drawn anew going off are
-    /// written in the log (r6-r-copy).
+    /// r6-p-copy). Going off, the script's answer for the page it ran on,
+    /// with the switch still off, may owe the page a build anew, and the
+    /// rebuild is asked for at once (r6-s-copy); going on lets one owed
+    /// go.
     func testThePaneFollowsTheSwitch() throws {
         let pane = try TextSizeTests.source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(pane.contains("lineHeight: Theme.detailBodyLineHeight, "
@@ -258,14 +260,19 @@ final class SmartInvertLikeMailTests: XCTestCase {
                                     + "guard !invertRules.isEmpty, on != invertShown || filtered != colourFilterShown "
                                     + "else { return } "
                                     + "invertShown = on colourFilterShown = filtered "
+                                    + "if on { builtAnew.switchedOn() } "
                                     + "let toggle = SmartInvert.Toggle(on: on, rules: invertRules, "
                                     + "colourFilter: filtered ? invertColourFilter : \"\") "
+                                    + "let shown = builtAnew.shown "
                                     + "webView.callAsyncJavaScript(SmartInvert.Toggle.script, "
-                                    + "arguments: toggle.arguments, in: nil, in: .defaultClient) { result in "
-                                    + "guard case .success(let answer) = result, let count = answer as? Int, "
-                                    + "let line = SmartInvert.redrawn(count) else { return } "
-                                    + "Diagnostics.log(.note, line) } }"))
-        XCTAssertTrue(pane.contains("private func load(_ page: String, as content: PaneDocument.Content) { "
+                                    + "arguments: toggle.arguments, in: nil, in: .defaultClient) "
+                                    + "{ [weak self] result in "
+                                    + "guard let self, !on, case .success(let answer) = result, "
+                                    + "self.builtAnew.switchedOff(SmartInvert.Off(answer: answer), shown: shown, "
+                                    + "stillOff: !self.invertShown) else { return } "
+                                    + "self.restyleIfOwed() } }"))
+        XCTAssertTrue(pane.contains("private func load(_ page: String, as content: PaneDocument.Content, "
+                                    + "anew: Bool = false) { "
                                     + "let html = colourFilterReadsOn ? page : SmartInvert.withoutColourFilter(page) "
                                     + "invertRules = SmartInvert.rules(ofPage: html) "
                                     + "invertColourFilter = SmartInvert.colourFilter(ofPage: html) "
@@ -306,18 +313,23 @@ final class SmartInvertLikeMailTests: XCTestCase {
     /// The script, read: going on, it puts a light letter's pictures in
     /// the element of `SmartInvert.wrapperTag`, inside a scope whose rule
     /// for it the switch's sheet has; going off, it takes every such
-    /// element off and has WebKit draw anew the pictures left with a
-    /// filter of their own (r6-q-copy, 2026-10-30). And it puts them in as
-    /// the page ends, as `bmFill` puts a body in and as a letter goes into
-    /// the stack. What it does is run in node in
-    /// `SmartInvertPicturesTests`; this holds it where there is no node.
-    func testTheScriptDrawsPicturesAnewAndWrapsALightLetters() {
+    /// element off and answers where the page was and how many pictures
+    /// carry a filter of their own, drawing nothing anew (r6-s-copy,
+    /// 2026-10-30). And it puts them in as the page ends, as `bmFill` puts
+    /// a body in and as a letter goes into the stack. What it does is run
+    /// in node in `SmartInvertPicturesTests`; this holds it where there is
+    /// no node.
+    func testTheScriptAnswersTheOffAndWrapsALightLetters() {
         let script = ConversationDocument.script.split(whereSeparator: { $0 == " " || $0 == "\n" })
             .joined(separator: " ")
         XCTAssertTrue(script.contains("if (filter) root.classList.add('\(SmartInvert.colourFilterClass)'); "
                                       + "else root.classList.remove('\(SmartInvert.colourFilterClass)'); "
                                       + "if (on) { bmWrapPictures(document.body); return 0; } "
-                                      + "bmUnwrapPictures(); return bmRepaintPictures(); }"), script)
+                                      + "return { pictures: bmFiltered(bmUnwrapPictures()), x: place.x, y: place.y, "
+                                      + "width: place.width, height: place.height }; }"), script)
+        XCTAssertTrue(script.contains("function bmSmartInvert(on, rules, colourFilter) { "
+                                      + "var place = { x: window.pageXOffset, y: window.pageYOffset, "
+                                      + "width: window.innerWidth, height: window.innerHeight };"))
         XCTAssertTrue(script.contains("return rules.indexOf('html.\(SmartInvert.className) ' + scope + ' "
                                       + "\(SmartInvert.wrapperTag) {') >= 0;"))
         XCTAssertTrue(SmartInvert.wrapper(in: "#bm").hasPrefix("html.\(SmartInvert.className) #bm "
@@ -332,23 +344,14 @@ final class SmartInvertLikeMailTests: XCTestCase {
         XCTAssertTrue(script.contains("if (head) bmWire(head); bmWrapPictures(last); }"))
         XCTAssertTrue(script.contains("if (document.body) bmWirePictures(document.body); "
                                       + "if (document.body) bmWrapPictures(document.body);"))
-        XCTAssertTrue(script.contains("if (shown.getPropertyValue('filter') === 'none' || display === 'none') continue;"))
-        XCTAssertTrue(script.contains("if (!drawn.length) return 0;"))
-        XCTAssertTrue(script.contains("var place = document.createElement('\(SmartInvert.placeTag)');"))
-        XCTAssertTrue(script.contains("requestAnimationFrame(function () { "
-                                      + "requestAnimationFrame(function () { bmPutPicturesBack(run); }); });"))
-        XCTAssertTrue(script.contains("run.timer = setTimeout(function () { "
-                                      + "if (!document.hidden) bmPutPicturesBack(run); }, 1000);"))
-        XCTAssertTrue(script.contains("window.addEventListener('visibilitychange', bmShown);"))
-        XCTAssertTrue(script.contains("function bmSmartInvert(on, rules, colourFilter) { bmPutPicturesBack();"))
-    }
-
-    /// The pane's log line for the pictures taken out to be drawn anew as
-    /// the switch goes off (r6-r-copy): none for none.
-    func testTheLogNamesThePicturesDrawnAnew() {
-        XCTAssertEqual(SmartInvert.redrawn(3), "pane: Smart Invert off, 3 pictures drawn anew")
-        XCTAssertEqual(SmartInvert.redrawn(1), "pane: Smart Invert off, 1 picture drawn anew")
-        XCTAssertNil(SmartInvert.redrawn(0))
-        XCTAssertNotEqual(SmartInvert.placeTag, SmartInvert.wrapperTag)
+        XCTAssertTrue(script.contains("if (shown.getPropertyValue('filter') === 'none' "
+                                      + "|| shown.getPropertyValue('display') === 'none') continue;"))
+        XCTAssertTrue(script.contains("if (window.innerWidth === width && window.innerHeight === height) { "
+                                      + "bmOpening = null;"))
+        XCTAssertEqual(SmartInvert.Place.script, "return bmPutPlace(x, y, width, height)")
+        for gone in ["bmRepaint", "bmPutPicturesBack", "bmPutBackAfterAFrame", "bmShown", "visibilitychange",
+                     "bm-si-place", "bmPlaceFor", "bmStayAt"] {
+            XCTAssertFalse(script.contains(gone), gone)
+        }
     }
 }

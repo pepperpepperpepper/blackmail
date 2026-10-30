@@ -530,8 +530,11 @@ final class DatesRedrawnTests: XCTestCase {
         XCTAssertTrue(pane.contains("for insert in finished.inserts { run(insert) } "
                                     + "for fill in finished.fills { run(fill) } "
                                     + "if let dates = finished.dates { run(dates) } "
+                                    + "if let place = builtAnew.finished(ObjectIdentifier(navigation)) "
+                                    + "{ putBack(place) } "
                                     + "for landed in finished.tiles { tell(landed) } }"),
-                      "a stack that loaded after the change, last of the stack's; then a large letter's tiles held (B-176)")
+                      "a stack that loaded after the change, last of the stack's; then a page built anew "
+                        + "put back at its place (B-179); then a large letter's tiles held (B-176)")
 
         // The header's date has one writer, from when the letter arrived,
         // its Date where that is not known (`headerDate`, B-178), as the

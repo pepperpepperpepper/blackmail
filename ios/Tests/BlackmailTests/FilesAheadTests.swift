@@ -275,7 +275,7 @@ final class FilesAheadTests: XCTestCase {
         let pane = try source("UI/MessageDetailViewController.swift")
         for wiring in [
             "loads.superseded = { [weak self] in self?.letAheadGo() }",
-            "load(page, as: .letter(m, page: page)) fetchAhead(m) }",
+            "load(page, as: .letter(m, page: page), anew: anew) fetchAhead(m) }",
             "if let m = loaded.values.first(where: { ConversationDocument.sectionID(for: $0.id) == fill.sectionID }) "
                 + "?? related.letter(inSection: fill.sectionID) { fetchAhead(m) }",
             "for file in FilesAhead.planned(m) { let key = FilesAhead.Key(letter: m.id, part: file.id) "
@@ -383,9 +383,10 @@ final class FilesAheadTests: XCTestCase {
     /// And on the pane's document, each file asked once.
     func testALettersOwnPageAsksForItsFilesAsItsWordsGoIn() throws {
         let pane = try source("UI/MessageDetailViewController.swift")
-        XCTAssertTrue(pane.contains("private func draw(_ m: Message, page: String?) { prepareInlineImages(for: [m]) "
+        XCTAssertTrue(pane.contains("private func draw(_ m: Message, page: String?, anew: Bool = false) { "
+                                    + "prepareInlineImages(for: [m]) "
                                     + "guard let page else { renderNotice(MailText.emptyBodyNotice) return } "
-                                    + "load(page, as: .letter(m, page: page)) fetchAhead(m) }"))
+                                    + "load(page, as: .letter(m, page: page), anew: anew) fetchAhead(m) }"))
         XCTAssertEqual(pane.components(separatedBy: "fetchAhead(m)").count - 1, 2, "the page given, and a body in")
         XCTAssertTrue(pane.contains("webView.callAsyncJavaScript(ConversationDocument.Fill.script, "
                                     + "arguments: fill.arguments, in: nil, in: .defaultClient)"))

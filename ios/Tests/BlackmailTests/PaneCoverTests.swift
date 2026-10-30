@@ -235,7 +235,9 @@ final class PaneCoverTests: XCTestCase {
         XCTAssertTrue(code.contains(
             "let navigation = webView.loadHTMLString(html, baseURL: nil) "
                 + "document.loaded(content, navigation: navigation.map(ObjectIdentifier.init)) "
-                + "paneCover.loaded(navigation.map(ObjectIdentifier.init)) }"))
+                + "paneCover.loaded(navigation.map(ObjectIdentifier.init)) "
+                + "if anew && builtAnew.building != nil { holdStill() } else { liftStill() } "
+                + "builtAnew.given(navigation.map(ObjectIdentifier.init), anew: anew) }"))
         XCTAssertEqual(code.components(separatedBy: "loadHTMLString(").count - 1, 1, "every document by `load`")
         XCTAssertTrue(code.contains(
             "private func coverPane() { let tap = paneCover.tapped() cover.isHidden = false "

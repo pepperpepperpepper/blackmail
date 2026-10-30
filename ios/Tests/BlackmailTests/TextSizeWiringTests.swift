@@ -521,16 +521,19 @@ final class TextSizeWiringTests: XCTestCase {
                               in: pane))
         let owed = try section(pane, from: "private func restyleIfOwed() {",
                                to: "@objc private func datesChanged()")
-        for wiring in ["guard restyleOwed, UIApplication.shared.applicationState == .active, "
-                        + "viewIfLoaded?.window != nil else { return } restyleOwed = false "
+        for wiring in ["guard restyleOwed || builtAnew.owed != nil, "
+                        + "UIApplication.shared.applicationState == .active, "
+                        + "viewIfLoaded?.window != nil else { return } "
+                        + "if let line = builtAnew.build(textSize: restyleOwed) { Diagnostics.log(.note, line) } "
+                        + "restyleOwed = false "
                         + "guard let again = document.restyled() else { return }",
                        "case .letter(let m, _):",
                        "let style = pageStyle, held = remote.waits(m.id) loads.start({ m }, prepare: { m in "
                         + "(m, PanePage.letter(m, style: style, heldBack: held)) }, settle: { [weak self] "
                         + "result in guard let self, case .success(let (m, page)) = result, "
-                        + "self.message?.id == m.id else { return } self.draw(m, page: page) })",
+                        + "self.message?.id == m.id else { return } self.draw(m, page: page, anew: true) })",
                        "+ drawn.filter { $0.id == stackFocus.letter }, inStack: true)",
-                       "renderConversation(entries) for (id, body) in again.bodies { fill(id, body) }",
+                       "renderConversation(entries, anew: true) for (id, body) in again.bodies { fill(id, body) }",
                        "case .notice(let lines): renderNotice(lines)"] {
             XCTAssertTrue(owed.contains(wiring), wiring)
         }
@@ -542,7 +545,7 @@ final class TextSizeWiringTests: XCTestCase {
                                   + "bodyPointSize: style.bodyPointSize, lineHeight: style.lineHeight, "
                                   + "stacked: Theme.textSize.stacksRowDate, smartInvert: style.smartInvert, "
                                   + "colourFilter: style.colourFilter), "
-                                  + "as: .conversation(entries))",
+                                  + "as: .conversation(entries), anew: anew)",
                               in: pane))
         XCTAssertEqual(count("ConversationDocument.html(", in: pane), 1, "the stack is built in one place")
 

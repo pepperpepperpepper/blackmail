@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy), seen again there 2026-10-30 (r6-s-copy), the third fix running and the fault with the switch turned off still not fixed. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy), seen again there 2026-10-30 (r6-s-copy), the third fix running and the fault with the switch turned off still not fixed, fixed a fourth time after it (r6-s-copy), the page shown built anew at the off. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41759,6 +41759,126 @@ is the off's.
   4 minutes this round, about 95 s in r6-r-copy), not at once.
 - The stack, the light letter and a photo shown full screen across the
   off: not run this round.
+
+**Fixed a fourth time 2026-10-30, after the test iPad (r6-s-copy).** By
+the owner's ruling of 2026-10-29, Mail copied; "carry it through, and
+only ping me if the re-check finds something you can't fix", the owner,
+2026-10-30. The second run's fix: the page shown built anew at the off,
+its scroll kept.
+
+**What changed** (`SmartInvert`, `ConversationDocument.script`,
+`MessageDetailViewController`).
+
+1. *The answer at the off.* Going off, `bmSmartInvert` drew nothing
+   anew. It read the page's scroll and viewport (`pageXOffset`,
+   `pageYOffset`, `innerWidth`, `innerHeight`) before it changed
+   anything, took the classes and a light letter's elements off as
+   before, and answered that place with how many pictures carry a
+   filter of their own: each `img` and `video` whose computed filter is
+   not `none` and whose `display` is not `none`, and each picture taken
+   out of its element, each counted once (`SmartInvert.Off`). Going on,
+   it answered 0.
+2. *Which pages.* Only a page the script is told of, one with rules
+   for the switch: a letter inverted, a light letter, a stack. Of those,
+   only one whose answer counted a picture, and only while the pane
+   still showed the page the script ran on and the switch had not been
+   told on since (`SmartInvert.Anew`). A letter inverted with words
+   alone, a plain letter, a letter in its own colours, a notice and an
+   empty pane were not built anew: the class going is enough there, as
+   the rounds saw.
+3. *Built by the text size's rebuild.* The page was built from what the
+   pane holds, nothing fetched, by `restyleIfOwed`, which waits for the
+   app in front and the pane on screen: a page under Quick Look, or
+   with the app away, was built once as he came back. Built for the
+   switch as it is then (`pageStyle`), at the text size, a letter's
+   pictures held back or loaded as before (`RemotePictures.waits`), a
+   stack's open letters, bodies and his letters from Sent Mail as the
+   pane holds them. The switch on again before it was built, another
+   letter, or the pane emptied, let it go. With a new text size owed as
+   well, the page was built once and its place not kept, as for a text
+   size alone.
+4. *The place kept.* Once WebKit had finished the page built anew, its
+   letters from Sent Mail and its bodies put in, `bmPutPlace` waited
+   for the page's pictures to load, a second at most, then scrolled it
+   to the off's place only while its viewport was the off's size
+   (3671253's rule: turned meanwhile, it kept the place WebKit gave),
+   first letting go of a stack's hold on the letter it opens at, so its
+   keeping then held the letter at the top (`bmKeep`); it answered
+   after two frames more (`SmartInvert.Place`).
+5. *No "Loading…" shown.* A letter's page was built away from the
+   main thread, as for a text size, and WebKit kept the old page on
+   screen until the new one was drawn; but the new one was drawn at its
+   top, and a stack's open letters said "Loading…" until their bodies
+   went in. So the pane laid UIKit's snapshot of the page as it was
+   (`snapshotView(afterScreenUpdates: false)`) over the web view as the
+   page built anew was given, and lifted it once the place was put
+   back, when any other page was given or the pane emptied, or after
+   2 s at most; it took the touches meanwhile. With no snapshot, none
+   was laid.
+6. *The log.* "pane: Smart Invert off, page built anew (N pictures)" as
+   the rebuild started, after "pane: isInvertColorsEnabled false,
+   changed"; then the page's own "pane: isInvertColorsEnabled false,
+   page built". The "N pictures drawn anew" line went.
+7. *Taken out.* The third fix's redraw in the page: the pictures out
+   for two frames (`display: none`), the boxes in their place
+   (`bm-si-place`), the put-back after the frames or a second
+   (`bmPutBackAfterAFrame`), the wait for a page shown again (`bmShown`
+   and its `visibilitychange` listener), and their tests.
+8. *Unchanged.* With the switch off every page built byte for byte as
+   at 28f5ae4; going on, and a light letter's elements, as before.
+
+**What he sees**, if it takes: Smart Invert turned off with a letter
+open, and he comes back: its photos natural at once, at the place it was
+scrolled to. Until the page built anew is drawn, a moment, the page as
+it was stays on screen, still, and takes no touch; then the page built
+anew is in its place. A stack's open letters stay open, with no
+"Loading…".
+
+**Tests.** `SmartInvertAnewTests`, new, ten: the answer read off the
+script's dictionary, `NSNumber` or Swift's numbers, none for 0 or a
+number missing; the place given by name; only a page with such a
+picture owed; an answer for another page, or after the switch went on,
+owing nothing; on again, another letter or the pane emptied letting it
+go; the place kept for the page built anew and handed back once it has
+finished, once, for no other page; any other page given, or the pane
+emptied, letting the place go; with a new text size the place not kept;
+the log's line; and the pane's wiring read. `SmartInvertPicturesTests`:
+eight tests of the redraw taken out, its stand-in for the page with no
+`visibilitychange` and with pictures that load by a step. Changed: going
+off under a letter inverted at 500, nothing drawn anew, the markup as
+before, the answer 4 pictures at 500; in a stack, 2; a page with no such
+picture, 0, a light letter's 1. Four new: a light letter's pictures
+counted as their elements go, one with a filter of its sender's once;
+the place put back once the pictures have loaded, a second at most,
+answered after two frames; kept only at the off's size, either side
+changed; a stack's hold on its opening letter let go.
+`SmartInvertLikeMailTests`: the script's pins and the pane's call read
+the answer, the redraw's names gone. The pins in
+`TextSizeWiringTests`, `FileListedOnceTests`, `FilesAheadTests`,
+`PaneCoverTests` and `DatesRedrawnTests` read the new lines. Each new
+test undone by hand, the class run, each failure read by its line, then
+put back: 27 undoings, each failing at an assertion. The full suite:
+3,250 tests, 6 skipped, none failing. The release build for the iPad:
+"Build complete".
+
+**Not covered** (this change):
+
+- On the test iPad, whether the page built anew at the off draws its
+  photos natural at once: a page built anew was seen natural only
+  minutes after the off (about 4 minutes in r6-s-copy, about 95 s in
+  r6-r-copy), not at once.
+- That UIKit's snapshot of the web view is a still of the page and not
+  blank: read from its documentation, not seen. Blank, he would see the
+  pane's ground until the page built anew is drawn, 2 s at most.
+- A picture that loads more than a second after the page has finished:
+  the place is put back before it has, and from there the stack's
+  keeping holds the letter at the top; a letter alone is not held.
+- A video playing as the switch goes off starts again, and a selection
+  he had made goes, as on any page built anew.
+- The switch on again while the page is being built: built off, then
+  told on as it finishes, as a page built before a change always was.
+- The stack, the light letter and a photo shown full screen across the
+  off: not run on the iPad.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 

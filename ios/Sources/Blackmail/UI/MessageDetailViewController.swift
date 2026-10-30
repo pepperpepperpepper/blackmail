@@ -188,6 +188,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// was not in front: the letter is drawn at the new size once they are
     /// (`restyleOwed`, B-166).
     private var restyleOwed = false
+    /// The page shown owed a build anew as the iPad's Smart Invert went
+    /// off, and its place kept for it (`SmartInvert.Anew`, B-179).
+    private var builtAnew = SmartInvert.Anew()
+    /// The pane's still of the page as it was, over the web view while the
+    /// page is built anew for the switch, so neither the stack's "Loading…"
+    /// nor the page's top shows before it is back at its place; nil when
+    /// none is up. `stills` counts them, so the limit of an earlier one
+    /// lifts nothing.
+    private var still: UIView?
+    private var stills = 0
     /// The page given to WebKit last, for the iPad's Smart Invert
     /// (`SmartInvert`, B-179): its rules for the switch, "" for a page the
     /// switch does not change, whether it was built with the switch on,
@@ -373,11 +383,21 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// log when it changed, and the page
     /// shown is told by script, its class put on or taken off, and its
     /// rules put in if it was built without them, when it has rules and
-    /// does not have the switch as iOS has it now. Nothing is loaded again
-    /// and nothing scrolls; a plain letter, a letter in its own colours
-    /// and a notice are told nothing, as the switch changes none of them.
-    /// A page built after this is built for the switch as it is then
-    /// (`pageStyle`).
+    /// does not have the switch as iOS has it now. A plain letter, a
+    /// letter in its own colours and a notice are told nothing, as the
+    /// switch changes none of them. A page built after this is built for
+    /// the switch as it is then (`pageStyle`).
+    ///
+    /// Going on, nothing is loaded again and nothing scrolls, and a build
+    /// anew still owed is let go. Going off, the script answers how many
+    /// pictures carry a filter of their own and where the page is; with
+    /// any, the page shown is built anew from what the pane holds,
+    /// nothing fetched, for the switch as it is now, by the rebuild a new
+    /// text size has (`restyleIfOwed`), its place kept: after the off the
+    /// page's own invert did not reach its photos on the test iPad, and
+    /// only a page built anew drew them natural (r6-s-copy, B-179). Only
+    /// for the page the script was run on, while the switch is still off
+    /// (`SmartInvert.Anew`). A page with no such picture is not built anew.
     ///
     /// WebKit's colour filter follows the switch first, before the script
     /// puts any sheet in, as WebKit reads the setting when it reads a
@@ -401,13 +421,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         guard !invertRules.isEmpty, on != invertShown || filtered != colourFilterShown else { return }
         invertShown = on
         colourFilterShown = filtered
+        if on { builtAnew.switchedOn() }
         let toggle = SmartInvert.Toggle(on: on, rules: invertRules,
                                         colourFilter: filtered ? invertColourFilter : "")
+        let shown = builtAnew.shown
         webView.callAsyncJavaScript(SmartInvert.Toggle.script, arguments: toggle.arguments,
-                                    in: nil, in: .defaultClient) { result in
-            guard case .success(let answer) = result, let count = answer as? Int,
-                  let line = SmartInvert.redrawn(count) else { return }
-            Diagnostics.log(.note, line)
+                                    in: nil, in: .defaultClient) { [weak self] result in
+            guard let self, !on, case .success(let answer) = result,
+                  self.builtAnew.switchedOff(SmartInvert.Off(answer: answer), shown: shown,
+                                             stillOff: !self.invertShown) else { return }
+            self.restyleIfOwed()
         }
     }
 
@@ -470,6 +493,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// had scrolled to is not kept. While the pane cannot be seen, or the app
     /// is not in front, the letter waits to be drawn until they are, as
     /// `drawAgain` waits.
+    ///
+    /// The same rebuild builds the page shown anew as the iPad's Smart
+    /// Invert goes off over pictures with a filter of their own
+    /// (`followSmartInvert`, B-179), and then keeps his place: the page is
+    /// given with `anew`, the pane's still of it as it was laid over the
+    /// web view (`holdStill`), and once WebKit has finished it, its
+    /// letters from Sent Mail and its bodies in, it is scrolled back to
+    /// where it was at the off, if the pane is the size it was then
+    /// (`SmartInvert.Place`), and the still lifts. Which letters of a
+    /// stack are open, the pictures held back or loaded and the text size
+    /// are as for a text size: from what the pane holds.
     @objc private func textSizeChanged() {
         header.restyle()
         placeholder.font = Theme.fontDetailMeta
@@ -478,8 +512,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     private func restyleIfOwed() {
-        guard restyleOwed, UIApplication.shared.applicationState == .active,
+        guard restyleOwed || builtAnew.owed != nil, UIApplication.shared.applicationState == .active,
               viewIfLoaded?.window != nil else { return }
+        if let line = builtAnew.build(textSize: restyleOwed) { Diagnostics.log(.note, line) }
         restyleOwed = false
         guard let again = document.restyled() else { return }
         switch again.content {
@@ -501,7 +536,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                         settle: { [weak self] result in
                             guard let self, case .success(let (m, page)) = result,
                                   self.message?.id == m.id else { return }
-                            self.draw(m, page: page)
+                            self.draw(m, page: page, anew: true)
                         })
         case .conversation(let entries):
             // As `drawAgain` draws it: the stack, then its bodies put in by
@@ -511,8 +546,51 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             let drawn = entries.compactMap { loaded[$0.id] }
             prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter }
                                     + drawn.filter { $0.id == stackFocus.letter }, inStack: true)
-            renderConversation(entries)
+            renderConversation(entries, anew: true)
             for (id, body) in again.bodies { fill(id, body) }
+        }
+    }
+
+    /// The pane's still of the page as it was (`still`), laid over the
+    /// web view as the page built anew for the switch is given to WebKit
+    /// (B-179): UIKit's snapshot of what is on screen, which takes the
+    /// touches meanwhile. Lifted once the page is back at its place, when
+    /// any other page is given or the pane emptied, and at most
+    /// `SmartInvert.Anew.stillLimit` after; with no snapshot, nothing laid.
+    private func holdStill() {
+        liftStill()
+        guard let shot = webView.snapshotView(afterScreenUpdates: false) else { return }
+        shot.translatesAutoresizingMaskIntoConstraints = false
+        view.insertSubview(shot, aboveSubview: webView)
+        NSLayoutConstraint.activate([
+            shot.topAnchor.constraint(equalTo: webView.topAnchor),
+            shot.leadingAnchor.constraint(equalTo: webView.leadingAnchor),
+            shot.trailingAnchor.constraint(equalTo: webView.trailingAnchor),
+            shot.bottomAnchor.constraint(equalTo: webView.bottomAnchor),
+        ])
+        still = shot
+        let held = stills
+        DispatchQueue.main.asyncAfter(deadline: .now() + SmartInvert.Anew.stillLimit) { [weak self] in
+            guard let self, self.stills == held else { return }
+            self.liftStill()
+        }
+    }
+
+    private func liftStill() {
+        stills += 1
+        still?.removeFromSuperview()
+        still = nil
+    }
+
+    /// The page built anew scrolled back to the off's place, by script, in
+    /// the app's content world, and the still lifted once it has answered
+    /// (`SmartInvert.Place`, B-179).
+    private func putBack(_ place: SmartInvert.Place) {
+        let held = stills
+        webView.callAsyncJavaScript(SmartInvert.Place.script, arguments: place.arguments,
+                                    in: nil, in: .defaultClient) { [weak self] _ in
+            guard let self, self.stills == held else { return }
+            self.liftStill()
         }
     }
 
@@ -769,6 +847,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         loads.supersede()
         liftCover()
         holdBackTheWeb()
+        builtAnew.shownElse()
+        liftStill()
         summary = nil
         message = nil
         loaded = [:]
@@ -850,6 +930,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.isHidden = false
         webView.isHidden = false
         setActionsEnabled(true)
+        builtAnew.shownElse()
 
         let repository = self.repository
         let held = remote.hold(summary.id)
@@ -951,6 +1032,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.isHidden = false
         webView.isHidden = false
         setActionsEnabled(true)
+        builtAnew.shownElse()
 
         // His letters of it, in the first frame when the repository found
         // them in the last ten minutes; otherwise looked for once the
@@ -1097,7 +1179,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// would leave the previous letter on screen in the meantime. At the
     /// accessibility sizes each part of a letter's line has a line of its
     /// own, as a row's date has (B-166).
-    private func renderConversation(_ entries: [ConversationDocument.Entry]) {
+    private func renderConversation(_ entries: [ConversationDocument.Entry], anew: Bool = false) {
         let style = pageStyle
         load(ConversationDocument.html(entries: entries, inset: style.inset,
                                        bodyPointSize: style.bodyPointSize,
@@ -1105,12 +1187,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                        stacked: Theme.textSize.stacksRowDate,
                                        smartInvert: style.smartInvert,
                                        colourFilter: style.colourFilter),
-             as: .conversation(entries))
+             as: .conversation(entries), anew: anew)
     }
 
     /// Gives the web view a document, and `document` what it holds; and,
-    /// while the cover is up, the cover the document to wait for.
-    private func load(_ page: String, as content: PaneDocument.Content) {
+    /// while the cover is up, the cover the document to wait for. `anew`
+    /// when the rebuild gives it (`restyleIfOwed`): built anew as Smart
+    /// Invert went off, the pane's still over it until it is back at its
+    /// place; any other page lifts the still (B-179).
+    private func load(_ page: String, as content: PaneDocument.Content, anew: Bool = false) {
         // A page built with WebKit's colour filter whose setting no longer
         // reads on, the switch gone off as it was built: given without the
         // filter's class, so its letter is never drawn with its white
@@ -1133,6 +1218,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let navigation = webView.loadHTMLString(html, baseURL: nil)
         document.loaded(content, navigation: navigation.map(ObjectIdentifier.init))
         paneCover.loaded(navigation.map(ObjectIdentifier.init))
+        // Laid over the page WebKit still shows: the one given is drawn
+        // in a later turn (B-179).
+        if anew && builtAnew.building != nil { holdStill() } else { liftStill() }
+        builtAnew.given(navigation.map(ObjectIdentifier.init), anew: anew)
     }
 
     /// A tap on another letter (B-149): the cover up over the web view in
@@ -1717,13 +1806,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// the pane that there is nothing in it, so that a pane with nothing in
     /// it can only ever mean a bug. See `MailText.hasNoVisibleContent` and
     /// B-026.
-    private func draw(_ m: Message, page: String?) {
+    private func draw(_ m: Message, page: String?, anew: Bool = false) {
         prepareInlineImages(for: [m])
         guard let page else {
             renderNotice(MailText.emptyBodyNotice)
             return
         }
-        load(page, as: .letter(m, page: page))
+        load(page, as: .letter(m, page: page), anew: anew)
         // A large letter's own page: its files asked for now, as its words
         // go in, as a stack's body has them asked for (B-176).
         fetchAhead(m)
@@ -1733,6 +1822,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// conversation's bodies that came before it had, go in now. See
     /// `PaneDocument`. And the cover lifts, if it waits for this one and
     /// WebKit tells nothing of its paint (`PaneCover.finished`, B-149).
+    /// A page built anew as Smart Invert went off is put back at the off's
+    /// place after them (`SmartInvert.Anew`, B-179).
     func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
         // A page built before the iPad's Smart Invert changed, a kept one
         // drawn again among them, or told of a change while it loaded: as
@@ -1747,6 +1838,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
         if let dates = finished.dates { run(dates) }
+        if let place = builtAnew.finished(ObjectIdentifier(navigation)) { putBack(place) }
         for landed in finished.tiles { tell(landed) }
     }
 
@@ -1762,6 +1854,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// as it opens (B-074).
     func webViewWebContentProcessDidTerminate(_ w: WKWebView) {
         Diagnostics.log(.note, "webview: content process ended")
+        liftStill()
         document.contentProcessEnded()
         drawAgain()
     }

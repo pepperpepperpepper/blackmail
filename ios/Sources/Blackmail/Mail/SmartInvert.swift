@@ -66,17 +66,30 @@ import Foundation
 /// hue-turned with the switch off: the script chose them, but changed
 /// their `display` and put it back in one turn, which did not draw them
 /// anew. A picture out of what WebKit draws for a frame and put back drew
-/// natural, as did a page built anew. So each is taken out until a frame
-/// has been drawn without it, a box of its size in its place
-/// (`placeTag`), and put back.
+/// natural, as did a page built anew. So each was taken out until a frame
+/// had been drawn without it, a box of its size in its place, and put
+/// back.
+///
+/// **Found on the test iPad, 2026-10-30 (r6-s-copy).** That changed
+/// nothing: the pictures were drawn anew 14 ms after the off and stayed
+/// hue-turned, the same at 2 s, 21 s and 100 s, the one out of sight too.
+/// Not a stale drawing of the pictures: after the off the page's own
+/// invert on `#bm` does not reach them. Every way that drew them natural
+/// built that filtered ancestor anew: a page built anew, a stack letter's
+/// body closed and opened. So the script draws nothing anew now; going
+/// off, it answers how many pictures have a filter of their own and where
+/// the page is (`Off`), and the pane builds the page shown anew for the
+/// switch as it is, from what it holds, nothing fetched, its place kept
+/// (`Anew`, `Place`).
 ///
 /// Off, every page is byte for byte as it was. On, a page is built with
 /// the class on its `<html>` and its rules in a sheet of their own in its
 /// head (`root`, `sheet`); a change of the switch while a page is shown
 /// puts the class on or takes it off by the pane's script, the sheet put
-/// in if the page has none (`Toggle`), so nothing scrolls; going off, the
-/// pictures the class took a filter off are drawn anew, and the elements
-/// round a light letter's pictures go and come with the class.
+/// in if the page has none (`Toggle`), so nothing scrolls; and the
+/// elements round a light letter's pictures go and come with the class.
+/// Going off under a page whose pictures have a filter of their own, the
+/// page is built anew besides.
 ///
 /// Pure, so the suite on Linux tests it.
 enum SmartInvert {
@@ -151,14 +164,6 @@ enum SmartInvert {
     static func wrapper(in scope: String) -> String {
         "html.\(className) \(scope) \(wrapperTag) { all: unset; filter: invert(1); }"
     }
-
-    /// The element the pane's script puts in a picture's place while it
-    /// takes the picture out to have WebKit draw it anew as the switch goes
-    /// off (`ConversationDocument.script`'s `bmRepaintPictures`, B-179): a
-    /// box of the picture's size, margins, `vertical-align` and float, so
-    /// no line and no other box moves, taken off as the picture is put
-    /// back. A tag no letter uses, so no sender's rule names it.
-    static let placeTag = "bm-si-place"
 
     /// The second class the page's `<html>` has, with `className`, while
     /// a letter it inverts is made dark by WebKit's colour filter
@@ -279,14 +284,6 @@ enum SmartInvert {
         "pane: isInvertColorsEnabled \(on)" + (built ? ", page built" : ", changed")
     }
 
-    /// The pane's log line for the pictures the script took out to be
-    /// drawn anew as the switch went off (`Toggle`, B-179), so a check can
-    /// see it ran: nil for none, as a page with no such picture is not
-    /// touched.
-    static func redrawn(_ count: Int) -> String? {
-        count > 0 ? "pane: Smart Invert off, \(count) picture\(count == 1 ? "" : "s") drawn anew" : nil
-    }
-
     /// The start of every page the pane builds, to the end of its `<html>`
     /// tag, with the class; and with the colour filter's too.
     static let onStart = "<!DOCTYPE html><html class=\"\(className)\">"
@@ -364,10 +361,9 @@ enum SmartInvert {
     /// it takes the class off with the switch, or when not given them.
     ///
     /// With the class it puts the element round a light letter's pictures
-    /// (`wrapperTag`), and takes it off; and going off, it has WebKit draw
-    /// anew each picture left with a filter of its own (r6-q-copy), and
-    /// answers how many it took out to be drawn so, 0 going on, for the
-    /// pane's log (`redrawn`).
+    /// (`wrapperTag`), and takes it off. Going on, it answers 0; going
+    /// off, what the pane needs to know whether to build the page anew,
+    /// and where to put it back (`Off`).
     struct Toggle: Equatable {
         let on: Bool
         let rules: String
@@ -376,5 +372,155 @@ enum SmartInvert {
         static let script = "return bmSmartInvert(on, rules, colourFilter)"
 
         var arguments: [String: Any] { ["on": on, "rules": rules, "colourFilter": colourFilter] }
+    }
+
+    /// Where the page was as the switch went off: its scroll, `x` and
+    /// `y`, and its viewport, `width` by `height`, in CSS pixels, as the
+    /// script read them before it changed anything (r6-s-copy).
+    ///
+    /// Put back on the page built anew (`ConversationDocument.script`'s
+    /// `bmPutPlace`, run by `script` in the app's content world), once it
+    /// has finished, the bodies of a stack in, and its pictures loaded or
+    /// a second gone by: scrolled to `x`, `y` only while its viewport is
+    /// still `width` by `height`, as 3671253's rule had it; a pane laid out
+    /// anew meanwhile, the iPad turned, keeps the place WebKit gives it,
+    /// as the place was measured in the old layout. A stack's hold on the
+    /// letter it opens at is let go first, and its keeping then holds the
+    /// letter at the top where it is (`bmKeep`). The script answers after
+    /// two frames more, so what the pane lays over the page while it is
+    /// built (the pane's still) lifts once the page is drawn there.
+    struct Place: Equatable {
+        let x: Double
+        let y: Double
+        let width: Double
+        let height: Double
+
+        static let script = "return bmPutPlace(x, y, width, height)"
+
+        var arguments: [String: Any] { ["x": x, "y": y, "width": width, "height": height] }
+    }
+
+    /// What the script answered as the switch went off (`Toggle`): how
+    /// many pictures on the page carry a filter of their own, `img` and
+    /// `video`, read by their computed `filter` once the classes are off
+    /// (an inverted letter's photos, under the page's invert on `#bm` or
+    /// `.bm-html`), and the pictures of a light letter whose elements it
+    /// took off (`wrapperTag`), each once; and where the page was.
+    struct Off: Equatable {
+        let pictures: Int
+        let place: Place
+
+        init(pictures: Int, place: Place) {
+            self.pictures = pictures
+            self.place = place
+        }
+
+        /// The script's answer as WebKit hands it back, a dictionary of
+        /// numbers; nil for any other, the switch going on answering 0,
+        /// or a page whose script did not answer.
+        init?(answer: Any?) {
+            guard let answer = answer as? [String: Any],
+                  let pictures = Self.number(answer["pictures"]), let x = Self.number(answer["x"]),
+                  let y = Self.number(answer["y"]), let width = Self.number(answer["width"]),
+                  let height = Self.number(answer["height"]) else { return nil }
+            self.init(pictures: Int(pictures), place: Place(x: x, y: y, width: width, height: height))
+        }
+
+        private static func number(_ value: Any?) -> Double? {
+            if let value = value as? Double { return value }
+            if let value = value as? Int { return Double(value) }
+            if let value = value as? NSNumber { return value.doubleValue }
+            return nil
+        }
+    }
+
+    /// The page shown built anew as the switch goes off (r6-s-copy, B-179),
+    /// as the pane keeps it.
+    ///
+    /// Owed when the script's answer for the off has a picture with a
+    /// filter of its own (`switchedOff`): only on a page with rules for
+    /// the switch, as only such a page is told (a letter inverted, a
+    /// light letter, a stack), and only while the pane still shows the
+    /// page the script was run on and the switch is still off. A page
+    /// with no such picture is not built anew: the class going is enough
+    /// there, as the rounds saw. The switch going on again before it is
+    /// built (`switchedOn`), or the pane given something else or emptied
+    /// (`shownElse`), lets it go. Built by the pane's rebuild for a new
+    /// text size (`MessageDetailViewController.restyleIfOwed`), which waits
+    /// for the app in front and the pane on screen, so a page under Quick
+    /// Look or with the app away is built as they come back, once.
+    ///
+    /// Its place (`Place`) goes with the page the rebuild gives WebKit
+    /// (`given`), and comes back as that page has finished (`finished`),
+    /// once; any other page given meanwhile lets it go. With a new text
+    /// size owed as well the page is built once, at the size, and its
+    /// place not kept, as for a text size alone.
+    struct Anew {
+        /// The off's answer while the page is owed.
+        private(set) var owed: Off?
+        /// The place for the page the rebuild is building, until it is
+        /// given to WebKit.
+        private(set) var building: Place?
+        /// The place for the page given, by its navigation.
+        private var placing: (navigation: ObjectIdentifier?, place: Place)?
+        /// How many pages have been given to WebKit: the script's answer
+        /// for an earlier one is not this page's.
+        private(set) var shown = 0
+
+        /// The script's answer as the switch went off on the page `shown`
+        /// counted, `off` nil for none; `stillOff` false when the switch
+        /// has been told on since. Whether the page is owed now.
+        mutating func switchedOff(_ off: Off?, shown: Int, stillOff: Bool) -> Bool {
+            guard let off, off.pictures > 0, shown == self.shown, stillOff else { return false }
+            owed = off
+            return true
+        }
+
+        mutating func switchedOn() { owed = nil }
+
+        mutating func shownElse() {
+            owed = nil
+            building = nil
+            placing = nil
+        }
+
+        /// The rebuild starting, `textSize` when a new text size is owed
+        /// too: the log's line when it builds the page anew for the
+        /// switch, nil otherwise.
+        mutating func build(textSize: Bool) -> String? {
+            guard let off = owed else {
+                building = nil
+                return nil
+            }
+            owed = nil
+            building = textSize ? nil : off.place
+            return Self.line(off.pictures)
+        }
+
+        /// A page given to WebKit, `anew` when the rebuild gives it: its
+        /// place kept for it, if the rebuild has one.
+        mutating func given(_ navigation: ObjectIdentifier?, anew: Bool) {
+            shown += 1
+            placing = anew ? building.map { (navigation, $0) } : nil
+            building = nil
+        }
+
+        /// A page has finished: its place, once, if it is the rebuild's.
+        mutating func finished(_ navigation: ObjectIdentifier) -> Place? {
+            guard let placing, placing.navigation == navigation else { return nil }
+            self.placing = nil
+            return placing.place
+        }
+
+        /// The pane's log line for the page built anew, after the line
+        /// for the switch's change (`note`), so a check sees it ran.
+        static func line(_ pictures: Int) -> String {
+            "pane: Smart Invert off, page built anew (\(pictures) picture\(pictures == 1 ? "" : "s"))"
+        }
+
+        /// How long the pane's still of the page as it was can stay over
+        /// the page built anew, in seconds, whatever WebKit does: then the
+        /// page is shown as it is.
+        static let stillLimit: TimeInterval = 2
     }
 }
