@@ -667,6 +667,134 @@ final class PrintPageTests: XCTestCase {
         }
     }
 
+    // MARK: - A PDF's pages (B-185, fixed again)
+
+    /// The page of `m` with the counts of its PDFs' pages handed in, as
+    /// `LetterPrint` hands them.
+    private func page(_ m: Message, pdfPages: [String: Int]) -> String {
+        PrintPage.letter(m, style: style, size: size, locale: posix, timeZone: utc, pdfPages: pdfPages)
+    }
+
+    /// The picture of page `n` of the PDF at `section` of `m`, as printed.
+    private func pdfPage(_ section: String, _ n: Int, of m: Message) -> String {
+        "src=\"bmcid://" + InlineImageRewriter.escapedHost(PrintPage.pdfPageID(section, page: n, of: m.id)) + "\""
+    }
+
+    /// A letter of words and a PDF prints the PDF's page under the words,
+    /// as Mail 16.5.1 prints it (round r6-p-copy, 29 October 2026, "Page 1
+    /// of 2"): a picture the column's width, decoded as it is drawn, after
+    /// `#bm`'s words and none before them; in an HTML letter and a plain
+    /// one. With no count handed in, the words alone, as before.
+    func testAPDFsPageIsPrintedUnderTheWords() throws {
+        let pdf = Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 2_048)
+        for m in [letter(text: "Our garden.", attachments: [pdf]),
+                  letter(text: nil, html: "<p>Our garden.</p>", attachments: [pdf])] {
+            let printed = try body(page(m, pdfPages: ["2": 1]))
+            let words = try XCTUnwrap(printed.range(of: "Our garden."))
+            let picture = try XCTUnwrap(printed.range(of: pdfPage("2", 1, of: m)))
+            XCTAssertLessThan(words.upperBound, picture.lowerBound, "under the words")
+            XCTAssertEqual(printed.components(separatedBy: "<img ").count - 1, 1, "one page, one picture")
+            XCTAssertTrue(printed.hasSuffix("<img decoding=sync class=\"" + PrintPage.pdfPageClass + "\" "
+                                            + pdfPage("2", 1, of: m) + " alt=\"\" style=\""
+                                            + PrintPage.pdfPageStyle + "\">"), printed)
+            XCTAssertTrue(PrintPage.pdfPageStyle.contains("width: 100% !important;"))
+            XCTAssertTrue(PrintPage.pdfPageStyle.contains("display: block !important;"))
+            XCTAssertFalse(PrintPage.pdfPageStyle.contains("break"), "no break of its own")
+            XCTAssertEqual(page(m, pdfPages: [:]), page(m), "no count, the words alone")
+            XCTAssertFalse(page(m).contains("bmpdf-"))
+        }
+        // Two pages, two pictures in order; the words in the same place.
+        let two = letter(text: "Our garden.", attachments: [pdf])
+        let printed = try body(page(two, pdfPages: ["2": 2]))
+        let first = try XCTUnwrap(printed.range(of: pdfPage("2", 1, of: two)))
+        let second = try XCTUnwrap(printed.range(of: pdfPage("2", 2, of: two)))
+        XCTAssertLessThan(first.upperBound, second.lowerBound)
+        XCTAssertTrue(printed.hasPrefix("Our garden."), printed)
+    }
+
+    /// Only a PDF's pages print: a picture file, a text file or a PDF with
+    /// no count handed in print nothing, as Mail prints none (B-185 as
+    /// seen); a count for a part that is no PDF of the letter, or of none,
+    /// draws nothing. A PDF sent with no kind of its own is one by its name.
+    func testOnlyAPDFsPagesArePrinted() throws {
+        let photo = Attachment(id: "2", filename: "IMG_0182.jpg", mimeType: "image/jpeg", size: 9)
+        let notes = Attachment(id: "3", filename: "notes.txt", mimeType: "text/plain", size: 9)
+        let plan = Attachment(id: "4", filename: "plan.pdf", mimeType: "application/pdf", size: 9)
+        let bare = Attachment(id: "5", filename: "Scan.PDF", mimeType: "application/octet-stream", size: 9)
+        let m = letter(text: "Our garden.", attachments: [photo, notes, plan, bare])
+        XCTAssertEqual(PrintPage.pdfs(of: m).map(\.id), ["4", "5"])
+        XCTAssertEqual(try body(page(m, pdfPages: ["2": 1, "3": 1, "9": 1])), "Our garden.")
+        let printed = try body(page(m, pdfPages: ["2": 1, "3": 1, "5": 1]))
+        XCTAssertEqual(printed.components(separatedBy: "<img ").count - 1, 1)
+        XCTAssertTrue(printed.contains(pdfPage("5", 1, of: m)))
+        XCTAssertFalse(printed.contains("bmpdf-m7_3-2-"), "no picture file")
+        XCTAssertFalse(printed.contains("bmpdf-m7_3-4-"), "no count, no page")
+        XCTAssertTrue(PrintPage.isPDF(Attachment(id: "6", filename: "a", mimeType: "Application/PDF; name=a",
+                                                 size: nil)))
+        XCTAssertFalse(PrintPage.isPDF(Attachment(id: "6", filename: "a.pdf", mimeType: "text/plain",
+                                                  size: nil)))
+        // A letter of a PDF alone: its page under the header.
+        let alone = letter(text: nil, attachments: [plan])
+        XCTAssertTrue(try body(page(alone, pdfPages: ["4": 1])).hasPrefix("<img decoding=sync"))
+    }
+
+    /// At most `pdfPageLimit` pages of one PDF; each PDF has its own.
+    func testAPDFsPagesStopAtTheLimit() throws {
+        XCTAssertEqual(PrintPage.pdfPageLimit, 20)
+        XCTAssertEqual(PrintPage.pdfPageWidth, 1_080, "twice the column's 540 points")
+        XCTAssertEqual(PrintPage.pdfPageHeightLimit, 4_320)
+        let one = Attachment(id: "2", filename: "one.pdf", mimeType: "application/pdf", size: 9)
+        let two = Attachment(id: "3", filename: "two.pdf", mimeType: "application/pdf", size: 9)
+        let m = letter(text: "Hello.", attachments: [one, two])
+        let printed = try body(page(m, pdfPages: ["2": 57, "3": 3]))
+        XCTAssertEqual(printed.components(separatedBy: "<img ").count - 1, 23)
+        XCTAssertTrue(printed.contains(pdfPage("2", 20, of: m)))
+        XCTAssertFalse(printed.contains(pdfPage("2", 21, of: m)))
+        let last = try XCTUnwrap(printed.range(of: pdfPage("2", 20, of: m)))
+        let next = try XCTUnwrap(printed.range(of: pdfPage("3", 1, of: m)))
+        XCTAssertLessThan(last.upperBound, next.lowerBound, "in the order the letter lists them")
+        XCTAssertEqual(try body(page(m, pdfPages: ["2": 0, "3": -1])), "Hello.")
+    }
+
+    /// The address of a PDF's page comes back through the loader's own
+    /// reading of what WebKit asks it for (`InlineImageRewriter.contentID`)
+    /// as the part and the page it named; another letter's, a page past
+    /// the limit, a part that is no PDF, or a picture's address, as nil.
+    func testAPDFPagesAddressComesBackThroughTheLoader() throws {
+        let plan = Attachment(id: "1.2", filename: "plan.pdf", mimeType: "application/pdf", size: 9)
+        let photo = Attachment(id: "3", filename: "photo.jpg", mimeType: "image/jpeg", size: 9)
+        let m = letter(text: "Hello.", attachments: [plan, photo])
+        let printed = page(m, pdfPages: ["1.2": 2])
+        for n in [1, 2] {
+            let src = pdfPage("1.2", n, of: m)
+            XCTAssertTrue(printed.contains(src))
+            let address = String(src.dropFirst("src=\"".count).dropLast())
+            let url = try XCTUnwrap(URL(string: address))
+            let id = try XCTUnwrap(InlineImageRewriter.contentID(of: url))
+            let back = try XCTUnwrap(PrintPage.pdfPage(id, of: m))
+            XCTAssertEqual(back.section, "1.2")
+            XCTAssertEqual(back.page, n)
+        }
+        XCTAssertNil(PrintPage.pdfPage(PrintPage.pdfPageID("1.2", page: 21, of: m.id), of: m))
+        XCTAssertNil(PrintPage.pdfPage(PrintPage.pdfPageID("1.2", page: 0, of: m.id), of: m))
+        XCTAssertNil(PrintPage.pdfPage(PrintPage.pdfPageID("3", page: 1, of: m.id), of: m))
+        XCTAssertNil(PrintPage.pdfPage(PrintPage.pdfPageID("1.2", page: 1, of: "7/4"), of: m))
+        XCTAssertNil(PrintPage.pdfPage(BodyFiles.pictureID("3", of: m.id), of: m))
+        XCTAssertNil(PrintPage.pdfPage("logo@example.com", of: m))
+    }
+
+    /// A letter shown only in part has its PDF's pages above its words,
+    /// under the grey line, as the pane puts its files there: its markup
+    /// ends wherever the cut fell, and would take in what came after it.
+    func testALetterShownInPartHasItsPDFsPagesAboveItsWords() throws {
+        let plan = Attachment(id: "2", filename: "plan.pdf", mimeType: "application/pdf", size: 9)
+        var m = letter(text: nil, html: "<p>The beginning.</p><!-- cut", attachments: [plan])
+        m.isShortened = true
+        let printed = try body(page(m, pdfPages: ["2": 1]))
+        XCTAssertTrue(printed.hasPrefix(PrintPage.shortened + "<img decoding=sync"), printed)
+        XCTAssertTrue(printed.hasSuffix("<p>The beginning.</p><!-- cut"), printed)
+    }
+
     // MARK: - The job
 
     func testTheJobIsNamedForTheSubject() {

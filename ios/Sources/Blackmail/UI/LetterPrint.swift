@@ -1,6 +1,7 @@
 // Guarded so this file compiles away on a host without UIKit.
 #if canImport(UIKit)
 
+import ImageIO
 import UIKit
 import WebKit
 
@@ -27,7 +28,8 @@ import WebKit
 /// the job holds the PDF and nothing of WebKit; once the panel is up, only
 /// the system's print controller holds anything, the PDF, until it closes.
 /// Nothing is written to disk, and nothing is asked of the server but the
-/// letter's own pictures, read, and none once the pane has moved on.
+/// letter's own pictures and PDFs, read, and none once the pane has moved
+/// on.
 @MainActor
 final class LetterPrint: NSObject, WKNavigationDelegate {
 
@@ -63,6 +65,10 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// The letter in words, made with its page, for a page that cannot be
     /// drawn.
     private var words: String?
+    /// The letter's PDFs as they came, by their parts, from their fetching
+    /// until the page is loaded; from then the loader's alone, which draws
+    /// their pages (B-185, fixed again).
+    private var pdfs: [String: Data] = [:]
     private var timeLimit: DispatchWorkItem?
     private var nextLook: DispatchWorkItem?
     private var observing = false
@@ -90,6 +96,9 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// Builds the page and its words away from the main thread; what is
     /// done once they are made is the steps' (`built`). The time limit runs
     /// from now, and the pane is looked at every `coverRetry` from now.
+    /// The letter's PDFs are fetched first, and their pages counted, so the
+    /// page has a picture for each page (`PrintPage.pdfPageImages`); the
+    /// time they take is the time limit's too.
     func start() {
         NotificationCenter.default.addObserver(self, selector: #selector(wentAway),
                                                name: UIApplication.didEnterBackgroundNotification,
@@ -102,8 +111,10 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
 
         let m = letter, style = style, heldBack = heldBack
         building = Task { @MainActor [weak self] in
-            let made = await Self.made(m, style: style, heldBack: heldBack)
+            let pdfs = await self?.fetchedPDFs() ?? [:]
+            let made = await Self.made(m, style: style, heldBack: heldBack, pdfs: pdfs)
             guard let self else { return }
+            self.pdfs = pdfs
             self.page = made.page
             self.words = made.words
             self.take(.built)
@@ -112,11 +123,107 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
 
     /// The page and the words, made on the cooperative pool rather than the
     /// main actor: an async function isolated to no actor runs away from its
-    /// caller (SE-0338), as `PaneLoads.prepared` does.
-    private nonisolated static func made(_ m: Message, style: PrintPage.Style, heldBack: Bool) async
+    /// caller (SE-0338), as `PaneLoads.prepared` does. Each PDF in `pdfs`
+    /// has its pages counted there; one that cannot be read, or has none,
+    /// prints nothing, and says so in the log.
+    private nonisolated static func made(_ m: Message, style: PrintPage.Style, heldBack: Bool,
+                                         pdfs: [String: Data]) async
         -> (page: String, words: String) {
         let size: (Int64) -> String = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-        return PrintPage.made(m, style: style, size: size, heldBack: heldBack)
+        var pages: [String: Int] = [:]
+        for (section, data) in pdfs {
+            let count = pageCount(data)
+            if count > 0 {
+                pages[section] = count
+            } else {
+                Diagnostics.log(.note, "PRINT pdf unread part=\(section)")
+            }
+        }
+        return PrintPage.made(m, style: style, size: size, heldBack: heldBack, pdfPages: pages)
+    }
+
+    /// Each PDF of the letter (`PrintPage.pdfs`) as it came, by its part,
+    /// asked of the repository one after another, as the pane's loader asks
+    /// for pictures; none once the pane has moved on. One that cannot be
+    /// fetched, offline, is left out, and prints nothing: the words alone,
+    /// as before. Read on the main actor, as the loader reads.
+    private func fetchedPDFs() async -> [String: Data] {
+        var fetched: [String: Data] = [:]
+        for file in PrintPage.pdfs(of: letter) {
+            guard stillShown(), !Task.isCancelled else { break }
+            do {
+                fetched[file.id] = try await repository.fetchAttachmentData(file.id, of: letter.id,
+                                                                            mailboxID: letter.mailboxID)
+            } catch {
+                Diagnostics.log(.note, "PRINT pdf not-fetched part=\(file.id)")
+            }
+        }
+        return fetched
+    }
+
+    /// How many pages the PDF in `data` has; 0 for one that cannot be read,
+    /// or is locked with a password.
+    private nonisolated static func pageCount(_ data: Data) -> Int {
+        guard let provider = CGDataProvider(data: data as CFData), let pdf = CGPDFDocument(provider),
+              pdf.isUnlocked else { return 0 }
+        return pdf.numberOfPages
+    }
+
+    /// The loader's turns at drawing a PDF's page, one at a time: each is a
+    /// picture of up to `PrintPage.pdfPageWidth` by `pdfPageHeightLimit`
+    /// pixels, and WebKit asks for every page at once.
+    private nonisolated static let pageTurns = HEICPicture.Turns(limit: 1)
+
+    /// Page `number`, from 1, of the PDF in `data` as a PNG, drawn away from
+    /// the main thread, one at a time (`pageTurns`); nil for a page that
+    /// cannot be drawn, or a request WebKit stopped while it waited.
+    private nonisolated static func pagePicture(_ number: Int, of data: Data) async -> Data? {
+        await pageTurns.take()
+        var made: Data?
+        if !Task.isCancelled {
+            made = await Task.detached(priority: .userInitiated) { Self.png(of: number, in: data) }.value
+        }
+        await pageTurns.give()
+        return made
+    }
+
+    /// Page `number` of the PDF in `data` drawn as Quick Look shows it, its
+    /// crop box turned as the page says, on white, `PrintPage.pdfPageWidth`
+    /// pixels wide, or less tall than `pdfPageHeightLimit`; as a PNG, which
+    /// keeps its words sharp. ImageIO and Core Graphics, no UIKit.
+    private nonisolated static func png(of number: Int, in data: Data) -> Data? {
+        guard let provider = CGDataProvider(data: data as CFData), let pdf = CGPDFDocument(provider),
+              pdf.isUnlocked, let page = pdf.page(at: number) else { return nil }
+        let box = page.getBoxRect(.cropBox)
+        let turned = abs(page.rotationAngle) % 180 == 90
+        let shape = turned ? CGSize(width: box.height, height: box.width) : box.size
+        guard shape.width >= 1, shape.height >= 1 else { return nil }
+        let scale = min(CGFloat(PrintPage.pdfPageWidth) / shape.width,
+                        CGFloat(PrintPage.pdfPageHeightLimit) / shape.height)
+        let width = max(1, Int((shape.width * scale).rounded()))
+        let height = max(1, Int((shape.height * scale).rounded()))
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: space,
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.interpolationQuality = .high
+        // Bitmap and PDF both count up from the bottom left: no flip. The
+        // page's own transform, into a rectangle its own size, turns it and
+        // moves its crop box to the origin; the scale then makes it the
+        // picture's size.
+        context.scaleBy(x: CGFloat(width) / shape.width, y: CGFloat(height) / shape.height)
+        context.concatenate(page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: shape),
+                                                     rotate: 0, preserveAspectRatio: true))
+        context.drawPDFPage(page)
+        guard let image = context.makeImage() else { return nil }
+        let out = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return out as Data
     }
 
     /// The page in a web view of its own, locked down as the pane's is, and
@@ -168,10 +275,20 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         // The letter's own pictures, and nothing else of the repository's;
         // none once the pane has moved on, so the letter he has gone to
         // never waits behind them on the one connection. The loader makes a
-        // throw an empty answer.
+        // throw an empty answer. A PDF's page is drawn from the PDF fetched
+        // before the page was made, with nothing asked of the repository.
         let pictures = PanePage.pictures(of: [letter])
         let repository = self.repository, stillShown = self.stillShown
+        let letter = self.letter, pdfs = self.pdfs
+        self.pdfs = [:]
         loader.fetch = { @MainActor contentID in
+            if let shown = PrintPage.pdfPage(contentID, of: letter) {
+                guard stillShown(), let data = pdfs[shown.section],
+                      let png = await Self.pagePicture(shown.page, of: data) else {
+                    throw MailError.attachmentFailed
+                }
+                return (png, "image/png")
+            }
             guard stillShown(), let part = pictures[contentID] else { throw MailError.attachmentFailed }
             let data = try await repository.fetchAttachmentData(part.section, of: part.messageID,
                                                                 mailboxID: part.mailboxID)
@@ -400,6 +517,7 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         nextLook = nil
         stopObserving()
         pdf = nil
+        pdfs = [:]
         ended(self)
     }
 

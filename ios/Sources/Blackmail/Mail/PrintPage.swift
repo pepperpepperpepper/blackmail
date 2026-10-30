@@ -3,7 +3,8 @@ import Foundation
 /// A letter made into the page that is printed (B-110): light, black on
 /// white, its header as Mail prints it (B-172), then its body as the pane
 /// shows it, in the sender's own colours, with the pictures its markup
-/// draws and none of its files (B-185).
+/// draws, none of its files, and the pages of its PDFs under the words
+/// (B-185).
 ///
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
@@ -53,6 +54,19 @@ enum PrintPage {
     static let paperWidth: Double = 612
     static let paperHeight: Double = 792
     static let margin: Double = 36
+
+    /// The most pages of one PDF printed under the words (B-185): a page
+    /// is a picture of up to 1080 by 4320 pixels in the print's web view,
+    /// and his iPad has 2 GB. Mail's own limit, if it has one, was not
+    /// seen.
+    static let pdfPageLimit = 20
+    /// The width of a PDF's page as a picture, in pixels: twice the
+    /// column's, 540 points between the margins, so it prints sharp.
+    static let pdfPageWidth = Int(2 * (paperWidth - 2 * margin))
+    /// The most height of one, in pixels: four times its width. A page
+    /// taller than that, a long receipt's, is drawn smaller, still the
+    /// column's width on paper.
+    static let pdfPageHeightLimit = 4 * pdfPageWidth
 
     /// The header's lines, as Mail prints them (B-172): "From:",
     /// "Subject:", "Date:" and "To:", in that order, each label grey and
@@ -156,9 +170,10 @@ enum PrintPage {
     /// Light only: `color-scheme` says so, the page is white with black
     /// words, and nothing is inverted, so an HTML letter is in its own
     /// colours and a plain one is black. A picture its HTML draws by
-    /// `cid:` prints there; none of its files is printed, neither where
-    /// the pane draws one nor after the words, and the header lists none
-    /// (B-185). Mail 16.5.1 prints a letter whose only content is an
+    /// `cid:` prints there; none of its files is printed as a file,
+    /// neither where the pane draws one nor after the words, and the
+    /// header lists none (B-185); a PDF's pages print after the words
+    /// (`pdfPages`). Mail 16.5.1 prints a letter whose only content is an
     /// attached picture as its header alone, and one whose HTML shows its
     /// picture by `cid:` with the picture (round r6-n-compare, C-3b, 29
     /// October 2026); from B-170 to B-185 the paper drew a letter's files
@@ -174,11 +189,17 @@ enum PrintPage {
     /// the web in its markup held back on paper too (`RemoteContent`), and
     /// WebKit's list on the print's web view (`LetterPrint`). No line over
     /// it: the paper has no button.
+    ///
+    /// `pdfPages`, the number of pages of each PDF of the letter that
+    /// `LetterPrint` fetched and read, by its part: each page under the
+    /// words as a picture the column's width (`pdfPageImages`), as Mail
+    /// 16.5.1 prints a letter of words and a PDF (B-185, fixed again).
+    /// None for a PDF not in it, which could not be fetched or read.
     static func letter(_ m: Message, style: Style, size: (Int64) -> String,
                        locale: Locale = .current, timeZone: TimeZone = .current,
-                       heldBack: Bool = false) -> String {
+                       heldBack: Bool = false, pdfPages: [String: Int] = [:]) -> String {
         letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone,
-               heldBack: heldBack)
+               heldBack: heldBack, pdfPages: pdfPages)
     }
 
     /// The page and the words of one print, which `LetterPrint` makes
@@ -189,19 +210,20 @@ enum PrintPage {
     /// print's time limit (`PrintSteps.timeLimit`).
     static func made(_ m: Message, style: Style, size: (Int64) -> String,
                      locale: Locale = .current, timeZone: TimeZone = .current,
-                     heldBack: Bool = false)
+                     heldBack: Bool = false, pdfPages: [String: Int] = [:])
         -> (page: String, words: String) {
         let isEmpty = PanePage.isEmpty(m)
         return (letter(m, isEmpty: isEmpty, style: style, size: size, locale: locale, timeZone: timeZone,
-                       heldBack: heldBack),
+                       heldBack: heldBack, pdfPages: pdfPages),
                 words(m, isEmpty: isEmpty, size: size, locale: locale, timeZone: timeZone))
     }
 
     /// The page, given the pane's answer to `PanePage.isEmpty` for `m`.
     private static func letter(_ m: Message, isEmpty: Bool, style: Style, size: (Int64) -> String,
-                               locale: Locale, timeZone: TimeZone, heldBack: Bool) -> String {
+                               locale: Locale, timeZone: TimeZone, heldBack: Bool,
+                               pdfPages: [String: Int]) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
-        let (body, isHTML) = Self.body(m, isEmpty: isEmpty, heldBack: heldBack)
+        let (body, isHTML) = Self.body(m, isEmpty: isEmpty, heldBack: heldBack, pdfPages: pdfPages)
         func span(_ kind: String, _ text: String) -> String {
             "<span class=\"\(kind)\">\(ConversationDocument.escape(text))</span>"
         }
@@ -282,20 +304,29 @@ enum PrintPage {
     /// its line is over whatever came, nothing included (B-114, B-131).
     /// None of its files, as Mail prints none (B-185): the mark of a file
     /// among the words (`BodyFiles.mark`) is left the comment it came as,
-    /// which nothing draws, and nothing goes after the words; a picture
-    /// the HTML shows by `cid:` is the HTML's own, and prints. Whether it
-    /// is the letter's HTML. Its pictures decoded as they are drawn
-    /// (`decodedAtOnce`); a plain letter's words have none, every `<` in
-    /// them written `&lt;`.
-    static func body(_ m: Message, heldBack: Bool = false) -> (html: String, isHTML: Bool) {
-        body(m, isEmpty: PanePage.isEmpty(m), heldBack: heldBack)
+    /// which nothing draws; a picture the HTML shows by `cid:` is the
+    /// HTML's own, and prints. After the words, the pages of its PDFs in
+    /// `pdfPages` (`pdfPageImages`); above them, under the grey line, for
+    /// a letter cut or shown only in part, whose markup ends wherever the
+    /// cut fell and would take in anything after it, as the pane puts its
+    /// files there (`BodyFiles.drawn`). Whether it is the letter's HTML.
+    /// Its pictures decoded as they are drawn (`decodedAtOnce`); a plain
+    /// letter's words have none, every `<` in them written `&lt;`.
+    static func body(_ m: Message, heldBack: Bool = false,
+                     pdfPages: [String: Int] = [:]) -> (html: String, isHTML: Bool) {
+        body(m, isEmpty: PanePage.isEmpty(m), heldBack: heldBack, pdfPages: pdfPages)
     }
 
-    private static func body(_ m: Message, isEmpty: Bool, heldBack: Bool) -> (html: String, isHTML: Bool) {
+    private static func body(_ m: Message, isEmpty: Bool, heldBack: Bool,
+                             pdfPages: [String: Int]) -> (html: String, isHTML: Bool) {
         guard !isEmpty else {
             return (empty, false)
         }
         let known = PanePage.contentIDs(of: m)
+        let pages = pdfPageImages(m, pages: pdfPages)
+        func placed(_ shown: Bool, _ words: String) -> String {
+            notice(shown) + (shown ? pages + words : words + pages)
+        }
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
             let shown = cut != nil || m.isShortened
@@ -303,17 +334,86 @@ enum PrintPage {
             // `#bm` as on a light letter's page, so it is not drawn after
             // the words as a file; printed as no background is (B-169).
             let backdrop = PanePage.backdrop(LetterScheme.reading(html: html).bodyPicture, on: "#bm")
-            return (notice(shown)
-                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known, flowed: false,
-                                                         heldBack: heldBack, backdrop: backdrop)), true)
+            return (placed(shown, decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known,
+                                                                 flowed: false, heldBack: heldBack,
+                                                                 backdrop: backdrop))), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
         let shown = cut != nil || m.isShortened
-        return (notice(shown)
-                    + decodedAtOnce(PanePage.content(text: cut ?? text, html: nil, known: known,
-                                                     flowed: m.textIsFlowed)), false)
+        return (placed(shown, decodedAtOnce(PanePage.content(text: cut ?? text, html: nil, known: known,
+                                                             flowed: m.textIsFlowed))), false)
     }
+
+    // MARK: - A PDF's pages
+
+    /// Whether `file` is a PDF: by its kind, or, sent with no kind of its
+    /// own, by its name, as Markup and Reply tells one (`MarkupReply`).
+    static func isPDF(_ file: Attachment) -> Bool {
+        let kind = file.mimeType.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false).first
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() } ?? ""
+        if kind == MarkupReply.pdf { return true }
+        return kind == AttachmentStore.octetStream && file.filename.lowercased().hasSuffix(".pdf")
+    }
+
+    /// The PDFs of `m` whose pages are printed, in the order the letter
+    /// lists its files: every one it lists, inline or not. A picture the
+    /// body shows is never one.
+    static func pdfs(of m: Message) -> [Attachment] {
+        m.listedAttachments.filter(isPDF)
+    }
+
+    /// The address the print's loader is asked for page `page`, from 1,
+    /// of the PDF at `section` of the letter `letter` by: no `Content-ID`
+    /// a letter can have, as a picture file's is not (`BodyFiles.pictureID`),
+    /// and the letter's in it. Read back by `pdfPage(_:of:)`.
+    static func pdfPageID(_ section: String, page: Int, of letter: String) -> String {
+        "bmpdf-" + ConversationDocument.sectionID(for: letter) + "-" + section + "-" + String(page)
+    }
+
+    /// The part and the page, from 1, that the address `contentID` names
+    /// of a PDF of `m` printed (`pdfPageID`); nil for any other address,
+    /// a page past `pdfPageLimit`, or a part of `m` that is no such PDF.
+    static func pdfPage(_ contentID: String, of m: Message) -> (section: String, page: Int)? {
+        let prefix = "bmpdf-" + ConversationDocument.sectionID(for: m.id) + "-"
+        guard contentID.hasPrefix(prefix) else { return nil }
+        let rest = contentID.dropFirst(prefix.count)
+        guard let dash = rest.lastIndex(of: "-"), let page = Int(rest[rest.index(after: dash)...]),
+              (1...pdfPageLimit).contains(page) else { return nil }
+        let section = String(rest[..<dash])
+        guard pdfs(of: m).contains(where: { $0.id == section }) else { return nil }
+        return (section, page)
+    }
+
+    /// The pages of the PDFs of `m` in `pages`, its count of each by its
+    /// part, as Mail 16.5.1 prints them under a letter's words (round
+    /// r6-p-copy, 29 October 2026): each a picture of its own the column's
+    /// width, one under the other, with no frame and no break of its own,
+    /// so the first starts right under the words and runs on to the next
+    /// sheet as Mail's did. At most `pdfPageLimit` of each. Decoded as it
+    /// is drawn, as the letter's own pictures are (`decodedAtOnce`). None
+    /// for a picture or any other file, as Mail prints none.
+    static func pdfPageImages(_ m: Message, pages: [String: Int]) -> String {
+        guard !pages.isEmpty else { return "" }
+        return pdfs(of: m).map { file -> String in
+            let count = min(max(pages[file.id] ?? 0, 0), pdfPageLimit)
+            guard count > 0 else { return "" }
+            return (1...count).map { page in
+                "<img decoding=sync class=\"" + pdfPageClass + "\" src=\"" + InlineImageRewriter.scheme + "://"
+                    + InlineImageRewriter.escapedHost(pdfPageID(file.id, page: page, of: m.id))
+                    + "\" alt=\"\" style=\"" + pdfPageStyle + "\">"
+            }.joined()
+        }.joined()
+    }
+
+    /// The class of a PDF's page on paper.
+    static let pdfPageClass = "bm-pdf-page"
+
+    /// A PDF's page on paper: a block the column's width, its height its
+    /// own, with no margin and no border. Each `!important` and inline, so
+    /// no rule of the sender's for every `img` reaches it.
+    static let pdfPageStyle = "display: block !important; width: 100% !important; height: auto !important; "
+        + "max-width: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important;"
 
     /// The pane's words for a letter with nothing in it, grey on paper too.
     static let empty = asDrawn("<p style=\"color: #8e8e8e; margin: 0; white-space: normal;\">"

@@ -258,13 +258,19 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertEqual(count("isOwn(navigation)", in: job), 4)
     }
 
-    /// The job's one call on the repository is a read of the letter's own
-    /// pictures; nothing is written, to the disk or anywhere else.
+    /// The job's two calls on the repository are reads of the letter's own
+    /// parts: its pictures, and its PDFs before the page is made (B-185,
+    /// fixed again); nothing is written, to the disk or anywhere else.
     func testTheJobOnlyReadsTheLettersPictures() throws {
         let job = try self.job
         let calls = job.components(separatedBy: "repository.").dropFirst()
             .map { $0.prefix(while: { $0.isLetter }) }
-        XCTAssertEqual(calls, ["fetchAttachmentData"])
+        XCTAssertEqual(calls, ["fetchAttachmentData", "fetchAttachmentData"])
+        XCTAssertNotNil(place(of: "for file in PrintPage.pdfs(of: letter) { guard stillShown(), "
+                                  + "!Task.isCancelled else { break } do { fetched[file.id] = "
+                                  + "try await repository.fetchAttachmentData(file.id, of: letter.id, "
+                                  + "mailboxID: letter.mailboxID) } catch { Diagnostics.log(.note, "
+                                  + "\"PRINT pdf not-fetched part=\\(file.id)\") } }", in: job))
         for never in ["FileManager", "write(to:", "AttachmentStore", "MailShelf", "LocalDrafts",
                       "UserDefaults", "]?."] {
             XCTAssertFalse(job.contains(never), never)
@@ -347,8 +353,9 @@ final class PrintWiringTests: XCTestCase {
     func testThePageIsLoadedOnlyOnceItAndItsWordsAreMade() throws {
         let job = try self.job
         XCTAssertNotNil(place(of: "building = Task { @MainActor [weak self] in "
-                                  + "let made = await Self.made(m, style: style, heldBack: heldBack) "
-                                  + "guard let self else { return } "
+                                  + "let pdfs = await self?.fetchedPDFs() ?? [:] "
+                                  + "let made = await Self.made(m, style: style, heldBack: heldBack, pdfs: pdfs) "
+                                  + "guard let self else { return } self.pdfs = pdfs "
                                   + "self.page = made.page self.words = made.words self.take(.built) }", in: job))
         XCTAssertEqual(count("take(.built)", in: job), 1)
         XCTAssertNotNil(place(of: "private func load() { guard let page, let pane, "
@@ -379,9 +386,19 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertEqual(count("nextLook = again", in: job), 1)
 
         let fetch = try part(of: job, from: "loader.fetch = {", to: "paneView.insertSubview(")
-        XCTAssertTrue(fetch.hasPrefix("loader.fetch = { @MainActor contentID in guard stillShown(), "
+        // A PDF's page first (B-185, fixed again), drawn from the PDF
+        // fetched before the page was made, asking nothing of the
+        // repository, and none once the pane has moved on.
+        XCTAssertTrue(fetch.hasPrefix("loader.fetch = { @MainActor contentID in "
+                                      + "if let shown = PrintPage.pdfPage(contentID, of: letter) { "
+                                      + "guard stillShown(), let data = pdfs[shown.section], "
+                                      + "let png = await Self.pagePicture(shown.page, of: data) else { "
+                                      + "throw MailError.attachmentFailed } return (png, \"image/png\") } "
+                                      + "guard stillShown(), "
                                       + "let part = pictures[contentID] else { throw MailError.attachmentFailed } "
                                       + "let data = try await repository.fetchAttachmentData("), fetch)
+        XCTAssertNotNil(place(of: "let letter = self.letter, pdfs = self.pdfs self.pdfs = [:] loader.fetch =",
+                              in: job))
         XCTAssertNotNil(place(of: "let repository = self.repository, stillShown = self.stillShown", in: job))
     }
 
@@ -436,7 +453,7 @@ final class PrintWiringTests: XCTestCase {
                                   + "{ return } finished = true steps.end() if let why { Diagnostics.log(.note, "
                                   + "\"PRINT ended why=\\(why.rawValue)\") } teardown() building?.cancel() "
                                   + "building = nil timeLimit?.cancel() timeLimit = nil nextLook?.cancel() "
-                                  + "nextLook = nil stopObserving() pdf = nil ended(self) }", in: job))
+                                  + "nextLook = nil stopObserving() pdf = nil pdfs = [:] ended(self) }", in: job))
         XCTAssertNotNil(place(of: "case .end(let why): end(why)", in: job))
         XCTAssertNotNil(place(of: "self?.end(nil)", in: job), "the panel closed")
         XCTAssertEqual(count("steps.end()", in: job), 1)
@@ -481,13 +498,16 @@ final class PrintWiringTests: XCTestCase {
     }
 
     /// Every way a print ends is logged, counts only: no name, no
-    /// subject, no address.
+    /// subject, no address; and a PDF that prints no page by its part
+    /// (B-185, fixed again).
     func testTheLogSaysCountsOnly() throws {
         let job = try self.job
         let lines = job.components(separatedBy: "Diagnostics.log(.note, ").dropFirst()
             .map { $0.components(separatedBy: "\")")[0] }
-        XCTAssertEqual(lines.count, 5)
-        for line in ["\"PRINT ready pages=\\(pages) bytes=\\(made.count) \" + \"ms=\\(Int((now - tapped) * 1_000))",
+        XCTAssertEqual(lines.count, 7)
+        for line in ["\"PRINT pdf not-fetched part=\\(file.id)",
+                     "\"PRINT pdf unread part=\\(section)",
+                     "\"PRINT ready pages=\\(pages) bytes=\\(made.count) \" + \"ms=\\(Int((now - tapped) * 1_000))",
                      "\"PRINT words why=\\(why.rawValue)",
                      "\"PRINT ended why=\\(why.rawValue)",
                      "\"PRINT closed done=\\(done)",

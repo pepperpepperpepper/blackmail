@@ -11491,30 +11491,40 @@ checks below is left as not needed, not open, and none is worth a round.*
       account.*
 
 - [ ] **B-185, a printed letter without its files, as Mail's.** As
-      B-182's check, the same build and the same two picture letters,
-      with a letter of words and a PDF the host APPENDs, read, to
-      "Notes" in the same way. Print preview only: Cancel each time,
-      nothing printed, nothing sent. Mail beside Blackmail.
-      1. *The attached picture letter:* Reply, Print: the header alone,
-         nothing under it, no "This message has no text.", one page,
-         as Mail's. Screenshots of both previews.
-      2. *The `cid:` picture letter:* the header and the picture, as
-         before, one page (Mail's blank second page not copied).
-      3. *The letter with words and a PDF:* its words and no tile; Mail's
-         preview written down, the PDF printed or not (the rule there is
-         inferred, KNOWN_ISSUES B-185).
-      4. *A plain letter of words with an inline photo after them*
-         (`Content-Disposition: inline`, no markup naming it), the
-         host APPENDs it, read, to "Notes" in the same way: Print
-         preview only, Cancel: Blackmail's its words alone, no photo
-         (inferred, KNOWN_ISSUES B-185); Mail's preview beside it,
-         written down, the photo printed or not. Screenshots.
-      5. *The pane:* each letter's files drawn in it as before.
-      6. *Put back:* the host moves the UIDs it noted, and only them,
+      B-182's check, from a build of the `bm-fix-j1` worktree (branch
+      `fix-j1`) or of the int it is merged into, a PDF's pages on paper
+      in it (KNOWN_ISSUES B-185, "Fixed again 2026-10-30, after the
+      test iPad (r6-p-copy)"); the same two picture letters and round
+      r6-p-copy's letter of words and a PDF, or made again as that
+      round made them: the host APPENDs each, read, to "Notes", noting
+      each UID from its APPENDUID; it stops if one has none. Print
+      preview only: Cancel each time, nothing printed, nothing sent.
+      Mail beside Blackmail.
+      1. *The letter with words and a PDF:* Reply, Print: the header,
+         the words, then the PDF's page right under them, about as wide
+         as the words' column, running on to a second sheet, "Page 1
+         of 2", as Mail's preview. Screenshots of both previews. The
+         log: `PRINT ready pages=` as the preview counts, and no `PRINT
+         pdf` line.
+      2. *The two picture letters:* as before, no picture file
+         printed. The attached picture letter its header alone, one
+         page; the `cid:` picture letter its header and the picture,
+         one page (Mail's blank second page not copied).
+      3. *A plain letter of words with an inline photo after them*
+         (`Content-Disposition: inline`, no markup naming it), still
+         to run: the host APPENDs it, read, to "Notes" in the same way.
+         Blackmail's its words alone, no photo (inferred, KNOWN_ISSUES
+         B-185); Mail's preview beside it, written down, the photo
+         printed or not. Screenshots.
+      4. *The pane:* each letter's files drawn in it as before.
+      5. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move
          answered (`COPYUID`).
       *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
-      r6-p-copy: 1, 2, 3, 5 and 6, print preview only, Cancel each time,
+      r6-p-copy, the check's steps as they were then (1 the attached
+      picture letter, 2 the `cid:` picture letter, 3 the letter with
+      words and a PDF, 4 the inline photo, 5 the pane, 6 put back):
+      1, 2, 3, 5 and 6, print preview only, Cancel each time,
       nothing printed (the log's `PRINT closed done=false` four times). In
       1 the header alone, "Page 1 of 1", as Mail's. In 2 the header and the
       picture, one page, as before. In 3 Blackmail's words alone, "Page 1

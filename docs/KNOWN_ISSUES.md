@@ -41745,7 +41745,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them, a letter that is only an attached picture as its header alone, and so does Blackmail now
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -41814,8 +41814,9 @@ build for the iPad: "Build complete".
 **Not covered.**
 
 - A PDF: Mail 16.5.1 prints its page under the letter's words, seen
-  2026-10-29 (round r6-p-copy, below); Blackmail prints none, so the
-  inference was wrong for a PDF.
+  2026-10-29 (round r6-p-copy, below); Blackmail printed none, so the
+  inference was wrong for a PDF. Fixed again after that check: "Fixed
+  again 2026-10-30", below.
 - Every other file but the two pictures measured is left off by
   inference: Mail's print of a letter with another file was not seen.
   So is a picture sent inline
@@ -41845,6 +41846,92 @@ wide as the words' column and running on to a blank second paper page,
 "Page 1 of 2". Not run: step 4, the plain letter with an inline
 photo, added to the check after the round's letters were made. Nothing
 was sent.
+
+**Fixed again 2026-10-30, after the test iPad (r6-p-copy).** By the plan
+made from that round (area 3); "The B-179 to B-185 plan looks good", the
+owner, 2026-10-29.
+
+**Found on the test iPad, 2026-10-29 (r6-p-copy).** The difference
+above: for the letter of words and a PDF, Mail's print preview drew the
+PDF's page under the words, about as wide as the words' column,
+starting right under them and running on to a second paper page, "Page
+1 of 2", its lower half the PDF page's own blank. Blackmail's printed
+the words alone, "Page 1 of 1".
+
+**What changed** (`PrintPage`, `LetterPrint`).
+
+1. *The PDFs fetched first.* Before the page is made, the print asks the
+   repository for each PDF the letter lists (`PrintPage.pdfs`: by its
+   kind, or by a name ending ".pdf" with no kind of its own), one after
+   another, as the pane's loader asks for pictures, and none once the
+   pane has moved on. Their pages are counted with `CGPDFDocument`, away
+   from the main thread. A PDF that cannot be fetched, offline, prints
+   nothing, and the log says `PRINT pdf not-fetched part=`; one that
+   cannot be read, or is locked, says `PRINT pdf unread part=`. Either
+   way the letter prints as before. They are fetched within the print's
+   time limit (`PrintSteps.timeLimit`).
+2. *A picture a page.* `PrintPage.letter` and `made` take `pdfPages`,
+   the count of each PDF's pages by its part. After `#bm`'s words the
+   page has one `<img>` a page, in the order the letter lists its files:
+   a block the column's width, its height its own, no margin, border or
+   break of its own, each value inline and `!important`, decoded as it
+   is drawn. So the first page starts right under the words and runs on
+   to the next sheet, as Mail's did. A letter cut or shown only in part
+   has them above its words, under the grey line, as the pane puts its
+   files there: its markup ends wherever the cut fell.
+3. *Drawn by the loader.* Each picture's address names the letter, the
+   part and the page (`PrintPage.pdfPageID`, `bmpdf-`, read back by
+   `pdfPage(_:of:)`, which answers only for a PDF of that letter and a
+   page within the limit). The print's loader draws the page from the
+   PDF fetched before, asking nothing more of the repository: its crop
+   box, turned as the page says, on white, 1,080 pixels wide (twice the
+   column's 540 points) or less where a page is over four times as tall
+   as wide, as a PNG, with Core Graphics and ImageIO, away from the main
+   thread, one page at a time.
+4. *At most 20 pages of one PDF* (`PrintPage.pdfPageLimit`).
+5. Pictures and every other file still print nothing, as Mail 16.5.1
+   prints none. A letter with no PDF prints as before, byte for byte.
+
+**What he sees.** A letter with a PDF he prints is its header, its
+words, and then the PDF's pages, as Mail prints it.
+
+**Tests.** `PrintPageTests`, five new: a PDF's page under the words, in
+an HTML letter and a plain one, one picture a page, and none with no
+count handed in; only a PDF's pages, never a picture's or a text file's,
+a PDF with no kind of its own by its name, and a letter of a PDF alone;
+the limit of 20 pages, each PDF its own, in the letter's order; the
+address back through the loader's own reading
+(`InlineImageRewriter.contentID`), and none for another letter, page 0
+or 21, a part that is no PDF, or a picture's address; a letter shown in
+part with the pages above its words. Changed: `PrintWiringTests` (the
+job's two reads of the repository, the PDFs fetched before the page is
+made, the loader's PDF page first, the PDFs let go at the end, the two
+new log lines) and `RemoteContentTests` (`PrintPage.made`'s call).
+
+Each undone by hand, the classes run, each failure read by its line,
+then put back: the pages before the words, 5 failures in 1 test; the
+name ignored, 3 in 1; the limit taken off, 2 in 1; any page number
+read back, 2 in 1; the part not checked against the letter's PDFs, 1 in
+1; the pages after the words in a letter shown in part, 2 in 1; the
+PDFs not let go at the end, 2 in 1; the loader's PDF page taken out, 1
+in 1; the PDFs not fetched, 2 in 1; the not-fetched line taken out, 4
+in 2. Each failure an assertion's. The full suite: 3,220 tests, 6
+skipped, none failing. The release build for the iPad: "Build
+complete".
+
+**Not covered** (this change):
+
+- Not seen on the iPad yet (TODO B-185).
+- A PDF of more than 20 pages prints its first 20: a limit for memory
+  on a 2 GB iPad, not Mail's, whose own was not seen.
+- A PDF that cannot be fetched, a letter printed offline with its PDF
+  not kept: the words alone, as before. Mail's print offline not seen.
+- Fetching a large PDF from the server takes from the print's ten
+  seconds; past them the letter prints in words (B-110).
+- Mail's blank lower half of the PDF's page is the page's own blank,
+  and prints so here; a page drawn smaller than Mail's, or a sheet more
+  or less, was not measured.
+- Mail on 18: its print not seen.
 
 ## B-186 — FIXED 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

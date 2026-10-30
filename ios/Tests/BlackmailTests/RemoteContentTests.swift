@@ -449,7 +449,7 @@ final class RemoteContentTests: XCTestCase {
             XCTAssertTrue(list.contains(line), line)
         }
         let job = try source("UI/LetterPrint.swift")
-        XCTAssertTrue(job.contains("PrintPage.made(m, style: style, size: size, heldBack: heldBack)"))
+        XCTAssertTrue(job.contains("PrintPage.made(m, style: style, size: size, heldBack: heldBack, pdfPages: pages)"))
         XCTAssertTrue(job.contains("if heldBack, let list = RemoteBlockList.list { "
                                    + "config.userContentController.add(list) }"))
     }
