@@ -41934,7 +41934,7 @@ switch in Settings, each ending off, the app brought back each time:
   Smart Invert off, page built anew (2 pictures)" at .638, "pane:
   isInvertColorsEnabled false, page built" at .640 and "pane: page
   built anew put back (true)" at .711; no "still lifted" line and no
-  "drawn anew" line. The photos natural at 3 s, 5 s and 20 s after the
+  "drawn anew" line. The photos natural at 3 s, 5 s and 22.6 s after the
   app came back, the sky rgb(126, 184, 245) and the hill rgb(131, 134,
   92), within 1 of the shot before the switch, where r6-s-copy read
   rgb(29, 87, 148) and rgb(125, 128, 85); the first photo natural too

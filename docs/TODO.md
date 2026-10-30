@@ -11472,12 +11472,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       "isInvertColorsEnabled false, page built" and "page built anew put
       back (true)" in that order, no "still lifted" line and no "Loading…",
       the still lifted 32 to 71 ms after it was laid, and the photos
-      natural at 3 s, 5 s, 20 s and at the top, the sky rgb(126, 184, 245),
-      the scroll kept and the line bands unchanged; 4 small clusters inside
-      the large photo, its two decodings already seen (6), its colours
-      natural, nothing hue-turned (KNOWN_ISSUES B-179, "Seen on the test
-      iPad, 2026-10-30, on 41062c5"). The stack, both its letters open, and
-      the light letter across the same turns: inverted under the switch,
+      natural at 3 s, 5 s, 22.6 s and at the top, the sky
+      rgb(126, 184, 245), the scroll kept and the line bands unchanged; 4
+      small clusters inside the large photo, its two decodings already
+      seen (6), its colours natural, nothing hue-turned (KNOWN_ISSUES
+      B-179, "Seen on the test iPad, 2026-10-30, on 41062c5"). The
+      stack, both its letters open, and the light letter across the same
+      turns: inverted under the switch,
       nothing moved, and after the off the same lines in the same order and
       natural at 3 s and 5 s, the stack's letters still open. 5's off with
       the photos letter, the light letter's turns and the stack's are now
