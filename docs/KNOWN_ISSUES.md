@@ -43206,11 +43206,13 @@ words and a landscape photo of 1600 by 1200; B words and a portrait
 phone photo of 3024 by 4032; C the same with a photo stored landscape,
 EXIF orientation 6; D words and a photo of 320 by 240; E words, A's
 photo and B's; F B's photo alone; G B's letter with a second text
-part after the photo, "Sent from my iPhone"; H A's words and photo,
-the photo sent as an attachment (`Content-Disposition: attachment`).
+part after the photo, "Sent from my iPhone"; H words in A's form and
+A's photo, the photo sent as an attachment (`Content-Disposition:
+attachment`).
 
-**The method.** Each letter printed in Mail 16.5.1 first, then in
-Blackmail: the print panel opened as in the rounds before, its
+**The method.** Each letter put through Print in Mail 16.5.1 first,
+then in Blackmail, and saved as PDF: the print panel opened as in the
+rounds before, its
 preview shot, then the panel's Share button, Save to Files, On My
 iPad, Save. Nothing printed (no tap on Print; the log's `PRINT closed
 done=true` eight times, each as the save closed the panel), nothing
@@ -43266,8 +43268,9 @@ line above the photo, its two text parts joined (`MIMEDecoder`,
 its `PRINT ready bytes=`, the title and creator the share adds; its
 pages the same.
 
-**Mail's words.** In every letter but D, Mail's words printed at 8.5
-points, where D's, and Blackmail's in all eight, printed at 13.6. Mail
+**Mail's words.** In every letter with words but D, Mail's words
+printed at 8.5 points, where D's, and Blackmail's in all seven with
+words, printed at 13.6. Mail
 draws a photo in its body one CSS pixel to its pixel, so the page is
 laid out as wide as WebKit's print lets it, twice the column, and
 shrunk by 2 (`printingMaximumShrinkFactor`): a CSS pixel prints as
@@ -43286,10 +43289,13 @@ margins were wider (B-110).
    as a box stretched 1.7 times. Its second sheet: the placement,
    600.6 tall, does not fit under the words and is moved whole, as
    WebKit moves a picture it does not cut. "Mail's width", 496 points,
-   copied after round r6-r-copy, was the width of Mail's column, not
-   of its photo; Blackmail's photo keeps it.
+   copied after round r6-r-copy, was read as the width of Mail's
+   photo; what the PDFs measure is Mail's column, 507.5 points (x
+   56.5 to 564) on A, C, E, F and H and 496 on G (62 to 558), not its
+   photo. Blackmail keeps 496.
 2. *Mail cuts a photo taller than a sheet across sheets:* C, F and G
-   over four, E over six, each piece the same picture drawn again.
+   over four sheets, E's second photo over five (sheets 2 to 6), each
+   piece the same picture drawn again.
 3. *Mail printed B's photo not at all:* three blank sheets.
 4. *Mail prints an attached photo.* H's, after the words, exactly as
    A's inline one. This reverses round r6-n-compare's inference, the
@@ -43312,9 +43318,10 @@ not fit under what comes before. Put to the owner.
 
 **The pane, not changed.** On the round's shots of G on screen,
 Mail's pane has the photo right under "Gus", nothing between;
-Blackmail's has "Sent from my iPhone" between "Gus" and the photo, the
-two text parts joined. Where Mail's pane puts the line, under the photo out of
-sight, was not seen. The pane is not changed by this work (D-025).
+Blackmail's has "Sent from my iPhone" between "Gus" and the photo,
+the two text parts joined. Where Mail's pane puts the line, under the
+photo out of sight, was not seen. The pane is not changed by this
+work (D-025).
 
 **Not covered.**
 
@@ -43338,20 +43345,31 @@ copy above, on paper alone.
    (`BodyFiles.isPicture`), exactly as an inline one: after the
    words, in the same style, by the same order rules, and above the
    words under the grey line for a letter cut or shown only in part.
-   H's page is now the page of A's twin with the photo inline, byte
-   for byte. Not for an HTML letter (not measured), nor for a letter
-   of an attached picture and no words, which round r6-n-compare saw
-   Mail print as its header alone (not reconciled with H).
+   H's page is now the page of the same letter with the photo
+   inline, byte for byte. Not for an HTML letter (not measured), nor
+   for a letter of an attached picture and no words, which round
+   r6-n-compare saw Mail print as its header alone (not reconciled
+   with H).
 2. *The parts in the letter's order* (`PrintPage.partsInOrder`). The
    decoder notes where each part of a plain body of more than one
-   part begins in the joined words (`MIMEDecoder.joined`, its
-   `partStarts`; `Message.textParts`), for the paper alone; a letter
-   fetched in part notes none. On paper a photo that comes between
-   two text parts, by their sections, prints between them, each
-   part's words set as the words are (`PanePage.content`: the same
-   fonts, wrapping and quote handling): G's words, the photo, then
-   "Sent from my iPhone". A photo before all the words or after all
-   of them prints after the words, as before.
+   part begins in the joined words, and where each forwarded
+   letter's header lines begin, by that letter's section
+   (`MIMEDecoder.joined`, its `partStarts`; `Message.textParts`), for
+   the paper alone; the line break and blank line between two parts
+   go with the words before them. A letter fetched in part notes them
+   as one fetched whole when its plain words came whole, and none
+   when a part of them was cut short or refused. On paper the words
+   are cut only where a photo comes between two text parts, by their
+   sections, and the photo prints there: G's words, the photo, then
+   "Sent from my iPhone". Each stretch is the joined words, every
+   line break where the pane has it, set as the words are
+   (`PlainQuotes`: the same fonts, wrapping and quote handling); only
+   the first loses the blank lines it opens with, as the whole body
+   does. A photo that opens a forwarded letter prints under that
+   letter's header lines; a photo after all the words prints after
+   them, as before. A letter with a photo before all its words
+   prints as before, the words joined and every photo after them, so
+   its photos keep the letter's order (corrected, below).
 3. *Unchanged.* The pane, which draws the parts joined and every
    photo after them; an HTML letter; a letter of one text part, or
    of none: the round's A to F printed the same page, byte for byte,
@@ -43395,12 +43413,60 @@ them. Not changed (D-025).
 **Not covered** (this change):
 
 - On paper, or saved as PDF: not seen (TODO B-185, 3d and 3e).
-- A letter fetched in part, too large to fetch whole: its words
-  joined on paper and its photos after them, as before.
+- A letter fetched in part whose words were cut short or refused:
+  its words joined on paper and its photos after them, as before.
 - A photo before all the words of a letter of several text parts:
-  after the words, as before; Mail's print not seen.
+  the letter printed as before, the words joined and every photo
+  after them; Mail's print not seen.
 - Two photos between two parts, a photo in a forwarded letter: by the
   rule, not seen.
+
+**Corrected the same day, after 610d78e.** As 610d78e built it, a
+part's place was noted before the line break, and any forwarded
+letter's header lines, that came before its words, so on paper each
+later part began with them, and the page's words drop the line
+breaks a body begins with: a part after a photo ran onto the line
+before it. "Hi all", an attached photo, "Sent from my iPhone" and a
+list's footer printed "Sent from my iPhone_______________" on one
+line; a note, "See below", and a forwarded letter of words, a photo
+and words printed "See belowBegin forwarded message:". So the claim
+that each part's words were set as the words are was wrong. And a
+photo before all the words of a letter with another between two
+parts printed last, out of the letter's order; a photo that opens a
+forwarded letter printed above that letter's header lines; the
+blank lines a part after a photo opens with were dropped; a letter
+over 5 MB, fetched in part, noted no places, so G's shape with two
+photos, or one large one, printed the line above them; and a letter
+whose only words are a blank line, with an attached picture, was
+left unpinned. Fixed as item 2 above says (`MIMEDecoder.joined`,
+`PrintPage.partsInOrder`, `IMAPMailRepository`'s letter fetched in
+part).
+
+**Tests.** `FileListedOnceTests`, five new: the parts on paper keep
+the joined words' lines (the list's footer, three parts around one
+photo, a part's own blank lines, a note and a forwarded letter, each
+body to the byte); a forwarded letter's photo under its header
+lines, and the note's own photo above them; a photo before all the
+words, the letter as before; G's shape with an apostrophe and an
+accent, each place a byte of the UTF-8; a blank text part and an
+attached picture, no photo. `LargeLetterTests`, two new: G through
+`IMAPMailRepository.open`, whole and in part, its places and its
+printed body to the byte; in part with its last part cut short, or
+refused, no places and the body as before.
+`PrintPageTests.testOnlyAPDFsPagesArePrinted` pins the body again to
+the byte: the words, then the picture as its photo, once.
+
+Each undone by hand, the three classes run, each failure read by its
+line, then put back: the decoder as at 610d78e, 12 failures in 2
+tests; `PrintPage` as at 610d78e, 4 in 2; the repository as at
+610d78e, 3 in 1; the header lines' own place left out, 6 in 2; each
+place a character, not a byte, 6 in 3; every stretch's opening blank
+lines taken off, 2 in 1; a photo before all the words let through, 3
+in 2; whitespace counted as words, 2 in 1; the attached photo left
+out, 12 in 4; the places not handed to the letter, 6 in 1; a letter
+cut short in part let keep its places, 2 in 1. Each failure an
+assertion's. The full suite: 3,264 tests, 6 skipped, none failing.
+The release build for the iPad: "Build complete".
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 

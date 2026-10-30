@@ -11684,7 +11684,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       attached photo", and G, "R6 B-185 photo then words", made again
       as that round made them. The host APPENDs each, read, to "Notes",
       noting each UID from its APPENDUID; it stops if one has none. Print
-      preview only: Cancel each time, nothing printed, nothing sent.
+      preview only, Cancel each time, but in 3d and 3e each print saved
+      as PDF from the panel's Share (Save to Files, On My iPad), as
+      round r6-u-pdf did, the save closing the panel (`PRINT closed
+      done=true`, not a FAIL); nothing printed, nothing sent.
       Mail beside Blackmail.
       1. *The letter with words and a PDF:* Reply, Print: the header,
          the words, then the PDF's page right under them, about as wide
@@ -11744,11 +11747,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          first sheet and the photo on the second, as WebKit moves it
          whole. Mail's preview beside it: written down how many
          sheets, and where its photo starts. Screenshots.
-      3d. *H, "R6 B-185 attached photo"*, A's words and photo, the
-         photo sent as an attachment: in both apps printed to PDF as
-         round r6-u-pdf did (the print panel's Share, Save to Files,
-         On My iPad, Save; nothing printed), each PDF taken off the
-         iPad and measured. Blackmail's photo under the words on
+      3d. *H, "R6 B-185 attached photo"*, words in A's form and A's
+         photo, the photo sent as an attachment: in both apps printed
+         to PDF as round r6-u-pdf did (the print panel's Share, Save
+         to Files, On My iPad, Save; nothing printed), each PDF taken
+         off the iPad and measured. Blackmail's photo under the words on
          sheet 1, at 36, 216, 496 by 372 points, whole, as its A's;
          Mail's alone on sheet 2, as round r6-u-pdf saw. No photo, or
          a photo other than A's in place or size: a FAIL. Screenshots
