@@ -4,7 +4,8 @@ import XCTest
 /// A letter's pictures as the iPad's Smart Invert goes on and off under an
 /// open letter (B-179, round r6-q-copy of 2026-10-30): the photos of a
 /// letter inverted drawn anew as the switch goes off, as they were left
-/// hue-turned until the letter was opened again; and a light letter's
+/// hue-turned until the letter was opened again, taken out for a frame
+/// drawn without them (r6-r-copy); and a light letter's
 /// pictures each in an element whose invert draws, while the switch is
 /// on, as Mail's come out inverted, the page's markup as it was once it
 /// goes off.
@@ -24,9 +25,13 @@ import XCTest
 /// a place, a width or a height of its style among them, and makes a
 /// picture anew when its `display` has changed since the last layout or
 /// it has been moved; a layout with a picture not drawn pulls the page up
-/// to 100, as a page grown shorter would. The page is laid out once as it
-/// loads and once at the run's end, as WebKit draws it. Moving a node
-/// before one its parent does not hold throws, as the DOM's does.
+/// to 100, as a page grown shorter would, unless a box of the script's is
+/// in its place (`SmartInvert.placeTag`) or it is placed on its own. The
+/// page is laid out once as it loads and once at the run's end, as WebKit
+/// draws it; a frame drawn runs the animation frame callbacks asked for
+/// before it and lays the page out, and the timers run only as time is
+/// let pass, as on a page not shown. Moving a node before one its parent
+/// does not hold throws, as the DOM's does.
 ///
 /// Run only where node is; elsewhere these tests skip, and the script's
 /// pins in `SmartInvertLikeMailTests` still hold it.
@@ -64,26 +69,126 @@ final class SmartInvertPicturesTests: XCTestCase {
     // MARK: - Going off
 
     /// Smart Invert turned off under an open letter inverted, scrolled
-    /// down: each photo made anew, drawn another way and then as it was,
-    /// so it is drawn with the filter it has again; its `style` attribute
-    /// as it was, to the byte, and none where it had none; the page where it was, though a picture drawn
-    /// another way for a moment pulled it up; the root's classes off and
-    /// the body's markup as before. A picture not drawn is left alone.
-    func testGoingOffDrawsAnInvertedLettersPhotosAnew() throws {
-        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
+    /// down: each photo taken out of what WebKit draws, `display: none`,
+    /// and put back after two frames, so one frame is drawn without it and
+    /// it is made anew, drawn with the filter it has again (r6-r-copy);
+    /// still out after the first frame. In its place meanwhile a box of
+    /// its size, its margins, its `vertical-align` and its float, inline-
+    /// block for a picture drawn inline and a block otherwise, so the page
+    /// does not pull up, and none for a picture placed on its own. Put
+    /// back, its `style` attribute as it was, to the byte, and none where
+    /// it had none, the boxes gone, the page where it was with no scroll
+    /// asked; the root's classes off and the body's markup as before. A
+    /// picture not drawn is left alone. The script answers how many it
+    /// took out.
+    func testGoingOffTakesAnInvertedLettersPhotosOutForAFrame() throws {
+        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\" "
+            + "style=\"margin-left: 4px; vertical-align: middle\">"
             + "<img id=\"b\" src=\"cid:b@example.com\" style=\"width: 480px; display: block\">"
             + "<span><img id=\"c\" src=\"cid:c@example.com\" data-display=\"table-cell\"></span>"
             + "<img id=\"d\" src=\"cid:d@example.com\" style=\"display: none\">"
+            + "<img id=\"e\" src=\"cid:e@example.com\" data-position=\"absolute\">"
         let html = try page(inverted, style: on, body: body)
         let run = try model(html, [.scroll(500), .snapshot("on"),
                                    .toggle(on: false, rules: SmartInvert.rules(for: .inverted)),
+                                   .snapshot("out"), .frame, .snapshot("oneFrame"), .frame,
                                    .snapshot("off")])
-        XCTAssertEqual(run.made, ["a": 2, "b": 2, "c": 2, "d": 0], run.log)
+        XCTAssertEqual(run.made, ["a": 2, "b": 2, "c": 2, "d": 0, "e": 2], run.log)
+        XCTAssertEqual(run.hiddenFrames, ["a": 1, "b": 1, "c": 1, "d": 2, "e": 1], run.log)
+        XCTAssertEqual(run.answers, [4])
+        let out = try XCTUnwrap(run.snapshots["out"])
+        XCTAssertTrue(out.contains("<bm-si-place style=\"display: inline-block !important; "
+            + "box-sizing: border-box !important; width: 480px !important; height: 360px !important; "
+            + "min-width: 0 !important; min-height: 0 !important; max-width: none !important; "
+            + "max-height: none !important; padding: 0 !important; border: 0 !important; "
+            + "margin-left: 4px !important; vertical-align: middle !important; float: none !important;\">"
+            + "</bm-si-place><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\" "
+            + "style=\"margin-left: 4px; vertical-align: middle; display: none !important;\">"), out)
+        XCTAssertTrue(out.contains("<bm-si-place style=\"display: block !important; "), out)
+        XCTAssertTrue(out.contains("</bm-si-place><img id=\"b\""), out)
+        XCTAssertTrue(out.contains("<span><bm-si-place style=\"display: block !important; "), out)
+        XCTAssertTrue(out.contains("<img id=\"d\" src=\"cid:d@example.com\" style=\"display: none\">"
+            + "<img id=\"e\" src=\"cid:e@example.com\" data-position=\"absolute\" "
+            + "style=\"display: none !important;\">"), out)
+        XCTAssertEqual(out.components(separatedBy: "<bm-si-place").count - 1, 3, out)
+        XCTAssertEqual(run.snapshots["oneFrame"], out)
         XCTAssertEqual(run.snapshots["off"], run.snapshots["on"])
+        XCTAssertEqual(run.places, 0)
         XCTAssertEqual(run.scrollY, 500)
-        XCTAssertEqual(run.pulledUp, true, "the model's page pulled up and put back")
+        XCTAssertEqual(run.pulledUp, false, "the boxes kept the page where it was")
+        XCTAssertEqual(run.scrolledTo, 0)
         XCTAssertEqual(run.root, "")
-        XCTAssertEqual(run.displays, ["a": "inline", "b": "block", "c": "table-cell", "d": "none"])
+        XCTAssertEqual(run.displays, ["a": "inline", "b": "block", "c": "table-cell", "d": "none", "e": "inline"])
+    }
+
+    /// The same page with the boxes kept out of it: the page pulled up
+    /// while the picture is out. Shows the stand-in pulls such a page up, so
+    /// the test above, where it does not, means something.
+    func testTheModelPullsAPageUpForAPictureOutWithNoBox() throws {
+        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
+        let html = try page(inverted, style: on, body: body)
+        let run = try model(html, [.scroll(500), .toggle(on: false, rules: SmartInvert.rules(for: .inverted)),
+                                   .frame, .frame],
+                            script: ConversationDocument.script.replacingOccurrences(
+                                of: "if (drawn[j].place && holder)", with: "if (false)"))
+        XCTAssertEqual(run.pulledUp, true, run.log)
+        XCTAssertEqual(run.places, 0)
+    }
+
+    /// With no frame drawn, as on a page not shown, the pictures put back
+    /// after a second, not before, the boxes gone; the frames that come
+    /// later change nothing.
+    func testGoingOffPutsThePicturesBackAfterASecondWithNoFrame() throws {
+        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
+        let html = try page(inverted, style: on, body: body)
+        let run = try model(html, [.snapshot("on"), .toggle(on: false, rules: SmartInvert.rules(for: .inverted)),
+                                   .wait(999), .snapshot("waited"), .wait(1), .snapshot("off"),
+                                   .frame, .frame, .snapshot("later")])
+        XCTAssertTrue(try XCTUnwrap(run.snapshots["waited"]).contains("</bm-si-place><img id=\"a\""), run.log)
+        XCTAssertEqual(run.snapshots["off"], run.snapshots["on"], run.log)
+        XCTAssertEqual(run.snapshots["later"], run.snapshots["on"], run.log)
+        XCTAssertEqual(run.hiddenFrames, ["a": 0], run.log)
+        XCTAssertEqual(run.places, 0)
+    }
+
+    /// Off, on and off again before a frame is drawn: the switch going on
+    /// puts the pictures back at once, and the second off takes them out
+    /// anew, for a frame of its own; the first off's frames change
+    /// nothing. Never a box left, never a picture left out.
+    func testOffOnOffLeavesNoPictureOutAndNoBox() throws {
+        let body = "<p>The roses.</p><img id=\"a\" src=\"cid:a@example.com\" data-rect=\"0,40,480,360\">"
+        let rules = SmartInvert.rules(for: .inverted)
+        let html = try page(inverted, style: on, body: body)
+        let run = try model(html, [.snapshot("on"), .toggle(on: false, rules: rules),
+                                   .toggle(on: true, rules: rules), .snapshot("onAgain"),
+                                   .toggle(on: false, rules: rules), .frame, .snapshot("oneFrame"),
+                                   .frame, .toggle(on: true, rules: rules), .snapshot("onLast"), .wait(2000)])
+        XCTAssertEqual(run.snapshots["onAgain"], run.snapshots["on"], run.log)
+        XCTAssertTrue(try XCTUnwrap(run.snapshots["oneFrame"]).contains("</bm-si-place><img id=\"a\""), run.log)
+        XCTAssertEqual(run.snapshots["onLast"], run.snapshots["on"], run.log)
+        XCTAssertEqual(run.hiddenFrames, ["a": 1], run.log)
+        XCTAssertEqual(run.answers, [1, 0, 1, 0])
+        XCTAssertEqual(run.places, 0)
+        XCTAssertEqual(run.root, "bm-si")
+        XCTAssertEqual(run.displays, ["a": "inline"])
+    }
+
+    /// A light letter's picture with a filter of its sender's, taken out
+    /// as the switch goes off, and the switch on again before a frame is
+    /// drawn: put back first and then put in its element, as on a page
+    /// built under the switch, no box left beside it.
+    func testOnWhileAPictureIsOutPutsItBackBeforeItsElement() throws {
+        let body = "<p>The roses.</p><img id=\"rose\" src=\"cid:r@example.com\" style=\"filter: grayscale(1)\">"
+        let rules = SmartInvert.rules(for: .light)
+        let built = try model(try page(light, style: on, body: body), [.snapshot("on")])
+        let run = try model(try page(light, style: on, body: body),
+                            [.toggle(on: false, rules: rules), .snapshot("out"),
+                             .toggle(on: true, rules: rules), .snapshot("on"), .frame, .frame, .wait(2000)])
+        XCTAssertTrue(try XCTUnwrap(run.snapshots["out"]).contains("</bm-si-place><img id=\"rose\""), run.log)
+        XCTAssertEqual(run.snapshots["on"], built.snapshots["on"], run.log)
+        XCTAssertEqual(run.wrapped, ["rose": "<bm-si-picture>"], run.log)
+        XCTAssertEqual(run.places, 0)
+        XCTAssertEqual(run.answers, [1, 0])
     }
 
     /// The same in a conversation's stack: an inverted letter's photo made
@@ -98,9 +203,11 @@ final class SmartInvertPicturesTests: XCTestCase {
             + "<div class=\"bm-letter bm-open\" id=\"m3\"><div class=\"bm-head\"></div>"
             + "<div class=\"bm-body bm-light\"><img id=\"l\" src=\"cid:l@example.com\"></div></div>"
         let html = try stack(smartInvert: true, body: body)
-        let run = try model(html, [.snapshot("on"), .toggle(on: false, rules: SmartInvert.stack)])
+        let run = try model(html, [.snapshot("on"), .toggle(on: false, rules: SmartInvert.stack), .frame, .frame])
         XCTAssertTrue(try XCTUnwrap(run.snapshots["on"]).contains("<bm-si-picture><img id=\"l\""), run.log)
         XCTAssertEqual(run.made, ["a": 2, "t": 0, "l": 0], run.log)
+        XCTAssertEqual(run.hiddenFrames, ["a": 1, "t": 0, "l": 0], run.log)
+        XCTAssertEqual(run.places, 0)
         XCTAssertEqual(run.wrappers, 0, run.log)
         XCTAssertEqual(run.scrolledTo, 0)
     }
@@ -117,6 +224,7 @@ final class SmartInvertPicturesTests: XCTestCase {
         XCTAssertEqual(run.layoutsAsked, 0, run.log)
         XCTAssertEqual(run.scrolledTo, 0)
         XCTAssertEqual(run.snapshots["off"], run.snapshots["on"])
+        XCTAssertEqual(run.answers, [0])
 
         let photo = "<p>The roses.</p><img id=\"rose\" src=\"cid:r@example.com\">"
         let lit = try model(try page(light, style: on, body: photo),
@@ -305,6 +413,12 @@ final class SmartInvertPicturesTests: XCTestCase {
         static func toggle(on: Bool, rules: String) -> Step { Step(action: "toggle", on: on, rules: rules) }
         static func scroll(_ y: Int) -> Step { Step(action: "scroll", y: y) }
         static func snapshot(_ name: String) -> Step { Step(action: "snapshot", name: name) }
+        /// A frame WebKit draws: the animation frame callbacks asked for
+        /// before it run, then the page is laid out and painted.
+        static let frame = Step(action: "frame")
+        /// `ms` milliseconds pass with no frame drawn, as on a page not
+        /// shown: the timers due run.
+        static func wait(_ ms: Int) -> Step { Step(action: "wait", y: ms) }
         static func fill(id: String, html: String, scheme: String) -> Step {
             Step(action: "fill", id: id, html: html, scheme: scheme)
         }
@@ -329,12 +443,21 @@ final class SmartInvertPicturesTests: XCTestCase {
         let scrolledTo: Int
         let pulledUp: Bool
         let layoutsAsked: Int
+        /// How many elements of `SmartInvert.placeTag` the page has at
+        /// the run's end.
+        let places: Int
+        /// Each picture by its id: in how many of the frames drawn it was
+        /// not drawn, its `display` none.
+        let hiddenFrames: [String: Int]
+        /// What `bmSmartInvert` answered at each toggle.
+        let answers: [Int]
         let log: String
     }
 
-    private func model(_ page: String, _ steps: [Step]) throws -> Run {
+    private func model(_ page: String, _ steps: [Step],
+                       script: String = ConversationDocument.script) throws -> Run {
         struct Input: Encodable { let script: String; let page: String; let steps: [Step]; let invertedRule: String }
-        let input = try JSONEncoder().encode(Input(script: ConversationDocument.script, page: page,
+        let input = try JSONEncoder().encode(Input(script: script, page: page,
                                                    steps: steps, invertedRule: PanePage.invertedRule))
         let out = try runNode(Self.program, input: input)
         return try JSONDecoder().decode(Run.self, from: out)
@@ -559,7 +682,7 @@ final class SmartInvertPicturesTests: XCTestCase {
       const style = el.style;
       const display = own(el, 'display') || el.getAttribute('data-display')
         || (['DIV', 'P', 'BODY', 'HTML', 'HEAD', 'TABLE', 'TR', 'TD'].indexOf(el.tagName) >= 0 ? 'block' : 'inline');
-      let filter = 'none';
+      let filter = own(el, 'filter') || 'none';
       const pageInverted = head.querySelectorAll('style').some(function (s) { return s.raw.indexOf(input.invertedRule) >= 0; });
       const up = ancestors(el);
       const invertedLetter = up.some(function (a) { return a.classList.contains('bm-html') || (a.id === 'bm' && pageInverted); });
@@ -581,7 +704,10 @@ final class SmartInvertPicturesTests: XCTestCase {
         if (el.drawnIn !== undefined && el.drawnIn === el.parentNode && el.drawnAs !== display) el.made++;
         el.drawnAs = display;
         el.drawnIn = el.parentNode;
-        if (display === 'none' && el.getAttribute('style') !== 'display: none') hidden = true;
+        const before = el.previousElementSibling;
+        const kept = (before && before.tagName === 'BM-SI-PLACE')
+          || ['absolute', 'fixed'].indexOf(el.getAttribute('data-position')) >= 0;
+        if (display === 'none' && el.getAttribute('style') !== 'display: none' && !kept) hidden = true;
       }
       if (hidden && scrollY > 100) { scrollY = 100; pulledUp = true; }
     }
@@ -609,13 +735,46 @@ final class SmartInvertPicturesTests: XCTestCase {
       CSS: { supports: function () { return false; } },
     };
     global.getComputedStyle = computed;
-    global.performance = { now: function () { return 0; } };
+    global.performance = { now: function () { return clock; } };
+    let frames = [], timers = [], clock = 0, timerIds = 0;
+    global.requestAnimationFrame = window.requestAnimationFrame = function (f) { frames.push(f); return frames.length; };
+    global.setTimeout = window.setTimeout = function (f, ms) {
+      timerIds++; timers.push({ id: timerIds, at: clock + (ms || 0), f: f }); return timerIds;
+    };
+    global.clearTimeout = window.clearTimeout = function (id) {
+      timers = timers.filter(function (t) { return t.id !== id; });
+    };
+    const hiddenFrames = {};
+    function frame() {
+      const due = frames;
+      frames = [];
+      for (const f of due) f(clock);
+      layout(false);
+      for (const el of documentElement.descendants()) {
+        if (!isPicture(el) || !el.id) continue;
+        if (!(el.id in hiddenFrames)) hiddenFrames[el.id] = 0;
+        if (computed(el).getPropertyValue('display') === 'none') hiddenFrames[el.id]++;
+      }
+    }
+    function wait(ms) {
+      const until = clock + ms;
+      for (;;) {
+        const due = timers.filter(function (t) { return t.at <= until; }).sort(function (a, b) { return a.at - b.at; })[0];
+        if (!due) break;
+        timers = timers.filter(function (t) { return t !== due; });
+        clock = due.at;
+        due.f();
+      }
+      clock = until;
+    }
     (0, eval)(input.script);
     layout(false);
     loaded = true;
-    const snapshots = {};
+    const snapshots = {}, answers = [];
     for (const step of input.steps) {
-      if (step.action === 'toggle') bmSmartInvert(step.on, step.rules, '');
+      if (step.action === 'toggle') answers.push(bmSmartInvert(step.on, step.rules, ''));
+      if (step.action === 'frame') frame();
+      if (step.action === 'wait') wait(step.y);
       if (step.action === 'scroll') scrollY = step.y;
       if (step.action === 'snapshot') snapshots[step.name] = serialize(body);
       if (step.action === 'fill') bmFill(step.id, step.html, true, step.scheme);
@@ -638,6 +797,8 @@ final class SmartInvertPicturesTests: XCTestCase {
     process.stdout.write(JSON.stringify({
       made: made, displays: displays, wrapped: wrapped, snapshots: snapshots,
       wrappers: documentElement.querySelectorAll('bm-si-picture').length,
+      places: documentElement.querySelectorAll('bm-si-place').length,
+      hiddenFrames: hiddenFrames, answers: answers,
       root: documentElement.className, scrollY: scrollY, scrolledTo: scrolledTo, pulledUp: pulledUp,
       layoutsAsked: layoutsAsked, log: log.join('\n') }));
     """#

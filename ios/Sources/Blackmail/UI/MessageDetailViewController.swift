@@ -404,7 +404,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let toggle = SmartInvert.Toggle(on: on, rules: invertRules,
                                         colourFilter: filtered ? invertColourFilter : "")
         webView.callAsyncJavaScript(SmartInvert.Toggle.script, arguments: toggle.arguments,
-                                    in: nil, in: .defaultClient)
+                                    in: nil, in: .defaultClient) { result in
+            guard case .success(let answer) = result, let count = answer as? Int,
+                  let line = SmartInvert.redrawn(count) else { return }
+            Diagnostics.log(.note, line)
+        }
     }
 
     /// WebKit's colour filter set `on`, where the preferences have its

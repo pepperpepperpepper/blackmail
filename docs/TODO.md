@@ -11239,7 +11239,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       filter's change in it (KNOWN_ISSUES B-179, "Fixed again 2026-10-29,
       after the test iPad (r6-p-copy)" and "Corrected 2026-10-30"), and
       its pictures' (KNOWN_ISSUES B-179, "Fixed again 2026-10-30, after
-      the test iPad (r6-q-copy)" and "Corrected again 2026-10-30").
+      the test iPad (r6-q-copy)" and "Corrected again 2026-10-30"), and
+      the switch's off drawn anew (KNOWN_ISSUES B-179, "Fixed a third
+      time 2026-10-30, after the test iPad (r6-r-copy)").
       Nothing is composed, sent, moved
       or deleted in the app, nothing printed (where a print panel comes in,
       its preview only, then Cancel), and nothing saved in it but step 3's
@@ -11318,7 +11320,14 @@ checks below is left as not needed, not open, and none is worth a round.*
          natural at once, never hue-turned (the sky about rgb(126, 184,
          245), never rgb(29, 87, 148)): by pxcmp against the shot taken
          before, no cluster but the label's words resampled; still so
-         after 20 s and after a scroll to the top. Smart Invert on again
+         after 20 s and after a scroll to the top. The lines of words
+         at the same place across the off, the same bands by pxcmp of
+         the words' clusters against the shot before the switch went
+         off, nothing moved while the photos were out. The log, after
+         the off's "pane: isInvertColorsEnabled false, changed": "pane:
+         Smart Invert off, N pictures drawn anew", N the photos the
+         page holds, never 0; no such line for the light letter's off.
+         Smart Invert on again
          and back: as in 2, at the same place. The same with the light
          letter: on, its pictures inverted as in 3 and nothing moved;
          off, the page the same as its shot before, its pictures natural.

@@ -672,12 +672,24 @@ enum ConversationDocument {
     /// that has a filter of its own once the classes are off (r6-q-copy,
     /// 2026-10-30): one drawn while the switch was on went on being drawn
     /// without it, the photos of a letter inverted left hue-turned until
-    /// the letter was opened again. `bmRepaintPictures` changes each one's
-    /// `display` to one that draws it the same, a picture inline drawn
-    /// inline-block and a block one `flow-root`, has WebKit lay the page
-    /// out, which makes the picture anew, and puts its `style` attribute
-    /// back as it was, to the byte; the page is put back where it was if
-    /// it moved. A page with no such picture is not touched.
+    /// the letter was opened again. `bmRepaintPictures` takes each one out
+    /// of what WebKit draws, `display: none`, for at least one frame drawn
+    /// without it, and puts it back after two animation frames: on the
+    /// test iPad a picture so taken out and put back drew natural, where
+    /// one whose `display` was changed and put back in one turn did not
+    /// (r6-r-copy). In its place meanwhile an element of
+    /// `SmartInvert.placeTag`, a box of its size, its margins, its
+    /// `vertical-align` and its float, inline-block for a picture drawn
+    /// inline and a block otherwise, so no line and no other box moves; a
+    /// picture placed on its own has none, as taking it out moves nothing.
+    /// Put back, its `style` attribute is as it was, to the byte, and none
+    /// where it had none, and the box goes. If the frames do not come, the
+    /// page not shown, all is put back after a second; the switch going
+    /// on, or off again, first puts back what is out, and so does a light
+    /// letter's pictures being put in their elements. The page is put back
+    /// where it was if it moved. It answers how many it took out, for the
+    /// pane's log (`SmartInvert.redrawn`). A page with no such picture is
+    /// not touched.
     ///
     /// And a light letter's pictures, inside a scope the switch's sheet
     /// has `SmartInvert.wrapper(in:)` for, are each put in an element of
@@ -722,6 +734,7 @@ enum ConversationDocument {
       bmWrapPictures(body);
     }
     function bmSmartInvert(on, rules, colourFilter) {
+      bmPutPicturesBack();
       var root = document.documentElement;
       if (on && rules && document.head && !document.head.querySelector('style#bm-si')) {
         var sheet = document.createElement('style');
@@ -743,10 +756,10 @@ enum ConversationDocument {
       if (filter) root.classList.add('bm-cf'); else root.classList.remove('bm-cf');
       if (on) {
         bmWrapPictures(document.body);
-      } else {
-        bmUnwrapPictures();
-        bmRepaintPictures();
+        return 0;
       }
+      bmUnwrapPictures();
+      return bmRepaintPictures();
     }
     function bmWrapScopes() {
       var sheet = document.head ? document.head.querySelector('style#bm-si') : null;
@@ -774,6 +787,7 @@ enum ConversationDocument {
     function bmWrapPictures(root) {
       try {
         if (!root || !document.documentElement.classList.contains('bm-si')) return;
+        bmPutPicturesBack();
         var scopes = bmWrapScopes();
         if (!scopes.length) return;
         var pictures = root.querySelectorAll(scopes.map(function (scope) {
@@ -839,8 +853,10 @@ enum ConversationDocument {
         for (var i = 0; i < wrappers.length; i++) if (wrappers[i].bmWrapper) bmUnwrap(wrappers[i]);
       } catch (e) {}
     }
+    var bmRepaint = null;
     function bmRepaintPictures() {
       try {
+        bmPutPicturesBack();
         var pictures = document.querySelectorAll('img, video');
         var drawn = [];
         for (var i = 0; i < pictures.length; i++) {
@@ -848,28 +864,64 @@ enum ConversationDocument {
           var display = shown.getPropertyValue('display');
           if (shown.getPropertyValue('filter') === 'none' || display === 'none') continue;
           drawn.push({ picture: pictures[i], style: pictures[i].getAttribute('style'),
-                       display: bmOtherDisplay(display) });
+                       place: bmPlaceFor(pictures[i], shown, display) });
         }
-        if (!drawn.length) return;
+        if (!drawn.length) return 0;
+        var run = { drawn: drawn, timer: null };
         var x = window.pageXOffset, y = window.pageYOffset;
+        bmRepaint = run;
         for (var j = 0; j < drawn.length; j++) {
-          drawn[j].picture.style.setProperty('display', drawn[j].display, 'important');
+          try {
+            var holder = drawn[j].picture.parentNode;
+            if (drawn[j].place && holder) holder.insertBefore(drawn[j].place, drawn[j].picture);
+          } catch (e) {}
+          drawn[j].picture.style.setProperty('display', 'none', 'important');
         }
-        void document.documentElement.offsetHeight;
-        for (var k = 0; k < drawn.length; k++) {
-          if (drawn[k].style === null) drawn[k].picture.removeAttribute('style');
-          else drawn[k].picture.setAttribute('style', drawn[k].style);
-        }
-        void document.documentElement.offsetHeight;
-        if (window.pageXOffset !== x || window.pageYOffset !== y) window.scrollTo(x, y);
-      } catch (e) {}
+        bmStayAt(x, y);
+        run.timer = setTimeout(function () { bmPutPicturesBack(run); }, 1000);
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { bmPutPicturesBack(run); });
+        });
+        return drawn.length;
+      } catch (e) {
+        bmPutPicturesBack();
+        return 0;
+      }
     }
-    function bmOtherDisplay(display) {
-      if (display === 'inline') return 'inline-block';
-      if (display === 'inline-block') return 'inline';
-      if (display === 'block') return 'flow-root';
-      if (display === 'flow-root') return 'block';
-      return 'none';
+    var bmPlaceLooks = ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'vertical-align', 'float'];
+    function bmPlaceFor(picture, shown, display) {
+      var position = shown.getPropertyValue('position');
+      if (position === 'absolute' || position === 'fixed') return null;
+      var box = picture.getBoundingClientRect();
+      var place = document.createElement('bm-si-place');
+      place.bmPlace = true;
+      var look = [['display', display.indexOf('inline') === 0 ? 'inline-block' : 'block'],
+                  ['box-sizing', 'border-box'], ['width', box.width + 'px'], ['height', box.height + 'px'],
+                  ['min-width', '0'], ['min-height', '0'], ['max-width', 'none'], ['max-height', 'none'],
+                  ['padding', '0'], ['border', '0']];
+      bmPlaceLooks.forEach(function (name) { look.push([name, shown.getPropertyValue(name)]); });
+      look.forEach(function (p) { if (p[1]) place.style.setProperty(p[0], p[1], 'important'); });
+      return place;
+    }
+    function bmPutPicturesBack(run) {
+      var now = bmRepaint;
+      if (!now || (run && run !== now)) return;
+      bmRepaint = null;
+      try { clearTimeout(now.timer); } catch (e) {}
+      var x = window.pageXOffset, y = window.pageYOffset;
+      for (var i = 0; i < now.drawn.length; i++) {
+        var d = now.drawn[i];
+        try {
+          if (d.style === null) d.picture.removeAttribute('style');
+          else d.picture.setAttribute('style', d.style);
+        } catch (e) {}
+        try { if (d.place && d.place.parentNode) d.place.parentNode.removeChild(d.place); } catch (e) {}
+      }
+      try { bmStayAt(x, y); } catch (e) {}
+    }
+    function bmStayAt(x, y) {
+      void document.documentElement.offsetHeight;
+      if (window.pageXOffset !== x || window.pageYOffset !== y) window.scrollTo(x, y);
     }
     function bmScheme(scheme) {
       return scheme === 'bm-light' || scheme === 'bm-own' ? scheme : 'bm-html';

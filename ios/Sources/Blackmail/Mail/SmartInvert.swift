@@ -62,6 +62,14 @@ import Foundation
 /// has WebKit draw each such picture anew as the switch goes off
 /// (`ConversationDocument.script`'s `bmRepaintPictures`), nothing moved.
 ///
+/// **Found on the test iPad, 2026-10-30 (r6-r-copy).** The photos stayed
+/// hue-turned with the switch off: the script chose them, but changed
+/// their `display` and put it back in one turn, which did not draw them
+/// anew. A picture out of what WebKit draws for a frame and put back drew
+/// natural, as did a page built anew. So each is taken out until a frame
+/// has been drawn without it, a box of its size in its place
+/// (`placeTag`), and put back.
+///
 /// Off, every page is byte for byte as it was. On, a page is built with
 /// the class on its `<html>` and its rules in a sheet of their own in its
 /// head (`root`, `sheet`); a change of the switch while a page is shown
@@ -143,6 +151,14 @@ enum SmartInvert {
     static func wrapper(in scope: String) -> String {
         "html.\(className) \(scope) \(wrapperTag) { all: unset; filter: invert(1); }"
     }
+
+    /// The element the pane's script puts in a picture's place while it
+    /// takes the picture out to have WebKit draw it anew as the switch goes
+    /// off (`ConversationDocument.script`'s `bmRepaintPictures`, B-179): a
+    /// box of the picture's size, margins, `vertical-align` and float, so
+    /// no line and no other box moves, taken off as the picture is put
+    /// back. A tag no letter uses, so no sender's rule names it.
+    static let placeTag = "bm-si-place"
 
     /// The second class the page's `<html>` has, with `className`, while
     /// a letter it inverts is made dark by WebKit's colour filter
@@ -263,6 +279,14 @@ enum SmartInvert {
         "pane: isInvertColorsEnabled \(on)" + (built ? ", page built" : ", changed")
     }
 
+    /// The pane's log line for the pictures the script took out to be
+    /// drawn anew as the switch went off (`Toggle`, B-179), so a check can
+    /// see it ran: nil for none, as a page with no such picture is not
+    /// touched.
+    static func redrawn(_ count: Int) -> String? {
+        count > 0 ? "pane: Smart Invert off, \(count) picture\(count == 1 ? "" : "s") drawn anew" : nil
+    }
+
     /// The start of every page the pane builds, to the end of its `<html>`
     /// tag, with the class; and with the colour filter's too.
     static let onStart = "<!DOCTYPE html><html class=\"\(className)\">"
@@ -341,13 +365,15 @@ enum SmartInvert {
     ///
     /// With the class it puts the element round a light letter's pictures
     /// (`wrapperTag`), and takes it off; and going off, it has WebKit draw
-    /// anew each picture left with a filter of its own (r6-q-copy).
+    /// anew each picture left with a filter of its own (r6-q-copy), and
+    /// answers how many it took out to be drawn so, 0 going on, for the
+    /// pane's log (`redrawn`).
     struct Toggle: Equatable {
         let on: Bool
         let rules: String
         var colourFilter: String = ""
 
-        static let script = "bmSmartInvert(on, rules, colourFilter)"
+        static let script = "return bmSmartInvert(on, rules, colourFilter)"
 
         var arguments: [String: Any] { ["on": on, "rules": rules, "colourFilter": colourFilter] }
     }

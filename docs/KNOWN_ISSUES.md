@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy). Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41546,6 +41546,91 @@ animation frames (`requestAnimationFrame`), and the page put back where
 it was; or, failing that, the page shown built anew as the switch goes
 off (`MessageDetailViewController.followSmartInvert`, by
 `restyleIfOwed`), its place put back once it has loaded.
+
+**Fixed a third time 2026-10-30, after the test iPad (r6-r-copy).** By
+the owner's ruling of 2026-10-29, Mail copied; "carry it through", the
+owner, 2026-10-30. The second run's first fix, not its fallback: no page
+is loaded again.
+
+**What changed** (`ConversationDocument.script`, `SmartInvert`,
+`MessageDetailViewController.followSmartInvert`).
+
+1. *The same pictures.* `bmRepaintPictures` picks as before each `img`
+   and `video` whose computed filter is not `none` once the classes are
+   off and whose `display` is not `none`. A page with none is not
+   touched: no layout asked, nothing scrolled.
+2. *A box in each one's place.* Before any is taken out, the script
+   reads each picture's size as drawn (`getBoundingClientRect`), its
+   margins, `vertical-align` and float, and makes an element of a tag
+   no letter uses, `<bm-si-place>` (`SmartInvert.placeTag`): that width
+   and height with `box-sizing: border-box`, no padding, no border, the
+   same margins, `vertical-align` and float, `inline-block` for a
+   picture drawn inline or inline-block and a block for any other, all
+   `!important`, so no sender's rule changes it. It goes in just before
+   the picture, so each line keeps its height and every other box stays
+   where it was. A picture placed on its own (`absolute`, `fixed`) gets
+   none: taking it out moves nothing.
+3. *Out for a painted frame.* Each picture is then given `display: none
+   !important` and stays out until the second animation frame
+   (`requestAnimationFrame` twice), so WebKit paints at least one frame
+   without it; then its `style` attribute is put back to the byte, or
+   taken off where it had none, and its box taken out, in the same turn.
+   The page is put back where it was, at each step, only if it moved.
+4. *Never left out.* A timer puts everything back after a second if the
+   frames do not come, the page not shown. The switch going on, or off
+   again, first puts back what is out; so does the wrapping of a light
+   letter's pictures (`bmWrapPictures`), so a picture out is never
+   wrapped and a box is never read as its neighbour. A frame or a timer
+   of an earlier off, once that is put back, changes nothing.
+5. *The log.* The script answers how many pictures it took out, and the
+   pane writes "pane: Smart Invert off, N pictures drawn anew" for more
+   than none (`SmartInvert.redrawn`), so a check can see it ran. There
+   is no log channel from the page to the pane; the line comes from the
+   answer of the call that turns the switch.
+6. *Unchanged.* With the switch off, every page built as at 6457f0f,
+   byte for byte; the switch going on, and a light letter's pictures,
+   as before.
+
+**What he sees**, if it takes: Smart Invert turned off with a letter
+open, its photos natural at once, at the place it was scrolled to, no
+line moved.
+
+**Tests.** `SmartInvertPicturesTests`: its stand-in for the page now
+runs animation frames and timers, a frame laying out and painting the
+page; a picture out with a box of the script's just before it, or placed
+on its own, does not pull the page up. Changed, going off under a letter
+inverted scrolled to 500: each photo out for one painted frame and made
+anew, still out after the first frame, its box's style read whole (size,
+margins, `vertical-align`, float, `inline-block` or block), none for a
+placed picture, the `style` attribute put back to the byte, no box left,
+the page never pulled up and never scrolled, the answer 4. Four new: the
+boxes kept out, the stand-in pulls the page up; with no frame, put back
+at a second and not before; off, on and off again before a frame, never
+a picture left out nor a box behind, one frame out for the second off;
+a light letter's picture with a filter of its sender's out, the switch
+on before a frame, put back and then wrapped as on a page built under
+the switch. Widened: going off in a stack, the photo out one frame; a
+page with no such picture answers 0. `SmartInvertLikeMailTests`: one
+new, the log line, none for none; the script's pins and the pane's call
+now read the answer. Each undone by hand, the class run, each failure
+read by its line, then put back: put back in one turn, 12 failures; no
+box put in, 11; no timer, 2 in 1 test; neither guard of the switch's
+on, 3 in 2; a log line for none, 1. Each failure an assertion's. The
+full suite: 3,240 tests, 6 skipped, none failing. The release build for
+the iPad: "Build complete".
+
+**Not covered** (this change):
+
+- Whether a picture out for one painted frame draws natural when put
+  back after the switch's off, rather than after its letter closed and
+  opened again: seen only that way (the second run's stack), not after
+  this change.
+- A picture drawn under a transform reads its size as drawn, so its box
+  is that size; a sender's rule by its place among its siblings
+  (`:first-child`, `img + img`) can match another way while the box is
+  in, for the frame or two it is there.
+- A video playing as the switch goes off is taken out for those frames
+  too, as before it was changed and put back.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
