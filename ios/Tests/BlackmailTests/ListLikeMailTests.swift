@@ -196,7 +196,8 @@ final class ListLikeMailTests: XCTestCase {
     /// list's rule: "Attachment: IMG_0131.jpg" and "Attachment:
     /// h-photo.jpg", as Mail's rows said (C-3a). A letter with words says
     /// them. Round r6-p-copy's letter of two files and no words says
-    /// "Attachments: IMG_0182.jpg, R6 B-182 two.pdf", as Mail's row did. The letter with no words is answered empty with nothing of it
+    /// "Attachments: IMG_0182.jpg, R6 B-182 two.pdf", as Mail's row did.
+    /// The letter with no words is answered empty with nothing of it
     /// fetched, and the `cid:` picture is still no file of the row's
     /// `attachments` (B-170).
     @MainActor

@@ -117,9 +117,10 @@ final class PrintWiringTests: XCTestCase {
     /// (`MailFormat.recipientName`) with their addresses, and the subject.
     /// A letter with none: the pane's header says Mail's "No Subject"
     /// since B-182 was fixed again, as Mail's header was seen to; the paper
-    /// keeps "(no subject)", Mail's paper not seen. Neither lists a file: each is drawn in the
-    /// pane's body by `BodyFiles` (B-170), none on paper since B-185, as
-    /// Mail prints none, and the letter in words lists them after its text.
+    /// keeps "(no subject)", Mail's paper not seen. Neither lists a file:
+    /// each is drawn in the pane's body by `BodyFiles` (B-170), none on
+    /// paper since B-185, as Mail prints none, and the letter in words
+    /// lists them after its text.
     func testThePrintedHeaderIsMailsFromTheSameLetter() throws {
         let header = try source("UI/MessageHeaderView.swift")
         let printed = try source("Mail/PrintPage.swift")

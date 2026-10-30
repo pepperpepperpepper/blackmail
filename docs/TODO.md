@@ -11380,7 +11380,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          reply, then Cancel each time, nothing printed: the HTML
          letter's line's bar and words in the light violet, as before;
          the Gmail reply's nested line with two bars, its words the
-         light teal, rgb(0, 175, 205), beside Mail's preview.
+         light teal, about rgb(0, 175, 205) as built, lighter in the
+         preview (the violet rgb(88, 86, 214) was read about rgb(142,
+         141, 227) there in round r6-p-copy), beside Mail's preview.
       6. *Put back:* "Notes" left, the Inbox at its top. The host moves
          the UIDs it noted, and only them, from "Notes" to the Trash,
          and deletes in the Trash only the UIDs that move answered

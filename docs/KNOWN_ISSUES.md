@@ -41592,7 +41592,11 @@ complete".
   2026-10-29 (round r6-p-copy), says "Attachments: " and every file's
   name, joined by commas; Blackmail's named the first alone. Fixed
   again after that check: "Fixed again 2026-10-30", below.
-- A file with no name: Mail not seen; such a file is passed over.
+- A file with no name: Mail not seen. Corrected 2026-10-30: such a
+  file is not passed over; `flatten` gives it a name of its own making
+  (`fallbackFilename`, "attachment-" and its part, with an ending for
+  its kind), which the row says, as in "Not covered (this change)"
+  below.
 - The reading pane's header, the printed page and a new letter's banner
   still say "(no subject)" (`MessageHeaderView`, `PrintPage`,
   `NewMailBanners`). Mail's header says "No Subject", seen 2026-10-29
@@ -41679,7 +41683,11 @@ release build for the iPad: "Build complete".
 - A letter of many files: Mail's row of more than two was not seen;
   every name is joined, and the row's two lines end where they end.
 - A file with no name: `flatten` gives it a name of its own making,
-  which the row says, as before; Mail's not seen.
+  which the row says, as before; Mail's not seen. With another file,
+  the made-up name is now in the joined row too: a named photo and an
+  unnamed calendar part read "Attachments: IMG.jpg, attachment-2.ics",
+  where the row said "Attachment: IMG.jpg". Mail's words for a file
+  with no name were not seen; left as it is until they are.
 - The printed page's and a banner's "(no subject)", as above.
 
 ## B-183 — FIXED 2026-10-29, seen on the test iPad 2026-10-29. In Drafts' Edit mode Mark and Move were blue with a draft ticked and the reading pane said "No message selected"; Mail's are grey there and its pane shows the ticked draft as a letter, and so do Blackmail's now
