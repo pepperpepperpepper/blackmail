@@ -629,7 +629,7 @@ private func isSpace(_ c: UInt8) -> Bool {
 
 // MARK: - The line before a quote
 
-/// Where the lines Mail draws with a quote's first level are, read by the
+/// Where the lines Mail draws with the quote after them are, read by the
 /// same tokenizer (`QuoteBars.attributed`, B-180).
 extension LetterScheme.Markup {
 
@@ -660,10 +660,13 @@ extension LetterScheme.Markup {
     }
 
     /// The start tag, `<` to just past `>`, of each element directly
-    /// before a quote that is in no other quote, nothing but spaces between
-    /// them, whose words end "wrote:" (spaces after it aside), and with no
-    /// quote in it: Mail's own reply has its "wrote:" line in a quote of
-    /// its own, inside a `div`, which has its bar already. Elements are
+    /// before a quote, at any depth, nothing but spaces between them,
+    /// whose words end "wrote:" (spaces after it aside), and with no quote
+    /// in it: Mail's own reply has its "wrote:" line in a quote of its
+    /// own, inside a `div`, which has its bar already. Until B-180 was
+    /// fixed again only a line before a quote in no other quote was
+    /// found; Mail draws Gmail's nested line, inside the first level
+    /// before the second, as the second level's. Elements are
     /// opened and closed as HTML's tokenizer reads their tags, an end tag
     /// closing the elements opened in it, a `<p>` closed by a block's start
     /// tag; a tag never closed ends the reading.
@@ -671,7 +674,7 @@ extension LetterScheme.Markup {
         let n = b.count
         var found: [Range<Int>] = []
         // Each element open, and how many quotes had begun before it.
-        var open: [(name: String, tag: Range<Int>, isQuote: Bool, quotesBefore: Int)] = []
+        var open: [(name: String, tag: Range<Int>, quotesBefore: Int)] = []
         var quotes = 0
         // The element last closed: how many were open around it, its
         // start tag, where its words end and just past its end, and
@@ -731,12 +734,12 @@ extension LetterScheme.Markup {
             guard !Self.void.contains(tag.name) else { continue }
             guard open.count < Self.deepest else { break }
             let isQuote = tag.name == "blockquote" && Self.isQuote(tag.attributes)
-            if isQuote, !open.contains(where: \.isQuote), let line = closed, line.depth == open.count,
+            if isQuote, let line = closed, line.depth == open.count,
                !line.hasQuote, b[line.end..<range.lowerBound].allSatisfy(isSpace),
                endsWrote(line.tag.upperBound..<line.wordsEnd) {
                 found.append(line.tag)
             }
-            open.append((tag.name, range, isQuote, quotes))
+            open.append((tag.name, range, quotes))
             if isQuote { quotes += 1 }
         }
         return found

@@ -330,8 +330,14 @@ final class PanePageTests: XCTestCase {
             rule("#bm \(quote) \(quote) \(quote)", "rgb(0, 111, 25)"),
         ]
         XCTAssertEqual(QuoteBars.css(in: "#bm", palette: QuoteBars.inverted), inverted.joined(separator: "\n"))
-        let line = "#bm .bm-attribution { padding-left: 5px !important; "
-            + "border-left: 1px solid rgb(201, 100, 252) !important; color: rgb(201, 100, 252) !important; }"
+        // The line before a quote, one rule a level, in the colour of the
+        // quote after it (B-180, fixed again).
+        let line = [("#bm .bm-attribution", "rgb(201, 100, 252)"),
+                    ("#bm \(quote) .bm-attribution", "rgb(0, 144, 230)"),
+                    ("#bm \(quote) \(quote) .bm-attribution", "rgb(0, 111, 25)")].map {
+            "\($0.0) { padding-left: 5px !important; "
+                + "border-left: 1px solid \($0.1) !important; color: \($0.1) !important; }"
+        }.joined(separator: "\n")
 
         for (m, hasLine) in [(letters[letters.count - 2], false), (letters[letters.count - 1], true)] {
             let page = try XCTUnwrap(PanePage.letter(m, style: style))
@@ -342,10 +348,11 @@ final class PanePageTests: XCTestCase {
             XCTAssertTrue(sheet.hasSuffix("filter: invert(1) hue-rotate(180deg); }\n"
                                           + inverted.joined(separator: "\n") + "\n"
                                           + (hasLine ? line + "\n" : "")), sheet)
-            XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 + 4 + 6)
-            XCTAssertEqual(sheet.components(separatedBy: "#bm :is(").count - 1, 3)
-            XCTAssertEqual(sheet.components(separatedBy: " !important;").count - 1, 12 + 1 + (hasLine ? 3 : 0),
-                           "each rule's four, the pictures' width, and the line's three")
+            XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1,
+                           2 + 4 + 6 + (hasLine ? 2 + 4 : 0))
+            XCTAssertEqual(sheet.components(separatedBy: "#bm :is(").count - 1, 3 + (hasLine ? 2 : 0))
+            XCTAssertEqual(sheet.components(separatedBy: " !important;").count - 1, 12 + 1 + (hasLine ? 9 : 0),
+                           "each rule's four, the pictures' width, and the line's three a level")
         }
         // A plain letter's quotes are Mail's blockquotes since B-147, its
         // rules the same in Mail's dark colours (`PlainQuoteBarsTests`).

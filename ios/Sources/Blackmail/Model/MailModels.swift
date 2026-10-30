@@ -137,16 +137,16 @@ struct MessageSummary: Identifiable, Hashable {
     /// listed none since B-170: every file is drawn in the letter's body,
     /// as Mail draws it, and the body comes with the letter.
     var attachments: [Attachment] = []
-    /// The name of the first file the letter carries that has one, the
-    /// pictures its body shows by `cid:` among them, which `attachments`
-    /// leaves out, from the same BODYSTRUCTURE
-    /// (`MIMEDecoder.firstFileName(in:)`): what its row says, "Attachment:
-    /// " and this, when the letter has no words, as Mail's row does
-    /// (`RowPreview`, B-182). Nil where it has none, the server described
-    /// no structure, or the row was not listed from the server: a row kept
-    /// on the iPad is drawn again from the server before it is drawn with
-    /// no words.
-    var firstFileName: String? = nil
+    /// The names of the files the letter carries that have one, in its
+    /// structure's order, the pictures its body shows by `cid:` among
+    /// them, which `attachments` leaves out, from the same BODYSTRUCTURE
+    /// (`MIMEDecoder.fileNames(in:)`): what its row says, "Attachment: "
+    /// and the one, or "Attachments: " and every one, when the letter has
+    /// no words, as Mail's row does (`RowPreview`, B-182). Empty where it
+    /// has none, the server described no structure, or the row was not
+    /// listed from the server: a row kept on the iPad is drawn again from
+    /// the server before it is drawn with no words.
+    var fileNames: [String] = []
     /// Whom the letter was sent to, as the ENVELOPE the row is fetched with
     /// names them, `Name <address>` or the address alone, as `cc` is.
     /// Empty for a letter to nobody, as a draft begun and put aside is.
@@ -244,7 +244,7 @@ struct MessageSummary: Identifiable, Hashable {
                        isAnswered: isAnswered, isForwarded: isForwarded,
                        hasAttachment: hasAttachment, threadID: threadID,
                        gmailMessageID: gmailMessageID, countedFolderIDs: countedFolderIDs,
-                       attachments: attachments, firstFileName: firstFileName,
+                       attachments: attachments, fileNames: fileNames,
                        to: to, cc: cc, bcc: bcc, arrived: arrived)
     }
 }

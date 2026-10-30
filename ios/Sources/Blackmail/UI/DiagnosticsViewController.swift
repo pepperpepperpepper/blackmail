@@ -20,6 +20,10 @@ final class DiagnosticsViewController: UIViewController {
 
     private let textView = UITextView()
 
+    /// Whether the text view has been laid out with a size and scrolled to
+    /// the log's end once (B-186).
+    private var scrolledAtOpen = false
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Theme.canvas
@@ -52,6 +56,17 @@ final class DiagnosticsViewController: UIViewController {
         updateLayoutAuditButton()
 
         reload()
+    }
+
+    /// The log's end in sight as it opens (B-186): the first layout that
+    /// gives the text view a height scrolls it there, once. Before that
+    /// a scroll moves nothing, which is why the log opened at its oldest
+    /// line.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard !scrolledAtOpen, textView.bounds.height > 0 else { return }
+        scrolledAtOpen = true
+        scrollToEnd()
     }
 
     /// The one writer of `LayoutAudit.enabledKey`. The audit is off for him
@@ -88,10 +103,22 @@ final class DiagnosticsViewController: UIViewController {
             ? "Nothing logged yet.\n\nConnect or refresh, then come back."
             : text
         // Scroll to the bottom: the interesting end of a transcript is always
-        // the most recent line, which is the one before it broke.
-        guard !text.isEmpty else { return }
-        let end = NSRange(location: (textView.text as NSString).length - 1, length: 1)
-        textView.scrollRangeToVisible(end)
+        // the most recent line, which is the one before it broke. Once the
+        // text view has a size: as the view loads, the first layout does it
+        // (B-186).
+        guard scrolledAtOpen else { return }
+        scrollToEnd()
+    }
+
+    /// The text laid out to its end, then its last line at the foot of the
+    /// view (`LogEnd`, B-186); a log shorter than the view at its top.
+    private func scrollToEnd() {
+        textView.layoutManager.ensureLayout(for: textView.textContainer)
+        textView.layoutIfNeeded()
+        let insets = textView.adjustedContentInset
+        let y = LogEnd.offset(contentHeight: textView.contentSize.height, viewHeight: textView.bounds.height,
+                              insetTop: insets.top, insetBottom: insets.bottom)
+        textView.setContentOffset(CGPoint(x: -insets.left, y: y), animated: false)
     }
 
     @objc private func done() { dismiss(animated: true) }

@@ -114,8 +114,10 @@ final class PrintWiringTests: XCTestCase {
 
     /// The printed header is Mail's (B-172), from the same letter as the
     /// pane's: its names as the pane's lines name a person
-    /// (`MailFormat.recipientName`) with their addresses, and the subject
-    /// in the pane's words. Neither lists a file: each is drawn in the
+    /// (`MailFormat.recipientName`) with their addresses, and the subject.
+    /// A letter with none: the pane's header says Mail's "No Subject"
+    /// since B-182 was fixed again, as Mail's header was seen to; the paper
+    /// keeps "(no subject)", Mail's paper not seen. Neither lists a file: each is drawn in the
     /// pane's body by `BodyFiles` (B-170), none on paper since B-185, as
     /// Mail prints none, and the letter in words lists them after its text.
     func testThePrintedHeaderIsMailsFromTheSameLetter() throws {
@@ -123,9 +125,10 @@ final class PrintWiringTests: XCTestCase {
         let printed = try source("Mail/PrintPage.swift")
         for words in ["MailFormat.recipientsLine(\"To\", m.to) ?? \"To: me\"",
                       "MailFormat.recipientsLine(\"Cc\", m.cc)",
-                      "m.subject.isEmpty ? \"(no subject)\" : m.subject"] {
+                      "subjectLabel.text = RowPreview.subject(m.subject)"] {
             XCTAssertTrue(header.contains(words), words)
         }
+        XCTAssertFalse(header.contains("(no subject)"))
         for words in ["Head(from: person(m.sender),", "to: m.to.map(person),", "cc: m.cc.map(person),",
                       "let name = MailFormat.recipientName(entry)",
                       "MailFormat.bareAddress(entry)",

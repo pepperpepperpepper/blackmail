@@ -61,6 +61,15 @@ import Foundation
 /// letter's (B-172): that line is given `attributionClass` as the page is
 /// built (`attributed`), and its rule (`attributionCSS`), in each page's
 /// palette. A letter with no such line is as it was.
+///
+/// **Fixed again after the test iPad, 2026-10-29 (round r6-p-copy).** In
+/// a Gmail reply Mail draws the nested "wrote:" line, Gmail's
+/// `div.gmail_attr` inside the first level before the second, as the
+/// second level's: the first level's bar, a bar of its own and its words
+/// in the second level's colour, at that level's x. Blackmail drew it as
+/// the first level's words with one bar. Now a line before a quote is
+/// marked at any depth, and its rule has a line a level, its colour the
+/// level of the quote after it.
 enum QuoteBars {
 
     /// Mail's colours for a quote one, two and three levels deep, and
@@ -102,28 +111,37 @@ enum QuoteBars {
     }
 
     /// The class of the line just before a quote that Mail draws with the
-    /// quote's first level (B-180).
+    /// quote after it (B-180): the first level's at the top, the second's
+    /// inside one quote, and so on.
     static let attributionClass = "bm-attribution"
 
-    /// Its rule under `scope`, in `palette`'s first colour: the quote's bar
-    /// and colour, its words 5 px from the bar as a quote's are, so they
-    /// stand where the quote's words do, as Mail's do. The 6 px its words
-    /// move are the bar's room, which the bar cannot be drawn without; its
-    /// margins are its own, as they were.
+    /// Its rules under `scope`, one line a level, as `css`'s: the bar and
+    /// colour of the quote after the line, `palette`'s first at the top,
+    /// its second inside one quote, its third inside two and deeper; each
+    /// deeper selector names more quotes, so it weighs more. Its words 5 px
+    /// from the bar as a quote's are, so they stand where the quote's words
+    /// do, as Mail's do. The 6 px its words move are the bar's room, which
+    /// the bar cannot be drawn without; its margins are its own, as they
+    /// were. A line inside a quote keeps that quote's bar beside it, as
+    /// Mail's nested line has two.
     static func attributionCSS(in scope: String, palette: [String] = colours) -> String {
-        let colour = palette[0]
-        return "\(scope) .\(attributionClass) { padding-left: 5px !important; "
-            + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
+        palette.indices.map { level in
+            let selector = ([scope] + Array(repeating: quote, count: level) + [".\(attributionClass)"])
+                .joined(separator: " ")
+            let colour = palette[level]
+            return selector + " { padding-left: 5px !important; "
+                + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
+        }.joined(separator: "\n")
     }
 
     /// `html` with `attributionClass` on each element directly before a
-    /// quote at the top level whose words end "wrote:", as Mail draws such
-    /// a line (B-180): Mail's `<p>On Monday, Carlo wrote:</p>`, Gmail's
-    /// `div.gmail_attr`, a `<p>` the quote closes. Only that line was
-    /// seen in Mail, as in a plain letter (`PlainQuotes.isAttribution`,
-    /// B-172): a line before a quote inside a quote, a line not ending
-    /// "wrote:", one with anything but spaces between it and the quote,
-    /// and words not in an element of their own are as they were. Its
+    /// quote, at any depth, whose words end "wrote:", as Mail draws such a
+    /// line (B-180): Mail's `<p>On Monday, Carlo wrote:</p>`, Gmail's
+    /// `div.gmail_attr`, at the top and inside a quote, a `<p>` the quote
+    /// closes. Only that line was seen in Mail, as in a plain letter
+    /// (`PlainQuotes.isAttribution`, B-172): a line not ending "wrote:",
+    /// one with anything but spaces between it and the quote, and words
+    /// not in an element of their own are as they were. Its
     /// existing classes are kept, the new one added after them. A letter
     /// with no such line comes back as it came, byte for byte.
     static func attributed(_ html: String) -> String {

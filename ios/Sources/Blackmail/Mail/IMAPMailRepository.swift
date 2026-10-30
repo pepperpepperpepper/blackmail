@@ -1415,9 +1415,9 @@ actor IMAPMailRepository: MailRepository {
                 gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
                 attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [],
-                // The first file's name, a picture shown by `cid:` too, for
-                // the row of a letter with no words (`RowPreview`, B-182).
-                firstFileName: r.bodyStructure.flatMap(MIMEDecoder.firstFileName(in:)),
+                // The files' names, a picture shown by `cid:` among them,
+                // for the row of a letter with no words (`RowPreview`, B-182).
+                fileNames: r.bodyStructure.map(MIMEDecoder.fileNames(in:)) ?? [],
                 // Whom it is to, for the row's top line in Sent Mail and
                 // Drafts (`RowNames`, B-060). Nil with no ENVELOPE, which
                 // names the sender as before rather than say a letter had

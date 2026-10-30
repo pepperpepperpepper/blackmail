@@ -11322,41 +11322,49 @@ checks below is left as not needed, not open, and none is worth a round.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
-      worktree (branch `fix-j1`) or of the int it is merged into.
-      Nothing is composed, sent, saved, moved or deleted in the app. The
-      letters are round r6-n-compare's "R6 B-101 html quotes rn" and
-      "R6 B-101 plain quotes rn", and a reply in Gmail's form (its
-      `div.gmail_attr` line, then its `blockquote.gmail_quote`), or made
-      again as that round made them: the host makes each from another
-      address, with a new Message-ID of its own, and APPENDs it, read
-      (`\Seen`), to the label "Notes", never the Inbox, noting each UID
-      from its APPENDUID; it stops if one has none. Dark Mode, Smart
-      Invert off, three panes; full-size screenshots, colours sampled as
-      the round sampled them (`08-runs.txt`); Mail beside Blackmail.
-      1. *The HTML letter:* Blackmail's bars and words about rgb(191,
-         90, 242), rgb(16, 160, 246) and rgb(93, 204, 118), and the
-         first again, against Mail's rgb(191, 90, 242), rgb(64, 200,
-         224) and rgb(48, 209, 88); none rgb(152, 150, 255).
-      2. *Its "wrote:" line:* a bar beside it in the first level's
-         colour, joined to the quote's, its words violet, and their x
-         the quote's words' x, as Mail's (362.4 against 362.4 there).
-         The line's top and the quote's where they were, only its
-         words 6 px right. Screenshots.
-      3. *The Gmail reply:* its "wrote:" line the same, Gmail's grey bar
-         not seen. Then two panes, and a conversation's stack with the
-         letter in it if the test account has one: the same.
+      worktree (branch `fix-j1`) or of the int it is merged into, the
+      nested line's change in it (KNOWN_ISSUES B-180, "Fixed again
+      2026-10-30, after the test iPad (r6-p-copy)"). Nothing is
+      composed, sent, saved, moved or deleted in the app, nothing
+      printed (print preview only, then Cancel). The letters are round
+      r6-n-compare's "R6 B-101 html quotes rn" and "R6 B-101 plain
+      quotes rn", and round r6-p-copy's Gmail reply to a reply (its
+      `div.gmail_attr` line and `blockquote.gmail_quote`, and inside
+      that quote the earlier letter's line and quote), or made again as
+      those rounds made them: the host makes each from another address,
+      with a new Message-ID of its own, and APPENDs it, read (`\Seen`),
+      to the label "Notes", never the Inbox, noting each UID from its
+      APPENDUID; it stops if one has none. Dark Mode, Smart Invert off,
+      three panes; full-size screenshots, colours sampled as the rounds
+      sampled them (`08-runs.txt`); Mail beside Blackmail.
+      1. *The HTML letter:* as in round r6-p-copy, its first level
+         rgb(191, 90, 242), levels two and three rgb(16, 160, 246) and
+         rgb(93, 204, 118) (18.6's, not a difference); none rgb(152,
+         150, 255).
+      2. *Its "wrote:" line:* violet with the first level's bar, its
+         words at the quote's words' x, as in round r6-p-copy.
+      3. *The Gmail reply to a reply,* beside Mail's (round r6-p-copy's
+         `09-mail-gmail`): its top line as before; the nested "wrote:"
+         line with two bars, the first level's and its own, its words
+         the second level's blue, about rgb(16, 160, 246), at the
+         second level's words' x, as Mail's two bars and cyan words
+         there. Screenshots. Then two panes, and a conversation's stack
+         with the letter in it if the test account has one: the same.
       4. *The plain letter:* as before, its colours rgb(191, 90, 242),
          rgb(0, 200, 250) and rgb(87, 217, 119), its line in its quote.
-      5. *Print's preview only* of the HTML letter, then Cancel, nothing
-         printed: the line's bar and words in the light violet,
-         rgb(88, 86, 214), as the quote's.
+      5. *Print's preview only* of the HTML letter and of the Gmail
+         reply, then Cancel each time, nothing printed: the HTML
+         letter's line's bar and words in the light violet, as before;
+         the Gmail reply's nested line with two bars, its words the
+         light teal, rgb(0, 175, 205), beside Mail's preview.
       6. *Put back:* "Notes" left, the Inbox at its top. The host moves
          the UIDs it noted, and only them, from "Notes" to the Trash,
          and deletes in the Trash only the UIDs that move answered
          (`COPYUID`). Nothing was sent, and nothing else was written to
          the account.
       *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
-      r6-p-copy: 1, 2, 3's three panes, 4, 5 and 6. In 1 the first level
+      r6-p-copy, the check's steps as they were then: 1, 2, 3's three
+      panes, 4, 5 and 6. In 1 the first level
       rgb(191, 90, 242) as Mail's, levels two and three rgb(16, 160, 246)
       and rgb(93, 204, 118), 18.6's as built, where Mail 16.5.1 has rgb(64,
       200, 224) and rgb(48, 209, 88): not a difference to fix. In 2 the
@@ -11398,33 +11406,38 @@ checks below is left as not needed, not open, and none is worth a round.*
       Not possible: 3, a finger held on a row, which the tools cannot do.
       Nothing was sent.*
 
-- [x] **B-182, a row's words as Mail's.** As B-181's check, the same
-      build, nothing composed, sent or moved. The letters are round
-      r6-n-compare's "R6 B-131 picture only rn" and "R6 B-131
-      attached picture rn", and its draft "R6 B-144 draft rn", or made
-      again as that round made them: the host APPENDs each, read, to
-      the label "Notes" (the draft to Drafts, as the round did),
-      noting each UID from its APPENDUID; it stops if one has none.
-      Mail beside Blackmail.
+- [ ] **B-182, a row's words as Mail's.** As B-181's check, the same
+      build, the change of every file's name and the header's "No
+      Subject" in it (KNOWN_ISSUES B-182, "Fixed again 2026-10-30, after
+      the test iPad (r6-p-copy)"); nothing composed, sent or moved. The
+      letters are round r6-n-compare's "R6 B-131 picture only rn" and
+      "R6 B-131 attached picture rn", round r6-p-copy's letter of two
+      files and no words ("R6 B-182 two"), and the draft "R6 B-144
+      draft rn", or made again as those rounds made them: the host
+      APPENDs each, read, to the label "Notes" (the draft to Drafts, as
+      the round did), noting each UID from its APPENDUID; it stops if
+      one has none. Mail beside Blackmail.
       1. *The two picture letters' rows* in Notes: "Attachment:
-         h-photo.jpg" and "Attachment: IMG_0131.jpg" in the grey
-         lines, under the subject, as Mail's, once the list's
-         previews have come; a Refresh, the same. Screenshots. (As
-         first built neither row said it; fixed again the same day,
-         KNOWN_ISSUES B-182.)
-      2. *Drafts:* the draft's row "No Recipient", as Mail's; rows with
-         no subject "No Subject" in grey, about rgb(143, 143, 150), as
+         h-photo.jpg" and "Attachment: IMG_0131.jpg" in the grey lines,
+         as in round r6-p-copy; a Refresh, the same.
+      2. *The two-file letter's row:* "Attachments: IMG_0182.jpg, R6
+         B-182 two.pdf", word for word as Mail's, in the grey lines
+         where Mail's are, once the list's previews have come; a
+         Refresh, the same. Screenshots.
+      3. *Drafts:* the draft's row "No Recipient"; rows with no subject
+         "No Subject" in grey, as in round r6-p-copy.
+      4. *A row with no subject opened:* its pane header "No Subject",
+         white, rgb(255, 255, 255), in the subject's place, beside
          Mail's. Screenshots.
-      3. *A row with no subject opened:* its pane header beside Mail's,
-         written down (it still says "(no subject)"; not failed).
-      4. *Put back:* the host moves the UIDs it noted, and only them,
+      5. *Put back:* the host moves the UIDs it noted, and only them,
          to the Trash, and deletes in the Trash only the UIDs that move
          answered (`COPYUID`). Nothing was sent.
       *Seen on the test iPad 2026-10-29 on int21 (7803dbb), round
-      r6-p-copy: every step. In 1 "Attachment: IMG_0131.jpg" and
-      "Attachment: h-photo.jpg" in the grey lines, before a Refresh and
-      after it, as Mail's. In 2 "No Recipient", and "No Subject" in grey,
-      about rgb(142, 142, 142), Mail's rgb(141, 141, 147). In 3 the header
+      r6-p-copy, the check's steps as they were then: every step. In 1
+      "Attachment: IMG_0131.jpg" and "Attachment: h-photo.jpg" in the
+      grey lines, before a Refresh and after it, as Mail's. In 2 "No
+      Recipient", and "No Subject" in grey, about rgb(142, 142, 142),
+      Mail's rgb(141, 141, 147). In 3 the header
       "(no subject)", white, where Mail's says "No Subject": written down
       (KNOWN_ISSUES B-182). Seen besides: a letter of two files and no
       words, Mail's row "Attachments: IMG_0182.jpg, R6 B-182 two.pdf",
@@ -11510,6 +11523,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       the attached picture still drawn in the pane. In 6 the letters put in
       the Trash, nothing erased. Not run: 4, added after the round's
       letters were made. Nothing was sent.*
+
+- [ ] **B-186, the Connection log opens at its newest line.** On the
+      test iPad, from a build of the `bm-fix-j1` worktree (branch
+      `fix-j1`) or of the int it is merged into. Nothing is composed,
+      sent, moved or deleted; nothing written to the account.
+      1. *Open the log* (five taps on the list's status line) after a
+         Refresh: its last line, the newest, in sight at the foot of
+         the view without a fling. Screenshot.
+      2. *Layout: On, then Off:* each time the log at its end again,
+         its new line in sight. Put back: Layout: Off.
+      3. *Done, then the log opened again:* at its end. Screenshot.
 
 ## Blocked on the owner
 

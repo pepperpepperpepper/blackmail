@@ -41113,7 +41113,7 @@ complete".
 - Whether the colour filter takes in the iPad's WebKit at all, and on
   18: the log's line says so, and the check reads it first.
 
-## B-180 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
+## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, C-4b DIFFERENT,
@@ -41262,6 +41262,77 @@ x; here as the first level's words, violet, beside the first level's bar
 alone. The top line of the reply as Mail's. Not run: step 3's two panes
 and stack. Nothing was sent.
 
+**Fixed again 2026-10-30, after the test iPad (r6-p-copy).** By the plan
+made from that round (area 2); "The B-179 to B-185 plan looks good", the
+owner, 2026-10-29.
+
+**Found on the test iPad, 2026-10-29 (r6-p-copy).** In a Gmail reply to
+a reply Mail draws the nested "wrote:" line, Gmail's `div.gmail_attr`
+inside the first level before the second, as the second level's: the
+first level's bar beside it, a bar of its own, and its words cyan, about
+rgb(99, 239, 255), at the second level's x. Blackmail drew it as the
+first level's words, violet, beside the first level's bar alone: only a
+line before a quote in no other quote was marked, and the line's rule
+had the first level's colour only. Levels two and three in 18.6's
+colours are right for his iPad, not a difference to fix.
+
+**What changed** (`LetterScheme.Markup.attributions`,
+`QuoteBars.attributionCSS`).
+
+1. *The line at any depth.* The element directly before a quote,
+   nothing but spaces between them, whose words end "wrote:", is given
+   `bm-attribution` inside a quote as at the top. The rest of the rule
+   is as before, at every depth: a line with a quote begun in it (Mail's
+   own reply, its line in a quote of its own), a line not ending
+   "wrote:" and one with anything between it and the quote are as they
+   came.
+2. *One rule a level.* `attributionCSS` has a line a level, as
+   `QuoteBars.css` has: `scope .bm-attribution` in the palette's first
+   colour, `scope Q .bm-attribution` in its second and `scope Q Q
+   .bm-attribution` in its third, Q the quote's selector; each deeper
+   one names more quotes and weighs more. Gmail's nested line keeps the
+   first level's bar from the quote it is in, has a bar of its own and
+   its words in the second level's colour, 5 px from its bar, at the
+   second level's words' x, as Mail draws it. In every page and
+   palette: the pane's (`#bm`, `.bm-html`, `.bm-light`, `.bm-own`),
+   under Smart Invert's colour filter (`QuoteBars.dark`) and on paper.
+   The top line's rule, the first of the three, is as before, byte for
+   byte.
+3. Plain letters as before (`PlainQuotes.isAttribution`): Mail's nested
+   plain line was not seen.
+
+**What he sees.** In a reply to a reply from Gmail, the earlier "wrote:"
+line drawn with the quote under it, two bars and the second level's
+blue, about rgb(16, 160, 246), as Mail draws it with its own second
+level's colour.
+
+**Tests.** `HTMLQuotesLikeMailTests`, four new: Gmail's reply to a reply,
+both its lines marked, and Mail's form one and two levels down; inside a
+quote a line not ending "wrote:", one with a `<br>` between, and Mail's
+own reply quoted, as they came; the line's rule one line a level in each
+palette, the second in `inverted[1]`; the reply to a reply on its own
+page, in a stack and on paper, both lines marked and each page's rule for
+the second level's line in its palette. Changed: the nested case moved
+out of the test of lines not marked; the pins of the line's rule in
+`HTMLQuotesLikeMailTests`, `PanePageTests` and
+`ConversationDocumentTests`, and their counts of quote selectors and
+important rules.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the top-level rule put back, 4 failures in 1 test; the guard
+for a line with a quote begun in it taken off, 2 failures in 2 tests;
+the line's rule the first level's alone again, 15 failures in 5 tests.
+Each failure an assertion's. The full suite: 3,215 tests, 6 skipped,
+none failing. The release build for the iPad: "Build complete".
+
+**Not covered** (this change):
+
+- Mail's own form one level down, a `<p>` ending "wrote:" before a
+  `type=cite` quote inside another, was not seen in Mail; it is marked
+  by the same rule as Gmail's.
+- A plain letter's nested "wrote:" line: Mail's not seen; in its quote,
+  as before.
+
 ## B-181 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. The row of the letter open in the reading pane was a dark grey with white words; Mail's is its blue, as its ticked row in Edit mode is, and so is Blackmail's now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail
@@ -41330,7 +41401,7 @@ from the edges (layout, not copied). Under Smart Invert orange, rgb(245,
 before. Not possible: step 3, a finger held on a row, which the tools
 cannot do. Nothing was sent.
 
-## B-182 — FIXED 2026-10-29, fixed again the same day, seen on the test iPad 2026-10-29. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
+## B-182 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen on the test iPad 2026-10-29. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3a,
 C-5a in passing, its second run agreeing), and the plan made from it
@@ -41443,12 +41514,14 @@ complete".
 
 - A letter of two or more files and no words: Mail's row, seen
   2026-10-29 (round r6-p-copy), says "Attachments: " and every file's
-  name, joined by commas; Blackmail's names the first alone.
+  name, joined by commas; Blackmail's named the first alone. Fixed
+  again after that check: "Fixed again 2026-10-30", below.
 - A file with no name: Mail not seen; such a file is passed over.
 - The reading pane's header, the printed page and a new letter's banner
   still say "(no subject)" (`MessageHeaderView`, `PrintPage`,
   `NewMailBanners`). Mail's header says "No Subject", seen 2026-10-29
-  (round r6-p-copy); its paper and banner were not seen.
+  (round r6-p-copy); its paper and banner were not seen. The header
+  fixed again after that check, below.
 - VoiceOver reads the row as before, with no file's name.
 
 **Seen on the test iPad, 2026-10-29, on 7803dbb**, round r6-p-copy, Mail
@@ -41470,6 +41543,68 @@ from Mail, written down, not failed:
   white.
 
 Nothing was sent.
+
+**Fixed again 2026-10-30, after the test iPad (r6-p-copy).** By the plan
+made from that round (area 2); "The B-179 to B-185 plan looks good", the
+owner, 2026-10-29.
+
+**Found on the test iPad, 2026-10-29 (r6-p-copy).** The two differences
+above: Mail's row of a letter of two files and no words says
+"Attachments: IMG_0182.jpg, R6 B-182 two.pdf", where Blackmail's said
+"Attachment: IMG_0182.jpg"; Mail's reading pane header of a letter with
+no subject says "No Subject", where Blackmail's said "(no subject)".
+
+**What changed** (`MIMEDecoder.fileNames(in:)`,
+`MessageSummary.fileNames`, the listing, `RowPreview`,
+`MessageHeaderView`).
+
+1. *Every file's name.* `MIMEDecoder.firstFileName(in:)` became
+   `fileNames(in:)`: every named file in `flatten`'s order, the `cid:`
+   pictures among them. `MessageSummary.firstFileName` became
+   `fileNames`, filled by the listing from the same BODYSTRUCTURE, and
+   not kept by the shelf, as before. A row drawn with no words says
+   "Attachment: " and the name for one file, as before, and
+   "Attachments: " and every name, joined by a comma and a space, for
+   two or more, as Mail 16.5.1's row. A row not listed from the server
+   is named by its `attachments`, the same way.
+2. *The header's "No Subject".* The reading pane's header says
+   `RowPreview.subject`, "No Subject" for a letter with none, white as a
+   subject is, as Mail's header; only the row's is grey. The printed
+   page and a new letter's banner keep "(no subject)": Mail's were not
+   seen.
+
+Nothing moves: the names go where the one name went, in the row's two
+grey lines.
+
+**What he sees.** A letter of a photo and a PDF sent with no words names
+both on its row, as Mail's does; a letter with no subject says "No
+Subject" over it in the pane, as in Mail.
+
+**Tests.** In `ListLikeMailTests`, three new: a letter of two files says
+Mail's exact words, three the same, a row not listed from the server by
+its `attachments`, a letter with words its words; the structure's names
+in its order, the `cid:` picture among them, none for a letter of words
+alone; the pane's header from `RowPreview.subject`, "(no subject)" gone
+from it, its colour not the row's grey. Changed: the round's letters
+through the shipping repository and the scripted server with a fourth,
+two files and no words, drawn "Attachments: IMG_0182.jpg, R6 B-182
+two.pdf"; the rule's test with `fileNames`; `PrintWiringTests`' pin of
+the header's subject.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the row naming the first file alone, 4 failures in 2 tests;
+the structure giving its first name alone, 2 failures in 2 tests; the
+header's "(no subject)" put back, 4 failures in 2 tests. Each failure an
+assertion's. The full suite: 3,215 tests, 6 skipped, none failing. The
+release build for the iPad: "Build complete".
+
+**Not covered** (this change):
+
+- A letter of many files: Mail's row of more than two was not seen;
+  every name is joined, and the row's two lines end where they end.
+- A file with no name: `flatten` gives it a name of its own making,
+  which the row says, as before; Mail's not seen.
+- The printed page's and a banner's "(no subject)", as above.
 
 ## B-183 — FIXED 2026-10-29, seen on the test iPad 2026-10-29. In Drafts' Edit mode Mark and Move were blue with a draft ticked and the reading pane said "No message selected"; Mail's are grey there and its pane shows the ticked draft as a letter, and so do Blackmail's now
 
@@ -41710,3 +41845,52 @@ wide as the words' column and running on to a blank second paper page,
 "Page 1 of 2". Not run: step 4, the plain letter with an inline
 photo, added to the check after the round's letters were made. Nothing
 was sent.
+
+## B-186 — FIXED 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
+
+Not Mail's: Mail has no such screen. Seen in round r6-p-copy on the test
+iPad, 2026-10-29.
+
+**Found on the test iPad, 2026-10-29 (r6-p-copy).** The Connection
+log's view, opened to read the Smart Invert switch's lines, showed the
+log's oldest line; three flings from the top did not reach the lines
+wanted, and they were read in a copy of the log saved after the step
+(TODO B-179).
+
+**Why.** `DiagnosticsViewController.reload()` asked the text view to
+scroll its last character into sight (`scrollRangeToVisible`) in
+`viewDidLoad`, before the text view had a size, so nothing moved.
+
+**What changed** (`DiagnosticsViewController`, `LogEnd`, new).
+
+1. The first layout that gives the text view a height scrolls it to the
+   log's end, once (`viewDidLayoutSubviews`); Clear and the Layout
+   button, which load the log again, scroll it there too. Nothing
+   scrolls as the view loads.
+2. The scroll lays the text out to its end first
+   (`layoutManager.ensureLayout(for:)`), then sets the offset from
+   `LogEnd.offset(contentHeight:viewHeight:insetTop:insetBottom:)`, a
+   pure sum: `max(-insetTop, contentHeight - viewHeight + insetBottom)`,
+   the end at the foot of the view, or a log shorter than the view at
+   its top.
+
+**What he sees.** Nothing: the log is reached by five taps on the status
+line, for whoever helps him. It opens at its newest line.
+
+**Tests.** `LogEndTests`, new, three: a short log at its top, with and
+without insets; a long one at its end; the view scrolling after its first
+layout, once, and after a reload, never as it loads, the sum from
+`LogEnd`, no `scrollRangeToVisible`, read from its source.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the sum without its floor, 2 failures in 1 test; the view as
+it was, 5 failures in 1 test. Each failure an assertion's. The full
+suite: 3,215 tests, 6 skipped, none failing. The release build for the
+iPad: "Build complete".
+
+**Not covered.**
+
+- Not seen on the iPad yet (TODO B-186).
+- A log that grows while the view is open is not followed: the view is
+  drawn from the log as it opened, as before, and Clear or the Layout
+  button draws it again.

@@ -370,8 +370,8 @@ enum ConversationDocument {
           /* Mail's bars beside quoted text (B-101): a letter's HTML in the
              light colours the invert turns into Mail's dark ones, as Mail's
              HTML letter has them in Dark Mode (QuoteBars.inverted, B-180),
-             and the line before a quote ending "wrote:" with the first
-             level's bar and colour; a plain letter's quotes, Mail's
+             and the line before a quote ending "wrote:" with the bar and
+             colour of the quote after it; a plain letter's quotes, Mail's
              blockquotes too (PlainQuotes, B-147), in its dark ones, as a
              plain letter is not inverted. */
         \(QuoteBars.css(in: ".bm-html", palette: QuoteBars.inverted))

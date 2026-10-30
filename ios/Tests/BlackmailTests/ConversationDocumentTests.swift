@@ -224,8 +224,14 @@ final class ConversationDocumentTests: XCTestCase {
             rule(".bm-html \(quote) \(quote) \(quote)", "rgb(0, 111, 25)"),
         ].joined(separator: "\n")
         XCTAssertEqual(QuoteBars.css(in: ".bm-html", palette: QuoteBars.inverted), rules)
-        let line = ".bm-html .bm-attribution { padding-left: 5px !important; "
-            + "border-left: 1px solid rgb(201, 100, 252) !important; color: rgb(201, 100, 252) !important; }"
+        // The line before a quote, one rule a level, in the colour of the
+        // quote after it (B-180, fixed again).
+        let line = [(".bm-html .bm-attribution", "rgb(201, 100, 252)"),
+                    (".bm-html \(quote) .bm-attribution", "rgb(0, 144, 230)"),
+                    (".bm-html \(quote) \(quote) .bm-attribution", "rgb(0, 111, 25)")].map {
+            "\($0.0) { padding-left: 5px !important; "
+                + "border-left: 1px solid \($0.1) !important; color: \($0.1) !important; }"
+        }.joined(separator: "\n")
 
         let html = document([entry("1/2", expanded: true, body: .init(html: "<p>x</p>", isHTML: true)),
                              entry("1/1", expanded: true, body: .init(html: "> words", isHTML: false))])
@@ -240,8 +246,8 @@ final class ConversationDocumentTests: XCTestCase {
           /* Mail's bars beside quoted text (B-101): a letter's HTML in the
              light colours the invert turns into Mail's dark ones, as Mail's
              HTML letter has them in Dark Mode (QuoteBars.inverted, B-180),
-             and the line before a quote ending "wrote:" with the first
-             level's bar and colour; a plain letter's quotes, Mail's
+             and the line before a quote ending "wrote:" with the bar and
+             colour of the quote after it; a plain letter's quotes, Mail's
              blockquotes too (PlainQuotes, B-147), in its dark ones, as a
              plain letter is not inverted. */
         \(rules)
@@ -250,9 +256,11 @@ final class ConversationDocumentTests: XCTestCase {
           .bm-body img, .bm-body table {
         """), sheet)
         // Four sets since B-169: the HTML inverted, the text, and the HTML
-        // drawn light and in its own colours (`DarkLikeMailTests`).
-        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 4 * (2 + 4 + 6))
-        XCTAssertEqual(sheet.components(separatedBy: ".bm-html :is(").count - 1, 3)
+        // drawn light and in its own colours (`DarkLikeMailTests`); the
+        // line's rules for the three HTML sets, a quote at its second
+        // level and two at its third.
+        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 4 * (2 + 4 + 6) + 3 * (2 + 4))
+        XCTAssertEqual(sheet.components(separatedBy: ".bm-html :is(").count - 1, 3 + 2)
         XCTAssertEqual(sheet.components(separatedBy: ".bm-text :is(").count - 1, 3)
         XCTAssertFalse(sheet.contains("#bm"), "the letter's own page's scope")
     }

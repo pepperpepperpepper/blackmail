@@ -94,7 +94,13 @@ final class HTMLQuotesLikeMailTests: XCTestCase {
         XCTAssertEqual(QuoteBars.attributionCSS(in: "#bm", palette: QuoteBars.inverted),
                        "#bm .bm-attribution { padding-left: 5px !important; "
                        + "border-left: 1px solid rgb(201, 100, 252) !important; "
-                       + "color: rgb(201, 100, 252) !important; }")
+                       + "color: rgb(201, 100, 252) !important; }\n"
+                       + "#bm \(QuoteBars.quote) .bm-attribution { padding-left: 5px !important; "
+                       + "border-left: 1px solid rgb(0, 144, 230) !important; "
+                       + "color: rgb(0, 144, 230) !important; }\n"
+                       + "#bm \(QuoteBars.quote) \(QuoteBars.quote) .bm-attribution { padding-left: 5px !important; "
+                       + "border-left: 1px solid rgb(0, 111, 25) !important; "
+                       + "color: rgb(0, 111, 25) !important; }")
         for light in QuoteBars.colours { XCTAssertFalse(sheet.contains(light), light) }
         XCTAssertTrue(page.contains("<div id=\"bm\">\(Self.marked)</div>"), page)
     }
@@ -201,15 +207,13 @@ final class HTMLQuotesLikeMailTests: XCTestCase {
                        "<div class=\"bm-attribution\" id=x>On Monday, Carlo wrote:</div>" + quote)
     }
 
-    /// Only the line seen in Mail: none before a quote inside a quote, none
-    /// not ending "wrote:", none with anything between it and the quote,
+    /// Only the line seen in Mail: none not ending "wrote:", none with
+    /// anything between it and the quote,
     /// none of words not in an element of their own, none before a
     /// blockquote that is no quote, and Mail's own reply, its line in a
     /// quote already, as it came; a letter with none byte for byte.
     func testNoOtherLineIsMarked() {
         let unchanged = [
-            "<blockquote type=\"cite\"><p>On Monday, Carlo wrote:</p><blockquote type=\"cite\">x</blockquote>"
-                + "</blockquote>",
             "<p>On Monday, Carlo said:</p><blockquote type=\"cite\">x</blockquote>",
             "<p>On Monday, Carlo wrote:</p><br><blockquote type=\"cite\">x</blockquote>",
             "<p>On Monday, Carlo wrote:</p>Hi<blockquote type=\"cite\">x</blockquote>",
@@ -227,6 +231,104 @@ final class HTMLQuotesLikeMailTests: XCTestCase {
         let two = "<p>A wrote:</p><blockquote type=\"cite\">x</blockquote><p>B wrote:</p>"
             + "<blockquote class=\"gmail_quote\">y</blockquote>"
         XCTAssertEqual(QuoteBars.attributed(two), two.replacingOccurrences(of: "<p>", with: "<p class=\"bm-attribution\">"))
+    }
+
+    // MARK: - The line inside a quote (B-180, fixed again)
+
+    /// A Gmail reply to a reply, as Gmail writes it: its line, its quote,
+    /// and in the quote the earlier letter's line and quote, each line a
+    /// `div.gmail_attr` in a `div.gmail_quote`.
+    static let gmailNested = "<div dir=\"ltr\">Fine by me.</div><br><div class=\"gmail_quote\">"
+        + "<div dir=\"ltr\" class=\"gmail_attr\">On Tue, 28 Oct 2026 at 10:02, Sam Example &lt;"
+        + "<a href=\"mailto:sam@example.com\">sam@example.com</a>&gt; wrote:<br></div>"
+        + "<blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex\">"
+        + "<div dir=\"ltr\">Thursday, then.</div><br><div class=\"gmail_quote\">"
+        + "<div dir=\"ltr\" class=\"gmail_attr\">On Mon, 27 Oct 2026 at 18:40, Pat Example &lt;"
+        + "<a href=\"mailto:pat@example.net\">pat@example.net</a>&gt; wrote:<br></div>"
+        + "<blockquote class=\"gmail_quote\" style=\"margin:0px 0px 0px 0.8ex\">Lunch this week?"
+        + "</blockquote></div></blockquote></div>"
+
+    /// Gmail's nested line, inside the first level before the second, is
+    /// marked as its top line is: Mail draws it as the second level's.
+    func testGmailsNestedLineIsMarked() {
+        XCTAssertEqual(QuoteBars.attributed(Self.gmailNested),
+                       Self.gmailNested.replacingOccurrences(of: "class=\"gmail_attr\"",
+                                                             with: "class=\"gmail_attr bm-attribution\""))
+        XCTAssertEqual(QuoteBars.attributed(Self.gmailNested).components(separatedBy: "bm-attribution").count - 1, 2)
+        // Mail's own form one level down, and two.
+        XCTAssertEqual(QuoteBars.attributed("<blockquote type=\"cite\"><p>On Monday, Carlo wrote:</p>"
+                                            + "<blockquote type=\"cite\">x</blockquote></blockquote>"),
+                       "<blockquote type=\"cite\"><p class=\"bm-attribution\">On Monday, Carlo wrote:</p>"
+                       + "<blockquote type=\"cite\">x</blockquote></blockquote>")
+        XCTAssertEqual(QuoteBars.attributed("<blockquote type=cite><blockquote type=cite><p>X wrote:</p>"
+                                            + "<blockquote type=cite>x</blockquote></blockquote></blockquote>"),
+                       "<blockquote type=cite><blockquote type=cite><p class=\"bm-attribution\">X wrote:</p>"
+                       + "<blockquote type=cite>x</blockquote></blockquote></blockquote>")
+    }
+
+    /// Inside a quote, as at the top, a line not ending "wrote:", one with
+    /// something between it and the quote, and Mail's own reply quoted,
+    /// its line in a quote of its own, are as they came.
+    func testANestedLineNotSeenInMailStaysBare() {
+        let unchanged = [
+            "<blockquote type=\"cite\"><p>On Monday, Carlo said:</p><blockquote type=\"cite\">x</blockquote>"
+                + "</blockquote>",
+            "<blockquote type=\"cite\"><p>On Monday, Carlo wrote:</p><br><blockquote type=\"cite\">x"
+                + "</blockquote></blockquote>",
+            "<blockquote type=\"cite\">" + PanePageTests.appleMailReplyBody + "</blockquote>",
+        ]
+        for html in unchanged {
+            XCTAssertEqual(QuoteBars.attributed(html), html)
+        }
+    }
+
+    /// The line's rule has one line a level: at the top the first colour,
+    /// as before, byte for byte; inside one quote the second, inside two
+    /// the third, each in the page's palette.
+    func testTheLinesRuleHasOneLineALevel() {
+        let quote = QuoteBars.quote
+        func line(_ selector: String, _ colour: String) -> String {
+            "\(selector) { padding-left: 5px !important; "
+                + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
+        }
+        for (scope, palette) in [("#bm", QuoteBars.inverted), (".bm-light", QuoteBars.colours),
+                                 (".bm-own", QuoteBars.dark)] {
+            XCTAssertEqual(QuoteBars.attributionCSS(in: scope, palette: palette).components(separatedBy: "\n"),
+                           [line("\(scope) .bm-attribution", palette[0]),
+                            line("\(scope) \(quote) .bm-attribution", palette[1]),
+                            line("\(scope) \(quote) \(quote) .bm-attribution", palette[2])], scope)
+        }
+        XCTAssertEqual(QuoteBars.attributionCSS(in: "#bm", palette: QuoteBars.inverted)
+                        .components(separatedBy: "\n").dropFirst().first,
+                       "#bm \(quote) .bm-attribution { padding-left: 5px !important; "
+                       + "border-left: 1px solid rgb(0, 144, 230) !important; color: rgb(0, 144, 230) !important; }")
+    }
+
+    /// The nested reply on its own page, in a stack and on paper: both
+    /// lines marked, and each page's rule for the second level's line in
+    /// its palette.
+    func testTheNestedReplysPagesHaveTheSecondLevelsLine() throws {
+        let m = letter(Self.gmailNested)
+        let marked = QuoteBars.attributed(Self.gmailNested)
+        XCTAssertEqual(LetterScheme.of(html: Self.gmailNested), .inverted)
+        let page = try XCTUnwrap(PanePage.letter(m, style: style))
+        XCTAssertTrue(page.contains(marked), page)
+        XCTAssertTrue(try sheet(page).contains("#bm \(QuoteBars.quote) .bm-attribution { padding-left: 5px !important; "
+                                               + "border-left: 1px solid \(QuoteBars.inverted[1]) !important;"))
+        XCTAssertEqual(PanePage.stackBody(m).html, marked)
+        let stack = ConversationDocument.html(
+            entries: [.init(id: "1/2", sender: "Jane <j@example.com>", date: Date(timeIntervalSince1970: 0),
+                            body: PanePage.stackBody(m), isExpanded: true, preview: "")],
+            inset: 20, bodyPointSize: 17, lineHeight: 1.4)
+        XCTAssertTrue(try sheet(stack).contains(".bm-html \(QuoteBars.quote) .bm-attribution "
+                                                + "{ padding-left: 5px !important; "
+                                                + "border-left: 1px solid \(QuoteBars.inverted[1]) !important;"))
+        let printStyle = PrintPage.Style(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 18,
+                                         bodyPointSize: 17, lineHeight: 1.41)
+        let paper = PrintPage.letter(m, style: printStyle, size: { "\($0) bytes" })
+        XCTAssertTrue(paper.contains(marked), paper)
+        XCTAssertTrue(try sheet(paper).contains("#bm \(QuoteBars.quote) .bm-attribution { padding-left: 5px !important; "
+                                                + "border-left: 1px solid \(QuoteBars.colours[1]) !important;"))
     }
 
     /// A stranger's letter cannot make the reading slow: one of 20,000

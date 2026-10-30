@@ -79,35 +79,78 @@ final class ListLikeMailTests: XCTestCase {
     }
 
     private func row(_ id: String, preview: String = "", subject: String = "A picture",
-                     files: [Attachment] = [], firstFile: String? = nil) -> MessageSummary {
+                     files: [Attachment] = [], fileNames: [String] = []) -> MessageSummary {
         MessageSummary(id: id, mailboxID: "INBOX", sender: "Pia Photo <pia@example.com>",
                        subject: subject, preview: preview,
                        date: Date(timeIntervalSince1970: 1_790_000_000),
                        isRead: true, isFlagged: false, hasAttachment: !files.isEmpty,
-                       attachments: files, firstFileName: firstFile)
+                       attachments: files, fileNames: fileNames)
     }
 
     /// A letter drawn with no words says its file, inline or attached, as
     /// Mail's rows said "Attachment: h-photo.jpg" and "Attachment:
-    /// IMG_0131.jpg"; its first named file where it has more. A picture
-    /// shown by `cid:` is not among the row's `attachments` (B-170), and is
-    /// named by `firstFileName`, as the listing gives it; a row not listed
-    /// from the server, with no `firstFileName`, by its `attachments`.
+    /// IMG_0131.jpg". A picture shown by `cid:` is not among the row's
+    /// `attachments` (B-170), and is named by `fileNames`, as the listing
+    /// gives them; a row not listed from the server, with no `fileNames`,
+    /// by its `attachments`, a file with no name passed over.
     func testALetterWithNoWordsSaysItsFile() {
         XCTAssertEqual(RowPreview.preview(of: row("1/5", files: [file("IMG_0131.jpg")],
-                                                  firstFile: "IMG_0131.jpg"),
+                                                  fileNames: ["IMG_0131.jpg"]),
                                           drawnWithNoWords: true),
                        "Attachment: IMG_0131.jpg")
-        XCTAssertEqual(RowPreview.preview(of: row("1/6", firstFile: "h-photo.jpg"),
+        XCTAssertEqual(RowPreview.preview(of: row("1/6", fileNames: ["h-photo.jpg"]),
                                           drawnWithNoWords: true),
                        "Attachment: h-photo.jpg")
         XCTAssertEqual(RowPreview.preview(of: row("1/8", files: [file("IMG_0131.jpg")]),
                                           drawnWithNoWords: true),
                        "Attachment: IMG_0131.jpg", "a row not listed from the server")
-        XCTAssertEqual(RowPreview.preview(of: row("1/7", files: [file(""), file("Menu.pdf"),
-                                                                   file("Map.jpg")]),
+        XCTAssertEqual(RowPreview.preview(of: row("1/7", files: [file(""), file("Menu.pdf")]),
                                           drawnWithNoWords: true),
                        "Attachment: Menu.pdf")
+    }
+
+    /// A letter of two files and no words says every name, as Mail's row
+    /// said "Attachments: IMG_0182.jpg, R6 B-182 two.pdf" (round
+    /// r6-p-copy, 2026-10-29): "Attachments:", the names in the letter's
+    /// order, joined by a comma and a space; three the same; from the
+    /// listing's names, a `cid:` picture among them, or a row's
+    /// `attachments`, a file with no name passed over.
+    func testALetterOfTwoFilesSaysEveryName() {
+        XCTAssertEqual(RowPreview.preview(of: row("1/9", files: [file("IMG_0182.jpg"), file("R6 B-182 two.pdf")],
+                                                  fileNames: ["IMG_0182.jpg", "R6 B-182 two.pdf"]),
+                                          drawnWithNoWords: true),
+                       "Attachments: IMG_0182.jpg, R6 B-182 two.pdf")
+        XCTAssertEqual(RowPreview.preview(of: row("1/10", files: [file("Map.jpg")],
+                                                  fileNames: ["h-photo.jpg", "Map.jpg", "Menu.pdf"]),
+                                          drawnWithNoWords: true),
+                       "Attachments: h-photo.jpg, Map.jpg, Menu.pdf")
+        XCTAssertEqual(RowPreview.preview(of: row("1/11", files: [file(""), file("Menu.pdf"), file("Map.jpg")]),
+                                          drawnWithNoWords: true),
+                       "Attachments: Menu.pdf, Map.jpg", "a row not listed from the server")
+        XCTAssertEqual(RowPreview.preview(of: row("1/12", preview: "Two files.",
+                                                  fileNames: ["a.jpg", "b.pdf"]),
+                                          drawnWithNoWords: false),
+                       "Two files.", "its words where it has any")
+    }
+
+    /// The names come from the structure in its order, the `cid:` picture
+    /// among them; a letter of words alone has none.
+    func testTheStructureGivesEveryNameInItsOrder() {
+        let raw = "Content-Type: multipart/mixed; boundary=\"M\"\r\n\r\n--M\r\n"
+            + "Content-Type: multipart/related; boundary=\"R\"\r\n\r\n--R\r\n"
+            + "Content-Type: text/html; charset=utf-8\r\n\r\n<img src=\"cid:p1@example.net\">\r\n--R\r\n"
+            + "Content-Type: image/jpeg; name=\"h-photo.jpg\"\r\nContent-ID: <p1@example.net>\r\n"
+            + "Content-Disposition: inline; filename=\"h-photo.jpg\"\r\n\r\nx\r\n--R--\r\n--M\r\n"
+            + "Content-Type: image/jpeg; name=\"IMG_0182.jpg\"\r\n"
+            + "Content-Disposition: attachment; filename=\"IMG_0182.jpg\"\r\n\r\nx\r\n--M\r\n"
+            + "Content-Type: application/pdf; name=\"R6 B-182 two.pdf\"\r\n"
+            + "Content-Disposition: attachment; filename=\"R6 B-182 two.pdf\"\r\n\r\nx\r\n--M--\r\n"
+        let structure = MIMEDecoder.parseStructure(Data(raw.utf8))
+        XCTAssertEqual(MIMEDecoder.fileNames(in: structure), ["h-photo.jpg", "IMG_0182.jpg", "R6 B-182 two.pdf"])
+        XCTAssertEqual(MIMEDecoder.listedAttachments(in: structure).map(\.filename).filter { !$0.isEmpty },
+                       ["IMG_0182.jpg", "R6 B-182 two.pdf"], "B-170's list as it was")
+        XCTAssertEqual(MIMEDecoder.fileNames(in: MIMEDecoder.parseStructure(Data("Content-Type: text/plain\r\n\r\nHi".utf8))),
+                       [])
     }
 
     /// Its words where it has any; nothing where its preview has not come
@@ -152,7 +195,8 @@ final class ListLikeMailTests: XCTestCase {
     /// Listed, their previews asked for as the list asks, and drawn by the
     /// list's rule: "Attachment: IMG_0131.jpg" and "Attachment:
     /// h-photo.jpg", as Mail's rows said (C-3a). A letter with words says
-    /// them. The letter with no words is answered empty with nothing of it
+    /// them. Round r6-p-copy's letter of two files and no words says
+    /// "Attachments: IMG_0182.jpg, R6 B-182 two.pdf", as Mail's row did. The letter with no words is answered empty with nothing of it
     /// fetched, and the `cid:` picture is still no file of the row's
     /// `attachments` (B-170).
     @MainActor
@@ -194,8 +238,19 @@ final class ListLikeMailTests: XCTestCase {
             + "Content-Type: image/jpeg; name=\"roses.jpg\"\r\n"
             + "Content-Disposition: attachment; filename=\"roses.jpg\"\r\n"
             + "Content-Transfer-Encoding: base64\r\n\r\n\(jpeg)\r\n--W--\r\n"
+        // Round r6-p-copy's letter of two files and no words (B-182, fixed
+        // again): Mail's row said "Attachments: IMG_0182.jpg, R6 B-182
+        // two.pdf".
+        let two = header("R6 B-182 two")
+            + "Content-Type: multipart/mixed; boundary=\"T\"\r\n\r\n--T\r\n"
+            + "Content-Type: image/jpeg; name=\"IMG_0182.jpg\"\r\n"
+            + "Content-Disposition: attachment; filename=\"IMG_0182.jpg\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\n\(jpeg)\r\n--T\r\n"
+            + "Content-Type: application/pdf; name=\"R6 B-182 two.pdf\"\r\n"
+            + "Content-Disposition: attachment; filename=\"R6 B-182 two.pdf\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQK\r\n--T--\r\n"
         var uids: [UInt32] = []
-        for (i, raw) in [attached, shown, worded].enumerated() {
+        for (i, raw) in [attached, shown, worded, two].enumerated() {
             let letter = Server.Letter(from: Server.carlo, to: [Server.owner], subject: "\(i)",
                                        date: Server.newestDate.addingTimeInterval(Double(i + 1) * 60),
                                        text: "", messageID: "<picture\(i)@example.net>")
@@ -237,8 +292,9 @@ final class ListLikeMailTests: XCTestCase {
         XCTAssertEqual(try drawn(uids[0]), "Attachment: IMG_0131.jpg")
         XCTAssertEqual(try drawn(uids[1]), "Attachment: h-photo.jpg")
         XCTAssertEqual(try drawn(uids[2]), "The roses are out.")
+        XCTAssertEqual(try drawn(uids[3]), "Attachments: IMG_0182.jpg, R6 B-182 two.pdf")
         let shownRows = try uids.map { try XCTUnwrap(list.shownRow(of: try listedRow($0))) }
-        XCTAssertEqual(list.toDraw(shownRows).map(\.id), [], "none of the three asked for again")
+        XCTAssertEqual(list.toDraw(shownRows).map(\.id), [], "none of the four asked for again")
     }
 
     /// "No Subject" for a letter with none, in the grey; a subject white.
@@ -270,6 +326,19 @@ final class ListLikeMailTests: XCTestCase {
         XCTAssertTrue(cell.contains("private func drawSubject() { subjectLabel.textColor = "
                                     + "subjectIsGrey ? grey : Theme.primaryText }"))
         XCTAssertFalse(cell.contains("(no subject)"))
+    }
+
+    /// The reading pane's header of a letter with no subject says "No
+    /// Subject", as Mail's header said it (round r6-p-copy, 2026-10-29),
+    /// in the subject's white: its words `RowPreview.subject`'s, its colour
+    /// not set by them. A subject as before.
+    func testThePanesHeaderSaysNoSubjectAsMailsDoes() throws {
+        let header = flat(try source("UI/MessageHeaderView.swift"))
+        XCTAssertTrue(header.contains("subjectLabel.text = RowPreview.subject(m.subject)"))
+        XCTAssertFalse(header.contains("(no subject)"))
+        XCTAssertFalse(header.contains("subjectIsGrey"), "white, as Mail's header's")
+        XCTAssertEqual(RowPreview.subject(""), "No Subject")
+        XCTAssertEqual(RowPreview.subject("Lunch"), "Lunch")
     }
 
     // MARK: - B-183, Drafts in Edit mode
