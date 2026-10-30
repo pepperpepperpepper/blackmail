@@ -11392,6 +11392,23 @@ checks below is left as not needed, not open, and none is worth a round.*
       nothing erased. Not run: 3's Block All Remote Content line, 5's
       second turn on and the light letter's turn, and 5a. Nothing was
       sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (6457f0f), round
+      r6-r-copy, Mail cited from round r6-p-copy: 0 but the PDF letter and
+      the stack, 1, 2, 3 but its Block All Remote Content line, 4 but the
+      PDF letter, 5's first turn on and its turn off, 6 but the PDF letter,
+      and 7. In 1 "true, changed" and "colour filter supported true", once.
+      In 2 the photos inverted as Mail's, (677, 552) rgb(120, 89, 38). In 3
+      the page white and its words black, its pictures inverted as Mail's,
+      the cube rgb(128, 160, 190) from rgb(127, 96, 66), nothing moved. In
+      4 the plain letter as at c72b3af. In 5 on, followed, as a fresh open;
+      off, the photos left hue-turned, the sky rgb(29, 87, 148), as at
+      c72b3af: FAIL (KNOWN_ISSUES B-179); a second run the same, and in it
+      the stack's letter across the same turns hue-turned too, natural once
+      closed and opened again. In 6 the photos, light and plain letters as
+      at c72b3af, but for the photos page open across the off (5). In 7
+      Smart Invert off and the letters put in the Trash, nothing erased.
+      Not run: 3's Block All Remote Content line, 4a, 5's second turn on
+      and the light letter's turn, and 5a. Nothing was sent.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11601,14 +11618,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       `application/pdf` whose bytes are not a PDF; "R6 B-185 large",
       words, a PDF and a photo making it over 5 MB; a letter with no
       subject; and four plain letters, each photo sent inline with no
-      markup naming it: "R6 B-185 photo", words and a portrait phone
-      photo after them, as round r6-q-copy made it; "R6 B-185 small
+      markup naming it: "R6 B-185 photo", words and a landscape photo
+      of 1600 by 1200 after them, as rounds r6-q-copy and r6-r-copy
+      made it; "R6 B-185 small
       photo", the same with a photo about 300 by 200 pixels; "R6 B-185
       photo offline", another like the first, opened in neither app
       before 3b;
-      and "R6 B-185 photo alone", a portrait phone photo and nothing
-      else. The host APPENDs each, read, to "Notes", noting
-      each UID from its APPENDUID; it stops if one has none. Print
+      and "R6 B-185 photo alone", a portrait phone photo of 3024 by
+      4032 and nothing else. The host APPENDs each, read, to "Notes",
+      noting each UID from its APPENDUID; it stops if one has none. Print
       preview only: Cancel each time, nothing printed, nothing sent.
       Mail beside Blackmail.
       1. *The letter with words and a PDF:* Reply, Print: the header,
@@ -11645,13 +11663,15 @@ checks below is left as not needed, not open, and none is worth a round.*
          page; the `cid:` picture letter its header and the picture,
          one page (Mail's blank second page not copied).
       3. *"R6 B-185 photo"*, words with an inline photo after them
-         (`Content-Disposition: inline`, no markup naming it): the
-         words on the first sheet, the photo, taller than what they
-         leave of it, from the top of the second, "Page 1 of 2" and
-         "Page 2 of 2", about 81% of the sheet's width, its shape kept,
-         as Mail's preview; the words the same to the pixel as at
-         c72b3af. The photo cut across two sheets, a blank sheet, or no
-         photo: a FAIL. Screenshots of both previews.
+         (`Content-Disposition: inline`, no markup naming it): the words on
+         the first sheet, the same to the pixel as at c72b3af, and the
+         photo right under them on the same sheet, at the words' left, 496
+         by 372 points, about 81% of the sheet's width (about 131 of the
+         preview's 162 view px), its shape kept, "Page 1 of 1". Mail's
+         preview has it stretched taller than wide on a second sheet of its
+         own, "Page 2 of 2": the difference, not copied (KNOWN_ISSUES
+         B-185). The photo narrower, cut across two sheets, stretched, a
+         blank sheet, or no photo: a FAIL. Screenshots of both previews.
       3a. *"R6 B-185 small photo":* Blackmail's photo under the words
          on the first sheet, at its own size. Mail's preview beside it:
          written down whether Mail puts it under the words or on a
@@ -11694,6 +11714,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       (KNOWN_ISSUES B-185). In 4 each letter's files in the pane as
       before. In 5 the letters put in the Trash, nothing erased. Not run:
       1a to 1e. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (6457f0f), round
+      r6-r-copy: 1, 2, 3 on its plain letter of words and the photo, 4 and
+      5, print preview only, Cancel each time, nothing printed (the log's
+      `PRINT closed done=false` four times). In 1 "Page 1 of 2" and "Page 2
+      of 2", the same to the pixel as at c72b3af, `PRINT ready pages=2`. In
+      2 both as before, one page each. In 3 the words as at c72b3af and the
+      photo right under them on the same sheet, its shape kept, "Page 1 of
+      1", but 399 points wide, 65% of the sheet, not 496: FAIL
+      (KNOWN_ISSUES B-185). Mail's photo, on its second sheet, stretched
+      taller than wide: not copied. In 4 each letter's files in the pane as
+      before. In 5 the letters put in the Trash, nothing erased. Not run:
+      1a to 1e, 3a to 3c. Nothing was sent.*
 
 - [ ] **B-186, the Connection log opens at its newest line.** On the
       test iPad, from a build of the `bm-fix-j1` worktree (branch

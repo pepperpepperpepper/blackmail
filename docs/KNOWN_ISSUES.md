@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41393,7 +41393,9 @@ complete".
   alone: worked out from WebKit's source and the four cases, not seen.
   If the photos are still hue-turned after the switch goes off, the
   next step is the page drawn again from what the pane holds, at the
-  place it was scrolled to.
+  place it was scrolled to. Seen 2026-10-30 (round r6-r-copy, below):
+  the element's invert drew, as Mail's; the photos stayed hue-turned
+  after the switch went off.
 - A sender's rule that names a picture by its parent (`td > img`) or
   its place among its siblings no longer matches it under the switch.
   Where that changes the picture's place or size, or, since the
@@ -41470,6 +41472,80 @@ skipped, none failing. The release build for the iPad: "Build complete".
   changes under the switch.
 - A rule by `~` on an element further along than the one next to the
   picture is not read.
+
+**Seen on the test iPad, 2026-10-30, on 6457f0f**, int21 with the
+pictures' change and its correction, round r6-r-copy, Mail 16.5.1 cited
+from round r6-p-copy, not opened again, Dark Mode, three panes; the
+round's other letters B-185's. 27 of its items passed, each borne out by
+its shots, and every layout comparison was unchanged: the rows, the
+Mailboxes and the toolbars, the light letter's lines and its pictures'
+boxes under the switch, and the log's view, which opened at its newest
+line each time. In the check's steps: 1, the switch fired, "pane:
+isInvertColorsEnabled true, changed" at 01:55:27.956 as the app came
+back, and "pane: colour filter supported true" once, 42 ms after it. 2,
+the photos letter's photos inverted, as Mail's and as at c72b3af: (677,
+552) rgb(120, 89, 38) against 255 less OFF, rgb(120, 92, 38), the photo
+a mean of 2.4 from the inversion; the page round them white and its
+words black. 3, the light letter's pictures inverted, as Mail's, by the
+element round each: the cube rgb(127, 96, 66) off and rgb(128, 160, 190)
+on, the inline photo's stripe rgb(1, 120, 255) and rgb(254, 135, 0),
+Mail's the same; the web picture a mean of 12.5 from the inversion, the
+inline photo 0.1, where at c72b3af both stayed natural. The page white,
+its words black and its link the sender's rgb(0, 122, 255), as before;
+every line and each picture's box where it was with the switch off:
+nothing moved. 4, the plain letter the same to the pixel as at c72b3af.
+5, its first turn on: the photos letter open, scrolled to its second
+photo, drawn as a fresh open under the switch, at the same place (a mean
+of 0.284 against a fresh open, iOS's home bar alone). 6, with the switch
+off the photos, light and plain letters the same to the pixel as at
+c72b3af, the JPEGs' insides left out; the light letter opened after the
+switch went off the same as before it, no element left in it; no colour
+filter line after the off. 7, Smart Invert off again, its settings key
+for key as before the check, and the letters in the Trash, nothing
+erased. Not compared with Mail, as before: the pane round a light letter
+white, Mail's rgb(227, 227, 225) (D-010), and the link. Not run: 0's PDF
+letter and stack, 3's Block All Remote Content line, 4's PDF letter, 4a,
+5's second turn on and its turns with the light letter, and 5a. Nothing
+was sent.
+
+**Failed, steps 5 and 6.** Smart Invert turned off with the photos
+letter open, scrolled to its second photo: as at c72b3af, to the same
+numbers. No reload and no scroll, the words white on black again, but
+the photos hue-turned: the label black with its words rgb(255, 151,
+151), the sky rgb(29, 87, 148), the hill rgb(125, 128, 85), where with
+the switch off they are white, rgb(164, 60, 60), rgb(126, 184, 245) and
+rgb(131, 134, 92); a mean of 15.710 against the shot taken before the
+switch, one cluster, the photo's box; the same 30 s later, and the first
+photo too after a scroll to the top (step 6's part, 15.712, every
+cluster in the photos' boxes). The log one "pane: isInvertColorsEnabled
+false, changed", written as Blackmail came back to the front, which is
+when the switch's off runs, and no page built after it. So the drawing
+anew of "Fixed again 2026-10-30, after the test iPad (r6-q-copy)", point
+1, did not take. A second run, from a fresh launch with the letters made
+again: the same, to the pixel.
+
+**What draws anew, seen in the second run.** In a conversation's stack,
+a letter with a photo opened with the switch off, then the switch on and
+off with it open: its photo hue-turned too, a mean of 15.273. The letter
+then closed by a tap on its line, its body not drawn for painted frames,
+and opened again, no page built: its photo natural, a mean of 0.000
+against its shot before the switch. The photos letter opened again, its
+page built anew: natural, 0.000. So a picture taken out of what WebKit
+draws (`display: none`) for at least one painted frame and then put back
+draws natural, and so does a page built anew.
+
+**Why**, read in the source with what the iPad showed.
+`bmRepaintPictures` (`ConversationDocument`) does pick the photos, whose
+computed filter is the pane's second invert (`#bm img`, `PanePage`), but
+changes their `display` and puts it back in one turn of the script, a
+layout and no painted frame between; WebKit goes on drawing each without
+its own filter, under the page's single invert. Why WebKit keeps the old
+drawing across that is not proven. To fix: each such picture `display:
+none !important`, its `style` attribute put back to the byte after two
+animation frames (`requestAnimationFrame`), and the page put back where
+it was; or, failing that, the page shown built anew as the switch goes
+off (`MessageDetailViewController.followSmartInvert`, by
+`restyleIfOwed`), its place put back once it has loaded.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
@@ -42148,7 +42224,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words on a sheet of its own, and a letter that is only an attached picture as its header alone, and so does Blackmail now
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy). A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, but for the width of that photo, found narrower on the test iPad 2026-10-30 (r6-r-copy), and Mail's stretching it, not copied
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -42187,6 +42263,9 @@ Not copied:
 
 - Mail's blank second page for the `cid:` picture letter: a fault of
   its paging that wastes a sheet.
+- Mail's plain letter's landscape photo stretched taller than wide,
+  and the second sheet that takes: Blackmail keeps a photo's shape
+  (round r6-r-copy, below).
 - Mail's wider margins and larger header (C-2b, in passing): the
   paper's layout, said in B-110.
 
@@ -42508,12 +42587,15 @@ failing. The release build for the iPad: "Build complete".
 
 - Whether WebKit's print keeps the break before the photos, and the
   photo's width and place on paper: from the CSS, not seen on the
-  iPad (TODO B-185).
+  iPad (TODO B-185). Seen 2026-10-30 (round r6-r-copy, below), the
+  break gone by then: under the words, 399 points wide, not 496.
 - Mail's photo on a sheet of its own may be WebKit moving a picture
   taller than what is left of the first sheet whole to the next
   (`adjustForUnsplittableChild`), and not a break: a small photo after
   a few words may print under them in Mail, where here it starts the
-  next sheet. Not seen.
+  next sheet. Not seen. Measured 2026-10-30 (round r6-r-copy, below):
+  Mail stretches the round's photo to about 640 points tall, more than
+  the words leave of the first sheet.
 - A photo the print's loader cannot fetch, offline and not kept on the
   iPad: a blank where it would be, perhaps a blank sheet. Not seen.
 - An HTML letter's inline photo that its markup does not name prints
@@ -42526,11 +42608,15 @@ failing. The release build for the iPad: "Build complete".
 **Corrected again 2026-10-30, before the next check.** The break
 before the photos was not needed for what the round saw, and cost
 paper. The
-round's photo, a portrait phone photo of 3024 by 4032, prints 496
-points wide and about 661 tall; the words left about 540 points of the
-first sheet, in Mail's as in Blackmail's (the words ending near 214 of
-756), and WebKit moves a picture it cannot cut whole to the next sheet,
-so the photo goes to the second with no break. Mail prints its body's
+round's photo was taken for a portrait phone photo of 3024 by 4032,
+printing 496 points wide and about 661 tall, more than the about 540
+points the words left of the first sheet, in Mail's as in Blackmail's
+(the words ending near 214 of 756), so that WebKit, which moves a
+picture it cannot cut whole to the next sheet, would put it on the
+second with no break. Wrong: the round's photo is 1600 by 1200,
+landscape, with no EXIF orientation, the very photo said next to fit
+under the words; Mail's second sheet comes from its stretching the
+photo (round r6-r-copy, below). Mail prints its body's
 web view, most likely with no break of its own. With the break, a
 short letter with a small or landscape photo, one of 1600 by 1200
 printing 496 by 372, took two sheets where one holds it, and a photo
@@ -42562,6 +42648,74 @@ taken out: 8 failures in 1 test, each an assertion's. The full suite:
   does, and at what width: not seen (TODO B-185, 3a).
 - A photo the print's loader cannot fetch: a blank where it would be,
   now with no sheet of its own. Not seen (TODO B-185, 3b).
+
+**Seen on the test iPad, 2026-10-30, on 6457f0f**, round r6-r-copy,
+Print's preview only, Cancel each time, nothing printed (the log's
+`PRINT ready`, `PRINT panel over=true` and `PRINT closed done=false`
+four times each, no `PRINT pdf`, `PRINT words` or `PRINT ended` line);
+Mail cited from rounds r6-n-compare and r6-q-copy, not opened again. 1:
+the letter of words and a PDF, "Page 1 of 2" and "Page 2 of 2", the
+first sheet under the header's rule and the second the same to the pixel
+as at c72b3af, `PRINT ready pages=2`. 2: the attached picture's letter
+its header alone, its four lines where they were, nothing under the rule
+and no "no text" line, "Page 1 of 1", as Mail's; the `cid:` picture
+letter its header and the picture once, 68.0 view px wide, the same to
+the pixel as at c72b3af, "Page 1 of 1". 3, on the round's plain letter
+of words and an inline photo with no `Content-ID`: the words the same to
+the pixel as at c72b3af, then the photo right under them on the same
+sheet, no blank and no break, at the words' left, its shape kept, 4:3,
+not stretched, turned or cut, "Page 1 of 1", `PRINT ready pages=1`, as
+"Corrected again" above intends. 4: each letter's files drawn in the
+pane as before. 5: the letters in the Trash, nothing erased. Not run: 1a
+to 1e, 3a to 3c. Nothing was sent.
+
+**Failed, step 3: the photo's width.** 105.6 view px of the sheet's 162,
+about 399 by 301 points, 65% of the sheet, where "Fixed again
+2026-10-30, after the test iPad (r6-q-copy)", point 3, says no wider
+than 496 points, about 81%, as Mail's 131.6 view px. A second run from a
+fresh launch, the letter made again: the same to the tenth of a pixel.
+Cause, measured on the preview and read in the source: `photoStyle`
+(`PrintPage`) gives `max-width: 496px` and `max-height: 720px`, CSS
+pixels taken for points. The page prints through the print formatter of
+a web view 540 by 720 points (`LetterPrint`), and WebKit's print lays
+the page out 1.25 times wider than that and shrinks it to fit, so one
+CSS pixel prints as 0.8 points: the 496 px cap as 397 points, the 720 px
+one as 576. The `cid:` picture letter's picture, `width=320`, prints
+68.0 view px, 257 points, the same 0.8. The words and their place are
+not touched by it. To fix: the caps in the print layout's own pixels,
+`max-width` 91.85% of the column (496 of 540, whatever the shrink) and
+`max-height` 900px (720 over 0.8), or 620px and 900px from a named
+constant for WebKit's factor; then this photo 496 by 372 points, about
+131.3 view px wide, still under the words, "Page 1 of 1".
+
+**The round's photo was not a portrait one.** The photo of rounds
+r6-q-copy and r6-r-copy (`h-photo.jpg`, sent this round as
+`IMG_0185.jpg`) is 1600 by 1200, landscape, with no EXIF orientation. "Corrected again" above, the
+comment on `photoImages` in `PrintPage` and TODO B-185 called it a
+portrait phone photo, the entry one of 3024 by 4032: wrong. Corrected
+above and in TODO B-185; the comment still said so at 6457f0f.
+
+**Differing from Mail, not copied.** Measured on round r6-q-copy's crop
+of Mail's preview, its "Page 2 of 2": Mail 16.5.1 draws this landscape
+photo in a box taller than wide, about 1,317 by 1,687 pixels of the
+crop, width over height 0.78 where the photo's is 1.33, its stripes at
+the same fractions of the box as in the photo. So Mail stretches it
+about 1.7 times in height, to about 640 points tall at its 496 wide,
+which cannot fit under the words: that is why Mail's preview has it on a
+sheet of its own. Blackmail keeps a photo's shape, by decision, no
+picture distorted, as it keeps one sheet for the `cid:` picture letter
+where Mail adds a blank one, and its own margins where Mail's are wider
+(B-110). At Mail's width, 496 by 372 points, this photo fits under the
+words, so "Page 1 of 1" where Mail's has two is the expected difference,
+not copied.
+
+**Not covered.**
+
+- Mail's preview was not shot again this round; its stretching is
+  read from round r6-q-copy's crop alone. Mail on 18: not seen.
+- A portrait photo, a small one, one offline and a photo alone (TODO
+  B-185, 3a to 3c): not made this round.
+- The preview stands in for paper: nothing was printed.
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 
