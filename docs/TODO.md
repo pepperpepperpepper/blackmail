@@ -11460,6 +11460,32 @@ checks below is left as not needed, not open, and none is worth a round.*
       the letters put in the Trash, nothing erased. Not run: 3's Block All
       Remote Content line, 4, 4a, 5's second turn on, the light letter's
       turn and the stack's, 5a and 5b. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (41062c5), round
+      r6-v-combo, Mail cited from round r6-p-copy: 0 but the plain and PDF
+      letters, 1, 2, 3 but its Block All Remote Content line, 5 but its
+      second turn on, its plain letter's off and a recording, 6 but the
+      plain and PDF letters, and 7. In 1 "true, changed" and "colour filter
+      supported true", once. In 2 the photos inverted as Mail's. In 3 the
+      page white and its words black, its pictures inverted as Mail's,
+      nothing moved. In 5 the photos letter on, as a fresh open; off,
+      "Smart Invert off, page built anew (2 pictures)",
+      "isInvertColorsEnabled false, page built" and "page built anew put
+      back (true)" in that order, no "still lifted" line and no "Loading…",
+      the still lifted 32 to 71 ms after it was laid, and the photos
+      natural at 3 s, 5 s, 20 s and at the top, the sky rgb(126, 184, 245),
+      the scroll kept and the line bands unchanged; 4 small clusters inside
+      the large photo, its two decodings already seen (6), its colours
+      natural, nothing hue-turned (KNOWN_ISSUES B-179, "Seen on the test
+      iPad, 2026-10-30, on 41062c5"). The stack, both its letters open, and
+      the light letter across the same turns: inverted under the switch,
+      nothing moved, and after the off the same lines in the same order and
+      natural at 3 s and 5 s, the stack's letters still open. 5's off with
+      the photos letter, the light letter's turns and the stack's are now
+      seen whole. In 6 the photos and light letters as at 3671253, the
+      stack as at 6457f0f. In 7 Smart Invert off and the letters put in the
+      Trash, nothing erased. Not run: 3's Block All Remote Content line, 4,
+      4a, 5's second turn on, its plain letter's off and a recording, 5a
+      and 5b. Nothing was sent.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11835,6 +11861,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       copy, the rest not copied (KNOWN_ISSUES B-185, "Seen on the test
       iPad, 2026-10-30, Mail's and Blackmail's prints as PDF"). 3a and
       3c are now seen whole. Not run: 1a to 1e, 3b, and 4.*
+      *Seen on the test iPad 2026-10-30 on int21 (41062c5), round
+      r6-v-combo: 3d, 3e and 5, H and G printed to PDF from the print
+      panel's Share and measured, with round r6-u-pdf's A, C, D and E as
+      controls; Mail cited from round r6-u-pdf, not opened again; nothing
+      printed (the log's `PRINT closed done=true` six times, each 1.4 to
+      1.6 s after its Save, no tap on Print). In 3d H's photo under its
+      words on sheet 1 at 36, 216, 496 by 372 points, whole, as its A's,
+      "Page 1 of 1". In 3e G's words on sheet 1, every line break kept, the
+      photo whole at the top of sheet 2, 496 by 661.6 points, and "Sent
+      from my iPhone" right under it in the words' font and size, 13.6
+      points, once; the pane as before, the line between "Gus" and the
+      photo. A, C, D and E as at 3671253 but the Date line. Mail's crop and
+      cut not copied, by the owner's ruling (KNOWN_ISSUES B-185). 3d and 3e
+      are now seen whole. In 5 the letters put in the Trash, nothing
+      erased. Not run: 1, 1a to 1e, 2, 3, 3a to 3c, 4, and round r6-u-pdf's
+      F, a control, for the round's minutes. Nothing was sent.*
 
 - [ ] **B-186, the Connection log opens at its newest line.** On the
       test iPad, from a build of the `bm-fix-j1` worktree (branch

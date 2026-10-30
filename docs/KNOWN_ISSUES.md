@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy), seen again there 2026-10-30 (r6-s-copy), the third fix running and the fault with the switch turned off still not fixed, fixed a fourth time after it (r6-s-copy), the page shown built anew at the off. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30, fixed again after it (r6-q-copy) with a light letter's pictures, seen again there 2026-10-30 (r6-r-copy), a light letter's pictures inverted as Mail's and the fault with the switch turned off not fixed, fixed a third time after it (r6-r-copy), seen again there 2026-10-30 (r6-s-copy), the third fix running and the fault with the switch turned off still not fixed, fixed a fourth time after it (r6-s-copy), the page shown built anew at the off, seen again there 2026-10-30 (r6-v-combo), the fault with the switch turned off fixed and seen fixed. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41910,6 +41910,80 @@ none failing. The release build for the iPad: "Build complete".
 - The stack, the light letter and a photo shown full screen across the
   off: not run on the iPad.
 
+**Seen on the test iPad, 2026-10-30, on 41062c5**, int21 with the
+fourth fix, round r6-v-combo, Mail 16.5.1 cited from round r6-p-copy,
+not opened again, Dark Mode, three panes; the round's other letters
+B-185's. Every item passed, each borne out by its shots. In the check's
+steps: 1, the switch fired, "pane: isInvertColorsEnabled true, changed"
+at 12:49:38.660 as the app came back, and "pane: colour filter
+supported true" once, 46 ms after it, none after any off. 2, the photos
+letter's photos inverted, as Mail's, the first photo a mean of 2.4 from
+the inversion, as at 3671253. 3, the light letter's pictures inverted,
+as Mail's: the cube rgb(127, 96, 66) off and rgb(128, 160, 190) on, the
+inline photo's stripe rgb(1, 120, 255) and rgb(254, 135, 0); the web
+picture a mean of 12.5 from the inversion, the inline photo 0.1; the
+page white, its words black and its link rgb(0, 122, 255); every line
+and each picture's box where it was with the switch off, and the page a
+mean of 0.000 against 3671253's: nothing moved. 5, three turns of the
+switch in Settings, each ending off, the app brought back each time:
+
+- *The photos letter*, open and scrolled to its second photo. On: as a
+  fresh open, at the same place (a mean of 0.284, iOS's home bar
+  alone), the second photo inverted. Off: the log's "pane:
+  isInvertColorsEnabled false, changed" at 12:52:29.103, then "pane:
+  Smart Invert off, page built anew (2 pictures)" at .638, "pane:
+  isInvertColorsEnabled false, page built" at .640 and "pane: page
+  built anew put back (true)" at .711; no "still lifted" line and no
+  "drawn anew" line. The photos natural at 3 s, 5 s and 20 s after the
+  app came back, the sky rgb(126, 184, 245) and the hill rgb(131, 134,
+  92), within 1 of the shot before the switch, where r6-s-copy read
+  rgb(29, 87, 148) and rgb(125, 128, 85); the first photo natural too
+  after a scroll to the top (a mean of 0.0 from its colours off). The
+  second photo at y 238.4 to 579.2 before the switch and after it, the
+  scroll kept, every line in the same band; no "Loading…" and no blank
+  pane on any shot.
+- *The stack*, both its letters open. On: its photo inverted. Off: the
+  log's four lines in the same order, 12:58:17.255 to .864, no "still
+  lifted" and no "drawn anew"; at 3 s and 5 s natural, a mean of 0.006
+  and 0.000 against the shot before the switch, no cluster, both
+  letters still open, the photo's box at y 310.0 to 650.8 throughout,
+  the same bands; at the top both letters still open. r6-r-copy's
+  second run read it hue-turned, 15.273.
+- *The light letter.* On: its pictures inverted as in 3, nothing
+  moved. Off: the log's four lines in order, 13:03:34.398 to .966, no
+  "still lifted" and no "drawn anew"; its pictures natural, the web
+  picture 0.0 and the photo 0.5 from their colours off, the page a mean
+  of 0.040 against its shot before, a row 1 px tall across the photo
+  and a few pixels at its caption, as before; nothing left of the
+  elements round its pictures, its bands and boxes unchanged.
+
+The still lifted 32 to 71 ms after it was laid each time, so every 3 s
+shot was judged as it was. Differing, written down, not counted:
+against the shot before the switch, the photos letter a mean of 0.316
+in 4 small clusters, at its top 0.195 in 7, and the stack's top 0.304
+in 4, every one inside the large photo, its label's words and a band
+of it; the label's words rgb(164, 60, 60), as r6-r-copy read them off,
+where the shot before read rgb(134, 49, 49): that photo's two decodings
+already seen (TODO B-179, 6), its colours natural, nothing hue-turned.
+6, with the switch off the photos and light letters a mean of 0.000
+against 3671253's, the stack against 6457f0f's, the JPEGs' insides
+left out; no colour filter line after the off. 7, Smart Invert off
+after each turn and at the end, its settings key for key as before the
+check, and the letters in the Trash, nothing erased. The Mailboxes, the
+toolbars and the log's view unchanged, the view opening at its newest
+line each time. Not copied, as before: the pane round a light letter
+white, Mail's rgb(227, 227, 225) (D-010). Not run: 0's plain and PDF
+letters, 3's Block All Remote Content line, 4, 4a, 5's second turn on
+with the photos letter open, its plain letter's off and a screen
+recording, 5a, 5b, and 6's plain and PDF letters. Nothing was sent.
+
+**Not covered.**
+
+- What shows between the off and the page built anew: no recording
+  was made; the still lifted before the first shot.
+- A photo shown full screen across the off (TODO B-179, 5b), the off
+  at the tap (5a), and the plain letter's off: not run.
+
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
@@ -42587,7 +42661,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's crop of it (read as a stretch until r6-u-pdf), not copied; seen again on PDFs 2026-10-30 (r6-u-pdf): Mail prints an attached photo after the words too, and a text part after a photo after it, to copy; fixed again after them, both copied on paper
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, fixed again after it (r6-q-copy) with a plain letter's inline photo, seen in part again 2026-10-30 (r6-r-copy), the photo narrower than Mail's, fixed again after it, seen in part there again 2026-10-30 (r6-s-copy), the photo at Mail's width. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a plain letter's inline photo, which it prints after the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now, the photo at Mail's width since 2026-10-30, but for Mail's crop of it (read as a stretch until r6-u-pdf), not copied; seen again on PDFs 2026-10-30 (r6-u-pdf): Mail prints an attached photo after the words too, and a text part after a photo after it, to copy; fixed again after them, both copied on paper, seen as PDFs 2026-10-30 (r6-v-combo), both as copied
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -43469,6 +43543,38 @@ out, 12 in 4; the places not handed to the letter, 6 in 1; a letter
 cut short in part let keep its places, 2 in 1. Each failure an
 assertion's. The full suite: 3,264 tests, 6 skipped, none failing.
 The release build for the iPad: "Build complete".
+
+**Seen on the test iPad, 2026-10-30, on 41062c5, as PDF**, round
+r6-v-combo, int21 with the attached photo and the parts in order;
+Mail cited from round r6-u-pdf, not opened again. Six of round
+r6-u-pdf's letters made again, H, G and the controls A, C, D and E,
+each put through Print in Blackmail and saved as PDF from the panel's
+Share (Save to Files, On My iPad, Save), each PDF taken off the iPad,
+the same bytes at both ends, and measured. No tap on Print: the log's
+`PRINT ready`, `PRINT panel over=true` and `PRINT closed done=true` six
+times each, each `done=true` 1.4 to 1.6 s after its Save, and no
+`PRINT ended` or `PRINT words` line; each `PRINT ready` as many sheets
+as its PDF.
+
+- H: one sheet, the words as at 3671253, then the attached photo under
+  them at 36, 216 to 532, 588, 496 by 372 points, whole, as A's; no
+  words after it, no blank sheet, "Page 1 of 1". At 3671253 the words
+  alone.
+- G: sheet 1 the header and the words, each line where it was at
+  3671253 to 0.0 points but the last, every line break and the blank
+  lines between paragraphs kept, ending with "Gus" at 214.1; sheet 2
+  the photo whole at 36, 36 to 532, 697.6, 496 by 661.6, upright, then
+  "Sent from my iPhone" right under it at 697.85, in the words' font
+  and size, 13.6 points, once; no third sheet, "Page 1 of 2" and "Page
+  2 of 2". At 3671253 that line printed under "Gus" on sheet 1. The
+  pane as before, the line between "Gus" and the photo (D-025).
+- A, C, D and E: each the same as at 3671253 but the Date line, C's
+  photo upright as its EXIF says.
+
+Mail's crop and cut of its photos not copied, by the owner's ruling
+("Not copied", above). The letters in the Trash, nothing erased. Not
+run: F, for the round's minutes, and the preview-only steps. Nothing
+was sent.
 
 ## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 
