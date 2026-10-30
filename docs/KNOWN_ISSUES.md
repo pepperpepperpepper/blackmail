@@ -40682,7 +40682,7 @@ conversation's letter's reply and Markup and Reply's, pinned on the
 host; a letter of his from Sent Mail in a stack, which no step has.
 Nothing was sent.
 
-## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
+## B-179 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30, a fault with the switch turned off under an open letter found there 2026-10-30. Under the iPad's Smart Invert a letter's photos came out hue-turned, where Mail's come out inverted with the rest of its page, and a light letter's page came out black with white words, where Mail's is white as on paper; under the switch the pane draws both as Mail's come out, and with it off every page is as it was, byte for byte
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, comparisons C-1a to
@@ -41104,7 +41104,9 @@ complete".
 - A light letter's pictures if the try does not take: the only other
   route seen is an element round each picture carrying the invert, which
   is markup and layout (a `max-width: 100%` picture inside a box that
-  shrinks to fit it). Not built; the owner's to rule on.
+  shrinks to fit it). Not built; the owner's to rule on. The try did
+  not take, seen 2026-10-30 (round r6-q-copy, below), and the owner's
+  ruling of 2026-10-29 has Mail copied.
 - A sender's own white inside a quote is out of the colour filter with
   the quote: white in the render, black on screen under Smart Invert,
   where out of a quote it is light grey, as Mail's would be. Mail's not
@@ -41114,9 +41116,13 @@ complete".
   screen, where it was white; Mail draws the PDF's page there (B-170),
   not comparable. Its sheet icon about rgb(117) or rgb(109), as WebKit
   turns an `svg`'s fill or not, dark on the tile either way; worked out,
-  not seen.
+  not seen. Seen 2026-10-30 (round r6-q-copy): the tile white at (510,
+  320), the rgb(204, 204, 204) the icon's own paper, its ink rgb(120,
+  120, 116).
 - Whether the colour filter takes in the iPad's WebKit at all, and on
-  18: the log's line says so, and the check reads it first.
+  18: the log's line says so, and the check reads it first. On 16.5.1
+  it does, "supported true", seen 2026-10-30 (round r6-q-copy); on 18
+  not seen.
 
 **Corrected 2026-10-30, before the next check.** Three faults in the
 change above, found by reading it and WebKit's source; none seen on
@@ -41189,7 +41195,95 @@ question asked only with rules, 1. Each failure an assertion's.
 - The start's notice may be gone before its answer comes; the page is
   then asked again at the next, as before.
 
-## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
+**Seen on the test iPad, 2026-10-30, on c72b3af**, int21 with the colour
+filter and its correction, round r6-q-copy, Mail 16.5.1 beside it, Dark
+Mode, three panes; the round's other letters B-180's, B-182's, B-185's
+and B-186's. 47 of its items passed, each borne out by a second reading
+of its shots. In the check's steps: 1, the switch fired, "pane:
+isInvertColorsEnabled true, changed" at 22:15:10.9 as the app came back
+after Smart Invert went on, and "pane: colour filter supported true"
+once, 44 ms after it: WebKit's colour filter takes on 16.5.1. 2, the
+photos letter's photos inverted, as Mail's: (677, 552) rgb(121, 91, 38)
+against 255 less OFF, rgb(120, 92, 38), the photo's box a mean of 2.4
+from the inversion and every pixel nearest it, where at 7803dbb they
+were hue-turned, rgb(187, 158, 105); the page round them white and its
+words black, as Mail's. The second photo inverted too, its label a black
+box with cyan words, as Mail's, where it was a white box with dark teal
+words. The pane round the letter white, Mail's rgb(227, 227, 225) (not
+copied). 3, the light letter's page white, its words black and its link
+the sender's rgb(0, 122, 255), as before; its pictures natural (below).
+4, the plain letter the same to the pixel as at 7803dbb, as Mail's. The
+PDF letter's tile white at (510, 320), as at 7803dbb, not the rgb(204,
+204, 204) worked out, which is the sheet icon's own paper; the icon's
+ink grey, rgb(120, 120, 116), where it was black; not comparable, as
+Mail draws the PDF's page there (B-170). 4a, its two letters not made;
+in their place the HTML quote letter and the Gmail reply to a reply
+(B-180), beside Mail: the ground white and the words black, the first
+level's bar and words rgb(64, 165, 13), Mail's to the unit, no quoted
+words white on white, every line where it is with the switch off; levels
+two and three rgb(255, 55, 5) and rgb(168, 38, 136), 18.6's shades,
+where Mail 16.5.1's are rgb(191, 55, 31) and rgb(207, 46, 167), not a
+difference to fix; Gmail's nested "wrote:" line at the second level with
+a bar of its own, as Mail's. 6, with the switch off the photos, PDF,
+HTML and plain letters the same to the pixel as at 7803dbb, and a page
+built after the switch went off the same; no colour filter line in the
+log saved at the end. 7, Smart Invert off again, as before the check,
+and the letters in the Trash, nothing erased. Not run: 3's Block All
+Remote Content line, 5's second turn on and its turn with the light
+letter, and 5a. Nothing was sent.
+
+**Failed, step 5.** Smart Invert turned off with the photos letter open,
+scrolled to its second photo. Turned on, the page followed, its photos
+inverted as on a fresh open, at the same place. Turned off: no reload
+and no scroll, the words white on black again, but both photos stayed
+hue-turned, the half turn of OFF at every point measured: the sky
+rgb(29, 87, 148) where it is rgb(126, 184, 245), the hill rgb(125, 128,
+85), the label black with its words rgb(255, 153, 153); still so after a
+scroll to the top, and drawn right when the letter was opened again. So
+step 6 failed with it. A second run, from a fresh launch: the same, the
+same to the pixel as the round's shot, still so 3.5 minutes later; the
+log one "pane: isInvertColorsEnabled false, changed" and no pane line
+after it. In a conversation's stack taken through the same turns, the
+older letter opened in the same page after the switch went off, its
+photo drawn first then, came out natural: the script did take both
+classes off. Cause, read in the source: a picture drawn while the switch
+was on keeps being drawn without its own CSS filter, the pane's second
+invert (`#bm img` on a letter's page, `.bm-html img` in a stack), once
+`bmSmartInvert` (`ConversationDocument`) has taken the classes off,
+until WebKit draws it anew. Most likely so since B-179 was first built:
+round r6-p-copy turned the switch off only under the light letter, whose
+pictures have no filter with it off. To fix: the page's pictures drawn
+anew in the script's way off, the page not moved.
+
+**An iPad artefact, step 6.** The light letter with the switch off
+differed from round r6-p-copy's capture of 7803dbb inside its inline
+photo alone, a mean of 0.031: a 1 px row across the photo and its own
+small caption; the web picture and every line the same. A second run
+from a fresh launch: the same two clusters against r6-p-copy's capture,
+and 0.000 against this round's own and after a turn of the switch. A fit
+of the photo (1600 by 1200, drawn 640 by 480 px) read this round's
+captures as a half-scale decode of the JPEG and r6-p-copy's as a full
+one: WebKit decoded it another way in that session. With the switch off
+the page carries no rule of B-179, and no commit since 7803dbb touches a
+letter's markup or its pictures' bytes. Nothing changed in the app; the
+check compares the inside of a large JPEG only with a capture of the
+same session (TODO B-179, step 6).
+
+**Differing from Mail, to copy** by the owner's ruling of 2026-10-29,
+step 3. Under Smart Invert a light letter's pictures stay natural, the
+cube rgb(127, 95, 65) with the switch on and rgb(127, 96, 66) off, the
+inline photo as with it off, where Mail's are inverted, its cube rgb(60,
+91, 127) from rgb(195, 164, 129). The try of the colour filter's change,
+`filter: invert(1)` on its `img` and `video` under `html.bm-si`, did not
+draw: an `<img>`'s own filter does not draw under the switch, as the
+table above has it. The way to copy Mail: each picture of a light letter
+in an inline wrapper whose filter does draw, as the page's filter on a
+picture's ancestors does, put there only while Smart Invert is on, so
+nothing moves and nothing changes with it off. The link the sender's
+rgb(0, 122, 255), Mail's rgb(10, 132, 255): not a difference to fix, as
+before.
+
+## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail 16.5.1
 on the test iPad against Blackmail int21 at 65e32ab, C-4b DIFFERENT,
@@ -41409,6 +41503,29 @@ none failing. The release build for the iPad: "Build complete".
 - A plain letter's nested "wrote:" line: Mail's not seen; in its quote,
   as before.
 
+**Seen on the test iPad, 2026-10-30, on c72b3af**, round r6-q-copy, Mail
+16.5.1 beside it, Dark Mode, Smart Invert off, three panes. 1, 2 and 4:
+the HTML letter, a line before a quote not ending "wrote:" and the plain
+letter the same to the pixel as at 7803dbb. 3: in the Gmail reply to a
+reply the nested "Gail wrote:" line at the second level, as Mail's: the
+first level's bar at view x 485.6, rgb(191, 90, 242), a bar of its own
+at 490.4, rgb(16, 160, 246), and its words from 496.0 in rgb(16, 160,
+246); Mail's two bars and its line at its second level's x, its words
+rgb(99, 239, 255), lighter than its second level's words, rgb(64, 200,
+224) (16.5.1's shades, not a difference to fix). Only the line's own box
+changed (a mean of 0.454, one cluster at x 490 to 764, y 314 to 332),
+every line at its y; the top line as before, its bar at 485.6 and its
+words at 491.2. 5: Print's preview of the Gmail reply, then Cancel,
+nothing printed: two bars, about rgb(170, 169, 234) and rgb(119, 212,
+229), and the nested line light teal at the second level, one page;
+Mail's preview two bars, about rgb(166, 165, 233) and rgb(159, 225,
+236), its line cyan at the second level, one page. Under Smart Invert
+(B-179's step 4a) the first level rgb(64, 165, 13), as Mail's, and the
+nested line at the second level with its own bar, as Mail's. 6: the
+letters in the Trash, nothing erased. Not run: 3's two panes and stack,
+and 5's HTML letter, seen on 7803dbb with its rule unchanged since.
+Nothing was sent.
+
 ## B-181 — FIXED 2026-10-29, seen in part on the test iPad 2026-10-29. The row of the letter open in the reading pane was a dark grey with white words; Mail's is its blue, as its ticked row in Edit mode is, and so is Blackmail's now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, Mail
@@ -41477,7 +41594,7 @@ from the edges (layout, not copied). Under Smart Invert orange, rgb(245,
 before. Not possible: step 3, a finger held on a row, which the tools
 cannot do. Nothing was sent.
 
-## B-182 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen on the test iPad 2026-10-29. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
+## B-182 — FIXED 2026-10-29, fixed again the same day and again after the test iPad (r6-p-copy), seen on the test iPad 2026-10-29 and 2026-10-30. A row's words where Mail's differ: a letter with no words had empty grey lines, where Mail's says "Attachment: " and its file's name; a draft to nobody said "No Recipients", Mail's "No Recipient"; a letter with no subject said "(no subject)" in white, Mail's "No Subject" in grey
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3a,
 C-5a in passing, its second run agreeing), and the plan made from it
@@ -41690,6 +41807,20 @@ release build for the iPad: "Build complete".
   with no name were not seen; left as it is until they are.
 - The printed page's and a banner's "(no subject)", as above.
 
+**Seen on the test iPad, 2026-10-30, on c72b3af**, round r6-q-copy, Mail
+16.5.1 beside it. 1: "Attachment: IMG_0131.jpg" and "Attachment:
+h-photo.jpg" as before and as Mail's, before a Refresh and after it. 2:
+the two-file letter's row "Attachments: IMG_0182.jpg, R6 B-182 two.pdf"
+over its two grey lines, about rgb(134, 134, 134), word for word as
+Mail's, the same after a Refresh; the row's height as before, its two
+lines where a two-line preview stands. 4: the pane's header of a letter
+with no subject "No Subject", white, rgb(255, 255, 255), in the
+subject's place, as Mail's; its row "No Subject" in grey, rgb(142, 142,
+142), as before. 5: the letters in the Trash, nothing erased. Not run:
+3's draft and its row's "No Recipient", seen 2026-10-29 on 7803dbb,
+nothing for it changed since. Every step of the check is now seen.
+Nothing was sent.
+
 ## B-183 — FIXED 2026-10-29, seen on the test iPad 2026-10-29. In Drafts' Edit mode Mark and Move were blue with a draft ticked and the reading pane said "No message selected"; Mail's are grey there and its pane shows the ticked draft as a letter, and so do Blackmail's now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-5a, its
@@ -41829,7 +41960,7 @@ Blackmail "Updated 1 minute ago": each line's redraw, not a rule.
 `UpdatedLine.minutesUntil` stays 360 s. The line where it was. Nothing
 was written to the account.
 
-## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now
+## B-185 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. A printed letter had its files under its words, a picture attached to a letter at nearly the page's width; Mail 16.5.1 prints none of them but a PDF, whose pages it prints under the words, and a letter that is only an attached picture as its header alone, and so does Blackmail now
 
 The comparison with Mail of 2026-10-29 (round r6-n-compare, C-3b; C-2a
 to C-2c in passing), and the plan made from it (area 4). The owner's
@@ -41908,7 +42039,9 @@ build for the iPad: "Build complete".
   the HTML, or a plain letter's): the commonest way a family photo
   comes, after a few words; the pane draws it among them, the paper
   printed it until B-185 and prints it no more, and Mail's print of
-  one was not seen (the check prints one to the preview).
+  one was not seen (the check prints one to the preview). Seen
+  2026-10-30 (round r6-q-copy): Mail prints it after the words, on a
+  sheet of its own; to copy (below).
 - A letter with words and an attached picture: Mail's print not seen;
   by the rule, its words alone.
 - The words, printed only when the page cannot be drawn, still list
@@ -42005,7 +42138,8 @@ complete".
 
 **Not covered** (this change):
 
-- Not seen on the iPad yet (TODO B-185).
+- Seen in part on the test iPad 2026-10-30 (below); 1a to 1e of its
+  check not yet (TODO B-185).
 - A PDF of more than 20 pages prints its first 20: a limit for memory
   on a 2 GB iPad, not Mail's, whose own was not seen. Corrected
   2026-10-30, below: 20 pages in all.
@@ -42088,17 +42222,44 @@ an assertion's.
 
 **Not covered** (this correction):
 
-- The strips are inferred from WebKit's source; the print preview has
-  not shown them yet (TODO B-185). A strip moved to the next sheet
-  leaves up to 90 points blank at a sheet's foot, where Mail's page
-  ran to the foot. The cut between two sheets falls at a strip's edge,
-  which may run through a line of the PDF's words, as Mail's cut may.
+- The strips are inferred from WebKit's source; the print preview showed
+  the PDF's page right under the words and running on to the second
+  sheet, no seam seen, 2026-10-30 (round r6-q-copy, below); the page's
+  words ended above the first sheet's foot, so a cut through them was
+  not shown. A strip moved to the next sheet leaves up to 90 points
+  blank at a sheet's foot, where Mail's page ran to the foot. The cut
+  between two sheets falls at a strip's edge, which may run through a
+  line of the PDF's words, as Mail's cut may.
 - The bytes of a PDF already on the iPad, in the letter's kept copy,
   are fetched again rather than read there.
 - A slow iPad draws fewer pages in its 3 seconds than a fast one; the
   pages left off are said in the log, not on the paper.
 
-## B-186 — FIXED 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
+**Seen on the test iPad, 2026-10-30, on c72b3af**, round r6-q-copy,
+Print's preview only, Cancel each time, nothing printed (the log's
+`PRINT ready`, `PRINT panel over=true` and `PRINT closed done=false`
+five times each, no `PRINT pdf` line). 1: the letter of words and a PDF,
+the PDF's page right under the words, no frame and no tile, running on
+to a blank second sheet, "Page 1 of 2", as Mail's preview; no seam on a
+crop at four times; the log `PRINT ready pages=2 bytes=44696 ms=306`;
+the words the same to the pixel as at 7803dbb. Mail's wider margins not
+copied (B-110). 2: the attached picture's letter its header alone, "Page
+1 of 1", and the `cid:` picture letter its header and the picture, one
+page, the same to the pixel as at 7803dbb. 4: each letter's files drawn
+in the pane as before. 5: the letters in the Trash, nothing erased. Not
+run: 1a to 1e. Nothing was sent.
+
+**Differing from Mail, to copy** by the owner's ruling of 2026-10-29,
+step 3, run for the first time: a plain letter of words with an inline
+photo after them that no markup names. Mail 16.5.1's preview prints the
+words on the first sheet and the photo on a second sheet of its own,
+"Page 1 of 2" and "Page 2 of 2", the photo about 81% of the sheet's
+width. Blackmail's printed the words alone, "Page 1 of 1", the photo
+drawn in the pane after the words. B-185's inference for such a photo
+was wrong: the paper prints a PDF's pages and no other file
+(`PrintPage.body`, `pdfs(of:)`).
+
+## B-186 — FIXED 2026-10-30, seen in part on the test iPad 2026-10-30. The Connection log's view opened at its oldest line, where the line wanted is the newest, at its end; it opens at its end now
 
 Not Mail's: Mail has no such screen. Seen in round r6-p-copy on the test
 iPad, 2026-10-29.
@@ -42142,7 +42303,15 @@ iPad: "Build complete".
 
 **Not covered.**
 
-- Not seen on the iPad yet (TODO B-186).
+- Seen in part on the test iPad 2026-10-30 (below); Layout and Clear
+  not yet (TODO B-186).
 - A log that grows while the view is open is not followed: the view is
   drawn from the log as it opened, as before, and Clear or the Layout
   button draws it again.
+
+**Seen on the test iPad, 2026-10-30, on c72b3af**, round r6-q-copy. 1:
+the log, opened after a Refresh, at its end, the saved log's last line
+at the view's foot with no fling; opened under Smart Invert too, at its
+end, its last line 13 s older than the shot, where at 7803dbb it opened
+at its oldest line. 3: after Done, opened again, at its end. Not run: 2,
+Layout: On, then Off, and Clear. Nothing was sent.

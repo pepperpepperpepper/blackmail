@@ -11314,8 +11314,11 @@ checks below is left as not needed, not open, and none is worth a round.*
          pane drawn again, then on. Written down if it cannot be done.
       6. *With Smart Invert off:* the photos, light, plain and PDF letters
          opened in Blackmail, each compared with round r6-p-copy's OFF
-         shots of 7803dbb by pxcmp: mean 0. No new colour filter line in
-         the log.
+         shots of 7803dbb by pxcmp: mean 0. The inside of a large JPEG,
+         the light letter's inline photo among them, is compared only
+         with a shot of the same session, taken before the switch was
+         turned: WebKit decoded it at another scale in another session
+         (round r6-q-copy). No new colour filter line in the log.
       7. *Put back:* Smart Invert off, as it was before the check, and
          the Accessibility Shortcut as from the factory. "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and
@@ -11343,6 +11346,27 @@ checks below is left as not needed, not open, and none is worth a round.*
       before and the letters put in the Trash, nothing erased. Not run: 3's
       Block All Remote Content line and 5's second turn on with the letter
       scrolled. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (c72b3af), round
+      r6-q-copy: 1, 2, 3 but its Block All Remote Content line, 4, 4a with
+      the HTML quote letter and the Gmail reply to a reply in place of its
+      two letters, 5's first turn on and its turn off, 6 and 7. In 1
+      "true, changed" and "colour filter supported true", once. In 2 the
+      photos inverted as Mail's, (677, 552) rgb(121, 91, 38), the page
+      white and its words black. In 3 the page white and its words black;
+      its pictures natural, the cube rgb(127, 95, 65), where Mail's are
+      inverted: written down, to copy (KNOWN_ISSUES B-179). In 4 the plain
+      letter as before; the PDF tile white at (510, 320), its icon's ink
+      rgb(120, 120, 116) on its own paper, rgb(204, 204, 204). In 4a the
+      first level rgb(64, 165, 13), as Mail's, no quoted words white on
+      white. In 5 on, followed; off, the photos left hue-turned until the
+      letter was opened again: FAIL (KNOWN_ISSUES B-179), a second run the
+      same. In 6 the photos, PDF, HTML and plain letters as at 7803dbb;
+      the light letter's inline photo decoded another way than in round
+      r6-p-copy, a mean of 0.031: an iPad artefact, and 6 above changed
+      for it. In 7 Smart Invert off and the letters put in the Trash,
+      nothing erased. Not run: 3's Block All Remote Content line, 5's
+      second turn on and the light letter's turn, and 5a. Nothing was
+      sent.*
 
 - [ ] **B-180, an HTML letter's quotes in Dark as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11406,6 +11430,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       violet, as Mail's preview has them. In 6 the letters put in the
       Trash, nothing erased. Not run: 3's two panes and stack. Nothing was
       sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (c72b3af), round
+      r6-q-copy: 1, 2, 3's three panes, 4, 5's Gmail reply and 6. In 1, 2
+      and 4 the HTML letter, a line not ending "wrote:" and the plain
+      letter the same to the pixel as at 7803dbb. In 3 the nested line at
+      the second level with two bars, its words rgb(16, 160, 246) from
+      view x 496.0, as Mail's two bars and its line at that level (Mail's
+      words rgb(99, 239, 255), 16.5.1's shade); the top line as before. In
+      5 the Gmail reply's nested line light teal with two bars, one page,
+      as Mail's preview, then Cancel, nothing printed. In 6 the letters
+      put in the Trash, nothing erased. Not run: 3's two panes and stack.
+      Nothing was sent.*
 
 - [ ] **B-181, the open letter's row blue as Mail's.** On the test
       iPad, the test account only, from a build of the `bm-fix-j1`
@@ -11432,7 +11467,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       Not possible: 3, a finger held on a row, which the tools cannot do.
       Nothing was sent.*
 
-- [ ] **B-182, a row's words as Mail's.** As B-181's check, the same
+- [x] **B-182, a row's words as Mail's.** As B-181's check, the same
       build, the change of every file's name and the header's "No
       Subject" in it (KNOWN_ISSUES B-182, "Fixed again 2026-10-30, after
       the test iPad (r6-p-copy)"); nothing composed, sent or moved. The
@@ -11470,6 +11505,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       Blackmail's "Attachment: IMG_0182.jpg": written down (KNOWN_ISSUES
       B-182). In 4 the letters put in the Trash, nothing erased. Nothing
       was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (c72b3af), round
+      r6-q-copy: 1, 2, 4 and 5. In 1 both rows as before and as Mail's,
+      after a Refresh too. In 2 "Attachments: IMG_0182.jpg, R6 B-182
+      two.pdf" over the two grey lines, word for word as Mail's, after a
+      Refresh too. In 4 the header "No Subject", white, rgb(255, 255,
+      255), in the subject's place, as Mail's. In 5 the letters put in the
+      Trash, nothing erased. 3 was seen 2026-10-29 on 7803dbb, nothing for
+      it changed since. Every step of the check is now seen. Nothing was
+      sent.*
 
 - [x] **B-183, Drafts in Edit mode as Mail's.** As B-182's check, its
       draft, APPENDed to Drafts again in the same way if B-182's check
@@ -11587,6 +11631,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       the attached picture still drawn in the pane. In 6 the letters put in
       the Trash, nothing erased. Not run: 4, added after the round's
       letters were made. Nothing was sent.*
+      *Seen on the test iPad 2026-10-30 on int21 (c72b3af), round
+      r6-q-copy: 1, 2, 3, 4 and 5, print preview only, Cancel each time,
+      nothing printed (the log's `PRINT closed done=false` five times). In
+      1 the PDF's page right under the words, running on to a blank second
+      sheet, "Page 1 of 2", as Mail's preview, no seam seen, `PRINT ready
+      pages=2` and no `PRINT pdf` line. In 2 both as before. In 3
+      Blackmail's words alone, "Page 1 of 1"; Mail's preview printed the
+      words on the first sheet and the photo on a second of its own, "Page
+      2 of 2", about 81% of the sheet's width: written down, to copy
+      (KNOWN_ISSUES B-185). In 4 each letter's files in the pane as
+      before. In 5 the letters put in the Trash, nothing erased. Not run:
+      1a to 1e. Nothing was sent.*
 
 - [ ] **B-186, the Connection log opens at its newest line.** On the
       test iPad, from a build of the `bm-fix-j1` worktree (branch
@@ -11598,6 +11654,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       2. *Layout: On, then Off:* each time the log at its end again,
          its new line in sight. Put back: Layout: Off.
       3. *Done, then the log opened again:* at its end. Screenshot.
+      *Seen on the test iPad 2026-10-30 on int21 (c72b3af), round
+      r6-q-copy: 1 and 3. In 1 the log, opened after a Refresh, at its
+      end, its last line at the view's foot with no fling; opened under
+      Smart Invert too, at its end, where at 7803dbb it opened at its
+      oldest line. In 3, after Done, opened again, at its end. Not run: 2,
+      Layout: On, then Off. Nothing was sent.*
 
 ## Blocked on the owner
 
