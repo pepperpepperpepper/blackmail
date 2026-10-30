@@ -688,9 +688,18 @@ enum ConversationDocument {
     /// on; taken off, the page's markup as it was, as it goes off. The
     /// element is inline, or a block round a picture drawn as a block; a
     /// picture that floats, is placed on its own or drawn any other way,
-    /// or a video playing, is left as it is. Where the picture or what
-    /// holds it is not where it was, at the same size, once the element
-    /// is round it, the element is taken off again.
+    /// or a video playing, is left as it is; a `<picture>` is put in
+    /// once, whatever it holds, and a picture that cannot be put in one
+    /// stops no other. The element is taken off again where, once it is
+    /// round the picture, the picture's computed `display`, size, least
+    /// and most size, margins, padding, border widths, `vertical-align`,
+    /// float, position or `box-sizing`, or the `display` of the elements
+    /// beside it, is not as it was, as when a sender's rule that names it
+    /// by its parent or its siblings stops matching it (`bmLook`), which
+    /// needs no layout and no picture loaded; or where the picture or
+    /// what holds it is not where it was, at the same size. Any other
+    /// property such a rule sets is not read. The page is put back where
+    /// it was if it moved.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -749,6 +758,19 @@ enum ConversationDocument {
     function bmSamePlace(a, b) {
       return a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height;
     }
+    var bmLooks = ['display', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
+                   'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+                   'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+                   'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+                   'vertical-align', 'float', 'position', 'box-sizing'];
+    function bmLook(picture, before, after) {
+      var shown = window.getComputedStyle(picture);
+      var look = bmLooks.map(function (name) { return shown.getPropertyValue(name); });
+      [before, after].forEach(function (near) {
+        look.push(near ? window.getComputedStyle(near).getPropertyValue('display') : '');
+      });
+      return look.join('|');
+    }
     function bmWrapPictures(root) {
       try {
         if (!root || !document.documentElement.classList.contains('bm-si')) return;
@@ -757,12 +779,13 @@ enum ConversationDocument {
         var pictures = root.querySelectorAll(scopes.map(function (scope) {
           return 'html.bm-si ' + scope + ' img, html.bm-si ' + scope + ' video';
         }).join(', '));
-        var wraps = [];
+        var wraps = [], queued = [];
         for (var i = 0; i < pictures.length; i++) {
           var picture = pictures[i];
           if (String(picture.parentNode && picture.parentNode.tagName || '').toLowerCase() === 'picture') {
             picture = picture.parentNode;
           }
+          if (queued.indexOf(picture) !== -1) continue;
           var holder = picture.parentNode;
           if (!holder || holder.bmWrapper) continue;
           if (String(picture.tagName || '').toLowerCase() === 'video' && !picture.paused) continue;
@@ -772,22 +795,36 @@ enum ConversationDocument {
           var floats = shown.getPropertyValue('float') !== 'none';
           if (floats || (position !== 'static' && position !== 'relative')) continue;
           if (display !== 'inline' && display !== 'inline-block' && display !== 'block') continue;
+          var before = picture.previousElementSibling, after = picture.nextElementSibling;
+          queued.push(picture);
           wraps.push({ picture: picture, holder: holder, block: display === 'block',
+                       before: before, after: after, look: bmLook(picture, before, after),
                        was: picture.getBoundingClientRect(), held: holder.getBoundingClientRect() });
         }
+        if (!wraps.length) return;
+        var x = window.pageXOffset, y = window.pageYOffset;
         for (var j = 0; j < wraps.length; j++) {
-          var wrapper = document.createElement('bm-si-picture');
-          wrapper.bmWrapper = true;
-          if (wraps[j].block) wrapper.style.setProperty('display', 'block');
-          wraps[j].holder.insertBefore(wrapper, wraps[j].picture);
-          wrapper.appendChild(wraps[j].picture);
-          wraps[j].wrapper = wrapper;
+          try {
+            if (wraps[j].picture.parentNode !== wraps[j].holder) continue;
+            var wrapper = document.createElement('bm-si-picture');
+            wrapper.bmWrapper = true;
+            if (wraps[j].block) wrapper.style.setProperty('display', 'block');
+            wraps[j].holder.insertBefore(wrapper, wraps[j].picture);
+            wraps[j].wrapper = wrapper;
+            wrapper.appendChild(wraps[j].picture);
+          } catch (e) {}
         }
         for (var k = 0; k < wraps.length; k++) {
-          if (bmSamePlace(wraps[k].was, wraps[k].picture.getBoundingClientRect())
-              && bmSamePlace(wraps[k].held, wraps[k].holder.getBoundingClientRect())) continue;
-          bmUnwrap(wraps[k].wrapper);
+          var w = wraps[k];
+          if (!w.wrapper) continue;
+          try {
+            if (bmLook(w.picture, w.before, w.after) === w.look
+                && bmSamePlace(w.was, w.picture.getBoundingClientRect())
+                && bmSamePlace(w.held, w.holder.getBoundingClientRect())) continue;
+          } catch (e) {}
+          try { bmUnwrap(w.wrapper); } catch (e) {}
         }
+        if (window.pageXOffset !== x || window.pageYOffset !== y) window.scrollTo(x, y);
       } catch (e) {}
     }
     function bmUnwrap(wrapper) {

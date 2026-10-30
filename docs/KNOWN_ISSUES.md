@@ -40922,7 +40922,10 @@ failing. The release build for the iPad: "Build complete".
   the photo's filter draws, the photos natural. So under the switch no
   filter on or round a photo can be counted on to undo the page's:
   Mail's photos come out inverted because nothing above them is
-  filtered.
+  filtered. Since round r6-q-copy this is the open question: the
+  element round a light letter's picture rests on a filter round the
+  picture drawing, as the page's on its ancestors did (below, "Not
+  covered" of r6-q-copy's change).
 - A light letter's picture behind its words, its body's `background`
   (B-169), is `#bm`'s own and so inverted with it: as the sender drew it
   under the system's inversion, where Mail's pictures come out inverted.
@@ -41321,8 +41324,9 @@ owner, 2026-10-30.
    letter's white's invert and by the system's, comes out inverted, as
    Mail's. The rule, under `html.bm-si`, in the switch's sheet, in place
    of the try's (`SmartInvert.wrapper(in:)`): `all: unset; filter:
-   invert(1);`, so the element takes every property from its parent and
-   has no box of its own to draw. It is inline, or a block round a
+   invert(1);`, so the element inherits what its parent gives, has every
+   other property as from the factory, and has no box of its own to
+   draw. It is inline, or a block round a
    picture drawn as a block; percentages of the picture's size are
    taken from the block that holds it, as before. A picture that
    floats, is placed on its own (`absolute`, `fixed`, `sticky`), or is
@@ -41392,14 +41396,80 @@ complete".
   place it was scrolled to.
 - A sender's rule that names a picture by its parent (`td > img`) or
   its place among its siblings no longer matches it under the switch.
-  Where that changes its size or place, the script takes the element
-  off and the picture stays natural; any other change of its look under
-  the switch is not caught.
+  Where that changes the picture's place or size, or, since the
+  correction below, its computed box or the `display` of the elements
+  beside it, the script takes the element off and the picture stays
+  natural; any other property such a rule sets, a colour or a radius,
+  changes under the switch and is not caught.
 - A picture that floats, is placed on its own or is drawn as a table's
-  part or a flex item: natural, as before, where Mail's are inverted.
-  A video playing as the switch goes on: the same, as moving it would
-  stop it.
+  part: natural, as before, where Mail's are inverted. A flex or grid
+  item reads `block` and is put in a block element, which is the item
+  then: inverted, unless that moves it or changes its box, when the
+  element is taken off and it stays natural. A video playing as the
+  switch goes on: natural, as moving it would stop it.
 - A picture in a light letter's background (B-169), as before.
+
+**Corrected again 2026-10-30, before the next check.** Four faults in
+the element round a light letter's pictures, found by reading the
+script and running it in node on a stand-in for WebKit's page; none
+seen on the iPad.
+
+1. *What the place check saw.* It read only places and sizes, which a
+   letter folded shut in a stack (its body not drawn) reads as nothing
+   both before and after, and which a picture not yet loaded gives
+   before its rules matter. So a sender's rule by the picture's
+   parent, `td > img { display: block }` or `a > img { max-height:
+   40px }`, which stops matching inside the element, left it on: once
+   the letter opened, slices of a picture cut into a table would draw
+   with gaps, or a small logo at full size. Now the script also reads,
+   before
+   and after, the picture's computed `display`, width and height, least
+   and most sizes, margins, padding, border widths, `vertical-align`,
+   float, position and `box-sizing`, and the `display` of the elements
+   either side of it (`bmLook`), which need no layout and no picture
+   loaded, and takes the element off where any differs.
+2. *A `<picture>` holding two images*, as a sender's markup can, was
+   put in twice; the second move threw, and the throw ended the pass,
+   so every picture after it stayed natural and no element already put
+   in was checked. Now a picture is queued once, put in only while it
+   is still where it was found, and each move and each check is caught
+   on its own, so one that fails stops no other.
+3. *The page's place.* A wrapped picture that made the page shorter
+   could pull it up before the check took the element off again; the
+   script now puts the page back where it was, as `bmRepaintPictures`
+   does.
+4. *Code comments* (`SmartInvert.wrapperTag`, the script's own) said
+   the picture kept its size, its place and its baseline; they now say
+   what the check reads, and what it does not.
+
+**Tests.** `SmartInvertPicturesTests`, four new, its stand-in for the
+page now reading a sender's sheet in the body, laying the page out for a
+width or a height read from a style, and throwing where the DOM throws
+on a move before a node its parent does not hold: a stack's letter
+folded shut, built under the switch and filled by `bmFill`, `td > img`
+and `a > img` left with no element and a picture no such rule names in
+one; a `<picture>` of two images and two pictures after it, three
+elements; the switch's on told again to a light page built under it and
+to a stack's light body, no second element; on under a light letter
+scrolled to 500, where the element stops a sender's rule and the page
+pulls up, the page put back. Two widened: going off in a stack, a light
+body's element taken off and its picture not made anew; going off under
+a light letter, no layout asked. Each undone by hand, the class run,
+each failure read by its line, then put back: the look not read, 3
+failures in 1 test; the `<picture>` queued twice, its move neither
+checked nor caught, 2 in 1 (the queue alone undone, none, the other two
+holding it); the guard against a second element, 4 in 1; the page not
+put back, 1 in 1; the elements not taken off as the switch goes off, 7
+in 3. Each failure an assertion's. The full suite: 3,235 tests, 6
+skipped, none failing. The release build for the iPad: "Build complete".
+
+**Not covered** (this correction):
+
+- A sender's rule by the picture's parent or siblings that sets
+  anything the check does not read, a colour, a radius or an opacity,
+  changes under the switch.
+- A rule by `~` on an element further along than the one next to the
+  picture is not read.
 
 ## B-180 — FIXED 2026-10-29, fixed again after the test iPad (r6-p-copy), seen in part on the test iPad 2026-10-29 and 2026-10-30. An HTML letter's quotes in the dark pane were Mail's light colours turned by the letter's invert, a bluer violet and a darker teal and green, and the "wrote:" line before its quote was white with no bar; Mail draws them in the dark colours of its plain letter's quotes, the line with the first level's bar and colour, and so does Blackmail now
 

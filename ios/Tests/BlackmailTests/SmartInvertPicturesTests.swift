@@ -16,14 +16,17 @@ import XCTest
 /// for it: the invert's second turn, `invert(1) hue-rotate(180deg)`, in a
 /// letter inverted (`#bm` on a page whose head has the invert's rule, or a
 /// `.bm-html` body) while the root has no class for the switch, none
-/// otherwise. Its `display` is its `style` attribute's, or its
-/// `data-display`, or its tag's; its float, its position and its place on
-/// the page are its `data-` attributes'. WebKit lays the page out when the
-/// script reads a size or a place, and makes a picture anew when its
-/// `display` has changed since the last layout or it has been moved; a
-/// layout with a picture not drawn pulls the page up to 100, as a page
-/// grown shorter would. The page is laid out once as it loads and once
-/// at the run's end, as WebKit draws it.
+/// otherwise. Its `display`, its float and any other property are its
+/// `style` attribute's, or a sender's sheet's in the body, matched by
+/// tag, id, class, attribute and parent; or its `data-display`, or its
+/// tag's; its position and its place on the page are its `data-`
+/// attributes'. WebKit lays the page out when the script reads a size or
+/// a place, a width or a height of its style among them, and makes a
+/// picture anew when its `display` has changed since the last layout or
+/// it has been moved; a layout with a picture not drawn pulls the page up
+/// to 100, as a page grown shorter would. The page is laid out once as it
+/// loads and once at the run's end, as WebKit draws it. Moving a node
+/// before one its parent does not hold throws, as the DOM's does.
 ///
 /// Run only where node is; elsewhere these tests skip, and the script's
 /// pins in `SmartInvertLikeMailTests` still hold it.
@@ -84,24 +87,29 @@ final class SmartInvertPicturesTests: XCTestCase {
     }
 
     /// The same in a conversation's stack: an inverted letter's photo made
-    /// anew, a light letter's and a plain letter's pictures, with no
-    /// filter once the switch is off, left as they are.
+    /// anew; a light letter's picture, in its element while the switch
+    /// was on, taken out of it and not made anew, and a plain letter's,
+    /// with no filter once the switch is off, left as they are.
     func testGoingOffInAStackDrawsOnlyThePhotosWithAFilter() throws {
         let body = "<div class=\"bm-letter bm-open\" id=\"m1\"><div class=\"bm-head\"></div>"
             + "<div class=\"bm-body bm-html\"><img id=\"a\" src=\"cid:a@example.com\"></div></div>"
             + "<div class=\"bm-letter bm-open\" id=\"m2\"><div class=\"bm-head\"></div>"
             + "<div class=\"bm-body bm-text\"><img id=\"t\" src=\"cid:t@example.com\"></div></div>"
+            + "<div class=\"bm-letter bm-open\" id=\"m3\"><div class=\"bm-head\"></div>"
+            + "<div class=\"bm-body bm-light\"><img id=\"l\" src=\"cid:l@example.com\"></div></div>"
         let html = try stack(smartInvert: true, body: body)
-        let run = try model(html, [.toggle(on: false, rules: SmartInvert.stack)])
-        XCTAssertEqual(run.made, ["a": 2, "t": 0], run.log)
+        let run = try model(html, [.snapshot("on"), .toggle(on: false, rules: SmartInvert.stack)])
+        XCTAssertTrue(try XCTUnwrap(run.snapshots["on"]).contains("<bm-si-picture><img id=\"l\""), run.log)
+        XCTAssertEqual(run.made, ["a": 2, "t": 0, "l": 0], run.log)
+        XCTAssertEqual(run.wrappers, 0, run.log)
         XCTAssertEqual(run.scrolledTo, 0)
     }
 
     /// A page with no picture that has a filter once the switch is off is
     /// not touched as it goes off: no layout asked of WebKit, nothing
     /// scrolled, its markup as it was. A letter inverted with words alone,
-    /// and one whose photo is drawn by a style of its sender with no
-    /// filter in a light letter.
+    /// and a light letter, whose pictures have no filter with the switch
+    /// off: only their elements taken off.
     func testGoingOffTouchesNothingOnAPageWithoutSuchPictures() throws {
         let words = try page(inverted, style: on, body: "<p>The roses.</p>")
         let run = try model(words, [.snapshot("on"), .toggle(on: false, rules: SmartInvert.rules(for: .inverted)),
@@ -109,6 +117,18 @@ final class SmartInvertPicturesTests: XCTestCase {
         XCTAssertEqual(run.layoutsAsked, 0, run.log)
         XCTAssertEqual(run.scrolledTo, 0)
         XCTAssertEqual(run.snapshots["off"], run.snapshots["on"])
+
+        let photo = "<p>The roses.</p><img id=\"rose\" src=\"cid:r@example.com\">"
+        let lit = try model(try page(light, style: on, body: photo),
+                            [.snapshot("on"), .toggle(on: false, rules: SmartInvert.rules(for: .light)),
+                             .snapshot("off")])
+        XCTAssertTrue(try XCTUnwrap(lit.snapshots["on"]).contains("<bm-si-picture><img id=\"rose\""), lit.log)
+        XCTAssertEqual(lit.layoutsAsked, 0, lit.log)
+        XCTAssertEqual(lit.scrolledTo, 0)
+        XCTAssertEqual(lit.made, ["rose": 0], lit.log)
+        XCTAssertEqual(lit.wrappers, 0, lit.log)
+        XCTAssertTrue(try XCTUnwrap(lit.snapshots["off"]).hasSuffix(
+            "<div id=\"bm\">" + photo + "</div></body>"), lit.log)
     }
 
     // MARK: - A light letter's pictures
@@ -197,6 +217,79 @@ final class SmartInvertPicturesTests: XCTestCase {
         XCTAssertEqual(run.wrapped, ["lightpic": "<bm-si-picture>", "later": "<bm-si-picture>"], run.log)
     }
 
+    /// The switch's on told again to a page whose pictures are already
+    /// in their elements, as the pane does when the colour filter's
+    /// answer comes after a page built under the switch: no picture put
+    /// in a second element, none inside another. A light letter's page,
+    /// and a stack's light body put in by `bmFill`.
+    func testOnAgainPutsNoPictureInASecondElement() throws {
+        let rules = SmartInvert.rules(for: .light)
+        let first = try model(try page(light, style: on, body: lightBody), [])
+        let again = try model(try page(light, style: on, body: lightBody), [.toggle(on: true, rules: rules)])
+        XCTAssertEqual(again.wrapped, first.wrapped, again.log)
+        XCTAssertEqual(again.wrappers, 4, again.log)
+
+        let body = "<div class=\"bm-letter bm-open\" id=\"m1\"><div class=\"bm-head\"></div>"
+            + "<div class=\"bm-body bm-text\">Loading…</div></div>"
+        let fill = Step.fill(id: "m1", html: "<p>a</p><img id=\"lightpic\" src=\"cid:a@example.com\">",
+                             scheme: "bm-light")
+        let stacked = try model(try stack(smartInvert: true, body: body),
+                                [fill, .toggle(on: true, rules: SmartInvert.stack)])
+        XCTAssertEqual(stacked.wrapped, ["lightpic": "<bm-si-picture>"], stacked.log)
+        XCTAssertEqual(stacked.wrappers, 1, stacked.log)
+    }
+
+    /// A sender's rule that names a picture by its parent, in a light
+    /// letter laid out at no size, a stack's letter folded shut, whose
+    /// place and size read the same with the element round it or not:
+    /// the element taken off a picture whose own look changed, `td > img`
+    /// drawn as a block and `a > img` no taller than 40 px, and left on
+    /// a picture no rule of the kind names. In the page built under the
+    /// switch, and in a body `bmFill` puts in a letter folded shut.
+    func testASendersRuleByThePicturesParentKeepsItsLook() throws {
+        let sheet = "<style>td > img { display: block; } a > img { max-height: 40px; }</style>"
+        func letter(_ id: String, _ suffix: String) -> String {
+            sheet + "<table><tr><td><img id=\"slice" + suffix + "\" src=\"cid:s@example.com\"></td></tr></table>"
+                + "<a href=\"https://example.com/\"><img id=\"logo" + suffix + "\" src=\"cid:l@example.com\"></a>"
+                + "<img id=\"free" + suffix + "\" src=\"cid:f@example.com\">"
+        }
+        let body = "<div class=\"bm-letter\" id=\"m1\"><div class=\"bm-head\"></div>"
+            + "<div class=\"bm-body bm-light\">" + letter("m1", "") + "</div></div>"
+            + "<div class=\"bm-letter\" id=\"m2\"><div class=\"bm-head\"></div>"
+            + "<div class=\"bm-body bm-text\">Loading…</div></div>"
+        let run = try model(try stack(smartInvert: true, body: body),
+                            [.fill(id: "m2", html: letter("m2", "2"), scheme: "bm-light")])
+        XCTAssertEqual(run.wrapped, ["free": "<bm-si-picture>", "free2": "<bm-si-picture>"], run.log)
+        XCTAssertEqual(run.displays["slice"], "block", run.log)
+        XCTAssertEqual(run.displays["slice2"], "block", run.log)
+    }
+
+    /// A `<picture>` that holds two images, as a sender's markup can: put
+    /// in one element, and the pictures after it each in theirs.
+    func testAPictureOfTwoImagesStopsNoOther() throws {
+        let body = "<p>x<picture id=\"pic\"><img id=\"one\" src=\"cid:a@example.com\">"
+            + "<img id=\"two\" src=\"cid:b@example.com\"></picture>"
+            + "<img id=\"c\" src=\"cid:c@example.com\"><img id=\"d\" src=\"cid:d@example.com\"></p>"
+        let run = try model(try page(light, style: on, body: body), [])
+        XCTAssertEqual(run.wrapped, ["pic": "<bm-si-picture>", "c": "<bm-si-picture>", "d": "<bm-si-picture>"],
+                       run.log)
+        XCTAssertEqual(run.wrappers, 3, run.log)
+    }
+
+    /// The switch going on under a light letter scrolled down, where the
+    /// element round a picture stops a rule of its sender's and the page
+    /// grows shorter for it: the element taken off, and the page put back
+    /// where it was.
+    func testOnLeavesThePageWhereItWas() throws {
+        let body = "<style>img { display: none; } p > img { display: inline; }</style>"
+            + "<p>The roses.<img id=\"rose\" src=\"cid:r@example.com\"></p>"
+        let run = try model(try page(light, style: off, body: body),
+                            [.scroll(500), .toggle(on: true, rules: SmartInvert.rules(for: .light))])
+        XCTAssertEqual(run.wrapped, [:], run.log)
+        XCTAssertEqual(run.pulledUp, true, "the model's page pulled up and put back")
+        XCTAssertEqual(run.scrollY, 500)
+    }
+
     // MARK: - The model
 
     private struct Step: Encodable {
@@ -227,6 +320,9 @@ final class SmartInvertPicturesTests: XCTestCase {
         /// Each picture put in an element of the wrapper's tag, by its id
         /// (a `<picture>` by its own): that element's opening tag.
         let wrapped: [String: String]
+        /// How many elements of the wrapper's tag the page has at the
+        /// run's end.
+        let wrappers: Int
         let snapshots: [String: String]
         let root: String
         let scrollY: Double
@@ -329,6 +425,7 @@ final class SmartInvertPicturesTests: XCTestCase {
       }
       get paused() { return this.getAttribute('data-playing') === null; }
       insertBefore(child, ref) {
+        if (ref && this.children.indexOf(ref) < 0) throw new Error('NotFoundError');
         if (child.parentNode) child.parentNode.removeChild(child);
         const at = ref ? this.children.indexOf(ref) : -1;
         if (at < 0) this.children.push(child); else this.children.splice(at, 0, child);
@@ -438,19 +535,42 @@ final class SmartInvertPicturesTests: XCTestCase {
     const body = documentElement.querySelector('body');
     function ancestors(el) { const out = []; for (let up = el.parentNode; up instanceof Element; up = up.parentNode) out.push(up); return out; }
     function isPicture(el) { return el.tagName === 'IMG' || el.tagName === 'VIDEO'; }
+    function senderRules() {
+      const out = [];
+      for (const sheet of body.querySelectorAll('style')) {
+        const rule = /([^{}]+)\{([^}]*)\}/g;
+        let m;
+        while ((m = rule.exec(sheet.raw))) out.push([m[1].trim(), parseStyle(m[2])]);
+      }
+      return out;
+    }
+    function own(el, name) {
+      const inline = el.style.getPropertyValue(name);
+      if (inline) return inline;
+      let value = '';
+      for (const rule of senderRules()) {
+        if (!matches(el, rule[0])) continue;
+        const p = rule[1].find(function (p) { return p[0] === name; });
+        if (p) value = p[1];
+      }
+      return value;
+    }
     function computed(el) {
       const style = el.style;
-      const display = style.getPropertyValue('display') || el.getAttribute('data-display')
-        || (['DIV', 'P', 'BODY', 'HTML', 'HEAD'].indexOf(el.tagName) >= 0 ? 'block' : 'inline');
+      const display = own(el, 'display') || el.getAttribute('data-display')
+        || (['DIV', 'P', 'BODY', 'HTML', 'HEAD', 'TABLE', 'TR', 'TD'].indexOf(el.tagName) >= 0 ? 'block' : 'inline');
       let filter = 'none';
       const pageInverted = head.querySelectorAll('style').some(function (s) { return s.raw.indexOf(input.invertedRule) >= 0; });
       const up = ancestors(el);
       const invertedLetter = up.some(function (a) { return a.classList.contains('bm-html') || (a.id === 'bm' && pageInverted); });
       if (isPicture(el) && invertedLetter && !documentElement.classList.contains('bm-si')) filter = 'invert(1) hue-rotate(180deg)';
       const values = { display: display, filter: filter,
-                       float: style.getPropertyValue('float') || 'none',
+                       float: own(el, 'float') || 'none',
                        position: el.getAttribute('data-position') || 'static' };
-      return { getPropertyValue: function (n) { return values[n] || ''; } };
+      return { getPropertyValue: function (n) {
+        if (n === 'width' || n === 'height') layout(true);
+        return values[n] || own(el, n);
+      } };
     }
     function layout(asked) {
       if (asked && loaded) layoutsAsked++;
@@ -517,6 +637,7 @@ final class SmartInvertPicturesTests: XCTestCase {
     }
     process.stdout.write(JSON.stringify({
       made: made, displays: displays, wrapped: wrapped, snapshots: snapshots,
+      wrappers: documentElement.querySelectorAll('bm-si-picture').length,
       root: documentElement.className, scrollY: scrollY, scrolledTo: scrolledTo, pulledUp: pulledUp,
       layoutsAsked: layoutsAsked, log: log.join('\n') }));
     """#

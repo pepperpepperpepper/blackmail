@@ -11239,7 +11239,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       filter's change in it (KNOWN_ISSUES B-179, "Fixed again 2026-10-29,
       after the test iPad (r6-p-copy)" and "Corrected 2026-10-30"), and
       its pictures' (KNOWN_ISSUES B-179, "Fixed again 2026-10-30, after
-      the test iPad (r6-q-copy)"). Nothing is composed, sent, moved
+      the test iPad (r6-q-copy)" and "Corrected again 2026-10-30").
+      Nothing is composed, sent, moved
       or deleted in the app, nothing printed (where a print panel comes in,
       its preview only, then Cancel), and nothing saved in it but step 3's
       one setting, put back as from the factory. The letters are round
@@ -11248,13 +11249,22 @@ checks below is left as not needed, not open, and none is worth a round.*
       quoted letters, "R6 B-SI forward", an Apple Mail forward (its
       labels "From:" and "Subject:" in `color: rgba(0, 0, 0, 1.0)` spans
       inside `blockquote type=cite`), and "R6 B-SI gmail", a Gmail reply
-      whose quote has words in `color: rgb(34, 34, 34)`. The host
+      whose quote has words in `color: rgb(34, 34, 34)`; and, for 5's
+      stack, two letters of one conversation, "R6 B-SI stack one", an
+      HTML letter with a photo by `cid:`, and "R6 B-SI stack two", a
+      plain reply to it (its `In-Reply-To` and `References` the first's
+      Message-ID). The host
       makes each from another address, with a new Message-ID of its own,
       and APPENDs it, read (`\Seen`), to the label "Notes", never the
       Inbox, noting each UID from its APPENDUID; it stops if one has none.
       Dark Mode, three panes; full-size screenshots, colours sampled from
       them as the rounds sampled them, with the invcheck numbers written
       beside them; Mail beside Blackmail at each step.
+      0. *Smart Invert off, first:* in Blackmail the photos, light,
+         plain and PDF letters opened, and the stack's conversation with
+         "R6 B-SI stack one" open in it, each shot at full size in this
+         session before the switch is turned, for 3, 5 and 6 to compare
+         with.
       1. *Smart Invert on*, as the round turned it on (Settings >
          Accessibility > Display & Text Size > Smart Invert). Then, before
          any colour is read, the Connection log: once, as the first page
@@ -11280,7 +11290,7 @@ checks below is left as not needed, not open, and none is worth a round.*
          the web picture's cube about rgb(128, 159, 189), 255 less OFF,
          and the inline photo's stripes 255 less OFF; about rgb(127, 96,
          66), natural, is a FAIL. Each picture's box at the same place
-         and size as in a shot of the same session with the switch off,
+         and size as in its shot of 0, taken with the switch off,
          and every line of words too, by pxcmp of the words' clusters:
          nothing moved. Screenshots. Then
          Blackmail's Settings, Block All Remote Content on, the letter
@@ -11301,7 +11311,7 @@ checks below is left as not needed, not open, and none is worth a round.*
          Screenshots.
       5. *The switch while a letter is open:* the photos letter open in
          Blackmail, scrolled down to its second photo, a shot taken with
-         the switch off first; Smart Invert turned on in Settings and the
+         the switch off first, as in 0; Smart Invert turned on and the
          app brought back: the photos as in 2, at the same place; Smart
          Invert off again and back: the page as with the switch off, at
          the place it was scrolled to, no "Loading…", and its photos
@@ -11312,8 +11322,9 @@ checks below is left as not needed, not open, and none is worth a round.*
          and back: as in 2, at the same place. The same with the light
          letter: on, its pictures inverted as in 3 and nothing moved;
          off, the page the same as its shot before, its pictures natural.
-         And in a conversation's stack, an HTML letter with a photo open,
-         across the same turns: its photo natural at once as it goes off.
+         And in the stack's conversation, "R6 B-SI stack one" open,
+         across the same turns: its photo natural at once as it goes
+         off, the same as its shot of 0.
          Screenshots.
       5a. *Off at the tap, on after:* Settings > Accessibility >
          Accessibility Shortcut set to Smart Invert (put back as from the
@@ -11329,9 +11340,10 @@ checks below is left as not needed, not open, and none is worth a round.*
          opened in Blackmail, each compared with round r6-p-copy's OFF
          shots of 7803dbb by pxcmp: mean 0. The inside of a large JPEG,
          the light letter's inline photo among them, is compared only
-         with a shot of the same session, taken before the switch was
-         turned: WebKit decoded it at another scale in another session
-         (round r6-q-copy). No new colour filter line in the log.
+         with its shot of 0, taken in the same session before the switch
+         was turned: WebKit decoded it at another scale in another
+         session (round r6-q-copy). No new colour filter line in the
+         log.
       7. *Put back:* Smart Invert off, as it was before the check, and
          the Accessibility Shortcut as from the factory. "Notes"
          left, the Inbox at its top. The host moves the UIDs it noted, and

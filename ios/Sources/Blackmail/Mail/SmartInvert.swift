@@ -125,10 +125,15 @@ enum SmartInvert {
     /// an element round the picture: inline, or a block round a picture
     /// drawn as a block, as the picture is; every property its parent's
     /// or as from the factory (`all: unset`), so it has no box of its own
-    /// to draw and the picture keeps its size, its place and its
-    /// baseline; and the script puts a picture back where anything of it
-    /// or what holds it moved. A tag no letter uses, so no sender's rule
-    /// names it.
+    /// to draw. A sender's rule that names the picture by its parent or
+    /// its siblings (`td > img`, `img + br`) stops matching it inside the
+    /// element; the script takes the element off where the picture's
+    /// computed box, its `display`, size, margins, padding, borders,
+    /// `vertical-align`, float, position or `box-sizing`, or the
+    /// `display` of the elements beside it changed, or where the picture
+    /// or what holds it moved or changed size. Another property such a
+    /// rule sets, a colour or a radius, is not read, and changes under
+    /// the switch. A tag no letter uses, so no sender's rule names it.
     static let wrapperTag = "bm-si-picture"
 
     /// The rule for the element round a light letter's picture inside
