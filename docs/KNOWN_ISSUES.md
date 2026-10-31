@@ -43638,9 +43638,9 @@ Layout: On, then Off, and Clear. Nothing was sent.
 Not Mail's: Mail shows no build of its own. From the TODO list's items
 for the install-day build.
 
-**Why it was wanted.** Nothing on the iPad said which build was on it.
-Asked over the phone, neither he nor whoever helps him could say, and a
-Connection log sent in did not say either.
+**Why it was wanted.** Nothing on the iPad said which build was on it,
+so neither he nor a helper on the phone could have said, and the
+Connection log did not say either.
 
 **What changed** (`BuildStamp`, new; `SettingsViewController`,
 `DiagnosticsViewController`, `package.sh`).
@@ -43649,7 +43649,9 @@ Connection log sent in did not say either.
    bundle's Info.plist as `BlackmailCommit`, from git, as it packages
    the app, and `BlackmailCommitChanged` when the app's files had changes
    not committed. Nothing is typed into `Resources/Info.plist`. Outside a
-   git checkout neither key is written.
+   git checkout neither key is written, nor in one that does not track
+   `package.sh`, so a copy unpacked in another repository gets no
+   commit of that repository's.
 2. `BuildStamp.line` reads the version, the build and the commit as one
    line: "Version 0.1 (3), 6ce5af1", with " plus changes" after a commit
    built with changes. A missing or empty key is left out: no commit,

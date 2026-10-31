@@ -49,9 +49,11 @@ cp Resources/Info.plist "$APP/"
 # short hash into the bundle's Info.plist as BlackmailCommit, and
 # BlackmailCommitChanged when the app's files (this directory) had changes
 # not committed, so Settings and the Connection log say so (`BuildStamp`).
-# Outside a git checkout neither is written, and the app reads as its
-# version and build alone.
-if COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null); then
+# Outside a git checkout neither is written, nor in a checkout that does
+# not track this script (a copy unpacked inside some other repository),
+# and the app reads as its version and build alone.
+if COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null) \
+    && git ls-files --error-unmatch package.sh >/dev/null 2>&1; then
     CHANGED=0
     if [ -n "$(git status --porcelain -- . 2>/dev/null)" ]; then CHANGED=1; fi
     python3 - "$APP/Info.plist" "$COMMIT" "$CHANGED" <<'PY'
