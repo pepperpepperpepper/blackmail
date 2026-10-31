@@ -43632,3 +43632,61 @@ at the view's foot with no fling; opened under Smart Invert too, at its
 end, its last line 13 s older than the shot, where at 7803dbb it opened
 at its oldest line. 3: after Done, opened again, at its end. Not run: 2,
 Layout: On, then Off, and Clear. Nothing was sent.
+
+## B-187 — FIXED 2026-10-31, not yet seen on the iPad. The app had no build number he or a helper could read out; Settings ends with one now, and the Connection log starts with it
+
+Not Mail's: Mail shows no build of its own. From the TODO list's items
+for the install-day build.
+
+**Why it was wanted.** Nothing on the iPad said which build was on it.
+Asked over the phone, neither he nor whoever helps him could say, and a
+Connection log sent in did not say either.
+
+**What changed** (`BuildStamp`, new; `SettingsViewController`,
+`DiagnosticsViewController`, `package.sh`).
+
+1. `package.sh` writes the short commit the app was built from into the
+   bundle's Info.plist as `BlackmailCommit`, from git, as it packages
+   the app, and `BlackmailCommitChanged` when the app's files had changes
+   not committed. Nothing is typed into `Resources/Info.plist`. Outside a
+   git checkout neither key is written.
+2. `BuildStamp.line` reads the version, the build and the commit as one
+   line: "Version 0.1 (3), 6ce5af1", with " plus changes" after a commit
+   built with changes. A missing or empty key is left out: no commit,
+   "Version 0.1 (3)"; no build, "Version 0.1"; no version, "Build 3";
+   neither, "Version not known".
+3. Settings ends with the line, under Bring Back Set-Aside Letters, in a
+   caption's label: the sheet's own 14 pt grey, one label, so VoiceOver
+   reads it as one line. Settings, and not only the Connection log,
+   because the log is opened by five taps on a status line nobody is
+   told of, where Settings is a place a helper can send him to.
+4. The Connection log's view has the line at its top, a blank line under
+   it, and so does what its share button sends (`BuildStamp.atTop`).
+
+**What he sees.** One grey line at the foot of Settings, below
+everything he sets. Nothing on the mail screens changed.
+
+**Tests.** `BuildStampTests`, new, seven: the line; the changes said;
+each missing key's fallback; the app's own Info.plist read, with no
+commit typed into it; `package.sh` writing both keys from git by the
+names the app reads; the log's text with the line at its top, in the
+view and in what is shared; Settings with the line at its foot and no
+other screen with it, the log aside, read from their source.
+
+Each undone by hand, the class run, each failure read by its line, then
+put back: the commit left out, 3 failures in 2 tests; " plus changes"
+left out, 1; an empty key shown, 3 in 1; a commit typed into the
+Info.plist, 2 in 1; `package.sh` as it was, 4 in 1; the log's view as
+it was, 3 in 2; Settings as it was, 2 in 1. Each failure an
+assertion's. The full suite: 3,271 tests, 6 skipped, none failing. The
+release build for the iPad: "Build complete". `package.sh` run on a
+tree with these changes not yet committed: the bundle's Info.plist had
+`BlackmailCommit` 6ce5af1 and `BlackmailCommitChanged` true.
+
+**Not covered.**
+
+- Not yet seen on the iPad.
+- The simulator's build is made on the Mac by its own script, not by
+  `package.sh`, so it carries no commit and reads "Version 0.1 (3)".
+- The share extension's bundle takes the version and build, as before,
+  and no commit.

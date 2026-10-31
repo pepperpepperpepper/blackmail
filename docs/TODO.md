@@ -72,7 +72,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       - [x] take out the B-033 `PAIR` probe, which logs subject lines
             (done 2026-09-30, D-016 phase 0, with the sender in
             `SESSION-IDENT`)
-      - [ ] a build number he or a helper can read out
+      - [x] a build number he or a helper can read out
+            *Done 2026-10-31, not yet seen on the iPad: "Version 0.1 (3),
+            6ce5af1" at the foot of Settings and at the top of the
+            Connection log, the commit written by `package.sh` from git.
+            B-187.*
       - [x] a safe start after launches that never finished, and the
             Outbox and Drafts giving up on a letter after three tries the
             app did not live through

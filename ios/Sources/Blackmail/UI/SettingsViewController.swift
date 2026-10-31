@@ -271,6 +271,14 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         bringBackButton.isHidden = SafeStart.app.lettersSetAside == 0
         stack.addArrangedSubview(bringBackButton)
 
+        // The app's version, build and commit (B-187), for him or whoever
+        // helps him to read out: at the sheet's foot, under everything he
+        // sets, and nowhere on the mail screens. Here and not only in the
+        // Connection log, which is five taps on a status line nobody is
+        // told of; Settings is where a helper on the phone can send him.
+        // One label, so VoiceOver reads it as one line.
+        stack.addArrangedSubview(caption(BuildStamp.app))
+
         stack.axis = .vertical
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false

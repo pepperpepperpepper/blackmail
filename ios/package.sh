@@ -45,6 +45,27 @@ rm -rf "$OUT"; mkdir -p "$APP"
 cp "$BIN" "$APP/Blackmail"
 llvm-strip --strip-all "$APP/Blackmail" 2>/dev/null || strip "$APP/Blackmail" 2>/dev/null || true
 cp Resources/Info.plist "$APP/"
+# The commit the app was built from (B-187), from git, never typed: its
+# short hash into the bundle's Info.plist as BlackmailCommit, and
+# BlackmailCommitChanged when the app's files (this directory) had changes
+# not committed, so Settings and the Connection log say so (`BuildStamp`).
+# Outside a git checkout neither is written, and the app reads as its
+# version and build alone.
+if COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null); then
+    CHANGED=0
+    if [ -n "$(git status --porcelain -- . 2>/dev/null)" ]; then CHANGED=1; fi
+    python3 - "$APP/Info.plist" "$COMMIT" "$CHANGED" <<'PY'
+import plistlib, sys
+path, commit, changed = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+info = plistlib.load(open(path, "rb"))
+info["BlackmailCommit"] = commit
+if changed:
+    info["BlackmailCommitChanged"] = True
+plistlib.dump(info, open(path, "wb"))
+PY
+    if [ "$CHANGED" = 1 ]; then echo "==> stamped $COMMIT plus changes"
+    else echo "==> stamped $COMMIT"; fi
+fi
 cp Resources/AppIcon*.png "$APP/"
 
 # The share extension (B-036). A second bundle inside PlugIns/, its

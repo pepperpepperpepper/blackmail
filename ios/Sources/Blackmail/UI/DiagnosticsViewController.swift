@@ -98,10 +98,12 @@ final class DiagnosticsViewController: UIViewController {
     }
 
     private func reload() {
+        // The app's version above the log (B-187), so whoever is helping
+        // reads out, or sends, what was built along with what happened.
         let text = Diagnostics.transcript()
-        textView.text = text.isEmpty
+        textView.text = BuildStamp.atTop(of: text.isEmpty
             ? "Nothing logged yet.\n\nConnect or refresh, then come back."
-            : text
+            : text)
         // Scroll to the bottom: the interesting end of a transcript is always
         // the most recent line, which is the one before it broke. Once the
         // text view has a size: as the view loads, the first layout does it
@@ -129,8 +131,9 @@ final class DiagnosticsViewController: UIViewController {
     }
 
     @objc private func share(_ sender: UIBarButtonItem) {
-        let sheet = UIActivityViewController(activityItems: [Diagnostics.transcript()],
-                                             applicationActivities: nil)
+        let sheet = UIActivityViewController(
+            activityItems: [BuildStamp.atTop(of: Diagnostics.transcript())],
+            applicationActivities: nil)
         // Required on iPad or presenting the sheet is a crash, not a no-op.
         sheet.popoverPresentationController?.barButtonItem = sender
         sheet.heldAtLarge()
